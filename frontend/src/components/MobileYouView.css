@@ -1,0 +1,103 @@
+/* ═══════════════════════════════════════════════════════════
+   MOBILE YOU VIEW - Discord-style profile/settings tab
+   ═══════════════════════════════════════════════════════════ */
+.mobile-you-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.mobile-you-profile {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 24px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.mobile-you-avatar-wrap {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.mobile-you-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mobile-you-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-muted);
+  color: var(--accent);
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.mobile-you-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+
+.mobile-you-username {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.mobile-you-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-you-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 20px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  min-height: 56px;
+}
+
+.mobile-you-nav-item:active {
+  background: var(--bg-hover);
+}
+
+.mobile-you-nav-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-you-nav-item span:not(.mobile-you-nav-icon) {
+  flex: 1;
+}
+
+.mobile-you-nav-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  opacity: 0.7;
+}

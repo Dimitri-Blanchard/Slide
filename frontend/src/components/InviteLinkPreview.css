@@ -1,0 +1,341 @@
+/* ═══════════════════════════════════════════════════════════
+   Invite Embed — Discord-style server invite card
+   ═══════════════════════════════════════════════════════════ */
+
+.invite-embed {
+  max-width: 490px;
+  width: fit-content;
+  min-width: 400px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  margin: 2px 0;
+  overflow: hidden;
+}
+
+/* ─── Header ─── */
+
+.invite-embed__header {
+  padding: 12px 16px 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  line-height: 1;
+  user-select: none;
+}
+
+/* ─── Server Row ─── */
+
+.invite-embed__server {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px 16px;
+}
+
+/* ─── Icon ─── */
+
+.invite-embed__icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 15px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg-tertiary);
+}
+
+.invite-embed__icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.invite-embed__icon-letter {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+/* ─── Details ─── */
+
+.invite-embed__details {
+  flex: 1;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.invite-embed__name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.invite-embed__name:hover {
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.invite-embed__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.invite-embed__meta-sep {
+  display: inline-block;
+  width: 1px;
+  height: 1px;
+}
+
+.invite-embed__meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.invite-embed__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.invite-embed__dot--online {
+  background: #23a55a;
+}
+
+.invite-embed__dot--members {
+  background: #80848e;
+}
+
+.invite-embed__established {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+/* ─── Join Button ─── */
+
+.invite-embed__btn {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 0 20px;
+  height: 40px;
+  background: #248046;
+  border: none;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: background-color 0.17s ease;
+  line-height: 1;
+}
+
+.invite-embed__btn:hover:not(:disabled) {
+  background: #1a6334;
+}
+
+.invite-embed__btn:active:not(:disabled) {
+  background: #15562b;
+}
+
+.invite-embed__btn:disabled {
+  cursor: default;
+}
+
+.invite-embed__btn--joined {
+  background: #248046;
+  opacity: 0.6;
+}
+
+.invite-embed__btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: invite-embed-spin 0.8s linear infinite;
+}
+
+@keyframes invite-embed-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Loading State ─── */
+
+.invite-embed--loading {
+  padding: 32px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.invite-embed__spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(255, 255, 255, 0.08);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: invite-embed-spin 0.8s linear infinite;
+}
+
+/* ─── Error State ─── */
+
+.invite-embed--error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+}
+
+.invite-embed__error-icon {
+  color: var(--error);
+  flex-shrink: 0;
+}
+
+.invite-embed__error-text {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* ─── Already Member Button ─── */
+
+.invite-embed__btn--member {
+  background: var(--bg-tertiary);
+}
+
+.invite-embed__btn--member:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+
+.invite-embed__btn--member:active:not(:disabled) {
+  background: var(--surface-2);
+}
+
+[data-theme="dark"] .invite-embed__btn--member {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .invite-embed__btn--member:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* ─── Invite Link Row ─── */
+
+.invite-embed__link-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+
+.invite-embed__link-url {
+  flex: 1;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: all;
+}
+
+.invite-embed__link-copy {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.invite-embed__link-copy:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+[data-theme="dark"] .invite-embed__link-copy {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .invite-embed__link-copy:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #fff;
+}
+
+/* ─── Mobile ─── */
+
+@media (max-width: 480px) {
+  .invite-embed {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .invite-embed__server {
+    flex-wrap: wrap;
+  }
+
+  .invite-embed__btn {
+    width: 100%;
+    margin-left: 0;
+    margin-top: 4px;
+    height: 44px;
+  }
+}
+
+/* ─── Compact ─── */
+
+[data-display="compact"] .invite-embed {
+  max-width: 400px;
+}
+
+[data-display="compact"] .invite-embed__icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+}
+
+[data-display="compact"] .invite-embed__server {
+  padding: 10px 14px 14px;
+  gap: 10px;
+}
+
+[data-display="compact"] .invite-embed__header {
+  padding: 10px 14px 0;
+}

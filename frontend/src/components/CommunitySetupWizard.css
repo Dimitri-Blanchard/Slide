@@ -1,0 +1,213 @@
+/* Community Setup Wizard */
+.csw-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--modal-overlay-bg);
+  backdrop-filter: blur(var(--modal-overlay-blur));
+  -webkit-backdrop-filter: blur(var(--modal-overlay-blur));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: cswFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes cswFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.csw-modal {
+  background: var(--glass-panel-bg);
+  border: 1px solid var(--modal-panel-border);
+  border-radius: var(--modal-panel-radius);
+  box-shadow: var(--modal-panel-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  width: 90%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: cswSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes cswSlideUp {
+  from {
+    transform: translateY(20px) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.csw-progress {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 24px 24px 0;
+}
+
+.csw-step {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bg-tertiary, #383a40);
+  transition: all 0.3s;
+}
+
+.csw-step.done {
+  background: var(--accent, #5865f2);
+  transform: scale(1.2);
+}
+
+.csw-step-content {
+  padding: 32px 24px;
+}
+
+.csw-step-content h2 {
+  margin: 0 0 8px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.csw-step-content > p {
+  margin: 0 0 24px;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.csw-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.csw-tag {
+  padding: 10px 18px;
+  background: var(--bg-secondary, #2b2d31);
+  border: 2px solid transparent;
+  border-radius: 24px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.csw-tag:hover {
+  background: var(--bg-tertiary, #383a40);
+  color: var(--text-primary);
+}
+
+.csw-tag.selected {
+  background: rgba(88, 101, 242, 0.2);
+  border-color: var(--accent);
+  color: #a5b4fc;
+}
+
+.csw-blurb {
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--bg-secondary, #2b2d31);
+  border: 1px solid var(--border-default, #3f4147);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 100px;
+  margin-bottom: 8px;
+  transition: border-color 0.2s;
+}
+
+.csw-blurb:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.csw-blurb::placeholder {
+  color: var(--text-muted);
+}
+
+.csw-char-count {
+  display: block;
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+}
+
+.csw-summary {
+  padding: 20px;
+  background: var(--bg-secondary, #2b2d31);
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+.csw-summary-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.csw-summary-tag {
+  padding: 6px 12px;
+  background: rgba(88, 101, 242, 0.25);
+  color: #a5b4fc;
+  font-size: 0.85rem;
+  border-radius: 8px;
+}
+
+.csw-summary-blurb {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.csw-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.csw-btn {
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.csw-btn.secondary {
+  background: var(--bg-secondary, #2b2d31);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+}
+
+.csw-btn.secondary:hover {
+  background: var(--bg-tertiary);
+}
+
+.csw-btn.primary {
+  background: var(--accent, #5865f2);
+  border: none;
+  color: var(--accent-text);
+}
+
+.csw-btn.primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.csw-btn.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

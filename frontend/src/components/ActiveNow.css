@@ -1,0 +1,145 @@
+/* ═══════════════════════════════════════════════════════════
+   ACTIVE NOW - Discord-style right panel
+   ═══════════════════════════════════════════════════════════ */
+.active-now-panel {
+  width: 340px;
+  min-width: 340px;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 16px 8px;
+}
+
+.active-now-panel::-webkit-scrollbar { width: 4px; }
+.active-now-panel::-webkit-scrollbar-track { background: transparent; }
+.active-now-panel::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 2px; }
+
+.active-now-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 8px 12px;
+}
+
+/* ── Empty state ── */
+.active-now-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 16px;
+  text-align: center;
+}
+
+.active-now-empty-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+
+.active-now-empty-desc {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ── Active friend cards ── */
+.active-now-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.active-now-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.active-now-card:hover {
+  background: var(--bg-hover);
+}
+
+.active-now-avatar {
+  flex-shrink: 0;
+}
+
+.active-now-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.active-now-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.active-now-activity {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+/* ── Game activity card ── */
+.active-now-game {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+}
+
+.active-now-game-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.active-now-game-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.active-now-game-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.active-now-game-detail {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1100px) {
+  .active-now-panel {
+    display: none;
+  }
+}

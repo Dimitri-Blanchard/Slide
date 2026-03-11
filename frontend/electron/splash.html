@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slide - Démarrage</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "gg sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      background: linear-gradient(145deg, #1e1f22 0%, #111214 100%);
+      color: #f2f3f5;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .splash-content {
+      text-align: center;
+      padding: 2rem;
+    }
+    .splash-logo {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 1rem;
+      border-radius: 16px;
+    }
+    .logo-text {
+      font-size: 1.75rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #ffffff, #5865F2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 1.5rem;
+    }
+    .loading-text {
+      font-size: 1rem;
+      color: #b5bac1;
+      margin-bottom: 2rem;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 255, 255, 0.2);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="splash-content">
+    <img src="../public/icon.png" alt="Slide" class="splash-logo" />
+    <h1 class="logo-text">Slide</h1>
+    <div class="spinner"></div>
+    <p class="loading-text">L'application se lance...</p>
+  </div>
+</body>
+</html>

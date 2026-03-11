@@ -1,0 +1,138 @@
+/* =========================================================
+   NotFound.css — Standalone 404 page (matches auth page style)
+   ========================================================= */
+
+.nf-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(900px 520px at 15% -20%, var(--cosmic-bg-orb-1, rgba(79, 110, 247, 0.12)), transparent 70%),
+    radial-gradient(760px 480px at 95% 8%, var(--cosmic-bg-orb-2, rgba(99, 102, 241, 0.08)), transparent 72%),
+    linear-gradient(145deg, #eceef8 0%, #f2f3fb 40%, #e8ecf7 100%);
+  position: relative;
+}
+
+.nf-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 50% -20%, var(--cosmic-bg-orb-1, rgba(79, 110, 247, 0.08)), transparent 70%);
+  pointer-events: none;
+}
+
+.nf-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 40px 36px;
+  background:
+    linear-gradient(160deg, rgba(var(--accent-rgb, 79, 110, 247), 0.04) 0%, rgba(var(--accent-rgb, 79, 110, 247), 0.01) 58%, transparent 100%),
+    rgba(255, 255, 255, 0.96);
+  border-radius: 20px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.nf-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: var(--text-primary, #1a1a2e);
+  margin-bottom: 32px;
+}
+
+.nf-logo-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  object-fit: contain;
+}
+
+.nf-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary, #1a1a2e);
+  margin: 0 0 8px;
+}
+
+.nf-desc {
+  font-size: 0.95rem;
+  color: var(--text-secondary, #666);
+  line-height: 1.5;
+  margin: 0 0 24px;
+}
+
+.nf-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.nf-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  background: var(--accent, #4f6ef7);
+  color: var(--accent-text);
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 12px 24px;
+  border-radius: 12px;
+  text-decoration: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.nf-btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.nf-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: var(--text-primary, #1a1a2e);
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 11px 22px;
+  border-radius: 12px;
+  text-decoration: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.nf-btn-ghost:hover {
+  border-color: var(--accent, #4f6ef7);
+  background: rgba(79, 110, 247, 0.06);
+}
+
+/* ── Dark mode ── */
+[data-theme="dark"] .nf-page {
+  background:
+    radial-gradient(900px 520px at 15% -20%, var(--cosmic-bg-orb-1), transparent 70%),
+    radial-gradient(760px 480px at 95% 8%, var(--cosmic-bg-orb-2), transparent 72%),
+    var(--bg-tertiary);
+}
+
+[data-theme="dark"] .nf-card {
+  background: var(--bg-floating);
+  border-color: var(--border-default);
+  box-shadow: var(--shadow-elevated);
+}
+
+[data-theme="dark"] .nf-btn-ghost {
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .nf-btn-ghost:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}

@@ -1,0 +1,731 @@
+@import './animations.css';
+@import './platform-android.css';
+
+/* ═══════════════════════════════════════════════════════════
+   GLOBAL RESET
+   ═══════════════════════════════════════════════════════════ */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  overflow-x: hidden;
+  /* Prevent Android WebView from zooming text based on device font size setting */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html, body, #root {
+  height: 100%;
+  height: 100dvh;
+  width: 100%;
+}
+
+#root {
+  position: relative;
+  z-index: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   IMMERSIVE TIMING TOKENS — consistent morphing
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --dur-fast: 160ms;
+  --dur-mid: 260ms;
+  --dur-slow: 520ms;
+  --ease-flow: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* App root: column layout when Electron title bar is present */
+.app-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.app-root > .electron-title-bar {
+  flex-shrink: 0;
+}
+
+.app-root > .app-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body {
+  font-family: Inter, "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background:
+    radial-gradient(1300px 820px at 8% -15%, var(--cosmic-bg-orb-1), transparent 68%),
+    radial-gradient(980px 680px at 102% 4%, var(--cosmic-bg-orb-2), transparent 66%),
+    radial-gradient(840px 560px at 52% 118%, var(--cosmic-bg-orb-3), transparent 70%),
+    linear-gradient(160deg, var(--bg-primary) 0%, var(--bg-tertiary) 52%, var(--bg-secondary) 100%);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  overflow-x: hidden;
+  line-height: 1.5;
+  /* Safe area padding is NOT set on body — we let the app fill edge-to-edge
+     and each component handles its own inset (top nav, bottom nav, etc.).
+     This prevents the 100dvh overflow bug where #root height > body content area. */
+  user-select: none;
+  -webkit-user-select: none;
+  background-attachment: fixed;
+}
+
+/* Allow text selection only in inputs and message content */
+input,
+textarea,
+[contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Readability guardrail for control text (buttons/labels/badges):
+   remove glow/blur effects that make UI text look doubled or fuzzy. */
+button,
+[role="button"],
+label,
+.device-badge,
+[class*="-label"],
+[class^="label-"] {
+  text-shadow: none !important;
+  -webkit-text-stroke: 0 !important;
+  filter: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+ul, ol {
+  list-style: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* Outline doesn't follow border-radius — remove default rectangular focus ring on images */
+img:focus,
+img:focus-visible {
+  outline: none;
+}
+
+/* Prevent accidental dragging everywhere (images, links, etc.) */
+* {
+  -webkit-user-drag: none;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SCROLLBAR - Global (Discord-style thin gray)
+   ═══════════════════════════════════════════════════════════ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 17, 23, 0.16);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 17, 23, 0.26);
+  border-radius: 4px;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(15, 17, 23, 0.16) transparent;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SELECTION
+   ═══════════════════════════════════════════════════════════ */
+::selection {
+  background: var(--accent-muted);
+  color: var(--text-primary);
+}
+
+input::selection,
+textarea::selection {
+  background: rgba(79, 110, 247, 0.28);
+  color: var(--text-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AUTOFILL - Désactiver le fond jaune du navigateur
+   ═══════════════════════════════════════════════════════════ */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+textarea:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--text-primary) !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--input-bg) inset !important;
+  box-shadow: 0 0 0 1000px var(--input-bg) inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ROOT VARIABLES - Light Theme (Default)
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --success-security: #0d9b3d;
+  --security-glow: rgba(22, 163, 74, 0.18);
+  --bg-primary:   #ffffff;
+  --bg-secondary: #f7f8fa;
+  --bg-tertiary:  #eff1f5;
+  --bg-hover:     rgba(79, 110, 247, 0.05);
+  --bg-active:    rgba(79, 110, 247, 0.09);
+  --bg-floating:  #ffffff;
+  --bg-message-hover: rgba(0, 0, 0, 0.022);
+  --channel-active: transparent;
+  --input-bg:     #f0f2f7;
+
+  --surface-1: #f7f8fa;
+  --surface-2: #eff1f5;
+  --surface-3: #e4e7ed;
+
+  --text-primary:   #0f1117;
+  --text-secondary: #3c4149;
+  --text-muted:     #72767e;
+  --text-link:      #4f6ef7;
+
+  --border-subtle:  rgba(15, 17, 23, 0.06);
+  --border-default: rgba(15, 17, 23, 0.11);
+  --border-strong:  rgba(15, 17, 23, 0.19);
+
+  --accent:       #4f6ef7;
+  --accent-hover: #3d5ce5;
+  --accent-muted: rgba(79, 110, 247, 0.08);
+  --accent-rgb:   79, 110, 247;
+  --accent-text:       #ffffff;
+  --accent-text-muted: rgba(255, 255, 255, 0.72);
+
+  --success: #16a34a;
+  --warning: #d97706;
+  --error:   #dc2626;
+  --danger:  #dc2626;
+  --info:    #4f6ef7;
+
+  --radius:    8px;
+  --radius-sm: 4px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  --shadow-sm:       0 1px 2px rgba(0,0,0,0.05), 0 1px 4px rgba(0,0,0,0.07);
+  --shadow-md:       0 2px 12px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.05);
+  --shadow-lg:       0 4px 24px rgba(0,0,0,0.09), 0 2px 8px rgba(0,0,0,0.05);
+  --shadow-soft:     0 4px 28px rgba(0,0,0,0.06);
+  --shadow-elevated: 0 8px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-inner:    inset 0 1px 2px rgba(0,0,0,0.05);
+
+  /* ── Cosmic Ambient Layer (Grok/X.ai style: primary + white accents) ── */
+  --cosmic-bg-orb-1: rgba(79, 110, 247, 0.19);
+  --cosmic-bg-orb-2: rgba(255, 255, 255, 0.12);
+  --cosmic-bg-orb-3: rgba(255, 255, 255, 0.08);
+  --cosmic-glow-soft: rgba(79, 110, 247, 0.16);
+  --cosmic-glow-strong: rgba(97, 121, 248, 0.28);
+  --cosmic-border: rgba(114, 137, 255, 0.28);
+  --cosmic-surface-soft: linear-gradient(155deg, rgba(79, 110, 247, 0.06) 0%, rgba(255, 255, 255, 0.03) 46%, rgba(255, 255, 255, 0.02) 100%);
+  --cosmic-surface-flat: linear-gradient(180deg, rgba(79, 110, 247, 0.035) 0%, rgba(79, 110, 247, 0.01) 100%);
+
+  --modal-overlay-bg:      rgba(6, 8, 14, 0.80);
+  --modal-overlay-blur:    20px;
+  --modal-panel-bg:        var(--bg-floating);
+  --modal-panel-border:    rgba(0, 0, 0, 0.07);
+  --modal-panel-shadow:    0 24px 64px rgba(0, 0, 0, 0.20), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  --modal-panel-radius:    18px;
+
+  /* ── Premium ── */
+  --accent-gradient:  linear-gradient(135deg, #4f6ef7 0%, #3558e8 100%);
+  --transition-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --radius-full: 9999px;
+  --radius-xs:   3px;
+  --status-online:  #3ba55d;
+  --status-idle:    #faa61a;
+  --status-dnd:     #ed4245;
+  --status-offline: #747f8d;
+
+  /* ── Glassmorphism ── */
+  --glass-sidebar-bg: rgba(247, 248, 250, 0.82);
+  --glass-panel-bg:   rgba(255, 255, 255, 0.84);
+  --glass-float-bg:   rgba(255, 255, 255, 0.92);
+  --glass-blur:       blur(16px) saturate(180%);
+  --glass-blur-sm:    blur(10px) saturate(160%);
+  --glass-border-hi:  rgba(255, 255, 255, 0.70);
+  --modal-panel-bg:   var(--glass-panel-bg);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LIGHT THEME - explicit alias of :root
+   ═══════════════════════════════════════════════════════════ */
+[data-theme="light"] {
+  --success-security: #0d9b3d;
+  --security-glow: rgba(22, 163, 74, 0.18);
+  --bg-primary:   #ffffff;
+  --bg-secondary: #f7f8fa;
+  --bg-tertiary:  #eff1f5;
+  --bg-hover:     rgba(79, 110, 247, 0.05);
+  --bg-active:    rgba(79, 110, 247, 0.09);
+  --bg-floating:  #ffffff;
+  --bg-message-hover: rgba(0, 0, 0, 0.022);
+  --channel-active: transparent;
+  --input-bg:     #f0f2f7;
+
+  --surface-1: #f7f8fa;
+  --surface-2: #eff1f5;
+  --surface-3: #e4e7ed;
+
+  --text-primary:   #0f1117;
+  --text-secondary: #3c4149;
+  --text-muted:     #72767e;
+  --text-link:      #4f6ef7;
+
+  --border-subtle:  rgba(15, 17, 23, 0.06);
+  --border-default: rgba(15, 17, 23, 0.11);
+  --border-strong:  rgba(15, 17, 23, 0.19);
+
+  --accent:       #4f6ef7;
+  --accent-hover: #3d5ce5;
+  --accent-muted: rgba(79, 110, 247, 0.08);
+  --accent-rgb:   79, 110, 247;
+  --accent-text:       #ffffff;
+  --accent-text-muted: rgba(255, 255, 255, 0.72);
+
+  --success: #16a34a;
+  --warning: #d97706;
+  --error:   #dc2626;
+  --danger:  #dc2626;
+  --info:    #4f6ef7;
+
+  --shadow-sm:       0 1px 2px rgba(0,0,0,0.05), 0 1px 4px rgba(0,0,0,0.07);
+  --shadow-md:       0 2px 12px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.05);
+  --shadow-lg:       0 4px 24px rgba(0,0,0,0.09), 0 2px 8px rgba(0,0,0,0.05);
+  --shadow-soft:     0 4px 28px rgba(0,0,0,0.06);
+  --shadow-elevated: 0 8px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-inner:    inset 0 1px 2px rgba(0,0,0,0.05);
+
+  --modal-overlay-bg:      rgba(6, 8, 14, 0.80);
+  --modal-overlay-blur:    20px;
+  --modal-panel-bg:        var(--bg-floating);
+  --modal-panel-border:    rgba(0, 0, 0, 0.07);
+  --modal-panel-shadow:    0 24px 64px rgba(0, 0, 0, 0.20), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  --modal-panel-radius:    18px;
+
+  /* ── Premium (duplicate from :root for explicitness) ── */
+  --accent-gradient:  linear-gradient(135deg, #4f6ef7 0%, #3558e8 100%);
+  --transition-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --radius-full: 9999px;
+  --radius-xs:   3px;
+  --status-online:  #3ba55d;
+  --status-idle:    #faa61a;
+  --status-dnd:     #ed4245;
+  --status-offline: #747f8d;
+
+  /* ── Glassmorphism ── */
+  --glass-sidebar-bg: rgba(247, 248, 250, 0.82);
+  --glass-panel-bg:   rgba(255, 255, 255, 0.84);
+  --glass-float-bg:   rgba(255, 255, 255, 0.92);
+  --glass-blur:       blur(16px) saturate(180%);
+  --glass-blur-sm:    blur(10px) saturate(160%);
+  --glass-border-hi:  rgba(255, 255, 255, 0.70);
+  --modal-panel-bg:   var(--glass-panel-bg);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DARK THEME
+   ═══════════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+  --bg-primary:   #000000;
+  --bg-secondary: #050505;
+  --bg-tertiary:  #0a0a0a;
+  --bg-hover:     rgba(255, 255, 255, 0.08);
+  --bg-active:    rgba(255, 255, 255, 0.14);
+  --bg-floating:  #0f0f10;
+  --bg-message-hover: rgba(255, 255, 255, 0.05);
+  --channel-active: rgba(255, 255, 255, 0.14);
+  --input-bg:     #121214;
+
+  --surface-1: #0f0f10;
+  --surface-2: #151517;
+  --surface-3: #1d1d20;
+
+  --text-primary:   #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.92);
+  --text-muted:     rgba(255, 255, 255, 0.72);
+  --text-link:      #8b9cfd;
+
+  --border-subtle:  rgba(255, 255, 255, 0.14);
+  --border-default: rgba(255, 255, 255, 0.22);
+  --border-strong:  rgba(255, 255, 255, 0.34);
+
+  --accent:       #6b7efd;
+  --accent-hover: #7d8fff;
+  --accent-muted: rgba(107, 126, 253, 0.18);
+  --accent-rgb:   107, 126, 253;
+  --accent-text:       #ffffff;
+  --accent-text-muted: rgba(255, 255, 255, 0.72);
+
+  --success: #22c55e;
+  --success-security: #16a34a;
+  --security-glow: rgba(34, 197, 94, 0.2);
+  --warning: #f59e0b;
+  --error:   #ef4444;
+  --danger:  #ef4444;
+  --info:    #6b7efd;
+
+  --radius:    8px;
+  --radius-sm: 4px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  --shadow-sm:       0 1px 3px rgba(0, 0, 0, 0.7);
+  --shadow-md:       0 4px 16px rgba(0, 0, 0, 0.7);
+  --shadow-lg:       0 8px 32px rgba(0, 0, 0, 0.8);
+  --shadow-soft:     0 4px 24px rgba(0, 0, 0, 0.75);
+  --shadow-elevated: 0 12px 48px rgba(0, 0, 0, 0.85), 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-inner:    inset 0 1px 2px rgba(0,0,0,0.5);
+
+  /* ── Cosmic Ambient Layer ── */
+  --cosmic-bg-orb-1: rgba(255, 255, 255, 0.03);
+  --cosmic-bg-orb-2: rgba(255, 255, 255, 0.02);
+  --cosmic-bg-orb-3: rgba(255, 255, 255, 0.015);
+  --cosmic-glow-soft: rgba(255, 255, 255, 0.09);
+  --cosmic-glow-strong: rgba(255, 255, 255, 0.16);
+  --cosmic-border: rgba(255, 255, 255, 0.20);
+  --cosmic-surface-soft: linear-gradient(155deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.022) 46%, rgba(255, 255, 255, 0.012) 100%);
+  --cosmic-surface-flat: linear-gradient(180deg, rgba(255, 255, 255, 0.032) 0%, rgba(255, 255, 255, 0.012) 100%);
+
+  --modal-overlay-bg:      rgba(0, 0, 0, 0.88);
+  --modal-overlay-blur:    20px;
+  --modal-panel-bg:        var(--bg-floating);
+  --modal-panel-border:    rgba(255, 255, 255, 0.16);
+  --modal-panel-shadow:    0 24px 80px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --modal-panel-radius:    18px;
+
+  /* ── Premium ── */
+  --accent-gradient:  linear-gradient(135deg, #6b7efd 0%, #5865f2 100%);
+  --transition-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --radius-full: 9999px;
+  --radius-xs:   3px;
+  --status-online:  #3ba55d;
+  --status-idle:    #faa61a;
+  --status-dnd:     #ed4245;
+  --status-offline: #555555;
+
+  /* ── Primary buttons: Grok/x.ai futuristic — flat, sharp, no glow ── */
+  --btn-primary-bg: rgba(255, 255, 255, 0.06);
+  --btn-primary-hover: rgba(255, 255, 255, 0.1);
+  --btn-primary-border: rgba(255, 255, 255, 0.14);
+  --btn-primary-border-hover: rgba(255, 255, 255, 0.24);
+
+  /* ── Void Intelligence variables ── */
+  --bg-void: #000000;
+  --bg-deep: #060607;
+  --grid-line: rgba(255, 255, 255, 0.032);
+  --grid-dot:  rgba(255, 255, 255, 0.022);
+  --bg-surface: #111114;
+  --bg-elevated: #18181c;
+  --text-nebula: #d4d8de;
+  --text-void-dim: rgba(255,255,255,0.62);
+  --void-border-resting: rgba(255,255,255,0.10);
+  --void-border-focus: rgba(255,255,255,0.42);
+
+  /* ── Glassmorphism ── */
+  --glass-sidebar-bg: rgba(0, 0, 0, 0.88);
+  --glass-panel-bg:   rgba(14, 14, 16, 0.92);
+  --glass-float-bg:   rgba(18, 18, 21, 0.95);
+  --glass-blur:       blur(16px) saturate(120%);
+  --glass-blur-sm:    blur(10px) saturate(110%);
+  --glass-border-hi:  rgba(255, 255, 255, 0.14);
+  --modal-panel-bg:   var(--glass-panel-bg);
+}
+
+/* Dark theme scrollbars */
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.20);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.34);
+}
+[data-theme="dark"] * {
+  scrollbar-color: rgba(255, 255, 255, 0.20) transparent;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   IMMERSIVE DARK MODE — cleaner, calmer, deeper UI
+   ═══════════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+  --bg-secondary: #030303;
+  --bg-tertiary: #070707;
+  --bg-floating: #0b0b0c;
+  --surface-1: #0b0b0c;
+  --surface-2: #111113;
+  --surface-3: #17171a;
+  --modal-overlay-bg: rgba(0, 0, 0, 0.92);
+  --modal-overlay-blur: 0px;
+  --glass-panel-bg: #0d0d0f;
+  --glass-float-bg: #101013;
+  --glass-sidebar-bg: #080809;
+  --glass-blur: none;
+  --glass-blur-sm: none;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.55);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.62);
+  --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.72);
+  --shadow-soft: 0 10px 26px rgba(0, 0, 0, 0.66);
+  --shadow-elevated: 0 18px 40px rgba(0, 0, 0, 0.78), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .context-menu,
+[data-theme="dark"] .context-menu-submenu,
+[data-theme="dark"] .friend-more-dropdown,
+[data-theme="dark"] .message-context-menu,
+[data-theme="dark"] .ch-context-menu,
+[data-theme="dark"] .member-context-menu,
+[data-theme="dark"] .status-picker,
+[data-theme="dark"] .account-flyout,
+[data-theme="dark"] .reaction-picker,
+[data-theme="dark"] .sticker-picker,
+[data-theme="dark"] .search-modal,
+[data-theme="dark"] .confirm-modal,
+[data-theme="dark"] .invite-modal,
+[data-theme="dark"] .profile-card-popup,
+[data-theme="dark"] .profile-modal {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: var(--glass-float-bg) !important;
+  border-color: var(--border-default) !important;
+}
+
+[data-theme="dark"] .page-enter {
+  animation: none;
+}
+
+[data-theme="dark"] button,
+[data-theme="dark"] [role="button"] {
+  transition-duration: 0.12s !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   GLASS SHIMMER EDGE — highlight top border on light theme glass panels
+   ═══════════════════════════════════════════════════════════ */
+:root .confirm-modal,
+:root .search-modal,
+:root .invite-modal,
+:root .profile-card-popup,
+:root .status-picker,
+:root .account-flyout,
+:root .reaction-picker,
+:root .mention-suggestions {
+  border-top-color: var(--glass-border-hi);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LOADING SCREEN
+   ═══════════════════════════════════════════════════════════ */
+.loading-screen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  gap: 1.25rem;
+}
+
+.loading-screen .spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border-default);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Page content enter animation */
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.page-enter {
+  animation: pageEnter 0.3s var(--transition-smooth, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+/* Immersive interactions: no hover/press motion on buttons */
+button,
+[role="button"] {
+  transition-property: color, background-color, border-color, box-shadow, opacity, filter !important;
+}
+
+button:hover:not(:disabled),
+button:active:not(:disabled),
+button:focus-visible:not(:disabled),
+[role="button"]:hover:not(:disabled),
+[role="button"]:active:not(:disabled),
+[role="button"]:focus-visible:not(:disabled) {
+  transform: none !important;
+}
+
+/* Disable animations globally when reduce-motion is active */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DARK THEME — Server bar overrides (x.ai style)
+   ═══════════════════════════════════════════════════════════ */
+[data-theme="dark"] .server-icon-link.active {
+  outline: 2px solid rgba(255, 255, 255, 0.65);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AURORA DRIFT — ambient background animation (dark theme)
+   ═══════════════════════════════════════════════════════════ */
+[data-theme="dark"] body::before {
+  content: '';
+  position: fixed;
+  inset: -20% -10%;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(620px circle at 12% 22%, rgba(255, 255, 255, 0.08), transparent 60%),
+    radial-gradient(540px circle at 88% 8%, rgba(255, 255, 255, 0.06), transparent 62%);
+  filter: blur(18px);
+  opacity: 0.8;
+  animation: aurora-drift 18s ease-in-out infinite alternate;
+}
+
+@keyframes aurora-drift {
+  0%   { transform: translate3d(-1%, 0, 0) scale(1); }
+  100% { transform: translate3d(1.5%, -1.5%, 0) scale(1.03); }
+}
+
+[data-theme="dark"] .server-icon-link:not(.active):hover,
+[data-theme="dark"] .server-drag-wrapper:hover .server-icon-link:not(.active) {
+  box-shadow: none;
+}
+
+[data-theme="dark"] .server-icon-link.active .server-icon,
+[data-theme="dark"] .server-icon.active {
+  background: #222226;
+}
+
+[data-theme="dark"] .server-icon-link:not(.active):hover .server-icon,
+[data-theme="dark"] .server-drag-wrapper:hover .server-icon-link:not(.active) .server-icon {
+  background: #1e1e22;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   VOID INTELLIGENCE — Keyframe Animations
+   ═══════════════════════════════════════════════════════════ */
+@keyframes nebula-drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(40px, -25px) scale(1.06); }
+  66%  { transform: translate(-25px, 18px) scale(0.96); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+@keyframes nebula-drift-2 {
+  0%   { transform: translate(0, 0) scale(1); }
+  40%  { transform: translate(-35px, 30px) scale(1.04); }
+  75%  { transform: translate(20px, -15px) scale(0.98); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+@keyframes scan-sweep {
+  0%   { transform: translateX(-100%); opacity: 0; }
+  20%  { opacity: 0.7; }
+  80%  { opacity: 0.7; }
+  100% { transform: translateX(200%); opacity: 0; }
+}
+@keyframes message-materialize {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes orbital-ring {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes void-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 2px var(--accent); }
+  50%       { opacity: 0.7; box-shadow: 0 0 0 3px rgba(97,121,248,0.25); }
+}
+@keyframes grid-breathe {
+  0%, 100% { opacity: 0.55; }
+  50%       { opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   VOID INTELLIGENCE — Global dark typography & selection
+   ═══════════════════════════════════════════════════════════ */
+[data-theme="dark"] ::selection {
+  background: rgba(97, 121, 248, 0.35);
+  color: #ffffff;
+}
+
+/* Scrollbar: ultra-thin, barely-there */
+[data-theme="dark"] ::-webkit-scrollbar { width: 3px; height: 3px; }
+[data-theme="dark"] ::-webkit-scrollbar-track { background: transparent; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.08);
+  border-radius: 2px;
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.15);
+}
+[data-theme="dark"] * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
+}

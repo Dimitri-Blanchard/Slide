@@ -1,0 +1,79 @@
+/* ═══════════════════════════════════════════════════════════
+   FILE DROP OVERLAY - Simple, minimal drop zone
+   ═══════════════════════════════════════════════════════════ */
+.file-drop-zone {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.file-drop-zone .message-list-container {
+  flex: 1;
+  min-height: 0;
+}
+
+.file-drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  background: rgba(40, 44, 52, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 2px dashed rgba(88, 101, 242, 0.5);
+  border-radius: 16px;
+  margin: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: fileDropFade 0.25s ease-out;
+}
+
+@keyframes fileDropFade {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.file-drop-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem;
+}
+
+.file-drop-icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.7);
+  opacity: 0.95;
+}
+
+.file-drop-icon svg {
+  width: 32px;
+  height: 32px;
+}
+
+.file-drop-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 500;
+  color: #fff;
+  letter-spacing: 0.01em;
+}
+
+.file-drop-hint {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.45);
+}

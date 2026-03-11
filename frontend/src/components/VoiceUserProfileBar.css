@@ -1,0 +1,140 @@
+/* ═══════════════════════════════════════════════════════════
+   VOICE USER PROFILE BAR - Discord-style, bottom left
+   ═══════════════════════════════════════════════════════════ */
+.voice-user-profile-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px 6px 8px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.vupb-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.vupb-avatar,
+.vupb-avatar-fallback {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: block;
+  object-fit: cover;
+}
+
+.vupb-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.vupb-presence-dot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #23a55a;
+  border: 2px solid var(--bg-secondary);
+}
+
+.vupb-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vupb-username {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary, #f2f3f5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vupb-status {
+  font-size: 0.75rem;
+  color: var(--text-muted, #949ba4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vupb-status-icon {
+  opacity: 0.9;
+}
+
+.vupb-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.vupb-ctrl-wrap {
+  position: relative;
+}
+
+.vupb-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-muted, #949ba4);
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.vupb-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary, #f2f3f5);
+}
+
+.vupb-btn.active {
+  color: var(--text-primary, #f2f3f5);
+}
+
+.vupb-btn.active.danger {
+  color: var(--error, #f23f43);
+}
+
+.vupb-btn.disconnect {
+  color: var(--text-muted, #949ba4);
+}
+
+.vupb-btn.disconnect:hover {
+  background: rgba(240, 71, 71, 0.15);
+  color: var(--error, #f23f43);
+}
+
+.voice-user-profile-bar.compact .vupb-avatar,
+.voice-user-profile-bar.compact .vupb-avatar-fallback {
+  width: 32px;
+  height: 32px;
+}
+
+.voice-user-profile-bar.compact .vupb-username {
+  font-size: 0.85rem;
+}
+
+.voice-user-profile-bar.compact .vupb-btn {
+  width: 32px;
+  height: 32px;
+}

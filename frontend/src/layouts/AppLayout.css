@@ -1,0 +1,276 @@
+/* ═══════════════════════════════════════════════════════════
+   MOBILE APP LAYOUT - bottom-nav driven (Android / small screens)
+   ═══════════════════════════════════════════════════════════ */
+.mobile-app-layout {
+  display: flex;
+  flex-direction: column;
+  height: var(--app-height, 100dvh);
+  overflow: hidden;
+  background: var(--bg-primary);
+  padding-top: var(--inset-top, env(safe-area-inset-top, 0px));
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* The content area above the bottom nav */
+.mobile-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Split layout: server list left, content (channels/DMs) right */
+.mobile-split-layout {
+  display: flex;
+  flex-direction: row;
+  min-width: 0;
+}
+
+.mobile-server-bar {
+  flex-shrink: 0;
+  width: 60px;
+  min-width: 60px;
+  background: var(--bg-tertiary);
+  border-right: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.mobile-server-bar .server-bar {
+  width: 60px;
+  min-width: 60px;
+  padding: 8px 0;
+}
+
+.mobile-server-bar .server-item {
+  width: 44px;
+  height: 44px;
+}
+
+.mobile-server-bar .server-icon-link,
+.mobile-server-bar .server-icon {
+  width: 44px;
+  height: 44px;
+}
+
+.mobile-server-bar .server-list {
+  padding: 0 8px;
+}
+
+.mobile-content-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Sidebar shown full-width in DMs tab on mobile */
+.mobile-app-layout .sidebar {
+  width: 100%;
+  min-width: unset;
+  flex: 1;
+}
+
+/* Hide UserPanel inside sidebar — profile tab handles that */
+.mobile-app-layout .sidebar .user-panel {
+  display: none;
+}
+
+/* app-main full-width in mobile routes */
+.mobile-app-layout .app-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+/* ── Mobile chat slide-in animation (forward navigation feel) ── */
+/* Chat screen slides in from the right when a DM/channel is opened */
+.mobile-app-layout .direct-chat,
+.mobile-app-layout .team-chat {
+  animation: pageSlideInFromRight 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   APP LAYOUT - Immersive morphing design
+   ═══════════════════════════════════════════════════════════ */
+.app-layout {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+  background:
+    var(--cosmic-surface-soft),
+    var(--bg-tertiary);
+}
+
+/* Scene glow — ambient → focus → settle */
+.app-layout.scene-ambient { --scene-glow: 0.05; }
+.app-layout.scene-focus { --scene-glow: 0.12; }
+.app-layout.scene-settle { --scene-glow: 0.08; }
+.mobile-app-layout.scene-ambient { --scene-glow: 0.05; }
+.mobile-app-layout.scene-focus { --scene-glow: 0.12; }
+.mobile-app-layout.scene-settle { --scene-glow: 0.08; }
+
+
+/* Server bar — z-index + overflow-y visible so active glow renders over the sidebar */
+.app-layout > .server-bar {
+  flex-shrink: 0;
+  overflow-x: hidden;
+  overflow-y: visible;
+  z-index: 1;
+}
+
+/* Offline banner - fixed at top when navigator.onLine is false */
+.offline-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #c9302c;
+  color: white;
+  font-size: 0.9rem;
+}
+
+.offline-banner-icon {
+  font-size: 1rem;
+}
+
+/* Main Content Panel — glass morph */
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  position: relative;
+  background:
+    var(--cosmic-surface-flat),
+    var(--bg-primary);
+  transition:
+    box-shadow var(--dur-slow, 520ms) var(--ease-flow, cubic-bezier(0.2, 0.8, 0.2, 1)),
+    background var(--dur-slow, 520ms) ease;
+}
+
+/* Content phase wrapper — fills flex, child fills */
+.app-main > .content-phase-in {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.app-main > .content-phase-in > * {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE LAYOUT (<= 768px) - Swipe from left edge to open nav
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .app-layout > .server-bar,
+  .app-layout > .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    z-index: 200;
+    transition: transform 0.25s ease;
+  }
+
+  .app-layout > .server-bar {
+    left: 0;
+    transform: translateX(-100%);
+  }
+
+  /* Sidebar: translate extra 64px so right edge clears viewport (was leaving 64px visible, covering hamburger) */
+  .app-layout > .sidebar {
+    left: 64px;
+    transform: translateX(calc(-100% - 64px));
+  }
+
+  .app-layout.mobile-nav-open > .server-bar {
+    transform: translateX(0);
+  }
+
+  .app-layout.mobile-nav-open > .sidebar {
+    transform: translateX(0);
+  }
+
+  .mobile-nav-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 199;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* Left-edge swipe zone: ~80px strip to open server list */
+  .mobile-edge-swipe-zone {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 80px;
+    z-index: 150;
+    touch-action: none; /* capture all touches so our gesture isn't stolen by scroll */
+  }
+
+  .app-main {
+    contain: none;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   VOID INTELLIGENCE — AppLayout dark overrides + immersive glass
+   ═══════════════════════════════════════════════════════════ */
+[data-theme="dark"] .app-layout {
+  background: #000000;
+  position: relative;
+}
+[data-theme="dark"] .app-layout::before {
+  content: none;
+}
+[data-theme="dark"] .app-layout::after {
+  content: none;
+}
+[data-theme="dark"] .app-layout > * {
+  position: relative;
+  z-index: 1;
+}
+[data-theme="dark"] .app-main {
+  background: linear-gradient(165deg, rgba(10, 10, 10, 0.9), rgba(10, 10, 10, 0.75));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 40px rgba(255, 255, 255, var(--scene-glow, 0.06));
+}
+[data-theme="dark"] .mobile-app-layout .app-main {
+  background: linear-gradient(165deg, rgba(10, 10, 10, 0.9), rgba(10, 10, 10, 0.75));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 0 40px rgba(255, 255, 255, var(--scene-glow, 0.06));
+}
+

@@ -1,0 +1,140 @@
+/* ═══════════════════════════════════════════════════════════
+   MOBILE NOTIFICATIONS VIEW - Discord-style notifications tab
+   ═══════════════════════════════════════════════════════════ */
+.mobile-notifications-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.mobile-notifications-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.mobile-notifications-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.mobile-notifications-clear {
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.mobile-notifications-clear:active {
+  background: var(--accent-muted);
+}
+
+.mobile-notifications-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-notifications-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  gap: 12px;
+  color: var(--text-muted);
+}
+
+.mobile-notifications-empty-icon {
+  margin-bottom: 8px;
+}
+
+.mobile-notifications-empty p {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.mobile-notifications-empty span {
+  font-size: 0.875rem;
+}
+
+.mobile-notifications-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-notification-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+  width: 100%;
+  min-height: 72px;
+}
+
+.mobile-notification-item:active {
+  background: var(--bg-hover);
+}
+
+.mobile-notification-item:last-child {
+  border-bottom: none;
+}
+
+.mobile-notification-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mobile-notification-channel {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-notification-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.mobile-notification-sender {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mobile-notification-preview {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}

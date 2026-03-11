@@ -1,0 +1,220 @@
+/* ═══════════════════════════════════════════════════════════
+   TEAM VIEW - Discord-style 3-column layout
+   ═══════════════════════════════════════════════════════════ */
+.team-view {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.team-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-muted, #949ba4);
+}
+
+.team-loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--bg-hover);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LIVE STREAM FULLSCREEN - Remplace chat + membres
+   ═══════════════════════════════════════════════════════════ */
+.live-stream-fullscreen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: #000;
+  position: relative;
+}
+
+.live-stream-fullscreen-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
+
+.live-stream-fullscreen-video {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  object-fit: contain;
+  display: block;
+}
+
+.live-stream-fullscreen-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  z-index: 10;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.live-stream-fullscreen-close:hover {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.live-stream-fullscreen-name {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px 16px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.9));
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.live-stream-profile-bar {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  z-index: 5;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TEAM CHAT - Main chat column
+   ═══════════════════════════════════════════════════════════ */
+.team-chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  background: var(--bg-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SERVER BANNER - Scrolls with messages
+   ═══════════════════════════════════════════════════════════ */
+.team-chat-banner {
+  flex-shrink: 0;
+  width: 100%;
+  height: 120px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+}
+
+.team-chat-banner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 0%, rgba(49, 51, 56, 0.3) 100%);
+  pointer-events: none;
+}
+
+/* Messages loading state */
+.team-chat-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CHAT AREA OVERRIDES - Messages inside team view
+   ═══════════════════════════════════════════════════════════ */
+.team-chat .message-list {
+  flex: 1;
+}
+
+/* Sticker panel overlays – does not resize message bar */
+
+/* Welcome screen when no channel is selected */
+.team-no-channel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+}
+
+.team-no-channel h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary, #f2f3f5);
+  margin: 0 0 8px;
+}
+
+.team-no-channel p {
+  color: var(--text-muted, #949ba4);
+  font-size: 0.95rem;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   VOICE CHANNEL inside team chat
+   ═══════════════════════════════════════════════════════════ */
+.team-chat .voice-channel-view {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .team-view .members-panel {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .team-view > .channel-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    /* Stop above the mobile bottom nav (60px) so the nav stays accessible */
+    bottom: 60px;
+    z-index: 200;
+    /* Full-width so it feels like a native screen, not a slide-over panel */
+    width: 100%;
+    min-width: unset;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: none;
+  }
+
+  .team-view.mobile-channels-open > .channel-sidebar {
+    transform: translateX(0);
+  }
+
+  /* No dark overlay needed — channel list is full-width, nothing visible behind it */
+  .team-view > .mobile-nav-overlay {
+    display: none;
+  }
+}
+

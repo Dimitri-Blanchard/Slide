@@ -1,0 +1,143 @@
+/* ═══════════════════════════════════════════════════════════
+   MOBILE BOTTOM NAVIGATION - Discord-style tab bar
+   ═══════════════════════════════════════════════════════════ */
+.mobile-bottom-nav {
+  display: flex;
+  align-items: flex-start;
+  flex-shrink: 0;
+  /* 56px tabs + safe area for home indicator */
+  height: calc(56px + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
+  padding-bottom: var(--inset-bottom, env(safe-area-inset-bottom, 0px));
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-subtle);
+  position: relative;
+  z-index: 300;
+  /* App-like: no bounce/overscroll on nav */
+  overscroll-behavior: none;
+}
+
+.mbn-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px 4px;
+  height: 56px;
+  flex-shrink: 0;
+  position: relative;
+  transition: color 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  min-width: 0;
+}
+
+.mbn-tab.active {
+  color: var(--accent);
+}
+
+/* Press feedback */
+.mbn-tab:active .mbn-icon-wrap {
+  transform: scale(0.88);
+  transition: transform 0.08s ease;
+}
+
+/* Active indicator pill above icon */
+.mbn-tab.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--accent);
+  /* Slide in from top */
+  animation: tabIndicatorIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes tabIndicatorIn {
+  0% { width: 0; opacity: 0; }
+  100% { width: 32px; opacity: 1; }
+}
+
+/* Icon pop when switching to this tab */
+.mbn-tab.active .mbn-icon-wrap {
+  animation: tabIconPop 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes tabIconPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.2) translateY(-2px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+.mbn-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  transition: transform 0.1s ease;
+}
+
+.mbn-badge {
+  position: absolute;
+  top: -5px;
+  right: -8px;
+  min-width: 16px;
+  height: 16px;
+  background: var(--error);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  line-height: 1;
+  pointer-events: none;
+  /* Pop in when it appears */
+  animation: badgePop 0.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes badgePop {
+  0% { transform: scale(0); }
+  70% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.mbn-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  transition: font-weight 0.15s ease;
+}
+
+.mbn-tab.active .mbn-label {
+  font-weight: 700;
+}
+
+/* You tab: show user avatar like Discord */
+.mbn-profile-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.mbn-tab.active .mbn-profile-avatar {
+  border: 2px solid var(--accent);
+  box-sizing: border-box;
+}

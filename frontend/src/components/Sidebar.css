@@ -1,0 +1,741 @@
+/* ═══════════════════════════════════════════════════════════
+   SIDEBAR - DM panel
+   ═══════════════════════════════════════════════════════════ */
+.sidebar {
+  width: 300px;
+  min-width: 240px;
+  flex-shrink: 0;
+  min-height: 0;
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border-subtle);
+  transition: transform var(--dur-slow, 520ms) var(--ease-flow, cubic-bezier(0.2, 0.8, 0.2, 1));
+}
+
+/* ── Search button (top bar) ── */
+.sidebar-search-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  height: 52px;
+  padding: 0 10px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sidebar-search-btn span {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--input-bg);
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  text-align: left;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-search-btn span::before {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2372767e' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: contain;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.sidebar-search-btn:hover span {
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+/* ── Navigation (Friends, etc.) ── */
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-nav::-webkit-scrollbar { width: 4px; }
+.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: rgba(15, 17, 23, 0.14); border-radius: 2px; }
+
+.sidebar-top-nav {
+  padding: 8px 8px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  width: 100%;
+  text-align: left;
+  transition: background var(--dur-mid, 260ms) var(--ease-flow, cubic-bezier(0.2, 0.8, 0.2, 1)), color var(--dur-mid, 260ms) var(--ease-flow, cubic-bezier(0.2, 0.8, 0.2, 1));
+  -webkit-user-drag: none;
+}
+
+.sidebar-nav-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.sidebar-nav-item.active {
+  background: var(--accent-muted);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.sidebar-nav-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.sidebar-nav-item.active .sidebar-nav-icon,
+.sidebar-nav-item:hover .sidebar-nav-icon {
+  opacity: 1;
+}
+
+/* ── Section Header (DIRECT MESSAGES + add btn) ── */
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 10px 6px 14px;
+  font-size: 0.70rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
+.sidebar-section-header:hover {
+  color: var(--text-secondary);
+}
+
+.sidebar-add {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.1s;
+}
+
+.sidebar-add:hover {
+  color: var(--text-primary);
+}
+
+.sidebar-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Nav badge (NEW pill, Orbs) ── */
+.sidebar-nav-badge {
+  margin-left: auto;
+  padding: 0 6px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--success);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.sidebar-orbs-badge {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  text-transform: none;
+  font-size: 0.7rem;
+}
+
+/* ── DM List ── */
+.sidebar-dm-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0 8px;
+  flex: 1;
+}
+
+.dm-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-decoration: none;
+  position: relative;
+  transition: background var(--dur-mid, 260ms) var(--ease-flow, cubic-bezier(0.2, 0.8, 0.2, 1)), color var(--dur-mid, 260ms) var(--ease-flow, cubic-bezier(0.2, 0.8, 0.2, 1)), transform var(--dur-mid, 260ms) var(--ease-flow, cubic-bezier(0.2, 0.8, 0.2, 1));
+}
+
+.dm-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.dm-item.active {
+  background: var(--accent-muted);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.dm-item.has-unread {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.dm-item-avatar-wrap {
+  flex-shrink: 0;
+  display: flex;
+}
+
+.dm-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dm-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dm-item-status {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+  font-weight: 400;
+}
+
+.dm-item-name-clickable:hover {
+  text-decoration: underline;
+}
+
+.dm-unread-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: var(--accent-gradient, var(--accent));
+  color: var(--accent-text);
+  font-size: 0.65rem;
+  font-weight: 700;
+  border-radius: var(--radius-full, 9999px);
+  flex-shrink: 0;
+  letter-spacing: -0.02em;
+}
+
+.dm-close-btn {
+  display: none;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0;
+  flex-shrink: 0;
+  transition: color 0.1s;
+}
+
+.dm-item:hover .dm-close-btn {
+  display: flex;
+}
+
+.dm-item:hover .dm-unread-badge {
+  display: none;
+}
+
+.dm-close-btn:hover {
+  color: var(--text-primary);
+}
+
+/* ── DM Search (new conversation) ── */
+.sidebar-dm-search {
+  padding: 8px;
+  margin: 4px 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  animation: dmSearchSlide 0.15s ease;
+}
+
+@keyframes dmSearchSlide {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sidebar-dm-search input {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  margin-bottom: 6px;
+}
+
+.sidebar-dm-search input:focus { outline: none; }
+.sidebar-dm-search input::placeholder { color: var(--text-muted); }
+
+.sidebar-dm-loading {
+  padding: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.sidebar-dm-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.sidebar-dm-skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+
+.sidebar-dm-skeleton-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  flex-shrink: 0;
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+.sidebar-dm-skeleton-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar-dm-skeleton-name {
+  width: 100px;
+  height: 0.9em;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+.sidebar-dm-skeleton-username {
+  width: 70px;
+  height: 0.75em;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.sidebar-dm-results {
+  list-style: none;
+  max-height: 160px;
+  overflow-y: auto;
+  margin-bottom: 6px;
+}
+
+.sidebar-dm-results li button {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.sidebar-dm-results li button:hover {
+  background: var(--bg-hover);
+}
+
+.sidebar-dm-result-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sidebar-dm-result-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-dm-result-username {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.sidebar-close-dm {
+  width: 100%;
+  padding: 6px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: color 0.1s;
+}
+
+.sidebar-close-dm:hover {
+  color: var(--text-secondary);
+  text-decoration: underline;
+}
+
+/* ── Admin Button ── */
+.sidebar-admin-btn-wrap {
+  padding: 4px 8px;
+}
+
+.sidebar-admin-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--error);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.1s;
+}
+
+.sidebar-admin-btn:hover {
+  background: rgba(218, 55, 60, 0.1);
+}
+
+/* ── Loading ── */
+.sidebar-loading {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* ── DM Skeleton ── */
+.sidebar-dm-skeleton-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  list-style: none;
+}
+
+.sidebar-dm-skeleton-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  flex-shrink: 0;
+  animation: sidebar-skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+.sidebar-dm-skeleton-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar-dm-skeleton-line {
+  height: 12px;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  animation: sidebar-skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+.sidebar-dm-skeleton-name {
+  width: 70%;
+}
+
+.sidebar-dm-skeleton-status {
+  width: 45%;
+  height: 10px;
+}
+
+@keyframes sidebar-skeleton-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.sidebar-syncing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  list-style: none;
+}
+
+.sidebar-syncing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: sidebar-syncing-pulse 1s ease-in-out infinite;
+}
+
+@keyframes sidebar-syncing-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+/* ── Group Avatar Stack ── */
+.group-avatar-stack {
+  position: relative;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.group-avatar-item {
+  position: absolute;
+  overflow: hidden;
+}
+
+.group-avatar-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.group-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+/* 1 of 1 */
+.group-avatar-pos-0-of-1 { inset: 0; border-radius: 50%; }
+
+/* 2 of 2 */
+.group-avatar-pos-0-of-2 { top: 0; left: 0; width: 60%; height: 60%; border-radius: 50%; }
+.group-avatar-pos-1-of-2 { bottom: 0; right: 0; width: 60%; height: 60%; border-radius: 50%; }
+
+/* 3 of 3 */
+.group-avatar-pos-0-of-3 { top: 0; left: 50%; transform: translateX(-50%); width: 55%; height: 55%; border-radius: 50%; }
+.group-avatar-pos-1-of-3 { bottom: 2px; left: 1px; width: 48%; height: 48%; border-radius: 50%; }
+.group-avatar-pos-2-of-3 { bottom: 2px; right: 1px; width: 48%; height: 48%; border-radius: 50%; }
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  .sidebar {
+    width: calc(100vw - 64px);
+    min-width: unset;
+    max-width: 300px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE APP LAYOUT - Full-screen DMs tab overrides
+   ═══════════════════════════════════════════════════════════ */
+.mobile-app-layout .sidebar {
+  width: 100%;
+  min-width: unset;
+  max-width: unset;
+  background: var(--bg-secondary);
+}
+
+/* Bigger, more finger-friendly search button */
+.mobile-app-layout .sidebar-search-btn {
+  height: 56px;
+  padding: 0 16px;
+  gap: 10px;
+}
+
+.mobile-app-layout .sidebar-search-btn span {
+  font-size: 0.9rem;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+/* Larger touch targets for DM items */
+.mobile-app-layout .dm-item {
+  padding: 10px 12px;
+  min-height: 60px;
+  border-radius: 8px;
+  gap: 14px;
+}
+
+/* Never show close button on mobile (touch ≠ hover) */
+.mobile-app-layout .dm-item:hover .dm-close-btn,
+.mobile-app-layout .dm-close-btn {
+  display: none !important;
+}
+
+/* Show unread badge always (not hidden on hover) on mobile */
+.mobile-app-layout .dm-item:hover .dm-unread-badge {
+  display: flex;
+}
+
+/* Better DM list padding for full-width screen */
+.mobile-app-layout .sidebar-dm-list {
+  padding: 4px 12px;
+  gap: 2px;
+}
+
+/* Larger section header */
+.mobile-app-layout .sidebar-section-header {
+  padding: 20px 16px 8px;
+  font-size: 0.75rem;
+}
+
+/* Larger add button touch target */
+.mobile-app-layout .sidebar-add {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   VOID INTELLIGENCE — Sidebar dark overrides + immersive glass
+   ═══════════════════════════════════════════════════════════ */
+[data-theme="dark"] .sidebar {
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-subtle);
+}
+/* DM items: dim until hover */
+[data-theme="dark"] .dm-item {
+  opacity: 0.92;
+  transition: opacity var(--dur-mid, 260ms) var(--ease-flow, cubic-bezier(0.2, 0.8, 0.2, 1)), background var(--dur-mid, 260ms) var(--ease-flow, cubic-bezier(0.2, 0.8, 0.2, 1)), transform var(--dur-mid, 260ms) var(--ease-flow, cubic-bezier(0.2, 0.8, 0.2, 1));
+}
+[data-theme="dark"] .dm-item:hover {
+  opacity: 1;
+  transform: translateX(2px);
+  background: rgba(255,255,255,0.04);
+}
+[data-theme="dark"] .dm-item.active {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+/* Section labels: near invisible */
+[data-theme="dark"] .sidebar-section-label,
+[data-theme="dark"] .sidebar-category {
+  color: rgba(255,255,255,0.20);
+  font-size: 0.60rem;
+  letter-spacing: 0.10em;
+}
+/* Search bar */
+[data-theme="dark"] .sidebar-search-btn span {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.22);
+}
+[data-theme="dark"] .sidebar-search-btn:hover span {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.55);
+}
+/* Nav items (Friends, etc.) */
+[data-theme="dark"] .sidebar-nav-item {
+  color: rgba(255,255,255,0.40);
+}
+[data-theme="dark"] .sidebar-nav-item:hover {
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.75);
+}
+[data-theme="dark"] .sidebar-nav-item.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .dm-unread-badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: #000000;
+}
+
+/* Nav items: larger touch targets */
+.mobile-app-layout .sidebar-nav-item {
+  padding: 12px 14px;
+  font-size: 0.95rem;
+  border-radius: 8px;
+  min-height: 48px;
+}
+
+.mobile-app-layout .sidebar-top-nav {
+  padding: 8px 12px 6px;
+  gap: 2px;
+}

@@ -1,0 +1,86 @@
+/* ═══════════════════════════════════════════════════════════
+   MFA Code Input - 6 digit boxes (used in Login, Settings)
+   ═══════════════════════════════════════════════════════════ */
+
+.mfa-code-input-wrap {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+}
+
+.mfa-code-digit {
+  width: 48px;
+  height: 80px;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-subtle, #4e5058);
+  border-radius: 10px;
+  color: var(--text-primary, #dbdee1);
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-align: center;
+  font-family: "SF Mono", "Monaco", "Consolas", monospace;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  caret-color: var(--accent);
+}
+
+.mfa-code-digit:hover:not(:disabled):not(:focus) {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+
+.mfa-code-digit:focus {
+  border-color: var(--accent);
+}
+
+.mfa-code-digit::placeholder {
+  color: transparent;
+}
+
+.mfa-code-input-wrap--error .mfa-code-digit {
+  border-color: var(--danger, #da373c);
+}
+
+.mfa-code-input-wrap--error .mfa-code-digit:focus {
+  border-color: var(--danger, #da373c);
+  box-shadow: 0 0 0 3px rgba(218, 55, 60, 0.2);
+}
+
+.mfa-code-input-wrap--disabled .mfa-code-digit {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Auth page context - consistent with light card */
+.auth-page .mfa-code-digit {
+  background: var(--input-bg, #f0f2f7);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+.auth-page .mfa-code-digit:hover:not(:disabled):not(:focus) {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+
+.auth-page .mfa-code-input-wrap--error .mfa-code-digit {
+  border-color: var(--error, #dc2626);
+}
+
+.auth-page .mfa-code-input-wrap--error .mfa-code-digit:focus {
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
+}
+
+/* Responsive: smaller on narrow screens */
+@media (max-width: 480px) {
+  .mfa-code-input-wrap {
+    gap: 6px;
+  }
+
+  .mfa-code-digit {
+    width: 42px;
+    height: 68px;
+    font-size: 1.35rem;
+  }
+}

@@ -1,0 +1,119 @@
+/* ═══════════════════════════════════════════════════════════
+   VOICE FULLSCREEN OVERLAY - Mobile fullscreen voice/call
+   ═══════════════════════════════════════════════════════════ */
+.voice-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: calc(60px + env(safe-area-inset-bottom));
+}
+
+.voice-fullscreen-minimize {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  z-index: 10;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.voice-fullscreen-minimize:active {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.voice-fullscreen-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.voice-fullscreen-content .dm-call-panel {
+  flex: 1;
+  min-height: 0;
+  border-radius: 0;
+}
+
+.voice-fullscreen-channel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.voice-fullscreen-channel-info {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.voice-fullscreen-channel-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.voice-fullscreen-channel-desc {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.voice-fullscreen-channel .voice-user-profile-bar {
+  width: 100%;
+  max-width: 360px;
+}
+
+/* Minimized bar - tap to expand */
+.voice-fullscreen-minimized {
+  position: fixed;
+  bottom: calc(60px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 450;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  color: var(--text-primary);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.voice-fullscreen-minimized:active {
+  background: var(--bg-hover);
+}
+
+.voice-fullscreen-minimized-icon {
+  color: var(--accent);
+}
+
+.voice-fullscreen-minimized-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.voice-fullscreen-minimized-chevron {
+  color: var(--text-muted);
+  transform: rotate(-90deg);
+}

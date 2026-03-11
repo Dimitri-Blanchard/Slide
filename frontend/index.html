@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resize" />
+    <meta name="theme-color" content="#4f6ef7" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>Slide - La messagerie privée et sécurisée</title>
+    <!-- SEO -->
+    <meta name="description" content="Slide — Messagerie sécurisée, chiffrée de bout en bout. Chats, appels vocaux HD, serveurs communautaires. Gratuit." />
+    <meta name="keywords" content="messagerie, chat, vocal, serveur, sécurisé, chiffrement, slide" />
+    <link rel="canonical" href="https://slide.app/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://slide.app/" />
+    <meta property="og:title" content="Slide — La messagerie qui respecte votre vie privée" />
+    <meta property="og:description" content="Chats chiffrés, appels HD, serveurs communautaires. Gratuit pour toujours." />
+    <meta property="og:image" content="https://slide.app/og-image.png" />
+    <meta property="og:site_name" content="Slide" />
+    <meta property="og:locale" content="fr_FR" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Slide — La messagerie qui respecte votre vie privée" />
+    <meta name="twitter:description" content="Chats chiffrés, appels HD, serveurs communautaires. Gratuit pour toujours." />
+    <meta name="twitter:image" content="https://slide.app/og-image.png" />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <link rel="apple-touch-icon" href="/icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <!-- Favicon and apple-touch-icon above load icon.png; avoid preload to prevent "not used" warnings -->
+    <style>
+      /* Safe area padding for devices with notches */
+      :root {
+        --safe-area-top: env(safe-area-inset-top, 0px);
+        --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+        --safe-area-left: env(safe-area-inset-left, 0px);
+        --safe-area-right: env(safe-area-inset-right, 0px);
+      }
+      /* Default background before CSS bundle loads — prevents white flash on reload */
+      html, body { background-color: #000; margin: 0; padding: 0; }
+    </style>
+    <script>
+      (function () {
+        var theme = 'dark';
+        try {
+          var cached = localStorage.getItem('slide_theme_cache');
+          if (cached === 'light') {
+            theme = 'light';
+          } else if (cached === 'dark') {
+            theme = 'dark';
+          } else {
+            // No cache: respect OS, default to dark if no preference
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+        } catch (e) {
+          theme = 'dark';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+        // Set background immediately so reload/account-switch never shows a white flash
+        document.documentElement.style.backgroundColor = theme === 'light' ? '#ffffff' : '#000000';
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

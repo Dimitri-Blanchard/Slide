@@ -1,0 +1,847 @@
+/* ═══════════════════════════════════════════════════════════
+   DM CALL PANEL - Premium call experience with rich animations
+   ═══════════════════════════════════════════════════════════ */
+
+.dm-call-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #0d0e10;
+  padding: 28px 24px 20px;
+  gap: 16px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  position: relative;
+  overflow: visible;
+  transition: background 0.4s ease;
+}
+
+/* Ambient gradient background (no video) */
+.dm-call-ambient-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 30%, rgba(79, 110, 247, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 70% 70%, rgba(35, 165, 90, 0.05) 0%, transparent 45%),
+    radial-gradient(ellipse 50% 30% at 30% 60%, rgba(79, 110, 247, 0.04) 0%, transparent 40%);
+  animation: dm-call-ambient-pulse 8s ease-in-out infinite alternate;
+}
+
+@keyframes dm-call-ambient-pulse {
+  0% { opacity: 0.8; }
+  100% { opacity: 1; }
+}
+
+/* Subtle gradient top-glow per state */
+.dm-call-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  transition: background 0.5s ease;
+}
+
+.dm-call-state-connecting::before {
+  background: linear-gradient(90deg, transparent, #f0b232, transparent);
+  animation: dm-call-bar-slide 2s linear infinite;
+}
+
+.dm-call-state-ringing::before {
+  background: linear-gradient(90deg, transparent, #4f6ef7, transparent);
+  animation: dm-call-bar-slide 1.8s linear infinite;
+}
+
+.dm-call-state-ringing-stopped::before {
+  background: linear-gradient(90deg, transparent, #949ba4, transparent);
+  animation: none;
+  opacity: 0.7;
+}
+
+.dm-call-state-connected::before {
+  background: linear-gradient(90deg, transparent, #23a55a, transparent);
+  animation: none;
+  opacity: 0.8;
+}
+
+@keyframes dm-call-bar-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ─── Avatar card (avatar + name) ─── */
+.dm-call-avatar-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.dm-call-avatar-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #b5bac1;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+
+.dm-call-avatar-wrapper.speaking ~ .dm-call-avatar-name,
+.dm-call-avatar-card:has(.speaking) .dm-call-avatar-name {
+  color: #23a55a;
+}
+
+/* ─── Avatars row ─── */
+.dm-call-avatars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  position: relative;
+  z-index: 1;
+}
+
+.dm-call-avatar-wrapper {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  padding: 3px;
+  background: transparent;
+  transition: all 0.3s ease;
+}
+
+
+
+/* ── Connecting state: spinning border ── */
+.dm-call-spinner {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: #f0b232;
+  border-right-color: rgba(240, 178, 50, 0.3);
+  animation: dm-call-spin 1s linear infinite;
+  pointer-events: none;
+  will-change: transform;
+}
+
+@keyframes dm-call-spin {
+  to { transform: rotate(360deg); }
+}
+
+.dm-call-avatar-wrapper.state-connecting {
+  animation: dm-call-dim-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dm-call-dim-pulse {
+  0%, 100% { filter: brightness(0.5); }
+  50% { filter: brightness(1); }
+}
+
+/* ── Connected + Speaking state: green glow ── */
+.dm-call-speak-glow {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(35, 165, 90, 0.35) 0%, transparent 70%);
+  animation: dm-call-speak-pulse 0.8s ease-in-out infinite alternate;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+@keyframes dm-call-speak-pulse {
+  from { transform: scale(1); opacity: 0.6; }
+  to { transform: scale(1.12); opacity: 1; }
+}
+
+.dm-call-avatar-wrapper.speaking {
+  box-shadow: 0 0 0 3px #23a55a, 0 0 16px rgba(35, 165, 90, 0.4);
+}
+
+.dm-call-avatar-wrapper.state-connected {
+  border: 2px solid transparent;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.dm-call-avatar-wrapper.state-connected:not(.speaking) {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.dm-call-avatar-wrapper.state-ringing {
+  animation: dm-call-dim-pulse 1.8s ease-in-out infinite;
+}
+
+/* ── Avatar circle ── */
+.dm-call-avatar-circle {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  position: relative;
+  z-index: 1;
+}
+
+.dm-call-avatar-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.dm-call-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fff;
+  background: #4f6ef7;
+}
+
+/* ─── Status indicator ─── */
+.dm-call-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 4px 14px;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
+
+/* Connecting */
+.dm-call-status.connecting {
+  color: #f0b232;
+  background: rgba(240, 178, 50, 0.1);
+}
+
+.dm-call-status.connecting .dm-call-status-text {
+  animation: dm-call-text-blink 1.2s ease-in-out infinite;
+}
+
+/* Ringing */
+.dm-call-status.ringing {
+  color: #8b9dff;
+  background: rgba(79, 110, 247, 0.1);
+}
+
+.dm-call-status.ringing .dm-call-status-text {
+  animation: dm-call-text-blink 1.5s ease-in-out infinite;
+}
+
+/* Ringing stopped (no answer after 1 min) */
+.dm-call-status.ringing-stopped {
+  color: var(--text-muted, #949ba4);
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* Connected */
+.dm-call-status.connected {
+  color: #23a55a;
+  background: rgba(35, 165, 90, 0.1);
+}
+
+/* Status icon spin for connecting */
+.dm-call-status-icon.spin {
+  animation: dm-call-spin 1.5s linear infinite;
+}
+
+/* Live dot for connected state */
+.dm-call-status-dot-live {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #23a55a;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.dm-call-status-dot-live::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: rgba(35, 165, 90, 0.4);
+  animation: dm-call-dot-breathe 2s ease-in-out infinite;
+}
+
+@keyframes dm-call-dot-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(1.6); opacity: 0; }
+}
+
+@keyframes dm-call-text-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ─── Controls row (glassmorphism) ─── */
+.dm-call-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 10;
+  padding: 12px 20px;
+  background: rgba(30, 31, 34, 0.85);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Unified split button: [icon | chevron] — cleaner, easier to use */
+.dm-call-ctrl-split {
+  display: flex;
+  align-items: stretch;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.dm-call-ctrl-split:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.dm-call-ctrl-split .dm-call-ctrl-main {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #b9bbbe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.dm-call-ctrl-split .dm-call-ctrl-main:hover {
+  color: #fff;
+}
+
+.dm-call-ctrl-split .dm-call-ctrl-divider {
+  width: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.dm-call-ctrl-split .dm-call-ctrl-dropdown {
+  width: 28px;
+  min-width: 28px;
+  height: 40px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #949ba4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.dm-call-ctrl-split .dm-call-ctrl-dropdown:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dm-call-ctrl-split .dm-call-ctrl-dropdown[data-open="true"] {
+  color: #4f6ef7;
+  background: rgba(79, 110, 247, 0.15);
+}
+
+.dm-call-ctrl-split.has-active .dm-call-ctrl-main {
+  color: #fff;
+}
+
+.dm-call-ctrl-split.has-active.danger {
+  background: #c23c42;
+}
+
+.dm-call-ctrl-split.has-active.danger:hover {
+  background: #a8373b;
+}
+
+.dm-call-ctrl-split.has-active.camera-on {
+  background: #248046;
+}
+
+.dm-call-ctrl-split.has-active.camera-on:hover {
+  background: #1e6b3a;
+}
+
+/* Standalone circular buttons */
+.dm-call-ctrl {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.75);
+  padding: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.dm-call-ctrl:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  transform: scale(1.04);
+}
+
+.dm-call-ctrl:active {
+  transform: scale(0.96);
+}
+
+.dm-call-ctrl:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dm-call-ctrl:disabled:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.75);
+  transform: none;
+}
+
+.dm-call-ctrl.active {
+  background: #c23c42;
+  color: #fff;
+}
+
+.dm-call-ctrl.active:hover {
+  background: #a8373b;
+}
+
+.dm-call-ctrl.leave {
+  width: 44px;
+  height: 44px;
+  background: #c23c42;
+  color: #fff;
+  border-radius: 50%;
+  margin-left: 8px;
+}
+
+.dm-call-ctrl.leave:hover {
+  background: #a8373b;
+  transform: scale(1.04);
+}
+
+/* Device dropdown popover — clearer, more readable */
+.dm-call-device-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-floating);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  box-shadow: var(--shadow-elevated);
+  padding: 6px 0;
+  min-width: 220px;
+  max-width: 320px;
+  max-height: 260px;
+  overflow-y: auto;
+  z-index: 10000;
+}
+
+.dm-call-device-popover::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid var(--bg-floating);
+}
+
+.dm-call-device-popover button {
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.12s;
+}
+
+.dm-call-device-popover button:hover {
+  background: var(--bg-hover);
+  color: #fff;
+}
+
+.dm-call-device-popover button[data-selected="true"] {
+  color: #4f6ef7;
+  font-weight: 500;
+}
+
+.dm-call-ctrl-group-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* When a popover is open, raise this group above sibling controls */
+.dm-call-ctrl-group-wrap:has(.dm-call-device-popover) {
+  z-index: 100;
+}
+
+/* Camera on (green accent) */
+.dm-call-ctrl.camera-on {
+  background: #23a55a;
+  color: #fff;
+}
+
+.dm-call-ctrl.camera-on:hover {
+  background: #1e8e4e;
+}
+
+/* Screen share on (accent) */
+.dm-call-ctrl.screen-on {
+  background: #4f6ef7;
+  color: #fff;
+}
+
+.dm-call-ctrl.screen-on:hover {
+  background: #3d5ce5;
+}
+
+/* ─── Video Grid ─── */
+.dm-call-panel.has-video {
+  padding: 12px 12px 12px;
+}
+
+.dm-call-video-grid {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  max-height: 360px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.dm-call-video-grid.grid-1 {
+  grid-template-columns: 1fr;
+}
+
+.dm-call-video-grid.grid-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.dm-call-video-grid.grid-3 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.dm-call-video-grid.grid-3 .dm-call-video-tile:first-child {
+  grid-column: 1 / -1;
+}
+
+.dm-call-video-grid.grid-4 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.dm-call-video-tile {
+  position: relative;
+  background: #111214;
+  border-radius: 6px;
+  overflow: hidden;
+  min-height: 120px;
+  max-height: 300px;
+}
+
+.dm-call-video-tile video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.dm-call-video-tile.self video {
+  opacity: 0.9;
+}
+
+.dm-call-video-label {
+  position: absolute;
+  bottom: 6px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* Group call avatar layout */
+.dm-call-avatars.group-call {
+  flex-wrap: wrap;
+  gap: 16px;
+  max-width: 320px;
+}
+
+.dm-call-avatar-wrapper.size-small {
+  width: 56px;
+  height: 56px;
+}
+
+.dm-call-avatar-wrapper.size-small .dm-call-avatar-fallback {
+  font-size: 1.2rem;
+}
+
+/* ─── Reaction burst overlay ─── */
+.dm-call-reaction-burst {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.dm-call-reaction-emoji {
+  font-size: 4rem;
+  animation: dm-call-reaction-pop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+}
+
+@keyframes dm-call-reaction-pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  40% { transform: scale(1.3); opacity: 1; }
+  70% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.2); opacity: 0; }
+}
+
+/* ─── Video container & layout toggle ─── */
+.dm-call-video-container {
+  position: relative;
+  width: 100%;
+  z-index: 1;
+}
+
+.dm-call-layout-toggle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(30, 31, 34, 0.9);
+  backdrop-filter: blur(4px);
+  color: #b5bac1;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  z-index: 10;
+}
+
+.dm-call-layout-toggle:hover {
+  background: rgba(50, 52, 57, 0.95);
+  color: #fff;
+}
+
+/* ─── Spotlight layout ─── */
+.dm-call-video-spotlight {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-height: 360px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.dm-call-spotlight-main {
+  flex: 1;
+  min-height: 200px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #111214;
+}
+
+.dm-call-spotlight-main .dm-call-video-tile {
+  min-height: 200px;
+  max-height: 280px;
+}
+
+.dm-call-spotlight-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0;
+}
+
+.dm-call-spotlight-thumb {
+  flex: 0 0 120px;
+  height: 68px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #111214;
+}
+
+.dm-call-spotlight-thumb .dm-call-video-tile {
+  min-height: 68px;
+  max-height: 68px;
+}
+
+.dm-call-spotlight-thumb .dm-call-video-label {
+  font-size: 9px;
+  padding: 1px 4px;
+}
+
+/* ─── Reactions popover ─── */
+.dm-call-reactions-popover {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 8px;
+  min-width: 140px;
+}
+
+.dm-call-reaction-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.dm-call-reaction-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.15);
+}
+
+.dm-call-reaction-btn:active {
+  transform: scale(0.95);
+}
+
+.dm-call-reaction-icon {
+  font-size: 1.1rem;
+}
+
+.dm-call-ctrl.reactions-ctrl {
+  min-width: 40px;
+}
+
+/* ─── Participants popover ─── */
+.dm-call-participants-popover {
+  padding: 8px 0;
+  min-width: 200px;
+}
+
+.dm-call-participants-header {
+  padding: 8px 16px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #949ba4;
+}
+
+.dm-call-participant-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  color: #dbdee1;
+}
+
+.dm-call-participant-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4e5058;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.dm-call-participant-dot[data-speaking="true"] {
+  background: #23a55a;
+  box-shadow: 0 0 8px rgba(35, 165, 90, 0.5);
+}
+
+/* ─── More options popover ─── */
+.dm-call-more-popover {
+  padding: 6px 0;
+  min-width: 220px;
+}
+
+.dm-call-more-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  color: #dbdee1;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.dm-call-more-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.dm-call-shortcut-hint {
+  padding: 10px 16px;
+  font-size: 0.75rem;
+  color: #949ba4;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dm-call-shortcut-hint kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.7rem;
+}

@@ -1,0 +1,187 @@
+/* ═══════════════════════════════════════════════════════════
+   MOBILE SERVER PICKER - Full-screen server list
+   ═══════════════════════════════════════════════════════════ */
+.mobile-server-picker {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+/* ── Header ── */
+.msp-header {
+  flex-shrink: 0;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.msp-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* ── Scrollable list ── */
+.msp-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Server row ── Discord-style touch targets */
+.msp-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  min-height: 56px;
+}
+
+.msp-item:active {
+  background: var(--bg-hover);
+}
+
+/* ── Server icon ── */
+.msp-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-radius 0.2s;
+}
+
+.msp-item.unread .msp-icon {
+  border-radius: 12px;
+}
+
+.msp-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.msp-icon-initials {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+/* ── Info ── */
+.msp-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.msp-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.msp-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ── Badges ── */
+.msp-mention-badge {
+  min-width: 20px;
+  height: 20px;
+  background: var(--error);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  flex-shrink: 0;
+}
+
+.msp-unread-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.msp-chevron {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* ── Add server row ── */
+.msp-add-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+  margin-top: 4px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.msp-add-btn:active {
+  background: var(--bg-hover);
+}
+
+.msp-add-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--success);
+}
+
+.msp-add-label {
+  flex: 1;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.msp-empty {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}

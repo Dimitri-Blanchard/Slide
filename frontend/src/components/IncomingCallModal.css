@@ -1,0 +1,158 @@
+/* ═══════════════════════════════════════════════════════════
+   INCOMING CALL MODAL - Discord-style
+   ═══════════════════════════════════════════════════════════ */
+
+.incoming-call-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.92);
+  animation: incomingFadeIn 0.2s ease-out;
+}
+
+.incoming-call-discord {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+@keyframes incomingFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.incoming-call-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 40px;
+  background: var(--glass-float-bg);
+  border-radius: 18px;
+  box-shadow: var(--shadow-elevated), 0 0 0 1px rgba(0,0,0,0.04);
+  border: 1px solid var(--border-default);
+  backdrop-filter: var(--glass-blur-sm);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  max-width: 380px;
+  width: 90%;
+  animation: incomingSlideUp 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.incoming-call-discord .incoming-call-modal {
+  background: var(--bg-secondary);
+}
+
+@keyframes incomingSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.incoming-call-avatar-wrap {
+  position: relative;
+  margin-bottom: 24px;
+}
+
+.incoming-call-avatar-ring {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 3px solid #4f6ef7;
+  animation: incomingRingPulse 1.2s ease-in-out infinite;
+}
+
+.incoming-call-discord .incoming-call-avatar-ring {
+  border-color: #3ba55d;
+}
+
+@keyframes incomingRingPulse {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.03); }
+}
+
+.incoming-call-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 6px;
+  text-align: center;
+}
+
+.incoming-call-label {
+  font-size: 0.95rem;
+  color: #b9bbbe;
+  margin: 0 0 32px;
+}
+
+.incoming-call-actions {
+  display: flex;
+  gap: 20px;
+  width: 100%;
+  justify-content: center;
+  align-items: stretch;
+}
+
+.incoming-call-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px 32px;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.12s ease, transform 0.12s var(--transition-spring, cubic-bezier(0.34, 1.56, 0.64, 1)), box-shadow 0.12s ease;
+  font-family: inherit;
+  min-width: 100px;
+}
+
+.incoming-call-btn:hover {
+  transform: scale(1.05);
+}
+
+.incoming-call-btn:active {
+  transform: scale(0.96);
+}
+
+.incoming-call-btn.decline {
+  background: #4f545c;
+  color: #fff;
+}
+
+.incoming-call-btn.decline:hover {
+  background: #f04747;
+}
+
+.incoming-call-discord .incoming-call-btn.decline {
+  background: #f04747;
+  color: #fff;
+}
+
+.incoming-call-discord .incoming-call-btn.decline:hover {
+  background: #d84040;
+}
+
+.incoming-call-btn.accept {
+  background: #3ba55d;
+  color: #fff;
+}
+
+.incoming-call-btn.accept:hover {
+  background: #2d7d46;
+}
+
+.incoming-call-discord .incoming-call-btn.accept {
+  background: #3ba55d;
+}
+
+.incoming-call-discord .incoming-call-btn.accept:hover {
+  background: #2d7d46;
+}

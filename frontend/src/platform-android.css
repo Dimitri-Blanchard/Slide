@@ -1,0 +1,136 @@
+/* ═══════════════════════════════════════════════════════════
+   ANDROID NATIVE FEEL - Material Design 3 inspired
+   Only applied when .platform-android is on <html>
+   ═══════════════════════════════════════════════════════════ */
+
+.platform-android {
+  /* Use system font stack - Roboto on Android */
+  --font-family: "Roboto", "Google Sans", system-ui, -apple-system, sans-serif;
+  /* Prevent pull-to-refresh / overscroll glow */
+  overscroll-behavior: none;
+}
+
+.platform-android body {
+  font-family: var(--font-family);
+  /* No safe-area padding on body — app fills edge-to-edge.
+     The mobile layout top and bottom nav handle insets per-component. */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Scrollbars: hide on Android (native handles it) ── */
+.platform-android ::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+.platform-android * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* ── Text: never zoom from system font size setting ── */
+.platform-android {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* ── Tap highlight: remove WebView default blue flash ── */
+.platform-android * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Touch targets: Material minimum 48dp ── */
+.platform-android button,
+.platform-android [role="button"],
+.platform-android .server-icon-link,
+.platform-android .channel-item,
+.platform-android .dm-item,
+.platform-android a[class*="btn"],
+.platform-android input[type="submit"],
+.platform-android input[type="button"] {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* ── Input fields: 16px prevents any system zoom ── */
+.platform-android input,
+.platform-android textarea {
+  font-size: 16px;
+  min-height: 48px;
+}
+
+/* ── Ripple-style active feedback ── */
+.platform-android button:active,
+.platform-android [role="button"]:active,
+.platform-android .server-icon-link:active,
+.platform-android .msp-item:active,
+.platform-android .mbn-tab:active,
+.platform-android .dm-item:active,
+.platform-android .channel-item:active {
+  opacity: 0.65;
+  transition: opacity 0.05s;
+}
+
+/* ── Ripple container for elements that use JS ripple ── */
+.platform-android .ripple-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.platform-android .ripple-wave {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  pointer-events: none;
+  animation: ripple 0.5s ease-out forwards;
+}
+
+/* ── Server icons: slightly larger on mobile for fat fingers ── */
+@media (max-width: 768px) {
+  .platform-android .server-item {
+    width: 52px;
+    height: 52px;
+  }
+
+  .platform-android .server-icon-link,
+  .platform-android .server-icon {
+    width: 52px;
+    height: 52px;
+  }
+}
+
+/* ── Modal overlays: slightly darker on Android ── */
+.platform-android .mobile-nav-overlay {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+/* ── Hardware acceleration hints for animated elements ── */
+.platform-android .mobile-bottom-nav,
+.platform-android .mobile-server-picker,
+.platform-android .sidebar,
+.platform-android .direct-chat,
+.platform-android .team-chat {
+  will-change: auto; /* let browser decide; avoids compositing layer wastage */
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* ── Chat/page enter animation on mobile ── */
+@media (max-width: 768px) {
+  .platform-android .direct-chat,
+  .platform-android .team-chat {
+    animation: pageSlideInFromRight 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+}
+
+/* ── Material elevation for floating cards / modals ── */
+.platform-android .settings-page .settings-modal-container {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+/* ── Bottom sheet feel for modals that slide up ── */
+.platform-android .incoming-call-modal,
+.platform-android .ssp-overlay .ssp-modal {
+  border-radius: 20px 20px 0 0;
+}

@@ -1,0 +1,65 @@
+.electron-title-bar {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  min-height: 32px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-subtle);
+  -webkit-app-region: drag;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.electron-title-bar-drag {
+  flex: 1;
+  -webkit-app-region: drag;
+}
+
+.electron-title-bar-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #f2f3f5);
+  -webkit-app-region: no-drag;
+  pointer-events: none;
+}
+
+.electron-title-bar-controls {
+  display: flex;
+  -webkit-app-region: no-drag;
+}
+
+.electron-title-bar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #b5bac1);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.electron-title-bar-btn:hover {
+  background: var(--bg-hover, rgba(79, 84, 92, 0.32));
+  color: var(--text-primary, #f2f3f5);
+}
+
+.electron-title-bar-btn.electron-title-bar-close:hover {
+  background: #e81123;
+  color: #fff;
+}
+
+/* macOS: traffic lights on the left */
+.electron-title-bar-mac .electron-title-bar-controls-left {
+  margin-left: 12px;
+  margin-right: 0;
+}
+
+.electron-title-bar-mac .electron-title-bar-drag {
+  margin-left: 0;
+}

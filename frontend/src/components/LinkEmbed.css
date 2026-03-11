@@ -1,0 +1,125 @@
+/* ═══════════════════════════════════════════════════════════
+   Link Embed — Embeds avancés pour liens (Spotify, YouTube, etc.)
+   Cachés quand data-hide-embeds sur le parent
+   ═══════════════════════════════════════════════════════════ */
+
+.link-embed {
+  max-width: 400px;
+  margin-top: 8px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+/* Whitelist embeds (Spotify, YouTube, SoundCloud, Vimeo) */
+.link-embed--spotify {
+  background: #181818;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.link-embed--youtube {
+  background: #0f0f0f;
+}
+
+.link-embed--soundcloud {
+  background: #f50;
+  border-color: #f50;
+}
+
+.link-embed--vimeo {
+  background: #1ab7ea;
+  border-color: #1ab7ea;
+}
+
+.link-embed iframe {
+  display: block;
+  width: 100%;
+  border: none;
+}
+
+.link-embed__url {
+  display: block;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.link-embed__url:hover {
+  color: var(--text-link);
+}
+
+/* Embed par défaut — carte générique */
+.link-embed--default {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-secondary);
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.link-embed--default:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-default);
+}
+
+.link-embed-default__icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+}
+
+.link-embed-default__icon img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.link-embed-default__content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.link-embed-default__domain {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.link-embed-default__url {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.link-embed-default__arrow {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.link-embed--default:hover .link-embed-default__arrow {
+  color: var(--text-link);
+}
+
+/* Cacher les embeds si paramètre désactivé */
+.message-list[data-hide-embeds="true"] .link-embed {
+  display: none;
+}

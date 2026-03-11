@@ -1,0 +1,202 @@
+/* ═══════════════════════════════════════════════════════════
+   TOPIC MODAL - Channel topic full-view modal
+   ═══════════════════════════════════════════════════════════ */
+.topic-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: overlayReveal 0.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes overlayReveal {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+    -webkit-backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+}
+
+.topic-modal {
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  width: 480px;
+  max-width: calc(100vw - 32px);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  animation: modalSlideIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  overflow: hidden;
+  transform-origin: center center;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.topic-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  animation: headerSlideIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both;
+}
+
+@keyframes headerSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.topic-modal-icon {
+  color: var(--text-muted, #949ba4);
+  display: flex;
+  align-items: center;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.topic-modal:hover .topic-modal-icon {
+  transform: rotate(-5deg);
+}
+
+.topic-modal-channel {
+  flex: 1;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary, #f2f3f5);
+}
+
+.topic-modal-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-muted, #949ba4);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.topic-modal-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary, #f2f3f5);
+  transform: scale(1.05);
+}
+
+.topic-modal-close:active {
+  transform: scale(0.95);
+}
+
+.topic-modal-body {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  animation: bodyFadeIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+}
+
+@keyframes bodyFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.topic-modal-text {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #b5bac1);
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.topic-modal-empty {
+  font-size: 0.875rem;
+  color: var(--text-muted, #949ba4);
+  font-style: italic;
+  margin: 0;
+}
+
+.topic-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-subtle);
+  animation: footerSlideIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+}
+
+@keyframes footerSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.topic-modal-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--bg-hover);
+  color: var(--text-secondary, #b5bac1);
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+}
+
+.topic-modal-btn:hover {
+  background: var(--bg-active);
+  color: var(--text-primary, #f2f3f5);
+  transform: translateY(-1px);
+}
+
+.topic-modal-btn:active {
+  transform: translateY(0);
+}
+
+.topic-modal-btn-primary {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.topic-modal-btn-primary:hover {
+  background: var(--accent-hover);
+  color: var(--accent-text);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}

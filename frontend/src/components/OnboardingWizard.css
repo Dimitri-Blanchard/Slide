@@ -1,0 +1,277 @@
+/* =========================================================
+   OnboardingWizard.css
+   ========================================================= */
+
+.ow-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: ow-overlay-in 0.25s ease;
+}
+@keyframes ow-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.ow-modal {
+  position: relative;
+  background: var(--bg-primary, #ffffff);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.28);
+  overflow: hidden;
+  animation: ow-modal-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes ow-modal-in {
+  from { opacity: 0; transform: scale(0.88) translateY(20px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Progress bar */
+.ow-progress {
+  height: 4px;
+  background: var(--bg-secondary, #f7f8fa);
+}
+.ow-progress-fill {
+  height: 100%;
+  background: var(--accent, #4f6ef7);
+  border-radius: 0 2px 2px 0;
+  transition: width 0.4s ease;
+}
+
+/* Dots */
+.ow-dots {
+  display: flex;
+  gap: 7px;
+  justify-content: center;
+  padding: 18px 24px 0;
+}
+.ow-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bg-secondary, #f0f2f5);
+  border: 2px solid var(--border-light, #eff1f5);
+  transition: background 0.3s, transform 0.3s;
+}
+.ow-dot.active {
+  background: var(--accent, #4f6ef7);
+  border-color: var(--accent, #4f6ef7);
+  transform: scale(1.2);
+}
+.ow-dot.done {
+  background: rgba(79,110,247,0.4);
+  border-color: rgba(79,110,247,0.4);
+}
+
+/* Close button */
+.ow-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 1rem;
+  color: var(--text-muted, #999);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  line-height: 1;
+  transition: color 0.2s, background 0.2s;
+}
+.ow-close:hover {
+  color: var(--text-primary, #1a1a2e);
+  background: var(--bg-secondary, #f7f8fa);
+}
+
+/* Step content */
+.ow-step {
+  animation: ow-step-in 0.28s ease;
+}
+@keyframes ow-step-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.ow-step-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 24px 32px 32px;
+  gap: 14px;
+}
+
+.ow-wave {
+  font-size: 3rem;
+  animation: ow-wave-anim 1.2s ease 0.3s both;
+  transform-origin: 70% 70%;
+}
+@keyframes ow-wave-anim {
+  0%   { transform: rotate(0deg); }
+  15%  { transform: rotate(14deg); }
+  30%  { transform: rotate(-8deg); }
+  45%  { transform: rotate(14deg); }
+  60%  { transform: rotate(-4deg); }
+  75%  { transform: rotate(10deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.ow-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text-primary, #1a1a2e);
+  margin: 0;
+  line-height: 1.25;
+}
+
+.ow-desc {
+  font-size: 0.95rem;
+  color: var(--text-secondary, #666);
+  margin: 0;
+  line-height: 1.55;
+}
+
+/* Theme cards */
+.ow-theme-cards {
+  display: flex;
+  gap: 14px;
+  margin: 6px 0;
+}
+.ow-theme-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  border: 2px solid var(--border-light, #eff1f5);
+  border-radius: 16px;
+  background: var(--bg-secondary, #f7f8fa);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+.ow-theme-card:hover {
+  border-color: var(--accent, #4f6ef7);
+  transform: translateY(-2px);
+}
+.ow-theme-card.selected {
+  border-color: var(--accent, #4f6ef7);
+  box-shadow: 0 0 0 3px rgba(79,110,247,0.18);
+}
+.ow-theme-icon { font-size: 1.5rem; }
+.ow-theme-label { font-size: 0.88rem; font-weight: 600; color: var(--text-primary, #1a1a2e); }
+
+/* Mini preview */
+.ow-theme-preview {
+  width: 100%;
+  height: 52px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,0.07);
+}
+.ow-preview-bar {
+  height: 10px;
+}
+.ow-preview-body {
+  display: flex;
+  height: calc(100% - 10px);
+}
+.ow-preview-sidebar { width: 28%; }
+.ow-preview-main { flex: 1; }
+
+.ow-preview-light { background: #fff; }
+.ow-preview-light .ow-preview-bar { background: #f7f8fa; }
+.ow-preview-light .ow-preview-sidebar { background: #eff1f5; }
+.ow-preview-light .ow-preview-main { background: #fff; }
+
+.ow-preview-dark { background: #313338; }
+.ow-preview-dark .ow-preview-bar { background: #1e1f22; }
+.ow-preview-dark .ow-preview-sidebar { background: #2b2d31; }
+.ow-preview-dark .ow-preview-main { background: #313338; }
+
+/* Actions */
+.ow-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+.ow-actions-row {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.ow-btn-primary {
+  background: var(--accent, #4f6ef7);
+  color: var(--accent-text);
+  border: none;
+  border-radius: 20px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 11px 24px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+  font-family: inherit;
+}
+.ow-btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.ow-btn-ghost {
+  background: none;
+  border: 2px solid var(--border-light, #eff1f5);
+  color: var(--text-secondary, #666);
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 9px 18px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  font-family: inherit;
+}
+.ow-btn-ghost:hover {
+  border-color: var(--accent, #4f6ef7);
+  background: rgba(79,110,247,0.05);
+  color: var(--text-primary, #1a1a2e);
+}
+
+.ow-btn-discover {
+  background: linear-gradient(135deg, var(--accent, #4f6ef7), #7c3aed);
+  color: var(--accent-text);
+  border: none;
+  border-radius: 22px;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 14px 28px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+  box-shadow: 0 4px 18px rgba(79,110,247,0.3);
+  font-family: inherit;
+  margin: 6px 0;
+}
+.ow-btn-discover:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+}
+
+.ow-btn-skip {
+  background: none;
+  border: none;
+  color: var(--text-muted, #999);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 8px 4px;
+  text-decoration: underline;
+  font-family: inherit;
+  transition: color 0.2s;
+}
+.ow-btn-skip:hover { color: var(--text-secondary, #666); }

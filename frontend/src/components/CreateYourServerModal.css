@@ -1,0 +1,244 @@
+/* Create Your Server - Discord-style hub modal */
+.cysm-overlay {
+  position: fixed;
+  inset: 0;
+  /* Must fully mask app chrome while server creation is open */
+  background: rgba(6, 8, 14, 0.92);
+  backdrop-filter: blur(var(--modal-overlay-blur));
+  -webkit-backdrop-filter: blur(var(--modal-overlay-blur));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000000;
+  animation: cysmOverlayEnter 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cysm-overlay.cysm-exiting {
+  animation: cysmOverlayExit 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes cysmOverlayEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cysmOverlayExit {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.cysm-modal {
+  background: var(--glass-panel-bg);
+  border: 1px solid var(--modal-panel-border);
+  border-radius: var(--modal-panel-radius);
+  box-shadow: var(--modal-panel-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  width: 90%;
+  max-width: 440px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: cysmModalEnter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.cysm-modal.cysm-exiting {
+  animation: cysmModalExit 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes cysmModalEnter {
+  from {
+    transform: translateY(16px) scale(0.97);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes cysmModalExit {
+  from {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-12px) scale(0.97);
+    opacity: 0;
+  }
+}
+
+.cysm-header {
+  text-align: center;
+  padding: 24px 24px 16px;
+}
+
+.cysm-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-muted, #949ba4);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.cysm-close:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
+  color: var(--text-primary, #f2f3f5);
+}
+
+.cysm-header h2 {
+  margin: 0 0 8px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary, #f2f3f5);
+}
+
+.cysm-header p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted, #949ba4);
+  line-height: 1.4;
+}
+
+.cysm-content {
+  padding: 0 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cysm-templates {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cysm-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+  color: var(--text-primary, #f2f3f5);
+}
+
+.cysm-row:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+}
+
+.cysm-row-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary, #2b2d31);
+  border-radius: 8px;
+  flex-shrink: 0;
+  color: var(--text-muted, #949ba4);
+}
+
+.cysm-create-icon {
+  color: var(--text-primary, #f2f3f5);
+}
+
+.cysm-row:hover .cysm-row-icon {
+  color: var(--text-primary, #f2f3f5);
+}
+
+/* Template icons with distinct colors (Gaming, Friends, Study Group, School Club) */
+.cysm-templates .cysm-row:nth-child(1) .cysm-row-icon { color: #9b59b6; }
+.cysm-templates .cysm-row:nth-child(2) .cysm-row-icon { color: #e91e63; }
+.cysm-templates .cysm-row:nth-child(3) .cysm-row-icon { color: #e74c3c; }
+.cysm-templates .cysm-row:nth-child(4) .cysm-row-icon { color: #3498db; }
+
+.cysm-row-text {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.cysm-row-arrow {
+  color: var(--text-muted, #949ba4);
+  display: flex;
+}
+
+.cysm-section-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted, #949ba4);
+  margin: 16px 0 4px;
+  padding: 0 12px;
+}
+
+.cysm-join-section {
+  padding: 20px 24px 24px;
+  text-align: center;
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+}
+
+.cysm-join-question {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #f2f3f5);
+}
+
+.cysm-join-btn {
+  display: block;
+  width: 100%;
+  padding: 12px 20px;
+  background: var(--bg-tertiary, #2b2d31);
+  border: none;
+  border-radius: 6px;
+  color: var(--text-primary, #f2f3f5);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.cysm-join-btn:hover {
+  background: var(--bg-hover, #3c3f44);
+}
+
+.cysm-discover-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 20px;
+  background: transparent;
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.15));
+  border-radius: 6px;
+  color: var(--text-secondary, #b9bbbe);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.cysm-discover-btn:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+  border-color: var(--accent);
+  color: var(--accent);
+}

@@ -1,0 +1,35 @@
+/* ═══════════════════════════════════════════════════════════
+   CLICKABLE AVATAR - Interactive Avatar Wrapper
+   ═══════════════════════════════════════════════════════════ */
+
+.clickable-avatar {
+  display: inline-flex;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.clickable-avatar:hover:not(.disabled) {
+  transform: none;
+}
+
+.clickable-avatar:hover:not(.disabled) .avatar {
+  box-shadow: none;
+}
+
+.clickable-avatar:active:not(.disabled) {
+  transform: none;
+}
+
+.clickable-avatar:focus {
+  outline: none;
+}
+
+.clickable-avatar:focus-visible:not(.disabled) .avatar {
+  box-shadow: none;
+}
+
+.clickable-avatar.disabled {
+  cursor: default;
+  pointer-events: none;
+}
