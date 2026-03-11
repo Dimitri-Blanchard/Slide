@@ -13,6 +13,8 @@ function getStaticBase() {
   // CDN takes priority when configured
   const cdn = import.meta.env.VITE_CDN_BASE_URL || (typeof window !== 'undefined' && window.electron?.cdnBaseUrl) || '';
   if (cdn) return cdn.replace(/\/$/, '');
+  const webBackendOrigin = import.meta.env.VITE_BACKEND_ORIGIN || '';
+  if (!isNativeRuntime && webBackendOrigin) return webBackendOrigin.replace(/\/$/, '');
   // Web over HTTPS must stay same-origin to avoid Mixed Content + PNA blocks.
   if (!isNativeRuntime && typeof window !== 'undefined') return window.location.origin;
   // Native runtimes can call backend directly.

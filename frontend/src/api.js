@@ -1,10 +1,13 @@
 const FIXED_BACKEND_ORIGIN = 'http://192.168.1.176:3000';
 const IS_NATIVE_RUNTIME = typeof window !== 'undefined'
   && (!!window.electron?.isElectron || !!window.Capacitor?.isNativePlatform?.());
+const WEB_BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_ORIGIN
+  || (typeof window !== 'undefined' ? window.location.origin : FIXED_BACKEND_ORIGIN);
+const WEB_API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 const BACKEND_ORIGIN = IS_NATIVE_RUNTIME
   ? FIXED_BACKEND_ORIGIN
-  : (typeof window !== 'undefined' ? window.location.origin : FIXED_BACKEND_ORIGIN);
-const API_BASE = IS_NATIVE_RUNTIME ? `${FIXED_BACKEND_ORIGIN}/api` : '/api';
+  : WEB_BACKEND_ORIGIN;
+const API_BASE = IS_NATIVE_RUNTIME ? `${FIXED_BACKEND_ORIGIN}/api` : WEB_API_BASE;
 
 export { API_BASE, BACKEND_ORIGIN };
 
