@@ -240,6 +240,9 @@ const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, o
   const [activeTab, setActiveTab] = useState('emoji'); // 'emoji', 'stickers', 'gifs'
   const [activeEmojiCategory, setActiveEmojiCategory] = useState(1); // Start at Smileys (index 1), 0 is Recent
   const { t } = useLanguage();
+  const [isMobileView, setIsMobileView] = useState(false);
+  const [showEmojiSearchMobile, setShowEmojiSearchMobile] = useState(false);
+  const [showGifSearchMobile, setShowGifSearchMobile] = useState(false);
 
   // Recent emojis state
   const [recentEmojis, setRecentEmojis] = useState(() => getRecentEmojis());
@@ -319,6 +322,8 @@ const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, o
   const panelRef = useRef(null);
   const searchTimeoutRef = useRef(null);
   const gifContainerRef = useRef(null);
+  const emojiSearchInputRef = useRef(null);
+  const gifSearchInputRef = useRef(null);
   
   // ═══════════════════════════════════════════════════════════
   // Load Stickers
@@ -535,6 +540,38 @@ const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, o
     }
     // Emoji tab uses static EMOJI_CATEGORIES constant, no loading needed
   }, [isOpen, activeTab, loadStickers, loadTrendingGifs, loadGifCategories]);
+
+  // Detect phone layout and keep UI behavior in sync
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const mq = window.matchMedia('(max-width: 768px)');
+    const update = () => setIsMobileView(mq.matches);
+    update();
+    if (mq.addEventListener) {
+      mq.addEventListener('change', update);
+      return () => mq.removeEventListener('change', update);
+    }
+    mq.addListener(update);
+    return () => mq.removeListener(update);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setShowEmojiSearchMobile(false);
+      setShowGifSearchMobile(false);
+      return;
+    }
+    setShowEmojiSearchMobile(false);
+    setShowGifSearchMobile(false);
+  }, [activeTab, gifScreen, isOpen]);
+
+  useEffect(() => {
+    if (showEmojiSearchMobile) emojiSearchInputRef.current?.focus();
+  }, [showEmojiSearchMobile]);
+
+  useEffect(() => {
+    if (showGifSearchMobile) gifSearchInputRef.current?.focus();
+  }, [showGifSearchMobile]);
   
   // Handle escape key
   useEffect(() => {
@@ -613,12 +650,34 @@ const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, o
             <span className="tab-label">GIFs</span>
           </button>
         </div>
-        <button className="sticker-panel-close" onClick={onClose} title={t('common.close') || 'Fermer'}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
+        {isMobileView && (activeTab === 'emoji' || (activeTab === 'gifs' && gifScreen === 'gifs')) && (
+          <button
+            className={`sticker-panel-search-toggle ${(showEmojiSearchMobile || showGifSearchMobile) ? 'active' : ''}`}
+            onClick={() => {
+              if (activeTab === 'emoji') {
+                setShowGifSearchMobile(false);
+                setShowEmojiSearchMobile(v => !v);
+              } else if (activeTab === 'gifs' && gifScreen === 'gifs') {
+                setShowEmojiSearchMobile(false);
+                setShowGifSearchMobile(v => !v);
+              }
+            }}
+            title={t('common.search') || 'Search'}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+            </svg>
+          </button>
+        )}
+        {!isMobileView && (
+          <button className="sticker-panel-close" onClick={onClose} title={t('common.close') || 'Fermer'}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        )}
       </div>
       
       {/* ═══════════════════════════════════════════════════════════
@@ -714,34 +773,37 @@ const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, o
           EMOJI TAB
           ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'emoji' && (
-        <div className="emoji-picker-content">
+        <div className={`emoji-picker-content ${isMobileView && showEmojiSearchMobile ? 'mobile-search-active' : ''}`}>
           {/* Search bar */}
-          <div className="emoji-search-container">
-            <div className="emoji-search-wrapper">
-              <svg className="emoji-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8"/>
-                <path d="m21 21-4.35-4.35"/>
-              </svg>
-              <input
-                type="text"
-                className="emoji-search-input"
-                placeholder={t('stickers.searchEmojis') || 'Rechercher un emoji...'}
-                value={emojiSearch}
-                onChange={(e) => setEmojiSearch(e.target.value)}
-              />
-              {emojiSearch && (
-                <button
-                  className="emoji-search-clear"
-                  onClick={() => setEmojiSearch('')}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="18" y1="6" x2="6" y2="18"/>
-                    <line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
-                </button>
-              )}
+          {(!isMobileView || showEmojiSearchMobile) && (
+            <div className={`emoji-search-container ${isMobileView ? 'mobile-search-popout' : ''}`}>
+              <div className="emoji-search-wrapper">
+                <svg className="emoji-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="m21 21-4.35-4.35"/>
+                </svg>
+                <input
+                  ref={emojiSearchInputRef}
+                  type="text"
+                  className="emoji-search-input"
+                  placeholder={t('stickers.searchEmojis') || 'Rechercher un emoji...'}
+                  value={emojiSearch}
+                  onChange={(e) => setEmojiSearch(e.target.value)}
+                />
+                {emojiSearch && (
+                  <button
+                    className="emoji-search-clear"
+                    onClick={() => setEmojiSearch('')}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/>
+                      <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Search results */}
           {filteredEmojis ? (
@@ -851,7 +913,7 @@ const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, o
           GIF TAB
           ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'gifs' && (
-        <div className="gif-picker-content">
+        <div className={`gif-picker-content ${isMobileView && showGifSearchMobile ? 'mobile-search-active' : ''}`}>
           {gifScreen === 'categories' ? (
             /* ═══ SCREEN 1: Pick a GIF type (full screen) ═══ */
             <div className="gif-categories-fullscreen">
@@ -933,13 +995,53 @@ const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, o
                   </svg>
                   {t('common.back') || 'Back'}
                 </button>
-                <div className="gif-search-container gif-search-inline">
+                {!isMobileView && (
+                  <div className="gif-search-container gif-search-inline">
+                    <div className="gif-search-wrapper">
+                      <svg className="gif-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="m21 21-4.35-4.35"/>
+                      </svg>
+                      <input
+                        type="text"
+                        className="gif-search-input"
+                        placeholder={t('stickers.searchGifs') || 'Search GIFs...'}
+                        value={gifSearch}
+                        onChange={handleGifSearchChange}
+                      />
+                      {gifSearch && (
+                        <button
+                          className="gif-search-clear"
+                          onClick={() => {
+                            setActiveGifView(null);
+                            setGifSearch('');
+                            setGifError(null);
+                            if (gifTrending.length > 0) {
+                              setGifs(gifTrending);
+                            } else {
+                              loadTrendingGifs();
+                            }
+                          }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {isMobileView && showGifSearchMobile && (
+                <div className="gif-search-container gif-search-popout">
                   <div className="gif-search-wrapper">
                     <svg className="gif-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <circle cx="11" cy="11" r="8"/>
                       <path d="m21 21-4.35-4.35"/>
                     </svg>
                     <input
+                      ref={gifSearchInputRef}
                       type="text"
                       className="gif-search-input"
                       placeholder={t('stickers.searchGifs') || 'Search GIFs...'}
@@ -968,7 +1070,7 @@ const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, o
                     )}
                   </div>
                 </div>
-              </div>
+              )}
 
               <div
                 ref={gifContainerRef}

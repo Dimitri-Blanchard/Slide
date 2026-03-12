@@ -8,8 +8,8 @@
   top: auto;
   right: auto;
   bottom: auto;
-  width: min(420px, 40vw);
-  flex: 0 0 min(420px, 40vw);
+  width: 420px;
+  flex: 0 0 420px;
   min-width: 340px;
   max-width: 420px;
   height: 100%;
@@ -21,7 +21,8 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  z-index: 2;
+  /* Keep server member list above the picker if columns ever overlap. */
+  z-index: 0;
   animation: stickerPanelSlideIn 0.22s var(--transition-smooth, cubic-bezier(0.22, 1, 0.36, 1)) forwards;
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.06);
 }
@@ -74,10 +75,14 @@
   background: var(--bg-tertiary);
   padding: 4px;
   border-radius: var(--radius, 10px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
 
 .sticker-panel-tab {
-  flex: 1;
+  flex: 0 0 auto;
+  min-width: 96px;
   padding: 8px 12px;
   background: transparent;
   border: none;
@@ -91,6 +96,20 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+  white-space: nowrap;
+}
+
+.sticker-panel-tabs::-webkit-scrollbar {
+  height: 4px;
+}
+
+.sticker-panel-tabs::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sticker-panel-tabs::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 2px;
 }
 
 .sticker-panel-tab:hover {
@@ -155,6 +174,36 @@
 .sticker-panel-close svg {
   width: 18px;
   height: 18px;
+}
+
+.sticker-panel-search-toggle {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-left: 6px;
+}
+
+.sticker-panel-search-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.sticker-panel-search-toggle.active {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.sticker-panel-search-toggle svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* Pack tabs - Improved horizontal scrollable list with names */
@@ -597,7 +646,8 @@
   min-height: 0;
   display: grid !important;
   grid-template-columns: repeat(2, 1fr);
-  grid-auto-rows: minmax(0, 1fr);
+  grid-auto-rows: auto;
+  align-content: start;
   gap: 10px;
   padding: 0;
   border: none;
@@ -606,9 +656,10 @@
 }
 
 .gif-categories-grid-full .gif-category-tile {
-  min-height: 60px;
+  min-height: 0;
   min-width: auto;
-  height: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
 }
 
 .gif-back-row {
@@ -674,6 +725,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  aspect-ratio: 1 / 1;
   min-height: 56px;
   min-width: 80px;
   padding: 8px 10px;
@@ -683,6 +735,7 @@
   overflow: hidden;
   transition: all 0.2s ease;
   text-align: center;
+  width: 100%;
 }
 
 .gif-category-tile:hover {
@@ -1059,6 +1112,7 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  position: relative;
 }
 
 /* Emoji Search */
@@ -1310,6 +1364,7 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  position: relative;
 }
 
 .gif-search-container {
@@ -1861,4 +1916,289 @@
 [data-theme="dark"] .gif-tile-category {
   background: linear-gradient(135deg, var(--surface-2) 0%, var(--surface-3) 100%);
   border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE COMPACT TUNING — tighter phone layout
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .sticker-panel {
+    width: 100%;
+    max-width: 100%;
+    min-width: 100%;
+    flex: 0 0 46vh;
+    height: 46vh;
+    border-left: none;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  [data-theme="dark"] .sticker-panel {
+    border-left: none;
+    box-shadow: none;
+  }
+
+  .sticker-panel-header {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .sticker-panel-tabs {
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-subtle);
+    overflow: hidden;
+    scrollbar-width: none;
+  }
+
+  .sticker-panel-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sticker-panel-tab {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 34px;
+    padding: 0;
+    border-radius: 7px;
+    color: var(--text-muted);
+  }
+
+  .sticker-panel-tab svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .sticker-panel-tab.active {
+    background: color-mix(in srgb, var(--accent) 22%, var(--surface-2) 78%);
+    color: var(--text-primary);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+
+  .sticker-panel-tab .tab-label {
+    display: none;
+  }
+
+  .sticker-panel-tab .gif-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .sticker-panel-close {
+    width: 30px;
+    height: 30px;
+    margin-left: 0;
+  }
+
+  .sticker-panel-search-toggle {
+    width: 30px;
+    height: 30px;
+    margin-left: 2px;
+    flex-shrink: 0;
+  }
+
+  .emoji-search-container,
+  .gif-search-container,
+  .gif-back-row {
+    padding: 8px;
+  }
+
+  .emoji-search-wrapper,
+  .gif-search-wrapper {
+    border-radius: 8px;
+    padding: 0 10px;
+  }
+
+  .emoji-search-input,
+  .gif-search-input {
+    padding: 8px 6px;
+    font-size: 0.8rem;
+  }
+
+  .emoji-category-tabs {
+    padding: 6px 8px;
+    gap: 4px;
+  }
+
+  .emoji-category-tab {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    font-size: 0.95rem;
+  }
+
+  .emoji-category-tab img {
+    width: 15px;
+    height: 15px;
+  }
+
+  .emoji-grid-container {
+    padding: 8px;
+  }
+
+  .emoji-category-name {
+    font-size: 0.64rem;
+    margin-bottom: 8px;
+    letter-spacing: 0.6px;
+  }
+
+  .emoji-grid {
+    grid-template-columns: repeat(8, 1fr);
+    gap: 1px;
+  }
+
+  .emoji-item {
+    font-size: 1.15rem;
+    border-radius: 6px;
+    padding: 3px;
+  }
+
+  .sticker-panel-packs {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .sticker-pack-tab {
+    min-width: 62px;
+    max-width: 74px;
+    padding: 6px 5px;
+    gap: 4px;
+  }
+
+  .sticker-pack-tab-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .sticker-pack-tab-icon img {
+    width: 28px;
+    height: 28px;
+  }
+
+  .sticker-pack-tab-name {
+    font-size: 0.6rem;
+  }
+
+  .sticker-panel-content,
+  .gif-grid-container {
+    padding: 8px;
+  }
+
+  .sticker-panel-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+  }
+
+  .gif-back-btn {
+    padding: 6px 9px;
+    font-size: 0.75rem;
+  }
+
+  .gif-category-tile {
+    min-height: 0;
+    padding: 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    align-items: flex-start;
+    justify-content: flex-end;
+  }
+
+  .gif-category-tile::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.08) 20%, rgba(0, 0, 0, 0.62) 100%);
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .gif-tile-icon,
+  .gif-trend-icon {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    margin: 0;
+    z-index: 2;
+  }
+
+  .gif-tile-bg {
+    opacity: 0.58;
+  }
+
+  .gif-tile-label {
+    width: 100%;
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.2;
+    padding: 3px 7px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.34);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    z-index: 2;
+  }
+
+  .gif-tile-count {
+    margin-top: 3px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    z-index: 2;
+  }
+
+  .emoji-search-container.mobile-search-popout,
+  .gif-search-container.gif-search-popout {
+    position: relative;
+    left: auto;
+    right: auto;
+    z-index: auto;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+    background: color-mix(in srgb, var(--bg-secondary) 86%, transparent 14%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    margin: 6px 8px 8px;
+    animation: mobileSearchReveal 0.16s ease-out;
+  }
+
+  .emoji-search-container.mobile-search-popout {
+    top: auto;
+  }
+
+  .gif-search-container.gif-search-popout {
+    top: auto;
+  }
+
+  @keyframes mobileSearchReveal {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+@media (max-width: 420px) {
+  .sticker-panel {
+    flex-basis: 44vh;
+    height: 44vh;
+  }
+
+  .emoji-grid {
+    grid-template-columns: repeat(9, 1fr);
+  }
+
+  .emoji-item {
+    font-size: 1.05rem;
+    padding: 2px;
+  }
+
+  .gif-categories-grid.gif-categories-grid-full {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
 }

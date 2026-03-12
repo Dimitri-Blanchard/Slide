@@ -127,6 +127,35 @@
   text-decoration: underline;
 }
 
+/* Light theme: Contents list items must be black for readability on white/light background */
+[data-theme="light"] .legal-toc h3,
+[data-theme="light"] .legal-toc a {
+  color: #0f1117;
+}
+
+[data-theme="light"] .legal-toc a:hover {
+  color: var(--accent);
+}
+
+/* Default (no data-theme yet): also use black for public pages like /privacy */
+html:not([data-theme="dark"]) .legal-toc h3,
+html:not([data-theme="dark"]) .legal-toc a {
+  color: #0f1117;
+}
+
+html:not([data-theme="dark"]) .legal-toc a:hover {
+  color: var(--accent);
+}
+
+/* Dark theme: use accent for links */
+[data-theme="dark"] .legal-toc h3 {
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .legal-toc a {
+  color: var(--accent);
+}
+
 /* Main content - allow text selection for copying */
 .legal-content {
   font-size: 1rem;

@@ -76,7 +76,29 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId }) {
   const { settings } = useSettings();
   const { inputs, outputs } = useMediaDevices();
   const [openDropdown, setOpenDropdown] = useState(null);
+  const [showJoinConfirm, setShowJoinConfirm] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinSheetDragY, setJoinSheetDragY] = useState(0);
+  const [isJoinSheetDragging, setIsJoinSheetDragging] = useState(false);
+  const [isJoinSheetClosing, setIsJoinSheetClosing] = useState(false);
+  const [isPhoneScreen, setIsPhoneScreen] = useState(
+    () => (typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false)
+  );
   const dropdownRef = useRef(null);
+  const joinSheetStartYRef = useRef(0);
+  const joinSheetDragYRef = useRef(0);
+  const joinSheetDraggingRef = useRef(false);
+  const joinSheetCloseTimerRef = useRef(null);
+
+  useEffect(() => {
+    joinSheetDragYRef.current = joinSheetDragY;
+  }, [joinSheetDragY]);
+
+  useEffect(() => () => {
+    if (joinSheetCloseTimerRef.current) {
+      window.clearTimeout(joinSheetCloseTimerRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     const onClick = (e) => {
@@ -87,6 +109,62 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId }) {
     document.addEventListener('click', onClick);
     return () => document.removeEventListener('click', onClick);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
+    const onChange = (event) => setIsPhoneScreen(event.matches);
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', onChange);
+    } else {
+      mediaQuery.addListener(onChange);
+    }
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', onChange);
+      } else {
+        mediaQuery.removeListener(onChange);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showJoinConfirm) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        closeJoinSheet(true);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [showJoinConfirm]);
+
+  const resetJoinSheetMotion = () => {
+    setJoinSheetDragY(0);
+    setIsJoinSheetDragging(false);
+    setIsJoinSheetClosing(false);
+    joinSheetDraggingRef.current = false;
+  };
+
+  const closeJoinSheet = (animated = true) => {
+    if (joinSheetCloseTimerRef.current) {
+      window.clearTimeout(joinSheetCloseTimerRef.current);
+      joinSheetCloseTimerRef.current = null;
+    }
+    if (!animated) {
+      setShowJoinConfirm(false);
+      resetJoinSheetMotion();
+      return;
+    }
+    setIsJoinSheetClosing(true);
+    setIsJoinSheetDragging(false);
+    setJoinSheetDragY((prev) => Math.max(prev, 140));
+    joinSheetCloseTimerRef.current = window.setTimeout(() => {
+      setShowJoinConfirm(false);
+      resetJoinSheetMotion();
+      joinSheetCloseTimerRef.current = null;
+    }, 220);
+  };
 
   const isConnected = voiceChannelId === channel?.id;
   const channelUsers = voiceUsers[channel?.id] || [];
@@ -99,15 +177,56 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId }) {
     });
   }, [channelUsers, user?.id]);
 
-  const handleJoin = () => {
-    if (channel && teamId) {
-      joinVoice(channel.id, parseInt(teamId, 10), channel.name);
+  const handleJoinRequest = () => {
+    if (!channel || !teamId) return;
+    if (isPhoneScreen) {
+      resetJoinSheetMotion();
+      setShowJoinConfirm(true);
+      return;
     }
+    joinVoice(channel.id, parseInt(teamId, 10), channel.name);
+  };
+
+  const handleJoinConfirm = async () => {
+    if (!channel || !teamId || isJoining) return;
+    try {
+      setIsJoining(true);
+      await joinVoice(channel.id, parseInt(teamId, 10), channel.name);
+      closeJoinSheet(false);
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
+  const handleJoinSheetTouchStart = (event) => {
+    if (!event.touches?.length) return;
+    joinSheetDraggingRef.current = true;
+    joinSheetStartYRef.current = event.touches[0].clientY - joinSheetDragYRef.current;
+    setIsJoinSheetDragging(true);
+  };
+
+  const handleJoinSheetTouchMove = (event) => {
+    if (!joinSheetDraggingRef.current || !event.touches?.length) return;
+    const delta = event.touches[0].clientY - joinSheetStartYRef.current;
+    const nextDrag = Math.max(0, Math.min(delta, 320));
+    if (nextDrag > 0) event.preventDefault();
+    setJoinSheetDragY(nextDrag);
+  };
+
+  const handleJoinSheetTouchEnd = () => {
+    if (!joinSheetDraggingRef.current) return;
+    joinSheetDraggingRef.current = false;
+    setIsJoinSheetDragging(false);
+    if (joinSheetDragYRef.current > 120) {
+      closeJoinSheet(true);
+      return;
+    }
+    setJoinSheetDragY(0);
   };
 
   return (
     <div className="voice-channel-view">
-      <div className="vc-main">
+      <div className={`vc-main ${connectionState === 'connecting' ? 'is-connecting' : ''}`}>
         <div className="vc-header-area">
           <div className="vc-channel-icon">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
@@ -143,7 +262,7 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId }) {
                 {channelUsers.length} user{channelUsers.length !== 1 ? 's' : ''} currently in voice
               </p>
             )}
-            <button className="vc-join-btn" onClick={handleJoin}>
+            <button className="vc-join-btn" onClick={handleJoinRequest}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z"/>
               </svg>
@@ -261,6 +380,46 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId }) {
           </>
         )}
       </div>
+
+      {showJoinConfirm && (
+        <div className="vc-join-sheet-layer" role="dialog" aria-modal="true" aria-label="Join voice channel">
+          <button
+            type="button"
+            className="vc-join-sheet-backdrop"
+            style={{ opacity: Math.max(0, 1 - joinSheetDragY / 280) }}
+            onClick={() => closeJoinSheet(true)}
+            aria-label="Close join prompt"
+          />
+          <div
+            className={`vc-join-sheet ${isJoinSheetDragging ? 'is-dragging' : ''} ${isJoinSheetClosing ? 'is-closing' : ''}`}
+            style={{ transform: `translateY(${joinSheetDragY}px)` }}
+          >
+            <div
+              className="vc-join-sheet-grab"
+              aria-hidden="true"
+              onTouchStart={handleJoinSheetTouchStart}
+              onTouchMove={handleJoinSheetTouchMove}
+              onTouchEnd={handleJoinSheetTouchEnd}
+              onTouchCancel={handleJoinSheetTouchEnd}
+            />
+            <p className="vc-join-sheet-kicker">Voice channel</p>
+            <h3 className="vc-join-sheet-title">Join #{channel?.name || 'Voice Channel'}?</h3>
+            <p className="vc-join-sheet-desc">
+              You will connect your audio to this channel and start hearing everyone inside.
+            </p>
+            <div className="vc-join-sheet-actions">
+              <button
+                type="button"
+                className="vc-join-sheet-btn vc-join-sheet-btn-primary"
+                onClick={handleJoinConfirm}
+                disabled={isJoining}
+              >
+                {isJoining ? 'Joining...' : 'Join channel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 });

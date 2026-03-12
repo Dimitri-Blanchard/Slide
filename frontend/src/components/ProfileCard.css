@@ -785,6 +785,99 @@
   font-size: 0.875rem;
 }
 
+/* ── Mobile: bottom sheet (same style as join channel modal) ── */
+@media (max-width: 768px) {
+  .profile-card-sheet-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: flex-end;
+    justify-content: stretch;
+  }
+
+  .profile-card-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: rgba(0, 0, 0, 0.46);
+    cursor: pointer;
+    transition: opacity 0.18s linear;
+  }
+
+  .profile-card-sheet {
+    position: relative;
+    width: 100%;
+    margin-top: auto;
+    max-height: 98vh;
+    border-radius: 36px 36px 0 0;
+    border-top: 1px solid color-mix(in srgb, var(--border-subtle) 88%, transparent);
+    background: linear-gradient(175deg, var(--bg-secondary) 0%, color-mix(in srgb, var(--bg-primary) 84%, #000 16%) 100%);
+    box-shadow: 0 -16px 42px rgba(0, 0, 0, 0.38);
+    padding: 0 0 calc(env(safe-area-inset-bottom));
+    animation: profileCardSheetUp 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .profile-card-sheet.profile-card-popup {
+    width: 100%;
+    max-width: none;
+    top: auto !important;
+    left: auto !important;
+    border-radius: 36px 36px 0 0;
+    border: none;
+    border-top: 1px solid color-mix(in srgb, var(--border-subtle) 88%, transparent);
+    box-shadow: 0 -16px 42px rgba(0, 0, 0, 0.38);
+    animation: profileCardSheetUp 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .profile-card-sheet-grab {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 50px;
+    height: 5px;
+    border-radius: 999px;
+    flex-shrink: 0;
+    z-index: 2;
+    background: color-mix(in srgb, var(--text-muted) 70%, transparent);
+    touch-action: none;
+  }
+
+  .profile-card-sheet .profile-card-banner {
+    order: -1;
+    border-radius: 36px 36px 0 0;
+    overflow: hidden;
+  }
+
+  .profile-card-sheet .profile-effect-overlay {
+    border-radius: 36px 36px 0 0;
+  }
+
+  .profile-card-sheet .profile-card-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@keyframes profileCardSheetUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ── Card variant (centered overlay, e.g. profileStyle=card) ── */
 .profile-card-overlay {
   position: fixed;

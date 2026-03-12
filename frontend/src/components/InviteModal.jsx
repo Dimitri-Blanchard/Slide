@@ -208,7 +208,19 @@ export function ShareInviteModal({ isOpen, onClose, team, channels = [] }) {
           setActiveInvite(created);
         }
       } catch (err) {
-        console.error(err);
+        // Some roles can create invites but cannot list all server invites.
+        if (err?.status === 403) {
+          try {
+            const created = await servers.createInvite(team.id, { maxAgeHours: 168 });
+            setActiveInvite(created);
+          } catch (createErr) {
+            console.error(createErr);
+            notify.error(createErr?.message || (t('invite.createError') || 'Failed to generate invite link'));
+          }
+        } else {
+          console.error(err);
+          notify.error(err?.message || (t('invite.loadError') || 'Failed to load invite link'));
+        }
       }
       setLoading(false);
     };

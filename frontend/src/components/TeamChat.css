@@ -10,6 +10,18 @@
   background: var(--bg-primary);
 }
 
+/* When picker + members are visible, allow horizontal scroll instead of overlap. */
+.team-view.sticker-panel-open {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+@media (max-width: 768px) {
+  .team-view.sticker-panel-open {
+    overflow: hidden;
+  }
+}
+
 .team-loading {
   flex: 1;
   display: flex;
@@ -186,7 +198,9 @@
 }
 
 /* Responsive */
-@media (max-width: 900px) {
+/* Hide members list a bit earlier on smaller desktop widths so
+   chat content never sits underneath the right panel. */
+@media (max-width: 1180px) {
   .team-view .members-panel {
     display: none;
   }
@@ -210,6 +224,12 @@
 
   .team-view.mobile-channels-open > .channel-sidebar {
     transform: translateX(0);
+  }
+
+  /* When channel list is open on mobile, fully hide chat content behind it. */
+  .team-view.mobile-channels-open .team-chat,
+  .team-view.mobile-channels-open .members-panel {
+    display: none;
   }
 
   /* No dark overlay needed — channel list is full-width, nothing visible behind it */

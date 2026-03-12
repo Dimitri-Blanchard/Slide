@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { ChevronDown, Phone } from 'lucide-react';
+import { ChevronDown, Phone, Radio, Users } from 'lucide-react';
 import { useVoice } from '../context/VoiceContext';
 import { useAuth } from '../context/AuthContext';
 import VoiceUserProfileBar from './VoiceUserProfileBar';
@@ -69,11 +69,30 @@ const VoiceFullscreenOverlay = memo(function VoiceFullscreenOverlay({ isMobile, 
           />
         ) : (
           <div className="voice-fullscreen-channel">
-            <div className="voice-fullscreen-channel-info">
-              <h2 className="voice-fullscreen-channel-title">#{displayName}</h2>
-              <p className="voice-fullscreen-channel-desc">Voice channel</p>
+            <div className="voice-fullscreen-channel-orb" aria-hidden="true" />
+            <div className="voice-fullscreen-channel-shell">
+              <div className="voice-fullscreen-channel-pill">
+                <Radio size={14} strokeWidth={2.5} />
+                <span>Live voice channel</span>
+              </div>
+              <div className="voice-fullscreen-channel-info">
+                <h2 className="voice-fullscreen-channel-title">#{displayName}</h2>
+                <p className="voice-fullscreen-channel-desc">
+                  You are connected and ready to talk with your team.
+                </p>
+              </div>
+              <div className="voice-fullscreen-channel-stats">
+                <div className="voice-fullscreen-channel-stat">
+                  <Phone size={15} strokeWidth={2.3} />
+                  <span>Connected</span>
+                </div>
+                <div className="voice-fullscreen-channel-stat">
+                  <Users size={15} strokeWidth={2.3} />
+                  <span>Channel room</span>
+                </div>
+              </div>
+              <VoiceUserProfileBar />
             </div>
-            <VoiceUserProfileBar />
           </div>
         )}
       </div>

@@ -1,0 +1,53 @@
+# ─── Environment / Secrets ────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+# Keep .env.example and .env.capacitor (no secrets, just public config)
+!.env.example
+!.env.capacitor
+
+# ─── Dependencies ─────────────────────────────────────────────────────────────
+node_modules/
+*/node_modules/
+
+# ─── Build outputs ────────────────────────────────────────────────────────────
+frontend/dist/
+frontend/release/
+frontend/.vite/
+
+# ─── Download binaries (too large for GitHub, add manually to server) ─────────
+frontend/public/downloads/*.rar
+frontend/public/downloads/*.apk
+frontend/public/downloads/*.exe
+
+# ─── Electron ─────────────────────────────────────────────────────────────────
+frontend/electron/.env
+# Keep .env.example
+!frontend/electron/.env.example
+
+# ─── Android / Capacitor ──────────────────────────────────────────────────────
+frontend/android/.gradle/
+frontend/android/app/build/
+frontend/android/build/
+frontend/android/local.properties
+
+# ─── Backend uploads (user content, not source code) ──────────────────────────
+backend/public/uploads/
+# Keep the directories themselves
+!backend/public/uploads/.gitkeep
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# ─── OS / Editor ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+.idea/
+
+# ─── SSL certs (generated locally) ───────────────────────────────────────────
+backend/certs/*.pem
+backend/certs/*.key
+backend/certs/*.crt

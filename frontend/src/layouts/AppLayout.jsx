@@ -21,16 +21,13 @@ const QuestsPage = lazy(() => import('../pages/QuestsPage'));
 const SecurityDashboard = lazy(() => import('../pages/SecurityDashboard'));
 const CommunityServersPage = lazy(() => import('../pages/CommunityServersPage'));
 import SearchModal from '../components/SearchModal';
-import ActiveCallsPanel from '../components/ActiveCallsPanel';
 import VoiceFullscreenOverlay from '../components/VoiceFullscreenOverlay';
-import DMCallPiP from '../components/DMCallPiP';
 import ServerErrorBoundary from '../components/ServerErrorBoundary';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useOffline } from '../context/OfflineContext';
 import { useScene } from '../context/SceneContext';
 import { useNotification } from '../context/NotificationContext';
-import { useVoice } from '../context/VoiceContext';
 import Settings from '../pages/Settings';
 import './AppLayout.css';
 
@@ -105,6 +102,11 @@ function setCachedTeams(teams) {
   }
 }
 
+function sanitizeTeamsList(list) {
+  if (!Array.isArray(list)) return [];
+  return list.filter((team) => team && team.id != null);
+}
+
 function useAppParams() {
   const { pathname } = useLocation();
   return useMemo(() => {
@@ -128,7 +130,7 @@ function AppLayout() {
 
   // Initialize from cache for instant display
   const [teams, setTeams] = useState(() => {
-    return Array.isArray(initialTeamsCache) ? initialTeamsCache : [];
+    return sanitizeTeamsList(initialTeamsCache);
   });
   const [conversations, setConversations] = useState(() => (Array.isArray(initialConversationsCache) ? initialConversationsCache : []));
   const [conversationsLoaded, setConversationsLoaded] = useState(() => hasInitialConversationsCache);
@@ -139,7 +141,6 @@ function AppLayout() {
   // Mobile bottom nav tab: home (DMs + servers) | notifications | profile
   const [mobileTab, setMobileTab] = useState('home');
   const { user } = useAuth();
-  const { voiceConversationId } = useVoice();
   const { inboxItems } = useNotification();
   const socket = useSocket();
   const { registerKeybindHandler } = useSettings();
@@ -246,7 +247,7 @@ function AppLayout() {
   const silentSync = useCallback((onConversationsReady) => {
     const teamsPromise = teamsApi.list()
       .then((teamsList) => {
-        if (Array.isArray(teamsList)) setTeams(teamsList);
+        if (Array.isArray(teamsList)) setTeams(sanitizeTeamsList(teamsList));
       })
       .catch((err) => { console.warn('Teams sync failed:', err); });
 
@@ -292,7 +293,7 @@ function AppLayout() {
   // Save to cache whenever teams change
   useEffect(() => {
     if (teams.length > 0) {
-      setCachedTeams(teams);
+      setCachedTeams(sanitizeTeamsList(teams));
     }
   }, [teams]);
 
@@ -317,8 +318,8 @@ function AppLayout() {
   // Join all team rooms to receive server_updated (icon, name, etc.) for sidebar
   useEffect(() => {
     if (!socket || teams.length === 0) return;
-    teams.forEach((t) => socket.emit('join_team', t.id));
-    return () => teams.forEach((t) => socket.emit('leave_team', t.id));
+    teams.forEach((t) => t?.id != null && socket.emit('join_team', t.id));
+    return () => teams.forEach((t) => t?.id != null && socket.emit('leave_team', t.id));
   }, [socket, teams]);
 
   // Listen to real-time team events
@@ -327,39 +328,47 @@ function AppLayout() {
 
     // Team created (when current user creates a team)
     const onTeamCreated = ({ team }) => {
+      if (!team || team.id == null) return;
       setTeams((prev) => {
-        if (prev.some((t) => t.id === team.id)) return prev;
-        return [...prev, { ...team, unread_count: 0, mention_count: 0, has_unread: false }];
+        const safePrev = sanitizeTeamsList(prev);
+        if (safePrev.some((t) => t.id === team.id)) return safePrev;
+        return [...safePrev, { ...team, unread_count: 0, mention_count: 0, has_unread: false }];
       });
     };
 
     // Team updated (name/description changed) or server_updated (icon, settings)
     const onTeamUpdated = ({ team }) => {
-      setTeams((prev) => prev.map((t) => (t.id === team.id ? { ...t, ...team } : t)));
+      if (!team || team.id == null) return;
+      setTeams((prev) => sanitizeTeamsList(prev).map((t) => (t.id === team.id ? { ...t, ...team } : t)));
     };
     const onServerUpdated = ({ team }) => {
-      setTeams((prev) => prev.map((t) => (t.id === team.id ? { ...t, ...team } : t)));
+      if (!team || team.id == null) return;
+      setTeams((prev) => sanitizeTeamsList(prev).map((t) => (t.id === team.id ? { ...t, ...team } : t)));
     };
 
     // Added to a team by someone else
     const onAddedToTeam = ({ team }) => {
+      if (!team || team.id == null) return;
       setTeams((prev) => {
-        if (prev.some((t) => t.id === team.id)) return prev;
-        return [...prev, { ...team, unread_count: 0, mention_count: 0, has_unread: false }];
+        const safePrev = sanitizeTeamsList(prev);
+        if (safePrev.some((t) => t.id === team.id)) return safePrev;
+        return [...safePrev, { ...team, unread_count: 0, mention_count: 0, has_unread: false }];
       });
     };
 
     // Joined a team via invite link (we initiated the join)
     const onJoinedTeam = ({ team }) => {
+      if (!team || team.id == null) return;
       setTeams((prev) => {
-        if (prev.some((t) => t.id === team.id)) return prev;
-        return [...prev, { ...team, unread_count: 0, mention_count: 0, has_unread: false }];
+        const safePrev = sanitizeTeamsList(prev);
+        if (safePrev.some((t) => t.id === team.id)) return safePrev;
+        return [...safePrev, { ...team, unread_count: 0, mention_count: 0, has_unread: false }];
       });
     };
 
     // Removed from a team
     const onRemovedFromTeam = ({ teamId }) => {
-      setTeams((prev) => prev.filter((t) => t.id !== teamId));
+      setTeams((prev) => sanitizeTeamsList(prev).filter((t) => t.id !== teamId));
       // If we were viewing this team, navigate away
       if (params.teamId === String(teamId)) {
         navigate('/channels/@me');
@@ -372,7 +381,7 @@ function AppLayout() {
       if (params.teamId === String(teamId)) return;
 
       setTeams((prev) => prev.map((t) => {
-        if (t.id === teamId) {
+        if (t?.id === teamId) {
           return {
             ...t,
             has_unread: hasUnread,
@@ -395,7 +404,7 @@ function AppLayout() {
       if (params.teamId === String(teamId)) return;
       
       setTeams((prev) => prev.map((t) => {
-        if (t.id === teamId) {
+        if (t?.id === teamId) {
           return {
             ...t,
             has_unread: true,
@@ -570,13 +579,25 @@ function AppLayout() {
     teamsApi.list()
       .then((teamsList) => {
         if (Array.isArray(teamsList)) {
-          setTeams(teamsList);
-          setCachedTeams(teamsList);
+          const safeTeams = sanitizeTeamsList(teamsList);
+          setTeams(safeTeams);
+          setCachedTeams(safeTeams);
         }
       })
       .catch((err) => {
         console.error('Erreur refresh teams:', err);
       });
+  }, []);
+
+  const handleTeamsChange = useCallback((nextTeamsOrUpdater) => {
+    if (typeof nextTeamsOrUpdater === 'function') {
+      setTeams((prev) => {
+        const safePrev = sanitizeTeamsList(prev);
+        return sanitizeTeamsList(nextTeamsOrUpdater(safePrev));
+      });
+      return;
+    }
+    setTeams(sanitizeTeamsList(nextTeamsOrUpdater));
   }, []);
 
   // Keep DM participant names synced when friend relations change.
@@ -694,7 +715,7 @@ function AppLayout() {
   // Remove team from list when user leaves (and update cache) - avoids stale server in bar
   const onLeaveServer = useCallback((teamId) => {
     setTeams((prev) => {
-      const next = prev.filter((t) => t.id !== parseInt(teamId, 10));
+      const next = sanitizeTeamsList(prev).filter((t) => t.id !== parseInt(teamId, 10));
       setCachedTeams(next);
       return next;
     });
@@ -753,7 +774,7 @@ function AppLayout() {
                 teams={teams}
                 currentTeamId={params.teamId}
                 currentConversationId={params.conversationId}
-                onTeamsChange={setTeams}
+                onTeamsChange={handleTeamsChange}
                 onLeaveServer={onLeaveServer}
                 isMobile={true}
               />
@@ -815,8 +836,6 @@ function AppLayout() {
           </div>
         </div>
 
-        <ActiveCallsPanel />
-
         <VoiceFullscreenOverlay isMobile={true} conversations={conversations} />
 
         {!(params.channelId || params.conversationId) && (
@@ -855,18 +874,9 @@ function AppLayout() {
   }
   // ── End mobile layout ────────────────────────────────────────────────────────
 
-  // Hide sidebar when viewing a team (server) or community page (full-screen)
+  // Hide sidebar only when viewing a team (server) or community page (full-screen).
+  // DM list remains visible on desktop while opening direct messages.
   const showSidebar = !params.teamId && pathname !== '/community';
-  const shouldShowDmPiP = !!voiceConversationId && String(voiceConversationId) !== String(params.conversationId);
-  const pipConversation = shouldShowDmPiP
-    ? conversations.find((c) => Number(c.conversation_id) === Number(voiceConversationId))
-    : null;
-  const pipName = pipConversation?.is_group
-    ? (pipConversation?.group_name || 'Group call')
-    : pipConversation?.participants?.find((p) => p.id !== user?.id)?.display_name || 'Call';
-  const pipAvatar = pipConversation?.is_group
-    ? null
-    : pipConversation?.participants?.find((p) => p.id !== user?.id)?.avatar_url || null;
 
   return (
     <div className={`app-layout scene-${scene} ${mobileNavOpen ? 'mobile-nav-open' : ''}`}>
@@ -894,23 +904,23 @@ function AppLayout() {
         teams={teams}
         currentTeamId={params.teamId}
         currentConversationId={params.conversationId}
-        onTeamsChange={setTeams}
+        onTeamsChange={handleTeamsChange}
         onLeaveServer={onLeaveServer}
       />
       {showSidebar && (
         <ErrorBoundary fallback={<aside className="sidebar" style={{ padding: '1rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>DMs unavailable</aside>}>
-        <Sidebar
-          user={user}
-          conversations={conversations}
-          currentConversationId={params.conversationId}
-          onRefreshConversations={refreshConversations}
-          onAddConversation={addConversation}
-          onRemoveConversation={removeConversationLocal}
-          onRestoreConversation={restoreConversationLocal}
-          loading={loading}
-          conversationsLoaded={conversationsLoaded}
-          onOpenSearch={() => setShowSearch(true)}
-        />
+          <Sidebar
+            user={user}
+            conversations={conversations}
+            currentConversationId={params.conversationId}
+            onRefreshConversations={refreshConversations}
+            onAddConversation={addConversation}
+            onRemoveConversation={removeConversationLocal}
+            onRestoreConversation={restoreConversationLocal}
+            loading={loading}
+            conversationsLoaded={conversationsLoaded}
+            onOpenSearch={() => setShowSearch(true)}
+          />
         </ErrorBoundary>
       )}
       <main className="app-main">
@@ -958,8 +968,6 @@ function AppLayout() {
       </main>
       {!params.teamId && !params.conversationId && <ActiveNow />}
 
-      <ActiveCallsPanel />
-      
       {params.isSettings && <Settings />}
       
       <SearchModal
@@ -968,14 +976,6 @@ function AppLayout() {
         conversations={conversations}
         teams={teams}
       />
-
-      {shouldShowDmPiP && (
-        <DMCallPiP
-          conversationId={voiceConversationId}
-          conversationName={pipName}
-          avatarUrl={pipAvatar}
-        />
-      )}
 
     </div>
   );

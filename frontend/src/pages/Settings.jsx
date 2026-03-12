@@ -2071,7 +2071,7 @@ export default function Settings() {
             )}
             
             {/* Backup codes section — shown when 2FA is active */}
-            {(profile?.totp_enabled ?? user?.totp_enabled) && (
+            {!!(profile?.totp_enabled ?? user?.totp_enabled) && (
               <>
                 <SettingsDivider title="Codes de récupération 2FA" />
                 <div className="backup-codes-section">

@@ -233,7 +233,7 @@ export default function UserPanel() {
             if (!showStatusMenu && statusTriggerRef.current) {
               const rect = statusTriggerRef.current.getBoundingClientRect();
               setPickerPos({
-                bottom: window.innerHeight - rect.top + 8,
+                bottom: window.innerHeight - rect.bottom + 8,
                 left: rect.left,
               });
             }

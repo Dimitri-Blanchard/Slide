@@ -133,6 +133,14 @@ function DownloadIcon() {
   );
 }
 
+function AndroidIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.43 11.43 0 0 0-8.94 0L5.65 5.67c-.19-.28-.54-.37-.83-.22-.3.16-.42.54-.26.85l1.84 3.18C4.18 11.06 2 14.5 2 18.5h20c0-4-2.18-7.44-5.4-9.02zM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z" />
+    </svg>
+  );
+}
+
 function GlobeIcon() {
   return (
     <svg className="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -289,42 +297,12 @@ function TrustBar() {
   );
 }
 
-function Testimonials() {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: '-80px' });
-  const testimonials = [
-    { quote: 'Slide replaced our old chat tool. Setup took 5 minutes. Voice channels work flawlessly.', name: 'Alex Chen', role: 'Engineering Lead' },
-    { quote: 'Privacy-focused messaging that actually respects users. No data mining, no ads.', name: 'Jordan Miller', role: 'CTO' },
-    { quote: 'Clean UI, fast sync, zero bloat. Exactly what we needed for our remote team.', name: 'Taylor Kim', role: 'Product Manager' },
-  ];
-
-  return (
-    <section className="testimonials">
-      <div className="section-header">
-        <h2 className="section-title">Loved by teams</h2>
-        <p className="section-subtitle">See what people are saying about Slide</p>
-      </div>
-      <motion.div ref={ref} className="testimonials-grid" initial={{ opacity: 0, y: 24 }} animate={isInView ? { opacity: 1, y: 0 } : {}}>
-        {testimonials.map((t) => (
-          <blockquote key={t.name} className="testimonial-card">
-            <p className="testimonial-quote">{t.quote}</p>
-            <footer className="testimonial-author">
-              <span className="testimonial-name">{t.name}</span>
-              <span className="testimonial-role">{t.role}</span>
-            </footer>
-          </blockquote>
-        ))}
-      </motion.div>
-    </section>
-  );
-}
-
 function Download() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: '-80px' });
   const platforms = [
-    { id: 'windows', name: 'Windows', desc: 'Windows 10/11 (64-bit)', href: '/downloads/Slide-Setup-1.0.0.exe', label: 'Download .exe', size: '~90 MB' },
-    { id: 'android', name: 'Android', desc: 'APK - 64-bit', href: '/downloads/Slide-1.0.0.apk', label: 'Download .apk', size: null },
+    { id: 'windows', name: 'Windows', desc: 'Windows 10/11 (64-bit)', href: '/downloads/Slide_Alpha_v0.0.1.rar', label: 'Download for Windows', iconImg: '/assets/windows-icon.png' },
+    { id: 'android', name: 'Android', desc: 'APK · 64-bit', href: '/downloads/Slide_Alpha_v0.0.1.apk', label: 'Download for Android', Icon: AndroidIcon },
   ];
 
   const trackDownload = (platform) => {
@@ -337,27 +315,31 @@ function Download() {
     <section id="download" className="download">
       <div className="download-bg" />
       <div className="section-header">
+        <span className="download-badge">Alpha v0.0.1</span>
         <h2 className="section-title">Download Slide</h2>
-        <p className="section-subtitle">Available for Windows and Android</p>
+        <p className="section-subtitle">Choose your platform — free, no account required</p>
       </div>
       <motion.div ref={ref} className="download-cards" initial="hidden" animate={isInView ? 'visible' : 'hidden'} variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}>
         {platforms.map((p) => (
-          <motion.div key={p.id} className="download-card" variants={{ hidden: { opacity: 0, y: 24 }, visible: { opacity: 1, y: 0 } }}>
-            <div className="download-icon" aria-hidden>
-              <DownloadIcon />
+          <motion.div key={p.id} className={`download-card download-card--${p.id}`} variants={{ hidden: { opacity: 0, y: 24 }, visible: { opacity: 1, y: 0 } }}>
+            <div className="download-card-icon" aria-hidden>
+              {p.iconImg ? (
+                <img src={p.iconImg} alt="" className="download-card-icon-img" />
+              ) : (
+                <p.Icon />
+              )}
             </div>
-            <h3>{p.name}</h3>
-            <p>{p.desc}</p>
-            <a href={p.href} className="btn btn-primary download-btn" download onClick={() => trackDownload(p.id)}>
-              <DownloadIcon />
-              {p.label}
-            </a>
-            {p.size && <span className="download-size">{p.size}</span>}
-          </motion.div>
+              <h3>{p.name}</h3>
+              <p className="download-card-desc">{p.desc}</p>
+              <a href={p.href} className="btn btn-primary download-btn" download onClick={() => trackDownload(p.id)}>
+                <DownloadIcon />
+                {p.label}
+              </a>
+            </motion.div>
         ))}
       </motion.div>
-      <p className="download-note">
-        Build with <code>npm run electron:build</code> in the Slide project, then copy installers to <code>downloads/</code> or update links above.
+      <p className="download-web-hint">
+        Prefer the browser? <Link to="/login">Open Slide in Web</Link> — no install needed.
       </p>
     </section>
   );
@@ -497,7 +479,6 @@ export default function LandingPage() {
         <Hero />
         <TrustBar />
         <Features />
-        <Testimonials />
         <Download />
         <About />
         <FAQ />

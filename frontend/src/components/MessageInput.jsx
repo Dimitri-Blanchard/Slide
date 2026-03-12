@@ -18,6 +18,20 @@ function formatFileSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
+function getAttachmentKind(file) {
+  if (!file) return 'file';
+  const type = (file.type || '').toLowerCase();
+  const name = (file.name || '').toLowerCase();
+
+  if (type.startsWith('image/')) return 'image';
+  if (type.startsWith('video/')) return 'video';
+
+  if (/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name)) return 'image';
+  if (/\.(mp4|webm|mov|m4v|avi|mkv)$/i.test(name)) return 'video';
+
+  return 'file';
+}
+
 const MessageInput = memo(forwardRef(function MessageInput({
   onSend,
   onUpload,
@@ -148,23 +162,37 @@ const MessageInput = memo(forwardRef(function MessageInput({
     if (!isMobile) inputRef.current?.focus();
   }, [placeholder]);
 
-  // Generate preview for images
+  const fileKind = getAttachmentKind(selectedFile);
+  const isImage = fileKind === 'image';
+  const isVideo = fileKind === 'video';
+
+  // Generate preview for images and videos
   useEffect(() => {
     if (!selectedFile) {
       setPreview(null);
       return;
     }
     
-    if (selectedFile.type.startsWith('image/')) {
+    if (fileKind === 'image') {
       const reader = new FileReader();
       reader.onloadend = () => setPreview(reader.result);
       reader.readAsDataURL(selectedFile);
+      return () => setPreview(null);
+    }
+
+    if (fileKind === 'video') {
+      const objectUrl = URL.createObjectURL(selectedFile);
+      setPreview(objectUrl);
+      return () => {
+        URL.revokeObjectURL(objectUrl);
+        setPreview(null);
+      };
     } else {
       setPreview(null);
     }
     
     return () => setPreview(null);
-  }, [selectedFile]);
+  }, [selectedFile, fileKind]);
 
   // Focus global : si on tape n'importe où et qu'on n'est pas dans un autre input
   useEffect(() => {
@@ -472,8 +500,6 @@ const MessageInput = memo(forwardRef(function MessageInput({
     }
   }, [onToggleStickerPanel]);
 
-  const isImage = selectedFile?.type.startsWith('image/');
-
   // Show locked state if user lacks send permission
   if (!canSend) {
     return (
@@ -547,9 +573,35 @@ const MessageInput = memo(forwardRef(function MessageInput({
       
       {/* File Preview */}
       {selectedFile && (
-        <div className={`file-preview ${isImage ? 'image' : 'file'}`}>
-          {isImage && preview ? (
-            <img src={preview} alt={t('chat.preview')} className="file-preview-image" />
+        <div className={`file-preview ${(isImage || isVideo) ? 'media' : 'file'} ${isVideo ? 'video' : ''}`}>
+          {(isImage || isVideo) && preview ? (
+            <div className="file-preview-media">
+              {isImage ? (
+                <img src={preview} alt={t('chat.preview')} className="file-preview-image" />
+              ) : (
+                <div className="file-preview-video-compact">
+                  <div className="file-preview-video-thumb-wrap">
+                    <video
+                      src={preview}
+                      className="file-preview-video-thumb"
+                      preload="metadata"
+                      muted
+                      playsInline
+                    />
+                    <span className="file-preview-video-play" aria-hidden="true">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+                        <path d="M8 5v14l11-7z" fill="currentColor"/>
+                      </svg>
+                    </span>
+                  </div>
+                </div>
+              )}
+              <div className="file-preview-media-meta">
+                <span className="file-preview-media-type">{isVideo ? 'Video' : t('chat.image')}</span>
+                <span className="file-preview-name">{selectedFile.name}</span>
+                <span className="file-preview-size">{formatFileSize(selectedFile.size)}</span>
+              </div>
+            </div>
           ) : (
             <div className="file-preview-info">
               <span className="file-preview-icon">

@@ -1010,12 +1010,21 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   );
 
   const swipeHandlers = isMobile && teamId
-    ? { onTouchStart: swipeBack.onTouchStart, onTouchMove: swipeBack.onTouchMove, onTouchEnd: swipeBack.onTouchEnd }
+    ? {
+        onTouchStart: swipeBack.onTouchStart,
+        onTouchMove: swipeBack.onTouchMove,
+        onTouchEnd: swipeBack.onTouchEnd,
+        onTouchCancel: swipeBack.onTouchCancel,
+      }
     : {};
 
   return (
     <div
-      className={`team-view ${mobileChannelListOpen ? 'mobile-channels-open' : ''}`}
+      className={`team-view ${mobileChannelListOpen ? 'mobile-channels-open' : ''} ${showStickerPanel ? 'sticker-panel-open' : ''}`}
+      style={{
+        transform: isMobile ? `translateX(${swipeBack.dragOffsetX}px)` : undefined,
+        transition: isMobile && !swipeBack.isDragging ? 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
+      }}
       {...swipeHandlers}
     >
       {swipeBack.swipeProgress > 0 && channelId && (
@@ -1157,10 +1166,26 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
                 )}
               </div>
             </FileDropOverlay>
-            <StickerPicker isOpen={showStickerPanel} onClose={() => setShowStickerPanel(false)} onSelect={handleStickerSelect} onEmojiSelect={handleEmojiSelect} />
+            {isMobile && (
+              <StickerPicker
+                isOpen={showStickerPanel}
+                onClose={() => setShowStickerPanel(false)}
+                onSelect={handleStickerSelect}
+                onEmojiSelect={handleEmojiSelect}
+              />
+            )}
           </div>
         )}
       </div>
+
+      {!isMobile && (
+        <StickerPicker
+          isOpen={showStickerPanel}
+          onClose={() => setShowStickerPanel(false)}
+          onSelect={handleStickerSelect}
+          onEmojiSelect={handleEmojiSelect}
+        />
+      )}
 
       {showMembers && (
         <MembersPanel teamId={teamId} channelId={channelId} members={members} roles={roles} memberRolesMap={memberRolesMap} currentUserId={user?.id} isOwner={isOwner} canManage={canManage}

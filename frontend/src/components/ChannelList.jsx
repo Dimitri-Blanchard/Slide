@@ -495,8 +495,27 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
   const isPrivate = channel.is_private;
   const isVoice = channel.channel_type === 'voice';
   const [ctxMenu, setCtxMenu] = useState(null);
+  const [showJoinConfirm, setShowJoinConfirm] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinSheetDragY, setJoinSheetDragY] = useState(0);
+  const [isJoinSheetDragging, setIsJoinSheetDragging] = useState(false);
+  const [isJoinSheetClosing, setIsJoinSheetClosing] = useState(false);
   const { user } = useAuth();
   const { voiceUsers, speakingUsers, voiceChannelId, remoteVideoStreams, screenSharingUserIds, isScreenSharing, ownScreenStream, setExpandedLiveView, joinVoice, leaveVoice } = useVoice();
+  const joinSheetStartYRef = useRef(0);
+  const joinSheetDragYRef = useRef(0);
+  const joinSheetDraggingRef = useRef(false);
+  const joinSheetCloseTimerRef = useRef(null);
+
+  useEffect(() => {
+    joinSheetDragYRef.current = joinSheetDragY;
+  }, [joinSheetDragY]);
+
+  useEffect(() => () => {
+    if (joinSheetCloseTimerRef.current) {
+      window.clearTimeout(joinSheetCloseTimerRef.current);
+    }
+  }, []);
 
   const channelVoiceUsers = isVoice ? (voiceUsers[channel.id] || []) : [];
   const isConnected = isVoice && voiceChannelId === channel.id;
@@ -571,8 +590,88 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
     if (isConnected) {
       leaveVoice();
     } else {
-      joinVoice(channel.id, parseInt(teamId, 10), channel.name);
+      if (!isMobile) {
+        joinVoice(channel.id, parseInt(teamId, 10), channel.name);
+        return;
+      }
+      setJoinSheetDragY(0);
+      setIsJoinSheetDragging(false);
+      setIsJoinSheetClosing(false);
+      setShowJoinConfirm(true);
     }
+  };
+
+  const resetJoinSheetMotion = () => {
+    setJoinSheetDragY(0);
+    setIsJoinSheetDragging(false);
+    setIsJoinSheetClosing(false);
+    joinSheetDraggingRef.current = false;
+  };
+
+  const closeJoinSheet = (animated = true) => {
+    if (joinSheetCloseTimerRef.current) {
+      window.clearTimeout(joinSheetCloseTimerRef.current);
+      joinSheetCloseTimerRef.current = null;
+    }
+    if (!animated) {
+      setShowJoinConfirm(false);
+      resetJoinSheetMotion();
+      return;
+    }
+    setIsJoinSheetClosing(true);
+    setIsJoinSheetDragging(false);
+    setJoinSheetDragY((prev) => Math.max(prev, 140));
+    joinSheetCloseTimerRef.current = window.setTimeout(() => {
+      setShowJoinConfirm(false);
+      resetJoinSheetMotion();
+      joinSheetCloseTimerRef.current = null;
+    }, 220);
+  };
+
+  const handleConfirmJoin = async () => {
+    if (isJoining) return;
+    try {
+      setIsJoining(true);
+      await joinVoice(channel.id, parseInt(teamId, 10), channel.name);
+      closeJoinSheet(false);
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!showJoinConfirm) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') closeJoinSheet(true);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [showJoinConfirm]);
+
+  const handleJoinSheetTouchStart = (event) => {
+    if (!event.touches?.length) return;
+    joinSheetDraggingRef.current = true;
+    joinSheetStartYRef.current = event.touches[0].clientY - joinSheetDragYRef.current;
+    setIsJoinSheetDragging(true);
+  };
+
+  const handleJoinSheetTouchMove = (event) => {
+    if (!joinSheetDraggingRef.current || !event.touches?.length) return;
+    const delta = event.touches[0].clientY - joinSheetStartYRef.current;
+    const nextDrag = Math.max(0, Math.min(delta, 320));
+    if (nextDrag > 0) event.preventDefault();
+    setJoinSheetDragY(nextDrag);
+  };
+
+  const handleJoinSheetTouchEnd = () => {
+    if (!joinSheetDraggingRef.current) return;
+    joinSheetDraggingRef.current = false;
+    setIsJoinSheetDragging(false);
+    if (joinSheetDragYRef.current > 120) {
+      closeJoinSheet(true);
+      return;
+    }
+    setJoinSheetDragY(0);
   };
 
   const channelLinkContent = (
@@ -642,6 +741,46 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
           onClose={() => setCtxMenu(null)} canManage={canManage}
           onEdit={onEdit} onDelete={onDelete} onCopyId={onCopyId}
         />
+      )}
+      {showJoinConfirm && createPortal(
+        <div className="voice-join-sheet-layer" role="dialog" aria-modal="true" aria-label="Join voice channel">
+          <button
+            type="button"
+            className="voice-join-sheet-backdrop"
+            style={{ opacity: Math.max(0, 1 - joinSheetDragY / 280) }}
+            onClick={() => closeJoinSheet(true)}
+            aria-label="Close join prompt"
+          />
+          <div
+            className={`voice-join-sheet ${isJoinSheetDragging ? 'is-dragging' : ''} ${isJoinSheetClosing ? 'is-closing' : ''}`}
+            style={{ transform: `translateY(${joinSheetDragY}px)` }}
+          >
+            <div
+              className="voice-join-sheet-grab"
+              aria-hidden="true"
+              onTouchStart={handleJoinSheetTouchStart}
+              onTouchMove={handleJoinSheetTouchMove}
+              onTouchEnd={handleJoinSheetTouchEnd}
+              onTouchCancel={handleJoinSheetTouchEnd}
+            />
+            <p className="voice-join-sheet-kicker">Voice channel</p>
+            <h3 className="voice-join-sheet-title">Join #{channel.name}?</h3>
+            <p className="voice-join-sheet-desc">
+              You will connect your microphone and audio to this channel.
+            </p>
+            <div className="voice-join-sheet-actions">
+              <button
+                type="button"
+                className="voice-join-sheet-btn voice-join-sheet-btn-primary"
+                onClick={handleConfirmJoin}
+                disabled={isJoining}
+              >
+                {isJoining ? 'Joining...' : 'Join channel'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </li>
   );

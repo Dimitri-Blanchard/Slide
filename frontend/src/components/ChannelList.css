@@ -275,12 +275,12 @@
 
 /* Re-enable drag for channel reordering (overrides global -webkit-user-drag: none) */
 .channel-item-draggable {
-  cursor: grab;
+  cursor: pointer;
   -webkit-user-drag: element;
 }
 
 .channel-item-draggable:active {
-  cursor: grabbing;
+  cursor: pointer;
 }
 
 .channel-item-dragging {
@@ -439,19 +439,27 @@
 
 /* Channel hover actions (settings gear) */
 .channel-actions {
-  display: none;
+  display: flex;
   align-items: center;
   gap: 2px;
   padding-right: 6px;
   flex-shrink: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
 }
 
 .channel-item:hover .channel-actions {
-  display: flex;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .channel-item.voice-channel:has(.voice-sidebar-user:hover) .channel-actions {
-  display: none;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .channel-action-btn {
@@ -1690,6 +1698,144 @@
   color: #f04747;
 }
 
+/* Voice join confirmation sheet */
+.voice-join-sheet-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: flex;
+  align-items: flex-end;
+  justify-content: stretch;
+}
+
+.voice-join-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: rgba(0, 0, 0, 0.46);
+  cursor: pointer;
+  transition: opacity 0.18s linear;
+}
+
+.voice-join-sheet {
+  position: relative;
+  width: 100vw;
+  margin-top: auto;
+  border-radius: 36px 36px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--border-subtle) 88%, transparent);
+  background: linear-gradient(175deg, var(--bg-secondary) 0%, color-mix(in srgb, var(--bg-primary) 84%, #000 16%) 100%);
+  box-shadow: 0 -16px 42px rgba(0, 0, 0, 0.38);
+  padding: 14px 18px calc(20px + env(safe-area-inset-bottom));
+  animation: voiceJoinSheetUp 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.voice-join-sheet.is-dragging {
+  transition: none;
+}
+
+.voice-join-sheet.is-closing {
+  animation: voiceJoinSheetDown 200ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.voice-join-sheet-grab {
+  width: 50px;
+  height: 5px;
+  border-radius: 999px;
+  margin: 0 auto 14px;
+  background: color-mix(in srgb, var(--text-muted) 70%, transparent);
+  touch-action: none;
+}
+
+.voice-join-sheet-kicker {
+  margin: 0;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.voice-join-sheet-title {
+  margin: 7px 0 7px;
+  font-size: 1.2rem;
+  line-height: 1.28;
+  color: var(--text-primary);
+}
+
+.voice-join-sheet-desc {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--text-secondary, var(--text-muted));
+}
+
+.voice-join-sheet-actions {
+  margin-top: 16px;
+  display: block;
+}
+
+.voice-join-sheet-btn {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.14s ease, filter 0.14s ease;
+}
+
+.voice-join-sheet-btn:active {
+  transform: translateY(1px);
+}
+
+.voice-join-sheet-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.voice-join-sheet-btn-muted {
+  background: var(--bg-tertiary);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.voice-join-sheet-btn-primary {
+  background: var(--success, #23a55a);
+  color: #fff;
+}
+
+.voice-join-sheet-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+@keyframes voiceJoinSheetUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes voiceJoinSheetDown {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0.98;
+    transform: translateY(100%);
+  }
+}
+
 /* Responsive - Channel sidebar is shown as slide-over on mobile (see TeamChat.css) */
 @media (max-width: 768px) {
   /* On mobile, channel sidebar is full-width (see TeamChat.css) */
@@ -1736,6 +1882,16 @@
   }
   .channel-item.active .channel-name {
     font-weight: 600;
+  }
+
+  .voice-join-sheet {
+    border-radius: 32px 32px 0 0;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .voice-join-sheet-title {
+    font-size: 1.08rem;
   }
 }
 
@@ -1792,12 +1948,11 @@
 /* Channel items: opacity revelation */
 [data-theme="dark"] .channel-item {
   color: rgba(255,255,255,0.68);
-  transition: color 0.2s ease, background 0.15s ease, transform 0.2s var(--transition-spring);
+  transition: color 0.2s ease, background 0.15s ease;
 }
 [data-theme="dark"] .channel-item:hover {
   color: #ffffff;
   background: rgba(255, 255, 255, 0.08);
-  transform: translateX(2px);
 }
 [data-theme="dark"] .channel-item.active,
 [data-theme="dark"] .channel-item[data-active="true"] {

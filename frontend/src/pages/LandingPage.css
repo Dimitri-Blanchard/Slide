@@ -258,7 +258,6 @@ html {
 
 .trust-bar,
 .features,
-.testimonials,
 .download,
 .about,
 .faq {
@@ -320,7 +319,6 @@ html {
 }
 
 .features-grid,
-.testimonials-grid,
 .download-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -328,7 +326,6 @@ html {
 }
 
 .feature-card,
-.testimonial-card,
 .download-card,
 .faq-item {
   background: var(--bg-primary);
@@ -337,13 +334,11 @@ html {
 }
 
 .feature-card,
-.testimonial-card,
 .download-card {
   padding: 26px;
 }
 
 .feature-card:hover,
-.testimonial-card:hover,
 .download-card:hover {
   border-color: var(--border-strong);
   box-shadow: var(--shadow-md);
@@ -367,24 +362,9 @@ html {
 }
 
 .feature-card p,
-.testimonial-quote,
 .about-text,
 .faq-answer {
   color: var(--text-secondary);
-}
-
-.testimonial-quote {
-  margin-bottom: 16px;
-  font-style: italic;
-}
-
-.testimonial-name {
-  font-weight: 600;
-}
-
-.testimonial-role {
-  color: var(--text-muted);
-  font-size: 0.875rem;
 }
 
 .download {
@@ -401,39 +381,95 @@ html {
 
 .download .section-header,
 .download-cards,
-.download-note {
+.download-web-hint {
   position: relative;
 }
 
-.download-icon {
-  width: 64px;
-  height: 64px;
+.download-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  background: var(--accent-muted);
+  padding: 6px 12px;
+  border-radius: 999px;
+  margin-bottom: 14px;
+}
+
+.download-card-icon {
+  width: 56px;
+  height: 56px;
   margin: 0 auto 18px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: var(--radius);
+}
+
+.download-card-icon svg {
+  width: 32px;
+  height: 32px;
+}
+
+.download-card--windows .download-card-icon {
+  background: rgba(0, 120, 215, 0.2);
+}
+
+.download-card-icon-img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+/* Windows icon: tint blue (#00a4ef) */
+.download-card--windows .download-card-icon-img {
+  filter: brightness(0) saturate(100%) invert(48%) sepia(79%) saturate(2476%) hue-rotate(189deg);
+}
+
+.download-card--android .download-card-icon {
+  background: rgba(61, 220, 132, 0.2);
+  color: #3ddc84;
 }
 
 .download-card {
   text-align: center;
 }
 
+.download-card-desc {
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+  font-size: 0.9375rem;
+}
+
 .download-btn {
   width: 100%;
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
 
 .download-size,
-.download-note,
 .about-meta {
   color: var(--text-muted);
   font-size: 0.8125rem;
 }
 
-.download-note {
-  max-width: 680px;
-  margin: 26px auto 0;
+.download-web-hint {
+  max-width: 480px;
+  margin: 32px auto 0;
   text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+}
+
+.download-web-hint a {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.download-web-hint a:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
 }
 
 .about {

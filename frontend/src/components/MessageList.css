@@ -501,6 +501,15 @@
   background: var(--bg-message-hover, rgba(0, 0, 0, 0.022));
 }
 
+.message-item.reply-to-me {
+  background: rgba(240, 178, 50, 0.08);
+  box-shadow: inset 2px 0 0 rgba(240, 178, 50, 0.65);
+}
+
+.message-item.reply-to-me:hover {
+  background: rgba(240, 178, 50, 0.11);
+}
+
 /* When a message is selected (right-clicked): only it shows hover effects; others ignore hover */
 .message-list[data-has-selected] .message-item:not(.selected):hover {
   background: transparent;
@@ -734,7 +743,7 @@
 .message-body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
   flex: 1;
   position: relative;
@@ -1051,90 +1060,268 @@
 }
 
 .message-video-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-width: 400px;
+  position: relative;
+  display: block;
+  width: min(720px, 100%);
+  max-width: 720px;
   margin-top: 4px;
-  padding: 10px;
-  border-radius: 14px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 92%, #000 8%), var(--bg-secondary));
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 86%, var(--accent) 14%);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.message-video-wrap:hover {
-  border-color: color-mix(in srgb, var(--border-default) 70%, var(--accent) 30%);
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
-  transform: translateY(-1px);
-}
-
-.message-video-wrap:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 70%, var(--border-default) 30%);
-  box-shadow:
-    0 14px 30px rgba(0, 0, 0, 0.24),
-    0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 10px;
+  overflow: hidden;
 }
 
 .message-video {
   width: 100%;
-  max-height: 300px;
+  max-height: min(64vh, 520px);
   display: block;
   border-radius: 10px;
-  overflow: hidden;
-  background: #05070d;
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 82%, #000 18%);
+  background: #000;
+  border: 1px solid var(--border-subtle);
   outline: none;
+  accent-color: var(--text-secondary);
 }
 
-/* Lightweight custom skin for native controls (Chromium/WebKit) */
-.message-video::-webkit-media-controls-enclosure {
-  border-radius: 0 0 10px 10px;
-  background: linear-gradient(
-    to top,
-    rgba(6, 10, 19, 0.96) 0%,
-    rgba(6, 10, 19, 0.86) 55%,
-    rgba(6, 10, 19, 0.66) 100%
-  );
+.message-video-wrap.idle .message-video {
+  cursor: pointer;
 }
 
-.message-video::-webkit-media-controls-panel {
+.message-video-wrap.started .message-video {
+  cursor: pointer;
+}
+
+.message-video-controls {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 85%, transparent);
+  background: color-mix(in srgb, var(--bg-secondary) 92%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.message-video-control-btn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-primary);
   background: transparent;
-  padding: 0 8px 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
-.message-video::-webkit-media-controls-current-time-display,
-.message-video::-webkit-media-controls-time-remaining-display {
-  color: #f1f4ff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
-  font-size: 0.72rem;
+.message-video-control-btn:hover {
+  background: var(--bg-hover);
+}
+
+.message-video-control-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--border-default) 55%, transparent);
+}
+
+.message-video-progress,
+.message-video-volume {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  border-radius: 999px;
+  border: none;
+  background:
+    linear-gradient(
+      to right,
+      var(--text-secondary) 0%,
+      var(--text-secondary) var(--progress, 0%),
+      color-mix(in srgb, var(--border-default) 70%, transparent) var(--progress, 0%),
+      color-mix(in srgb, var(--border-default) 70%, transparent) 100%
+    );
+  cursor: pointer;
+}
+
+.message-video-progress {
+  flex: 1;
+  min-width: 0;
+}
+
+.message-video-volume {
+  width: 72px;
+}
+
+.message-video-progress::-webkit-slider-thumb,
+.message-video-volume::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--border-default) 75%, transparent);
+  background: var(--text-primary);
+}
+
+.message-video-progress::-moz-range-thumb,
+.message-video-volume::-moz-range-thumb {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--border-default) 75%, transparent);
+  background: var(--text-primary);
+}
+
+.message-video-time {
+  font-size: 0.68rem;
+  color: var(--text-primary);
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
-.message-video::-webkit-media-controls-play-button,
-.message-video::-webkit-media-controls-mute-button,
-.message-video::-webkit-media-controls-fullscreen-button {
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+.message-video-wrap:fullscreen {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  background: #000;
 }
 
-.message-video::-webkit-media-controls-timeline {
-  margin: 0 8px;
+.message-video-wrap:fullscreen .message-video {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  object-fit: contain;
+  border-radius: 0;
+  border: none;
+  background: #000;
 }
 
-.message-video::-webkit-media-controls-volume-slider {
-  max-width: 88px;
+/* When the video element itself enters fullscreen (mobile/native paths) */
+.message-video:fullscreen,
+.message-video:-webkit-full-screen {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  object-fit: contain;
+  background: #000;
+}
+
+.message-video-wrap:fullscreen .message-video-controls {
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.message-video-wrap:fullscreen .message-video-control-btn {
+  width: 28px;
+  height: 28px;
+}
+
+.message-video-wrap:fullscreen .message-video-time {
+  font-size: 0.78rem;
+}
+
+.message-video-wrap:fullscreen .message-video-volume {
+  width: 96px;
+}
+
+.message-video-center-play {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 54px;
+  height: 54px;
+  border: 1px solid var(--border-default);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 3;
+  transition: transform 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.message-video-center-play:hover {
+  transform: scale(1.03);
+  background: color-mix(in srgb, var(--bg-hover) 90%, transparent);
+  box-shadow: var(--shadow-md);
+}
+
+.message-video-center-play:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--border-default) 55%, transparent);
+}
+
+.message-video-download {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
+  color: var(--text-primary);
+  text-decoration: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 0.12s ease, transform 0.12s ease, background 0.12s ease;
+}
+
+.message-video-wrap.idle .message-video-download {
+  display: none;
+}
+
+.message-video-wrap:hover .message-video-download,
+.message-video-wrap:focus-within .message-video-download {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.message-video-download:hover {
+  background: color-mix(in srgb, var(--bg-hover) 90%, transparent);
+}
+
+.message-video-download:focus-visible {
+  outline: none;
+  opacity: 1;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--border-default) 55%, transparent);
 }
 
 .message-file-info {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
-  padding: 0 2px 1px;
+  padding: 0 4px;
   font-size: 0.8rem;
   color: var(--text-muted);
-  line-height: 1.2;
+  gap: 8px;
+}
+
+.message-video-wrap .message-file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1535,39 +1722,33 @@
 .message-reply-quote {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 0;
-  margin-bottom: 4px;
+  gap: 6px;
+  padding: 2px 0;
+  margin-bottom: 2px;
   cursor: pointer;
-  transition: opacity 0.1s ease;
   max-width: 100%;
   overflow: hidden;
+  line-height: 1.2;
 }
 
 .message-reply-quote:hover {
-  opacity: 0.8;
+  opacity: 0.95;
 }
 
 .reply-quote-bar {
   width: 2px;
-  min-height: 20px;
+  min-height: 18px;
+  align-self: stretch;
   background: var(--text-muted);
+  opacity: 0.5;
   border-radius: 1px;
   flex-shrink: 0;
-}
-
-.reply-quote-content {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  flex: 1;
 }
 
 .reply-quote-author {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 
@@ -1580,6 +1761,20 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.message-item.reply-to-me .reply-quote-bar {
+  background: #f0b232;
+}
+
+.message-item.reply-to-me .reply-quote-author {
+  color: #e5c170;
+}
+
+.message-item.reply-to-me .reply-quote-text {
+  color: #c6b07a;
 }
 
 .reply-quote-text svg {
@@ -1955,6 +2150,23 @@
 
   .message-image img {
     max-width: 260px;
+  }
+
+  .message-video-wrap {
+    max-width: min(100%, 520px);
+  }
+
+  .message-video-controls {
+    gap: 5px;
+    padding: 5px;
+  }
+
+  .message-video-time {
+    font-size: 0.62rem;
+  }
+
+  .message-video-volume {
+    width: 56px;
   }
 }
 

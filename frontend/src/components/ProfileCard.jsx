@@ -1,4 +1,15 @@
 import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
+
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= breakpoint);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint}px)`);
+    const onChange = () => setIsMobile(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [breakpoint]);
+  return isMobile;
+}
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { direct as directApi } from '../api';
@@ -104,6 +115,7 @@ const ProfileCard = memo(function ProfileCard({
   const cardRef  = useRef(null);
   const menuRef  = useRef(null);
   const detailModalRef = useRef(null);
+  const isMobile = useIsMobile();
   const isOwnProfile = currentUser?.id === resolvedId || currentUser?.id === providedUser?.id;
 
   // Load note
@@ -627,7 +639,16 @@ const ProfileCard = memo(function ProfileCard({
   const effectClass = user?.equipped_profile_effect_id ? ` profile-card-effect-${user.equipped_profile_effect_id}` : '';
   const popupClasses = `profile-card-popup${hasDualBanner ? ' profile-card-popup--dual-banner' : ''}${isHighContrast && !noOverlayBand ? ' profile-card-popup--high-contrast-gradient' : ''}${isLight ? ' profile-card-popup--light-gradient' : ''}${noOverlayBand ? ' profile-card-popup--no-overlay-band' : ''}${effectClass}`;
 
-  const content = hasPositionData || !isCardVariant ? (
+  const cardContent = (
+    <>
+      {user?.equipped_profile_effect_id && (
+        <div className={`profile-effect-overlay profile-effect-${user.equipped_profile_effect_id}`} aria-hidden />
+      )}
+      {inner}
+    </>
+  );
+
+  const content = isMobile ? null : hasPositionData || !isCardVariant ? (
     <div
       className={popupClasses}
       ref={cardRef}
@@ -635,35 +656,41 @@ const ProfileCard = memo(function ProfileCard({
       role="dialog"
       aria-label={`${finalDisplayName} profile`}
     >
-      {user?.equipped_profile_effect_id && (
-        <div className={`profile-effect-overlay profile-effect-${user.equipped_profile_effect_id}`} aria-hidden />
-      )}
-      {inner}
+      {cardContent}
     </div>
   ) : (
-    // Fallback: centered overlay when no position data
+    /* Fallback: centered overlay when no position data */
     <div className="profile-card-overlay">
       <div className="profile-card-backdrop" onClick={onClose} aria-hidden="true" />
       <div className={`${popupClasses} profile-card-popup--card`} ref={cardRef} role="dialog" style={cardStyle || undefined}>
-        {user?.equipped_profile_effect_id && (
-          <div className={`profile-effect-overlay profile-effect-${user.equipped_profile_effect_id}`} aria-hidden />
-        )}
-        {inner}
+        {cardContent}
       </div>
     </div>
   );
 
   return (
     <>
-      {createPortal(content, document.body)}
-      {detailOpen && (
+      {isMobile ? (
         <UserDetailModal
           userId={resolvedId}
           user={user}
-          isOpen={detailOpen}
-          onClose={() => setDetailOpen(false)}
+          isOpen={isOpen}
+          onClose={onClose}
           containerRef={detailModalRef}
         />
+      ) : (
+        <>
+          {createPortal(content, document.body)}
+          {detailOpen && (
+            <UserDetailModal
+              userId={resolvedId}
+              user={user}
+              isOpen={detailOpen}
+              onClose={() => setDetailOpen(false)}
+              containerRef={detailModalRef}
+            />
+          )}
+        </>
       )}
     </>
   );

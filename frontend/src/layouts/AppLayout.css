@@ -36,13 +36,26 @@
   min-width: 60px;
   background: var(--bg-tertiary);
   border-right: 1px solid var(--border-subtle);
-  overflow: hidden;
+  overflow: visible;
+  padding-top: 0;
 }
 
 .mobile-server-bar .server-bar {
   width: 60px;
   min-width: 60px;
-  padding: 8px 0;
+  /* Extra headroom to prevent first icon/ring clipping on Android WebView */
+  padding-top: 16px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.mobile-server-bar .server-bar-nav {
+  padding-top: 8px;
+}
+
+.mobile-server-bar .home-section {
+  padding-top: 0;
 }
 
 .mobile-server-bar .server-item {
@@ -126,6 +139,7 @@
   overflow-y: visible;
   z-index: 1;
 }
+
 
 /* Offline banner - fixed at top when navigator.onLine is false */
 .offline-banner {

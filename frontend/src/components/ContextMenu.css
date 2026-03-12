@@ -61,7 +61,7 @@
 }
 
 .context-menu-item:hover:not(.disabled):not(.danger) .context-menu-icon {
-  color: #fff;
+  color: currentColor;
   opacity: 1;
 }
 

@@ -39,6 +39,23 @@ function clearToken() {
 
 // Callback pour gérer la déconnexion automatique
 let onAuthError = null;
+const AUTH_INVALIDATION_CODES = new Set([
+  'AUTH_ERROR',
+  'TOKEN_MISSING',
+  'TOKEN_INVALID',
+  'TOKEN_EXPIRED',
+  'TOKEN_ERROR',
+  'NOT_AUTHENTICATED',
+  'USER_NOT_FOUND',
+  'ACCOUNT_BANNED',
+  'DEVICE_REVOKED',
+]);
+
+function shouldInvalidateSession(status, errorCode) {
+  if (status !== 401 && status !== 403) return false;
+  if (!errorCode) return false;
+  return AUTH_INVALIDATION_CODES.has(String(errorCode).toUpperCase());
+}
 
 /**
  * Configure le callback appelé lors d'une erreur d'authentification
@@ -265,24 +282,32 @@ export async function api(endpoint, options = {}) {
     // SECURITY: Handle authentication errors
     // ═══════════════════════════════════════════════════════════
     if (res.status === 401 || res.status === 403) {
-      // Token expired or invalid - clear and notify
-      const errorCode = data.code || 'AUTH_ERROR';
+      // Session invalidation is reserved for explicit auth error codes.
+      const errorCode = typeof data?.code === 'string' ? data.code : null;
+      const reportedCode = errorCode || 'AUTH_ERROR';
       apiAuthLog('warn', `${res.status} on ${endpoint}`, {
         status: res.status,
         endpoint,
-        code: errorCode,
+        code: reportedCode,
         message: data.error || 'Session expirée',
         fixHint: 'Check backend auth middleware, JWT validity. For DEVICE_REVOKED: device was revoked. For USER_NOT_FOUND: user deleted. For ACCOUNT_BANNED: user banned.',
       });
 
-      // Skip auth error handling for login/register/2fa-verify endpoints
-      if (!endpoint.includes('/auth/login') && !endpoint.includes('/auth/register') && !endpoint.includes('/auth/2fa/verify') && !endpoint.includes('/auth/forgot-password') && !endpoint.includes('/auth/reset-password') && !endpoint.includes('/auth/forgot-password/verify-2fa')) {
+      // Skip forced logout for non-auth failures (e.g. missing permissions).
+      const shouldForceLogout = shouldInvalidateSession(res.status, errorCode)
+        && !endpoint.includes('/auth/login')
+        && !endpoint.includes('/auth/register')
+        && !endpoint.includes('/auth/2fa/verify')
+        && !endpoint.includes('/auth/forgot-password')
+        && !endpoint.includes('/auth/reset-password')
+        && !endpoint.includes('/auth/forgot-password/verify-2fa');
+      if (shouldForceLogout) {
         clearToken();
         if (errorCode === 'DEVICE_REVOKED') {
           clearDeviceId();  // So next 2FA login gets a fresh device
         }
         if (onAuthError) {
-          onAuthError(errorCode, data.error || 'Session expirée');
+          onAuthError(reportedCode, data.error || 'Session expirée');
         }
       }
 
@@ -605,6 +630,7 @@ export const messages = {
     }),
   uploadChannel: async (channelId, file, caption) => {
     const token = getToken();
+    const socketId = typeof window !== 'undefined' ? window.__SLIDE_SOCKET_ID : null;
     const formData = new FormData();
     formData.append('file', file);
     if (caption) formData.append('caption', caption);
@@ -612,7 +638,10 @@ export const messages = {
     try {
       const res = await fetch(`${API_BASE}/messages/channel/${channelId}/upload`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+          ...(socketId && { 'X-Socket-ID': socketId }),
+        },
         body: formData,
       });
       
@@ -677,6 +706,7 @@ export const direct = {
     }),
   uploadFile: async (conversationId, file, caption) => {
     const token = getToken();
+    const socketId = typeof window !== 'undefined' ? window.__SLIDE_SOCKET_ID : null;
     const formData = new FormData();
     formData.append('file', file);
     if (caption) formData.append('caption', caption);
@@ -684,7 +714,10 @@ export const direct = {
     try {
       const res = await fetch(`${API_BASE}/direct/conversations/${conversationId}/upload`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+          ...(socketId && { 'X-Socket-ID': socketId }),
+        },
         body: formData,
       });
       

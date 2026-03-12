@@ -616,15 +616,20 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
 
   const lastMessageId = messages.length ? messages[messages.length - 1]?.id : null;
   const lastMessageSenderId = messages.length ? messages[messages.length - 1]?.sender_id : null;
+  const numericLastMessageId = typeof lastMessageId === 'number'
+    ? lastMessageId
+    : (typeof lastMessageId === 'string' && /^\d+$/.test(lastMessageId)
+      ? Number.parseInt(lastMessageId, 10)
+      : null);
 
   useEffect(() => {
-    if (!lastMessageId || !conversationId) return;
+    if (!numericLastMessageId || !conversationId) return;
     
     const markAsRead = () => {
       if (document.hidden || !document.hasFocus()) return;
-      if (lastMessageId !== lastReadRef.current && lastMessageSenderId !== user?.id) {
-        lastReadRef.current = lastMessageId;
-        directApi.markRead(conversationId, lastMessageId).catch(() => {});
+      if (numericLastMessageId !== lastReadRef.current && lastMessageSenderId !== user?.id) {
+        lastReadRef.current = numericLastMessageId;
+        directApi.markRead(conversationId, numericLastMessageId).catch(() => {});
       }
     };
     
@@ -640,7 +645,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [lastMessageId, lastMessageSenderId, conversationId, user?.id]);
+  }, [numericLastMessageId, lastMessageSenderId, conversationId, user?.id]);
 
   // Listen for read receipts from socket
   useEffect(() => {
@@ -910,12 +915,21 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
   );
 
   const swipeHandlers = isMobile
-    ? { onTouchStart: swipeBack.onTouchStart, onTouchMove: swipeBack.onTouchMove, onTouchEnd: swipeBack.onTouchEnd }
+    ? {
+        onTouchStart: swipeBack.onTouchStart,
+        onTouchMove: swipeBack.onTouchMove,
+        onTouchEnd: swipeBack.onTouchEnd,
+        onTouchCancel: swipeBack.onTouchCancel,
+      }
     : {};
 
   return (
     <div
       className={`direct-chat chat-container dm-chat ${showStickerPanel ? 'sticker-panel-open' : ''} ${isInCall ? 'in-call' : ''}`}
+      style={{
+        transform: isMobile ? `translateX(${swipeBack.dragOffsetX}px)` : undefined,
+        transition: isMobile && !swipeBack.isDragging ? 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
+      }}
       {...swipeHandlers}
     >
       {swipeBack.swipeProgress > 0 && (

@@ -4,6 +4,7 @@ import { useAuth } from './context/AuthContext';
 import { getToken } from './utils/tokenStorage';
 import AppLayout from './layouts/AppLayout';
 import ElectronTitleBar from './components/ElectronTitleBar';
+import DevelopmentBanner from './components/DevelopmentBanner';
 
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
@@ -43,6 +44,7 @@ export default function App() {
   return (
     <div className={`app-root ${isElectron ? 'has-electron-title-bar' : ''}`}>
       <ElectronTitleBar />
+      <DevelopmentBanner />
       <div className="app-content">
         <Suspense fallback={null}>
           <Routes>

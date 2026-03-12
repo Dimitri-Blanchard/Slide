@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useMemo, memo, useCallback, 
 import { createPortal } from 'react-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Link } from 'react-router-dom';
-import { Bot, Camera, Check, ChevronRight, Eye, EyeOff, Lock, Palette, Paperclip, Phone, Send, UserPlus } from 'lucide-react';
+import { Bot, Camera, Check, ChevronRight, Download, Eye, EyeOff, Lock, Maximize2, Minimize2, Palette, Paperclip, Pause, Phone, Play, Send, UserPlus, Volume2, VolumeX } from 'lucide-react';
 import ClickableAvatar from './ClickableAvatar';
 import ProfileCard from './ProfileCard';
 import ReactionPicker, { MessageReactions } from './ReactionPicker';
@@ -457,6 +457,7 @@ const VoiceMessagePlayer = memo(function VoiceMessagePlayer({ src, fileName, pen
 // Reply quote component - displays the message being replied to
 const ReplyQuote = memo(function ReplyQuote({ replyToMessage, onScrollToMessage, t }) {
   if (!replyToMessage) return null;
+  const replyAuthorName = replyToMessage.sender?.display_name || t('chat.user');
   
   const handleClick = () => {
     if (onScrollToMessage && replyToMessage.id) {
@@ -467,21 +468,17 @@ const ReplyQuote = memo(function ReplyQuote({ replyToMessage, onScrollToMessage,
   return (
     <div className="message-reply-quote" onClick={handleClick}>
       <div className="reply-quote-bar" />
-      <div className="reply-quote-content">
-        <span className="reply-quote-author">
-          {replyToMessage.sender?.display_name || t('chat.user')}
-        </span>
-        <span className="reply-quote-text">
-          {replyToMessage.type === 'text' 
-            ? <TextWithAranjaEmojis text={replyToMessage.content?.length > 80 ? replyToMessage.content.substring(0, 80) + '...' : replyToMessage.content} />
-            : replyToMessage.type === 'image' 
-              ? <><Camera size={14} /> {t('chat.image')}</>
-              : replyToMessage.type === 'sticker'
-                ? <><Palette size={14} /> {t('chat.sticker')}</>
-                : <><Paperclip size={14} /> {t('chat.file')}</>
-          }
-        </span>
-      </div>
+      <span className="reply-quote-author">@{replyAuthorName}</span>
+      <span className="reply-quote-text">
+        {replyToMessage.type === 'text'
+          ? <TextWithAranjaEmojis text={replyToMessage.content?.length > 80 ? replyToMessage.content.substring(0, 80) + '...' : replyToMessage.content} />
+          : replyToMessage.type === 'image'
+            ? <><Camera size={13} /> {t('chat.image')}</>
+            : replyToMessage.type === 'sticker'
+              ? <><Palette size={13} /> {t('chat.sticker')}</>
+              : <><Paperclip size={13} /> {t('chat.file')}</>
+        }
+      </span>
     </div>
   );
 });
@@ -641,6 +638,278 @@ function parseTextWithMentions(text, currentUserName) {
   
   return parts.length > 0 ? parts : text;
 }
+
+const MessageVideoPlayer = memo(function MessageVideoPlayer({ fileUrl, mimeType, fileName, t }) {
+  const videoRef = useRef(null);
+  const wrapRef = useRef(null);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [volume, setVolume] = useState(1);
+
+  const syncFromVideo = useCallback(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    const nextDuration = Number.isFinite(el.duration) ? el.duration : 0;
+    const nextTime = Number.isFinite(el.currentTime) ? el.currentTime : 0;
+    setDuration(nextDuration);
+    setCurrentTime(nextTime);
+    setIsPlaying(!el.paused && !el.ended);
+  }, []);
+
+  const startPlayback = useCallback(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    setHasStarted(true);
+    el.play().then(() => {
+      setIsPlaying(true);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    const actions = ['play', 'pause', 'stop', 'previoustrack', 'nexttrack', 'seekbackward', 'seekforward', 'seekto'];
+    actions.forEach((action) => {
+      try {
+        navigator.mediaSession.setActionHandler(action, () => {});
+      } catch {
+        // Some actions are not supported on all browsers.
+      }
+    });
+    try {
+      navigator.mediaSession.metadata = null;
+      navigator.mediaSession.playbackState = 'none';
+    } catch {
+      // Ignore unsupported media session fields.
+    }
+    return () => {
+      actions.forEach((action) => {
+        try {
+          navigator.mediaSession.setActionHandler(action, null);
+        } catch {
+          // Ignore unsupported actions on cleanup.
+        }
+      });
+    };
+  }, []);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    el.volume = volume;
+  }, [volume]);
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      const root = wrapRef.current;
+      const video = videoRef.current;
+      const fsEl = document.fullscreenElement;
+      setIsFullscreen(!!fsEl && (fsEl === root || fsEl === video));
+    };
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    const video = videoRef.current;
+    const onWebkitBegin = () => setIsFullscreen(true);
+    const onWebkitEnd = () => setIsFullscreen(false);
+    if (video) {
+      video.addEventListener('webkitbeginfullscreen', onWebkitBegin);
+      video.addEventListener('webkitendfullscreen', onWebkitEnd);
+    }
+    return () => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+      if (video) {
+        video.removeEventListener('webkitbeginfullscreen', onWebkitBegin);
+        video.removeEventListener('webkitendfullscreen', onWebkitEnd);
+      }
+    };
+  }, []);
+
+  const togglePlayback = useCallback(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (el.paused || el.ended) {
+      setHasStarted(true);
+      el.play().then(() => setIsPlaying(true)).catch(() => {});
+      return;
+    }
+    el.pause();
+    setIsPlaying(false);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    const video = videoRef.current;
+    const root = wrapRef.current;
+    if (!video && !root) return;
+    if (document.fullscreenElement) {
+      const exiting = document.exitFullscreen?.();
+      if (exiting && typeof exiting.catch === 'function') exiting.catch(() => {});
+      return;
+    }
+    // Mobile-safe order: prefer fullscreening the video element itself.
+    if (video && typeof video.requestFullscreen === 'function') {
+      const req = video.requestFullscreen();
+      if (req && typeof req.catch === 'function') req.catch(() => {});
+      return;
+    }
+    // iOS Safari fallback
+    if (video && typeof video.webkitEnterFullscreen === 'function') {
+      try { video.webkitEnterFullscreen(); } catch {}
+      return;
+    }
+    if (root && typeof root.requestFullscreen === 'function') {
+      const req = root.requestFullscreen();
+      if (req && typeof req.catch === 'function') req.catch(() => {});
+    }
+  }, []);
+
+  const progressPercent = duration > 0 ? Math.max(0, Math.min(100, (currentTime / duration) * 100)) : 0;
+  const volumePercent = Math.max(0, Math.min(100, volume * 100));
+
+  return (
+    <div
+      ref={wrapRef}
+      className={`message-video-wrap ${hasStarted ? 'started' : 'idle'}`}
+      onClick={() => {
+        if (!hasStarted) {
+          startPlayback();
+          return;
+        }
+        togglePlayback();
+      }}
+    >
+      <video
+        ref={videoRef}
+        controls={false}
+        className="message-video"
+        preload="metadata"
+        playsInline
+        loop
+        disablePictureInPicture
+        disableRemotePlayback
+        onPlay={() => {
+          setHasStarted(true);
+          setIsPlaying(true);
+          syncFromVideo();
+        }}
+        onPause={() => {
+          setIsPlaying(false);
+          syncFromVideo();
+        }}
+        onLoadedMetadata={syncFromVideo}
+        onDurationChange={syncFromVideo}
+        onTimeUpdate={syncFromVideo}
+        onEnded={() => {
+          setIsPlaying(false);
+          syncFromVideo();
+        }}
+      >
+        <source src={fileUrl} type={mimeType} />
+      </video>
+
+      {!hasStarted && (
+        <button
+          type="button"
+          className="message-video-center-play"
+          onClick={(e) => {
+            e.stopPropagation();
+            startPlayback();
+          }}
+          aria-label={t('chat.play') || 'Play video'}
+          title={t('chat.play') || 'Play'}
+        >
+          <Play size={20} fill="currentColor" />
+        </button>
+      )}
+
+      {hasStarted && (
+        <div className="message-video-controls" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            className="message-video-control-btn"
+            onClick={togglePlayback}
+            aria-label={isPlaying ? (t('chat.pause') || 'Pause') : (t('chat.play') || 'Play')}
+            title={isPlaying ? (t('chat.pause') || 'Pause') : (t('chat.play') || 'Play')}
+          >
+            {isPlaying ? <Pause size={15} /> : <Play size={15} fill="currentColor" />}
+          </button>
+
+          <input
+            type="range"
+            className="message-video-progress"
+            min={0}
+            max={duration || 0}
+            step={0.1}
+            value={Math.min(currentTime, duration || 0)}
+            onChange={(e) => {
+              const el = videoRef.current;
+              if (!el) return;
+              const next = Number(e.target.value);
+              el.currentTime = Number.isFinite(next) ? next : 0;
+              setCurrentTime(Number.isFinite(next) ? next : 0);
+            }}
+            style={{ '--progress': `${progressPercent}%` }}
+            aria-label={t('chat.seek') || 'Seek'}
+          />
+
+          <span className="message-video-time">
+            {formatDuration(currentTime)} / {formatDuration(duration)}
+          </span>
+
+          <button
+            type="button"
+            className="message-video-control-btn"
+            onClick={() => setVolume((v) => (v > 0 ? 0 : 1))}
+            aria-label={volume > 0 ? (t('chat.mute') || 'Mute') : (t('chat.unmute') || 'Unmute')}
+            title={volume > 0 ? (t('chat.mute') || 'Mute') : (t('chat.unmute') || 'Unmute')}
+          >
+            {volume > 0 ? <Volume2 size={15} /> : <VolumeX size={15} />}
+          </button>
+
+          <input
+            type="range"
+            className="message-video-volume"
+            min={0}
+            max={1}
+            step={0.01}
+            value={volume}
+            onChange={(e) => {
+              const next = Number(e.target.value);
+              setVolume(Number.isFinite(next) ? next : 1);
+            }}
+            style={{ '--progress': `${volumePercent}%` }}
+            aria-label={t('chat.volume') || 'Volume'}
+          />
+
+          <button
+            type="button"
+            className="message-video-control-btn"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleFullscreen();
+            }}
+            aria-label={isFullscreen ? (t('chat.collapse') || 'Exit fullscreen') : (t('chat.expand') || 'Fullscreen')}
+            title={isFullscreen ? (t('chat.collapse') || 'Reduce') : (t('chat.expand') || 'Enlarge')}
+          >
+            {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          </button>
+        </div>
+      )}
+
+      <a
+        href={fileUrl}
+        download={fileName}
+        className="message-video-download"
+        title={t('chat.download') || 'Download'}
+        aria-label={t('chat.download') || 'Download video'}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Download size={16} />
+      </a>
+    </div>
+  );
+});
 
 // Auto-resizing edit textarea for message editing
 const EditTextarea = memo(function EditTextarea({ editContent, setEditContent, onSaveEdit, onCancelEdit, t }) {
@@ -898,15 +1167,12 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
     
     if (isVideo) {
       return (
-        <div className="message-video-wrap">
-          <video controls className="message-video" preload="metadata">
-            <source src={file_url} type={mime_type} />
-          </video>
-          <div className="message-file-info">
-            <span className="message-file-name">{file_name}</span>
-            <span className="message-file-size">{formatFileSize(file_size)}</span>
-          </div>
-        </div>
+        <MessageVideoPlayer
+          fileUrl={file_url}
+          mimeType={mime_type}
+          fileName={file_name}
+          t={t}
+        />
       );
     }
     
@@ -1378,6 +1644,12 @@ const MessageItem = memo(function MessageItem({
   const isDeleting = !!msg?._deleting;
   const deletingText = typeof msg?.content === 'string' ? msg.content : '';
   const canFumeText = isDeleting && !reduceMotion && deletingText.trim().length > 0;
+  const isReplyToCurrentUser = !!(
+    !isOwn &&
+    replyToMessage?.sender?.id != null &&
+    currentUserId != null &&
+    String(replyToMessage.sender.id) === String(currentUserId)
+  );
 
   const handleContextMenu = useCallback((e) => {
     e.preventDefault();
@@ -1390,7 +1662,7 @@ const MessageItem = memo(function MessageItem({
   
   return (
     <div 
-      className={`message-item ${isFirst ? 'first' : ''} ${isLast ? 'last' : ''} ${isSelected ? 'selected' : ''} ${isDeleting ? 'deleting' : ''} ${reduceMotion ? 'reduce-motion' : ''}`}
+      className={`message-item ${isFirst ? 'first' : ''} ${isLast ? 'last' : ''} ${isSelected ? 'selected' : ''} ${isDeleting ? 'deleting' : ''} ${reduceMotion ? 'reduce-motion' : ''} ${isReplyToCurrentUser ? 'reply-to-me' : ''}`}
       onContextMenu={handleContextMenu}
       onMouseEnter={() => setIsMessageHovered(true)}
       onMouseLeave={() => setIsMessageHovered(false)}

@@ -11,19 +11,7 @@ export function useMediaDevices() {
 
   const enumerate = useCallback(async () => {
     if (!navigator.mediaDevices?.enumerateDevices) return;
-    let devices = await navigator.mediaDevices.enumerateDevices();
-    const hasNoLabels = devices.some(d => !d.label && (d.kind === 'audioinput' || d.kind === 'audiooutput' || d.kind === 'videoinput'));
-    if (hasNoLabels) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true }).catch(() =>
-          navigator.mediaDevices.getUserMedia({ audio: true })
-        );
-        stream.getTracks().forEach(t => t.stop());
-        devices = await navigator.mediaDevices.enumerateDevices();
-      } catch {
-        // Permission denied – use devices as-is with fallback labels
-      }
-    }
+    const devices = await navigator.mediaDevices.enumerateDevices();
     const fallbackLabel = (kind, deviceId, i) => {
       if (kind === 'audioinput') return `Microphone ${i + 1}`;
       if (kind === 'audiooutput') return `Speakers ${i + 1}`;

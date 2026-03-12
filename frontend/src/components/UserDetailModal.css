@@ -461,16 +461,22 @@
 
 /* ── Note section ── */
 .udm-note-preview {
+  display: block;
+  width: 100%;
+  text-align: left;
   font-size: 0.875rem;
+  font-family: inherit;
   color: var(--text-secondary);
   background: var(--bg-tertiary);
+  border: none;
   border-radius: 8px;
   padding: 10px 12px;
-  cursor: text;
+  cursor: pointer;
   min-height: 44px;
   line-height: 1.5;
   word-break: break-word;
   transition: background 0.1s;
+  -webkit-tap-highlight-color: transparent;
 }
 .udm-note-preview:hover { background: var(--surface-2); }
 .udm-note-preview--empty { color: var(--text-muted); font-style: italic; }
@@ -566,7 +572,7 @@
   .udm-modal {
     width: 100%;
     height: auto;
-    max-height: 92vh;
+    max-height: 98vh;
     border-radius: 18px 18px 0 0;
     animation: udmModalInMobile 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
@@ -588,12 +594,17 @@
     border-left: none;
   }
   .udm-main-body {
-    max-height: 42vh;
-    padding: 8px 16px 16px;
+    max-height: 58vh;
+    padding: 8px 16px 24px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
   }
   .udm-side-panel {
-    max-height: 34vh;
+    max-height: 50vh;
     padding: 16px;
+  }
+  .udm-note-preview {
+    min-height: 48px;
+    padding: 14px 16px;
   }
   .udm-avatar-row { padding: 0 16px 0 12px; margin-top: -42px; }
   .udm-avatar-wrap, .udm-avatar-wrap .avatar { width: 84px !important; height: 84px !important; }
