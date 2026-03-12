@@ -18,6 +18,7 @@ import { getRecentEmojis, saveRecentEmoji } from './StickerPicker';
 import { shortcodeToEmoji, emojiToShortcode, emojifyText } from '../utils/emojiShortcodes';
 import { emojiToAranjaUrl } from '../utils/emojiAranja';
 import { Spoiler, parseInlineMarkdown, parseMessageContent as _parseMarkdown, HAS_MARKDOWN_RE } from '../utils/markdownParser';
+import { getStaticUrl } from '../utils/staticUrl';
 import TextWithAranjaEmojis from './TextWithAranjaEmojis';
 import ContextMenu from './ContextMenu';
 import './MessageList.css';
@@ -723,7 +724,7 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
   
   // Image message
   if (msg.type === 'image') {
-    const imageUrl = msg.content;
+    const imageUrl = getStaticUrl(msg.content);
     const embeddableUrls = msg.caption ? getEmbeddableUrls(msg.caption) : [];
     if (isEditing) {
       return (
@@ -791,14 +792,15 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
   
   // Sticker message
   if (msg.type === 'sticker') {
+    const stickerUrl = getStaticUrl(msg.content);
     return (
       <div className="message-sticker-wrap">
         <img 
-          src={msg.content} 
+          src={stickerUrl} 
           alt="Sticker" 
           className="message-sticker"
           loading="lazy"
-          onClick={() => onStickerClick && onStickerClick(msg.content)}
+          onClick={() => onStickerClick && onStickerClick(stickerUrl)}
           style={{ cursor: 'pointer' }}
         />
       </div>
@@ -807,10 +809,11 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
   
   // GIF message
   if (msg.type === 'gif') {
+    const gifUrl = getStaticUrl(msg.content);
     return (
       <div className="message-gif-wrap">
         <img 
-          src={msg.content} 
+          src={gifUrl} 
           alt="GIF" 
           className="message-gif"
           loading="lazy"
@@ -821,10 +824,11 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
   
   // Emoji message (custom emoji image)
   if (msg.type === 'emoji') {
+    const emojiUrl = getStaticUrl(msg.content);
     return (
       <div className="message-emoji-wrap">
         <img 
-          src={msg.content} 
+          src={emojiUrl} 
           alt="Emoji" 
           className="message-emoji"
           loading="lazy"
@@ -840,7 +844,7 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
     
     if (msg.attachment) {
       file_name = msg.attachment.file_name;
-      file_url = msg.attachment.file_url;
+      file_url = getStaticUrl(msg.attachment.file_url);
       file_size = msg.attachment.file_size;
       mime_type = msg.attachment.mime_type;
     } else if (msg.content) {
@@ -869,7 +873,7 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
         }
       }
       
-      file_url = contentUrl;
+      file_url = getStaticUrl(contentUrl);
       file_name = originalName || storedFilename;
       file_size = null;
       mime_type = ext ? `application/${ext}` : 'application/octet-stream';
