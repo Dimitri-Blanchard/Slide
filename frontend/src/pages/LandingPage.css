@@ -1,9 +1,6 @@
-html {
-  scroll-behavior: smooth;
-}
-
 .landing-page {
   /* Scoped design tokens — dark standalone marketing page */
+  scroll-behavior: smooth;
   --bg-primary: #313338;
   --bg-secondary: #2b2d31;
   --bg-tertiary: #1e1f22;

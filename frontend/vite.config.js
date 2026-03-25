@@ -31,6 +31,7 @@ export default defineConfig({
       '/socket.io': { target: 'http://192.168.1.176:3000', ws: true },
       '/avatars': { target: 'http://192.168.1.176:3000', changeOrigin: true },
       '/uploads': { target: 'http://192.168.1.176:3000', changeOrigin: true },
+      '/download': { target: 'http://192.168.1.176:3000', changeOrigin: true },
     },
   },
   // ═══════════════════════════════════════════════════════════

@@ -278,13 +278,13 @@
   background: linear-gradient(165deg, rgba(10, 10, 10, 0.9), rgba(10, 10, 10, 0.75));
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-left: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 0 40px rgba(255, 255, 255, var(--scene-glow, 0.06));
+  border-left: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: none;
 }
 [data-theme="dark"] .mobile-app-layout .app-main {
   background: linear-gradient(165deg, rgba(10, 10, 10, 0.9), rgba(10, 10, 10, 0.75));
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 0 40px rgba(255, 255, 255, var(--scene-glow, 0.06));
+  box-shadow: none;
 }
 

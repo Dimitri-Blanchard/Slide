@@ -42,22 +42,16 @@
   min-height: 0;
   min-width: 0;
   position: relative;
-  background:
-    var(--cosmic-surface-flat),
-    var(--bg-primary);
+  background: var(--bg-primary);
   overflow: hidden;
 }
 
 .chat-container.dm-chat {
-  background:
-    var(--cosmic-surface-flat),
-    var(--bg-primary);
+  background: var(--bg-primary);
 }
 
 .chat-container.in-call {
-  background:
-    var(--cosmic-surface-flat),
-    var(--bg-primary);
+  background: var(--bg-primary);
 }
 
 /* Sticker Panel Integration */
@@ -85,9 +79,9 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 0 16px;
-  height: 48px;
+  height: 52px;
   border-bottom: 1px solid var(--border-subtle);
   background: var(--bg-primary);
   z-index: 1;
@@ -103,6 +97,9 @@
 .chat-header-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .chat-header-clickable {
@@ -110,24 +107,32 @@
   padding: 4px 8px;
   margin: -4px -8px;
   border-radius: var(--radius);
-  transition: background 0.15s ease;
+}
+
+.chat-header-clickable:hover {
+  background: var(--bg-hover);
 }
 
 .chat-header-title {
-  font-size: 1rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chat-header-subtitle,
 .chat-header-desc {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
-  margin: 2px 0 0;
+  margin: 1px 0 0;
+  line-height: 1.2;
 }
 
 .chat-header-status {
@@ -186,7 +191,6 @@
   border-radius: var(--radius);
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .chat-header-btn:hover {
@@ -300,9 +304,10 @@
 /* Typing Indicator - overlaps above input bar (Discord-style) */
 .chat-typing {
   position: absolute;
-  bottom: 68px;
+  bottom: 72px;
   left: 16px;
   right: 16px;
+  z-index: 11;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -638,8 +643,8 @@
 /* DM Header */
 .chat-header.chat-header-dm {
   padding: 0 16px;
-  gap: 10px;
-  height: 48px;
+  gap: 12px;
+  height: 52px;
   background: var(--bg-primary);
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -647,21 +652,22 @@
 .dm-header-status {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 0.72rem;
-  font-weight: 400;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 500;
   color: var(--text-muted);
-  margin: 1px 0 0;
+  margin: 0;
+  letter-spacing: 0.01em;
 }
 
 .dm-header-status::before {
   content: '';
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
   background: var(--text-muted);
-  opacity: 0.4;
+  opacity: 0.35;
 }
 
 .dm-header-status.online {
@@ -684,27 +690,32 @@
 .dm-header-status.in-call::before {
   background: var(--accent);
   opacity: 1;
+  animation: callPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes callPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .dm-header-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   margin-left: auto;
 }
 
 .dm-action-btn {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
-  border-radius: var(--radius);
+  border-radius: 8px;
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
   position: relative;
 }
 
@@ -718,18 +729,27 @@
   color: var(--accent);
 }
 
+.dm-action-btn.join-call {
+  color: var(--success);
+}
+
+.dm-action-btn.join-call:hover {
+  background: rgba(22, 163, 74, 0.1);
+  color: var(--success);
+}
+
 .dm-action-badge {
   position: absolute;
   top: 2px;
   right: 2px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
   background: var(--accent);
   color: var(--accent-text);
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   font-weight: 700;
-  border-radius: 8px;
+  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -927,18 +947,18 @@
 
   .chat-header,
   .chat-header.chat-header-dm {
-    /* Remove the 52px left padding — the back button is now inside the header */
     padding: 0 10px;
-    gap: 6px;
+    gap: 8px;
+    height: 48px;
   }
 
   .chat-header-title {
-    font-size: 0.9rem;
+    font-size: 0.875rem;
   }
 
   .chat-header-subtitle,
   .chat-header-desc {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
   }
 
   .dm-header-actions {
@@ -987,21 +1007,21 @@
 
 /* ── Group Header Icon ── */
 .group-header-icon {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--accent-muted);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent-text);
+  color: var(--accent);
   cursor: pointer;
   flex-shrink: 0;
-  transition: opacity 0.15s;
 }
 
 .group-header-icon:hover {
-  opacity: 0.85;
+  background: var(--accent);
+  color: var(--accent-text);
 }
 
 /* ── Group Members Panel ── */
@@ -1124,32 +1144,18 @@
   background: #1c1c20;
 }
 [data-theme="dark"] .chat-header {
-  background: #222226;
-  border-bottom: none;
+  background: #1c1c20;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   position: relative;
 }
 
 [data-theme="dark"] .chat-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255,255,255,0.06) 15%,
-    rgba(255,255,255,0.10) 50%,
-    rgba(255,255,255,0.06) 85%,
-    transparent 100%
-  );
-  pointer-events: none;
+  display: none;
 }
 
 [data-theme="dark"] .chat-header-title,
 [data-theme="dark"] .ch-name {
-  color: var(--text-primary);
+  color: #f0f0f2;
 }
 
 [data-theme="dark"] .chat-header-subtitle,
@@ -1158,5 +1164,19 @@
 }
 
 [data-theme="dark"] .dm-header-status.offline {
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.38);
+}
+
+[data-theme="dark"] .dm-action-btn {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .dm-action-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .dm-action-btn.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
 }

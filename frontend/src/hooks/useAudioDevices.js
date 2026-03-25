@@ -188,23 +188,57 @@ export function useAudioDevices(settings) {
   }, [settings]);
   
   // Initial device enumeration — auto-request permission if devices lack labels
+  const permissionRequestedRef = useRef(false);
   useEffect(() => {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+
     (async () => {
-      await enumerateDevices();
-      // If after enumeration we have no labels, prompt for permission once
-      if (!permissionGranted) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          stream.getTracks().forEach(t => t.stop());
-          setPermissionGranted(true);
-          await enumerateDevices();
-        } catch (_) {
-          // User denied — continue with unlabeled devices
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const hasLabels = devices.some(d => d.label);
+
+        // Apply whatever we got first
+        const inputs = devices
+          .filter(d => d.kind === 'audioinput')
+          .map(d => ({
+            value: d.deviceId || 'default',
+            label: d.label || `Microphone ${(d.deviceId || 'unknown').slice(0, 8)}`,
+          }));
+        const outputs = devices
+          .filter(d => d.kind === 'audiooutput')
+          .map(d => ({
+            value: d.deviceId || 'default',
+            label: d.label || `Speaker ${(d.deviceId || 'unknown').slice(0, 8)}`,
+          }));
+        if (!inputs.some(d => d.value === 'default')) {
+          inputs.unshift({ value: 'default', label: 'Par défaut' });
         }
+        if (!outputs.some(d => d.value === 'default')) {
+          outputs.unshift({ value: 'default', label: 'Par défaut' });
+        }
+        setInputDevices(inputs);
+        setOutputDevices(outputs);
+        setPermissionGranted(hasLabels);
+
+        // If no labels and we haven't requested permission yet, ask for it
+        if (!hasLabels && !permissionRequestedRef.current) {
+          permissionRequestedRef.current = true;
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach(t => t.stop());
+            setPermissionGranted(true);
+            // Re-enumerate with permission now granted
+            await enumerateDevices();
+          } catch (_) {
+            // User denied — continue with unlabeled devices
+          }
+        }
+      } catch (err) {
+        console.error('Error enumerating devices:', err);
       }
     })();
 
-    // Listen for device changes
+    // Listen for device changes (e.g. plugging in a headset)
     const handleDeviceChange = () => enumerateDevices();
     navigator.mediaDevices?.addEventListener('devicechange', handleDeviceChange);
 

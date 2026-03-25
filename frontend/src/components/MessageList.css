@@ -8,6 +8,8 @@
   overflow-anchor: auto;
   display: flex;
   flex-direction: column;
+  /* Extra bottom padding so messages scroll behind the floating input bar */
+  padding-bottom: 72px;
 }
 
 .message-list::-webkit-scrollbar {
@@ -2175,8 +2177,9 @@
    ═══════════════════════════════════════════════════════════ */
 .jump-to-bottom {
   position: absolute;
-  bottom: 16px;
+  bottom: 80px;
   right: 24px;
+  z-index: 11;
   width: 40px;
   height: 40px;
   border-radius: 50%;

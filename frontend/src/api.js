@@ -19,7 +19,18 @@ const BACKEND_ORIGIN = IS_ELECTRON
   : (IS_NATIVE_RUNTIME ? FIXED_BACKEND_ORIGIN : WEB_BACKEND_ORIGIN);
 const API_BASE = IS_ELECTRON ? ELECTRON_API_BASE : (IS_NATIVE_RUNTIME ? `${FIXED_BACKEND_ORIGIN}/api` : WEB_API_BASE);
 
-export { API_BASE, BACKEND_ORIGIN };
+/** Public release files (backend GET /download/:filename). Web dev uses relative `/download/...` + Vite proxy. */
+const DOWNLOAD_BASE = import.meta.env.VITE_BACKEND_ORIGIN
+  ? String(import.meta.env.VITE_BACKEND_ORIGIN).replace(/\/$/, '')
+  : (IS_ELECTRON
+    ? ELECTRON_BACKEND_ORIGIN
+    : IS_CAPACITOR
+      ? FIXED_BACKEND_ORIGIN
+      : IS_WEB_ON_SL1DE_DOMAIN
+        ? SL1DE_WEB_BACKEND_ORIGIN
+        : '');
+
+export { API_BASE, BACKEND_ORIGIN, DOWNLOAD_BASE };
 
 // ═══════════════════════════════════════════════════════════
 // CONSOLE LOGGING FOR USER SYSTEM (developer debugging - no sensitive data)

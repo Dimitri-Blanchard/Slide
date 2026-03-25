@@ -33,7 +33,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   width: 100%;
   padding: 0 12px;
 }
@@ -54,6 +54,8 @@
 }
 
 .servers-section::-webkit-scrollbar { display: none; }
+
+.server-bar-nav::-webkit-scrollbar { display: none; }
 
 .actions-section {
   margin-top: auto;
@@ -289,7 +291,7 @@ button.server-icon-link:hover .server-tooltip,
   height: 100%;
   object-fit: contain;
   object-position: center;
-  transform: scale(1.45);
+  transform: scale(1.15);
 }
 
 /* Add Icon */
@@ -562,12 +564,25 @@ button.server-icon-link:hover .server-tooltip,
   width: 68px;
   min-width: 68px;
 }
+[data-theme="dark"] .server-list {
+  padding: 0 10px;
+}
+[data-theme="dark"] .server-item {
+  width: 44px;
+  height: 44px;
+}
+[data-theme="dark"] .server-icon-link {
+  width: 44px;
+  height: 44px;
+}
+[data-theme="dark"] .server-icon {
+  width: 44px;
+  height: 44px;
+  background: #1a1a1e;
+}
 [data-theme="dark"] .server-separator {
   background: var(--border-default);
   opacity: 0.95;
-}
-[data-theme="dark"] .server-icon {
-  background: #1a1a1e;
 }
 [data-theme="dark"] .server-icon-link.active .server-icon,
 [data-theme="dark"] .server-icon.active {

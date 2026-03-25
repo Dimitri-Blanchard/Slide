@@ -2040,13 +2040,13 @@ const MessageList = memo(forwardRef(function MessageList({
     return scrollHeight - scrollTop - clientHeight < 50;
   }, []);
 
-  // Scroll to bottom on initial load and when switching conversations
+  // Scroll to bottom on initial load and when switching conversations — instant, no animation
   useLayoutEffect(() => {
     if (isInitialMount.current && messages.length > 0) {
       // Defer scroll to next frame so virtualizer/DOM layout is ready
       const id = requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          scrollToBottom();
+          scrollToBottom(true);
         });
       });
       isInitialMount.current = false;
@@ -2112,7 +2112,7 @@ const MessageList = memo(forwardRef(function MessageList({
     if (isNewMessage && !isSystemMessage) {
       // Always scroll when we send a message (GIF, sticker, etc.) so we see it
       if (isOwnMessage || isAtBottomRef.current) {
-        scrollToBottom(isOwnMessage || isAtBottomRef.current);
+        scrollToBottom(true);
       } else {
         setShowJumpToBottom(true);
         setNewMessagesBelow(prev => prev + 1);

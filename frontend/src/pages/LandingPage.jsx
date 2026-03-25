@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useInView } from 'framer-motion';
+import { DOWNLOAD_BASE } from '../api';
 import './LandingPage.css';
 
 const FAQ_SCHEMA = {
@@ -301,8 +302,8 @@ function Download() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: '-80px' });
   const platforms = [
-    { id: 'windows', name: 'Windows', desc: 'Windows 10/11 (64-bit)', href: '/downloads/Slide_Alpha_v0.0.1.rar', label: 'Download for Windows', iconImg: '/assets/windows-icon.png' },
-    { id: 'android', name: 'Android', desc: 'APK · 64-bit', href: '/downloads/Slide_Alpha_v0.0.1.apk', label: 'Download for Android', Icon: AndroidIcon },
+    { id: 'windows', name: 'Windows', desc: 'Windows 10/11 (64-bit)', href: `${DOWNLOAD_BASE}/download/Slide_Alpha_v0.0.1.rar`, label: 'Download for Windows', iconImg: '/assets/windows-icon.png' },
+    { id: 'android', name: 'Android', desc: 'APK · 64-bit', href: `${DOWNLOAD_BASE}/download/Slide_Alpha_v0.0.1.apk`, label: 'Download for Android', Icon: AndroidIcon },
   ];
 
   const trackDownload = (platform) => {
@@ -331,7 +332,7 @@ function Download() {
             </div>
               <h3>{p.name}</h3>
               <p className="download-card-desc">{p.desc}</p>
-              <a href={p.href} className="btn btn-primary download-btn" download onClick={() => trackDownload(p.id)}>
+              <a href={p.href} className="btn btn-primary download-btn" rel="noopener noreferrer" onClick={() => trackDownload(p.id)}>
                 <DownloadIcon />
                 {p.label}
               </a>

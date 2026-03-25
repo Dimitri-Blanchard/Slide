@@ -46,7 +46,7 @@ export default function App() {
       <ElectronTitleBar />
       <DevelopmentBanner />
       <div className="app-content">
-        <Suspense fallback={null}>
+        <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: 'var(--bg-primary, #fff)' }}><div style={{ width: 32, height: 32, border: '3px solid var(--border-default, #e5e7eb)', borderTopColor: 'var(--accent, #4f6ef7)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /></div>}>
           <Routes>
             <Route
               path="/"
@@ -73,7 +73,7 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-            <Route path="/channels" element={<NotFound />} />
+            <Route path="/channels" element={<Navigate to="/channels/@me" replace />} />
             <Route
               path="/*"
               element={

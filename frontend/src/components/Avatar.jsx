@@ -233,7 +233,7 @@ export const AvatarImg = memo(function AvatarImg({ src, alt = '', className = ''
 
   if (!resolvedSrc) return null;
   return (
-    <img ref={imgRef} src={resolvedSrc} alt={alt} loading="eager" draggable={false} className={`avatar-img-gif ${className}`.trim()} {...props} />
+    <img ref={imgRef} src={resolvedSrc} alt={alt} loading="eager" draggable={false} className={`avatar-img-gif ${className}`.trim()} style={{ objectFit: 'cover', width: '100%', height: '100%' }} {...props} />
   );
 });
 
