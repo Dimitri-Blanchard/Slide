@@ -29,6 +29,15 @@ const DOWNLOAD_BASE = import.meta.env.VITE_BACKEND_ORIGIN
 
 export { API_BASE, BACKEND_ORIGIN, DOWNLOAD_BASE };
 
+export async function getLatestDownloadArtifacts() {
+  const base = DOWNLOAD_BASE || '';
+  const response = await fetch(`${base}/api/app/downloads/latest`, { cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error(`Download artifact lookup failed (${response.status})`);
+  }
+  return response.json();
+}
+
 // ═══════════════════════════════════════════════════════════
 // CONSOLE LOGGING FOR USER SYSTEM (developer debugging - no sensitive data)
 // ═══════════════════════════════════════════════════════════

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useInView } from 'framer-motion';
-import { DOWNLOAD_BASE } from '../api';
+import { DOWNLOAD_BASE, getLatestDownloadArtifacts } from '../api';
 import './LandingPage.css';
 
 const FAQ_SCHEMA = {
@@ -301,9 +301,40 @@ function TrustBar() {
 function Download() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: '-80px' });
+  const [downloadLinks, setDownloadLinks] = useState({
+    windows: `${DOWNLOAD_BASE}/download/Slide_Alpha_v0.0.1.rar`,
+    android: `${DOWNLOAD_BASE}/download/Slide_Alpha_v0.0.1.apk`,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    getLatestDownloadArtifacts()
+      .then((data) => {
+        if (cancelled || !data) return;
+
+        const resolveUrl = (entry, fallback) => {
+          if (!entry?.url) return fallback;
+          if (entry.url.startsWith('http://') || entry.url.startsWith('https://')) return entry.url;
+          return `${DOWNLOAD_BASE}${entry.url}`;
+        };
+
+        setDownloadLinks((prev) => ({
+          windows: resolveUrl(data.windows, prev.windows),
+          android: resolveUrl(data.android, prev.android),
+        }));
+      })
+      .catch(() => {
+        // Fallback keeps static filenames when endpoint is unavailable.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const platforms = [
-    { id: 'windows', name: 'Windows', desc: 'Windows 10/11 (64-bit)', href: `${DOWNLOAD_BASE}/download/Slide_Alpha_v0.0.1.rar`, label: 'Download for Windows', iconImg: '/assets/windows-icon.png' },
-    { id: 'android', name: 'Android', desc: 'APK · 64-bit', href: `${DOWNLOAD_BASE}/download/Slide_Alpha_v0.0.1.apk`, label: 'Download for Android', Icon: AndroidIcon },
+    { id: 'windows', name: 'Windows', desc: 'Windows 10/11 (64-bit)', href: downloadLinks.windows, label: 'Download for Windows', iconImg: '/assets/windows-icon.png' },
+    { id: 'android', name: 'Android', desc: 'APK · 64-bit', href: downloadLinks.android, label: 'Download for Android', Icon: AndroidIcon },
   ];
 
   const trackDownload = (platform) => {
@@ -316,7 +347,7 @@ function Download() {
     <section id="download" className="download">
       <div className="download-bg" />
       <div className="section-header">
-        <span className="download-badge">Alpha v0.0.1</span>
+        <span className="download-badge">Latest alpha build</span>
         <h2 className="section-title">Download Slide</h2>
         <p className="section-subtitle">Choose your platform — free, no account required</p>
       </div>
