@@ -490,11 +490,12 @@
   font-size: 0.875rem;
   font-family: inherit;
   color: var(--text-primary);
-  resize: vertical;
+  resize: none;
   min-height: 64px;
   outline: none;
   box-sizing: border-box;
   line-height: 1.5;
+  overflow-y: hidden;
   transition: border-color 0.15s;
 }
 .udm-note-input:focus {

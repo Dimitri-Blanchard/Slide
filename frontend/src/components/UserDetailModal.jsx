@@ -107,6 +107,13 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
     saveNote(resolvedId, val);
   }, [resolvedId]);
 
+  const autoResizeNoteInput = useCallback(() => {
+    const input = noteInputRef.current;
+    if (!input) return;
+    input.style.height = 'auto';
+    input.style.height = `${input.scrollHeight}px`;
+  }, []);
+
   // Scroll note input into view when opening on mobile (keyboard can cover it)
   useEffect(() => {
     if (noteEditing && noteInputRef.current) {
@@ -116,6 +123,11 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
       return () => clearTimeout(t);
     }
   }, [noteEditing]);
+
+  useEffect(() => {
+    if (!noteEditing) return;
+    autoResizeNoteInput();
+  }, [noteEditing, note, autoResizeNoteInput]);
 
   const handleCopyId = async () => {
     await navigator.clipboard.writeText(String(resolvedId)).catch(() => {});
@@ -339,7 +351,11 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
                           ref={noteInputRef}
                           className="udm-note-input"
                           value={note}
-                          onChange={e => handleNoteChange(e.target.value)}
+                          onChange={e => {
+                            handleNoteChange(e.target.value);
+                            e.target.style.height = 'auto';
+                            e.target.style.height = `${e.target.scrollHeight}px`;
+                          }}
                           onBlur={() => setNoteEditing(false)}
                           placeholder="Cliquez pour ajouter une note sur cet utilisateur…"
                           rows={3}

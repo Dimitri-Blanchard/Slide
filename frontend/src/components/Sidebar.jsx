@@ -45,13 +45,13 @@ function useDebounce(callback, delay) {
   return debouncedFn;
 }
 
-const GroupAvatar = memo(function GroupAvatar({ participants, size = 'medium' }) {
+const GroupAvatar = memo(function GroupAvatar({ participants, size = 'medium', onContextMenu }) {
   const avatars = (participants || []).slice(0, 3);
   const sizeMap = { small: 24, medium: 32, large: 40 };
   const px = sizeMap[size] || 32;
   
   return (
-    <div className="group-avatar-stack" style={{ width: px, height: px }}>
+    <div className="group-avatar-stack" style={{ width: px, height: px }} onContextMenu={onContextMenu}>
       {avatars.map((u, i) => (
         <div key={u.id} className={`group-avatar-item group-avatar-pos-${i}-of-${Math.min(avatars.length, 3)}`}>
           {u.avatar_url ? (
@@ -89,6 +89,14 @@ const DMItem = memo(function DMItem({ conversation, isActive, onContextMenu, onC
     onClose?.(conversation);
   };
 
+  const handleAvatarContextMenu = (e) => {
+    if (isGroup) {
+      handleContextMenu(e);
+      return;
+    }
+    e.stopPropagation();
+  };
+
   return (
     <li>
       <Link
@@ -99,9 +107,9 @@ const DMItem = memo(function DMItem({ conversation, isActive, onContextMenu, onC
         onMouseLeave={!isGroup ? onMouseLeave : undefined}
         draggable={false}
       >
-        <span className="dm-item-avatar-wrap" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }} onContextMenu={(e) => e.stopPropagation()}>
+        <span className="dm-item-avatar-wrap" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }} onContextMenu={handleAvatarContextMenu}>
           {isGroup ? (
-            <GroupAvatar participants={conversation.participants} size="medium" />
+            <GroupAvatar participants={conversation.participants} size="medium" onContextMenu={handleAvatarContextMenu} />
           ) : (
             <ClickableAvatar
               user={other}
@@ -216,13 +224,22 @@ const Sidebar = memo(function Sidebar({
   }, []);
 
   const handleViewProfile = useCallback(() => {
-    const other = contextMenu.conversation?.participants?.[0];
+    const conversation = contextMenu.conversation;
+    if (!conversation) return;
+
+    if (conversation.is_group) {
+      navigate(`/channels/@me/${conversation.conversation_id}`);
+      closeContextMenu();
+      return;
+    }
+
+    const other = conversation.participants?.[0];
     if (other?.id) {
       const virtualAnchor = { getBoundingClientRect: () => ({ top: contextMenu.y, bottom: contextMenu.y, left: contextMenu.x, right: contextMenu.x, width: 0, height: 0 }) };
       setProfileCard({ userId: other.id, anchorEl: virtualAnchor });
     }
     closeContextMenu();
-  }, [contextMenu, closeContextMenu]);
+  }, [contextMenu, closeContextMenu, navigate]);
 
   const togglePinConversation = useCallback((convId) => {
     if (!convId) return;
