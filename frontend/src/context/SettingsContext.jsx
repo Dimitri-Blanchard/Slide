@@ -160,6 +160,10 @@ function isLegacyBlueAccent(color) {
   return false;
 }
 
+function toBooleanSetting(value) {
+  return value === true || value === 1 || value === '1' || value === 'true';
+}
+
 export function SettingsProvider({ children }) {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
@@ -190,7 +194,12 @@ export function SettingsProvider({ children }) {
       if (isLegacyBlueAccent(data.accent_color)) {
         data.accent_color = MONO_DARK_ACCENT;
       }
-      setSettings(prev => ({ ...prev, ...data }));
+      setSettings(prev => ({
+        ...prev,
+        ...data,
+        developer_mode: toBooleanSetting(data?.developer_mode),
+        debug_mode: toBooleanSetting(data?.debug_mode),
+      }));
       settingsInitialized.current = true;
     } catch (err) {
       console.error('Error loading settings:', err);
@@ -499,8 +508,8 @@ export function SettingsProvider({ children }) {
     animateEmoji: settings.animate_emoji,
     showEmbeds: settings.show_embeds,
     profileStyle: settings.profile_style || 'popup',
-    developerMode: settings.developer_mode,
-    debugMode: settings.debug_mode,
+    developerMode: toBooleanSetting(settings.developer_mode),
+    debugMode: toBooleanSetting(settings.debug_mode),
   }), [settings, loading, updateSetting, updateSettings, sendNotification, shouldNotify, registerKeybindHandler, notificationPermission]);
   
   return (

@@ -17,7 +17,6 @@ import ConfirmModal from './ConfirmModal';
 import './ServerBar.css';
 
 const MUTED_SERVERS_KEY = 'slide_muted_servers';
-const SERVER_ORDER_KEY = 'slide_server_order';
 
 function getMutedServers() {
   try {
@@ -34,23 +33,6 @@ function toggleMutedServer(teamId) {
   const next = ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
   localStorage.setItem(MUTED_SERVERS_KEY, JSON.stringify(next));
   return next;
-}
-
-function getServerOrder() {
-  try {
-    const s = localStorage.getItem(SERVER_ORDER_KEY);
-    return s ? JSON.parse(s) : [];
-  } catch {
-    return [];
-  }
-}
-
-function setServerOrder(teamIds) {
-  try {
-    localStorage.setItem(SERVER_ORDER_KEY, JSON.stringify(teamIds));
-  } catch (e) {
-    console.warn('Failed to save server order:', e);
-  }
 }
 
 // Floating invite-friends panel — hover flyout (like "Another account") or click-triggered
@@ -304,7 +286,7 @@ const ServerIcon = memo(function ServerIcon({ team, isActive, hasUnread = false,
 });
 
 // Home button (DMs)
-const HomeButton = memo(function HomeButton({ isActive, onContextMenu }) {
+const HomeButton = memo(function HomeButton({ isActive, onContextMenu, homeTarget }) {
   const { t } = useLanguage();
   const [hovered, setHovered] = useState(false);
   const tooltipRef = useRef(null);
@@ -324,7 +306,7 @@ const HomeButton = memo(function HomeButton({ isActive, onContextMenu }) {
       ref={tooltipRef}
     >
       <Link
-        to="/channels/@me"
+        to={homeTarget}
         className={`server-icon-link ${isActive ? 'active' : ''}`}
         title={t('sidebar.directMessages')}
       >
@@ -403,6 +385,7 @@ const ServerBar = memo(function ServerBar({
   teams,
   currentTeamId,
   currentConversationId,
+  lastDmConversationId,
   onTeamsChange,
   onLeaveServer,
   isMobile = false,
@@ -615,27 +598,11 @@ const ServerBar = memo(function ServerBar({
   const isCommunityRoute = pathname === '/community' || pathname.startsWith('/community/');
   const isHomeActiveBase = !currentTeamId && !currentConversationId?.startsWith?.('team');
   const homeButtonActive = !isCommunityRoute && (isHomeActiveBase || !!currentConversationId);
+  const homeTarget = lastDmConversationId ? `/channels/@me/${lastDmConversationId}` : '/channels/@me';
 
-  // Sort teams by saved order (new teams at end)
+  // Backend already returns teams in the persisted user order.
   const sortedTeams = useMemo(() => {
-    const list = teams || [];
-    if (list.length <= 1) return list;
-    const order = getServerOrder();
-    const teamIds = new Set(list.map((t) => Number(t.id)));
-    if (!order.length) return list;
-    const ordered = order.filter((id) => teamIds.has(id)).map((id) => list.find((x) => Number(x.id) === id)).filter(Boolean);
-    const remaining = list.filter((t) => !order.includes(Number(t.id)));
-    return [...ordered, ...remaining];
-  }, [teams]);
-
-  // Clean saved order when user leaves servers
-  useEffect(() => {
-    const list = teams || [];
-    if (list.length === 0) return;
-    const order = getServerOrder();
-    const teamIds = new Set(list.map((t) => Number(t.id)));
-    const cleaned = order.filter((id) => teamIds.has(id));
-    if (cleaned.length !== order.length) setServerOrder(cleaned);
+    return teams || [];
   }, [teams]);
 
   const handleServerDragStart = useCallback((teamId) => setDraggedId(teamId), []);
@@ -646,11 +613,11 @@ const ServerBar = memo(function ServerBar({
     setDragOverId(null);
   }, []);
   const handleServerDrop = useCallback(
-    (sourceId, targetId) => {
+    async (sourceId, targetId) => {
       setDragOverId(null);
       setDraggedId(null);
       if (sourceId === targetId) return;
-      const list = [...(teams || [])];
+      const list = [...sortedTeams];
       const si = list.findIndex((t) => Number(t.id) === Number(sourceId));
       const ti = list.findIndex((t) => Number(t.id) === Number(targetId));
       if (si === -1 || ti === -1) return;
@@ -658,10 +625,16 @@ const ServerBar = memo(function ServerBar({
       const newTi = list.findIndex((t) => Number(t.id) === Number(targetId));
       list.splice(newTi >= 0 ? newTi : list.length, 0, removed);
       const newOrder = list.map((t) => Number(t.id));
-      setServerOrder(newOrder);
-      onTeamsChange?.(list);
+      const previous = sortedTeams;
+      onTeamsChange?.(list); // Optimistic UI
+      try {
+        await teamsApi.saveOrder(newOrder);
+      } catch (err) {
+        onTeamsChange?.(previous);
+        notify.error(err?.message || 'Impossible de sauvegarder l’ordre des serveurs');
+      }
     },
-    [teams, onTeamsChange]
+    [sortedTeams, onTeamsChange, notify]
   );
 
   const MODAL_TRANSITION_MS = 250;
@@ -778,7 +751,7 @@ const ServerBar = memo(function ServerBar({
       <nav className="server-bar-nav">
         {/* Home (DMs) button */}
         <ul className="server-list home-section">
-          <HomeButton isActive={homeButtonActive} onContextMenu={handleHomeContextMenu} />
+          <HomeButton isActive={homeButtonActive} onContextMenu={handleHomeContextMenu} homeTarget={homeTarget} />
         </ul>
 
         {/* Separator */}
@@ -917,7 +890,7 @@ const ServerBar = memo(function ServerBar({
               label: t('sidebar.directMessages') || 'Messages directs',
               onClick: () => {
                 setHomeContextMenu(null);
-                navigate('/channels/@me');
+                navigate(homeTarget);
               },
             },
           ]}

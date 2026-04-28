@@ -55,9 +55,12 @@ html, body, #root {
    PLATFORM-SPECIFIC RULES
    ═══════════════════════════════════════════════════════════ */
 
-/* Web browser: enforce minimum width so the app doesn't break on tiny windows */
-html.platform-web body {
-  min-width: 940px;
+/* Web browser: keep desktop guardrail only on wide screens.
+   On phones/tablets, allow full responsive width. */
+@media (min-width: 941px) {
+  html.platform-web body {
+    min-width: 940px;
+  }
 }
 
 /* Electron: no min-width needed, Electron handles its own min size in main.cjs */

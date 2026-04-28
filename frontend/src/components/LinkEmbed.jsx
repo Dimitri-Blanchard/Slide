@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useState, useCallback } from 'react';
+import React, { memo, useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import './LinkEmbed.css';
 
 // Whitelist des domaines avec embeds stylisés (iframe natif)
@@ -50,17 +50,17 @@ const EMBED_WHITELIST = {
 };
 
 const PLAIN_URL_RE = /https?:\/\/[^\s<>'"]+/g;
+const IMAGE_URL_RE = /\.(jpg|jpeg|png|gif|webp|svg|avif)(?:\?|#|$)/i;
 
 function extractEmbeddableUrls(text) {
   if (!text) return [];
-  const imageExt = /\.(jpg|jpeg|png|gif|webp|svg)(?:\?|$)/i;
   const inviteRe = /\/invite\/[A-Za-z0-9]{6,20}/;
   const urls = [];
   let m;
   PLAIN_URL_RE.lastIndex = 0;
   while ((m = PLAIN_URL_RE.exec(text)) !== null) {
     const url = m[0];
-    if (imageExt.test(url) || inviteRe.test(url)) continue;
+    if (inviteRe.test(url)) continue;
     urls.push(url);
   }
   return [...new Set(urls)];
@@ -90,6 +90,10 @@ function getWhitelistMatch(url) {
   return null;
 }
 
+function isDirectImageUrl(url) {
+  return IMAGE_URL_RE.test(url);
+}
+
 function DismissEmbedButton({ label, onDismiss }) {
   const handleClick = useCallback(
     (e) => {
@@ -116,10 +120,19 @@ function DismissEmbedButton({ label, onDismiss }) {
 
 const LinkEmbed = memo(function LinkEmbed({ url, t }) {
   const [dismissed, setDismissed] = useState(false);
+  const [faviconFailed, setFaviconFailed] = useState(false);
+  const [shouldLoadIframe, setShouldLoadIframe] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
+  const containerRef = useRef(null);
   const dismissLabel = useMemo(() => {
     if (typeof t !== 'function') return 'Remove preview';
     const v = t('chat.removeEmbed');
     return v === 'chat.removeEmbed' ? 'Remove preview' : v;
+  }, [t]);
+  const loadingLabel = useMemo(() => {
+    if (typeof t !== 'function') return 'Loading preview...';
+    const v = t('chat.loadingEmbed');
+    return v === 'chat.loadingEmbed' ? 'Loading preview...' : v;
   }, [t]);
 
   const { embedType, embedUrl, height, domain, isWhitelist } = useMemo(() => {
@@ -136,40 +149,92 @@ const LinkEmbed = memo(function LinkEmbed({ url, t }) {
     }
     return { embedType: null, embedUrl: null, domain: d, isWhitelist: false };
   }, [url]);
+  const isImage = useMemo(() => isDirectImageUrl(url), [url]);
+
+  useEffect(() => {
+    if (!isWhitelist || shouldLoadIframe || !containerRef.current) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoadIframe(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '300px 0px' }
+    );
+
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [isWhitelist, shouldLoadIframe]);
 
   if (!url) return null;
   if (dismissed) return null;
+
+  if (isImage && !imageFailed) {
+    return (
+      <div className="link-embed-wrap link-embed-wrap--image">
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="link-embed link-embed--image"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <img
+            src={url}
+            alt={domain ? `${domain} preview` : 'Image preview'}
+            className="link-embed__image"
+            loading="lazy"
+            decoding="async"
+            onError={() => setImageFailed(true)}
+          />
+        </a>
+        <DismissEmbedButton label={dismissLabel} onDismiss={() => setDismissed(true)} />
+      </div>
+    );
+  }
 
   // Embed whitelist (Spotify, YouTube, etc.) — iframe stylisé
   if (isWhitelist && embedUrl) {
     const isYoutube = embedType === 'youtube';
     return (
-      <div className={`link-embed-wrap link-embed-wrap--${embedType}`}>
+      <div className={`link-embed-wrap link-embed-wrap--${embedType}`} ref={containerRef}>
         <div className={`link-embed link-embed--${embedType}`} onClick={(e) => e.stopPropagation()}>
-          {isYoutube ? (
-            <div className="link-embed__iframe-shell">
-              <iframe
-                src={embedUrl}
-                width="100%"
-                height="100%"
-                frameBorder="0"
-                allowFullScreen
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                loading="lazy"
-                title={domain}
-              />
+          {!shouldLoadIframe ? (
+            <div className="link-embed__placeholder" aria-live="polite">
+              <div className="link-embed__placeholder-pill">{embedType}</div>
+              <div className="link-embed__placeholder-domain">{domain || 'External preview'}</div>
+              <div className="link-embed__placeholder-loading">{loadingLabel}</div>
             </div>
           ) : (
-            <iframe
-              src={embedUrl}
-              width="100%"
-              height={height || 152}
-              frameBorder="0"
-              allowFullScreen
-              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-              loading="lazy"
-              title={domain}
-            />
+            <>
+              {isYoutube ? (
+                <div className="link-embed__iframe-shell">
+                  <iframe
+                    src={embedUrl}
+                    width="100%"
+                    height="100%"
+                    frameBorder="0"
+                    allowFullScreen
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                    loading="lazy"
+                    title={domain}
+                  />
+                </div>
+              ) : (
+                <iframe
+                  src={embedUrl}
+                  width="100%"
+                  height={height || 152}
+                  frameBorder="0"
+                  allowFullScreen
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                  title={domain}
+                />
+              )}
+            </>
           )}
           <a href={url} target="_blank" rel="noopener noreferrer" className="link-embed__url">
             {url}
@@ -194,13 +259,18 @@ const LinkEmbed = memo(function LinkEmbed({ url, t }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="link-embed-default__icon">
-          {domain && (
+          {domain && !faviconFailed ? (
             <img
               src={`https://www.google.com/s2/favicons?sz=32&domain=${encodeURIComponent(domain)}`}
               alt=""
               width={20}
               height={20}
+              loading="lazy"
+              decoding="async"
+              onError={() => setFaviconFailed(true)}
             />
+          ) : (
+            <span className="link-embed-default__fallback-icon" aria-hidden>↗</span>
           )}
         </div>
         <div className="link-embed-default__content">

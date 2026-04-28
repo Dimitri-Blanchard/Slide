@@ -60,11 +60,11 @@ export default defineConfig(({ mode }) => ({
     host: '0.0.0.0',
     https: true,
     proxy: {
-      '/api': { target: 'http://192.168.1.176:3000', changeOrigin: true },
-      '/socket.io': { target: 'http://192.168.1.176:3000', ws: true },
-      '/avatars': { target: 'http://192.168.1.176:3000', changeOrigin: true },
-      '/uploads': { target: 'http://192.168.1.176:3000', changeOrigin: true },
-      '/download': { target: 'http://192.168.1.176:3000', changeOrigin: true },
+      '/api': { target: 'http://192.168.1.33:3000', changeOrigin: true },
+      '/socket.io': { target: 'http://192.168.1.33:3000', ws: true },
+      '/avatars': { target: 'http://192.168.1.33:3000', changeOrigin: true },
+      '/uploads': { target: 'http://192.168.1.33:3000', changeOrigin: true },
+      '/download': { target: 'http://192.168.1.33:3000', changeOrigin: true },
     },
   },
   // ═══════════════════════════════════════════════════════════

@@ -20,11 +20,16 @@
   max-width: min(600px, 100%);
 }
 
+.link-embed-wrap--image {
+  max-width: min(460px, 100%);
+}
+
 .link-embed {
   max-width: 400px;
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
 }
 
 /* Dismiss — plain cross, top-right outside the embed box; visible on message hover / selected */
@@ -93,6 +98,54 @@
   background: #0f0f0f;
 }
 
+.link-embed--image {
+  max-width: none;
+  width: 100%;
+  background: #0b0d10;
+}
+
+.link-embed__image {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  object-fit: cover;
+}
+
+.link-embed__placeholder {
+  min-height: 124px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent),
+    var(--bg-secondary);
+}
+
+.link-embed__placeholder-pill {
+  width: fit-content;
+  padding: 3px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.link-embed__placeholder-domain {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.link-embed__placeholder-loading {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 .link-embed__iframe-shell {
   aspect-ratio: 16 / 9;
   width: 100%;
@@ -138,7 +191,9 @@
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  background: var(--bg-secondary);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent, #5865f2) 14%, transparent 86%) 0, transparent 9px),
+    var(--bg-secondary);
   text-decoration: none;
   color: inherit;
   transition: background 0.15s ease, border-color 0.15s ease;
@@ -158,6 +213,13 @@
   justify-content: center;
   background: var(--bg-tertiary);
   border-radius: 8px;
+  color: var(--text-muted);
+}
+
+.link-embed-default__fallback-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+  font-weight: 600;
 }
 
 .link-embed-default__icon img {

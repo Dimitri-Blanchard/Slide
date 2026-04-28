@@ -71,10 +71,10 @@ const GroupMembersSidebar = memo(function GroupMembersSidebar({ members, ownerId
   const offline = useMemo(() => members.filter(u => !isUserOnline(u.id)), [members, isUserOnline]);
 
   const renderMember = (u) => (
-    <div key={u.id} className="gm-member-item">
+    <div key={u.id} className="gm-member-item mp-member">
       <Avatar user={u} size="small" showPresence />
-      <div className="gm-member-info">
-        <span className="gm-member-name">
+      <div className="gm-member-info mp-member-info">
+        <span className="gm-member-name mp-member-name">
           {u.display_name}
           {u.id === ownerId && <span className="gm-owner-badge">Owner</span>}
           {u.id === currentUserId && <span className="gm-you-badge">(you)</span>}
@@ -84,8 +84,8 @@ const GroupMembersSidebar = memo(function GroupMembersSidebar({ members, ownerId
   );
 
   return (
-    <aside className="gm-sidebar" style={{ width, minWidth: width }}>
-      <div className="gm-resize-handle" onMouseDown={handleResizeStart} />
+    <aside className="gm-sidebar members-panel" style={{ width, minWidth: width }}>
+      <div className="gm-resize-handle mp-resize-handle" onMouseDown={handleResizeStart} />
       <div className="gm-header">
         <h3>Members — {members.length}</h3>
         <button className="gm-close" onClick={onClose}>
@@ -94,16 +94,16 @@ const GroupMembersSidebar = memo(function GroupMembersSidebar({ members, ownerId
           </svg>
         </button>
       </div>
-      <div className="gm-scroll">
+      <div className="gm-scroll mp-scroll">
         {online.length > 0 && (
-          <div className="gm-group">
-            <h4 className="gm-group-title">Online — {online.length}</h4>
+          <div className="gm-group mp-group">
+            <h4 className="gm-group-title mp-group-title">Online — {online.length}</h4>
             {online.map(renderMember)}
           </div>
         )}
         {offline.length > 0 && (
-          <div className="gm-group">
-            <h4 className="gm-group-title">Offline — {offline.length}</h4>
+          <div className="gm-group mp-group">
+            <h4 className="gm-group-title mp-group-title">Offline — {offline.length}</h4>
             {offline.map(renderMember)}
           </div>
         )}

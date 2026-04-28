@@ -55,6 +55,10 @@ function useIsMobile(breakpoint = 768) {
 // ═══════════════════════════════════════════════════════════
 const SYNC_INTERVAL_MS = 10000; // 10s - cache + socket keep data fresh, no refresh needed
 
+function dmReturnKey(userId) {
+  return userId != null ? `slide_last_dm_u${userId}` : 'slide_last_dm';
+}
+
 function cacheKeyConversations(userId) {
   return userId != null ? `slide_conversations_cache_u${userId}` : 'slide_conversations_cache';
 }
@@ -184,6 +188,7 @@ function AppLayout() {
   const [showSearch, setShowSearch] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showCreateServer, setShowCreateServer] = useState(false);
+  const [lastDmConversationId, setLastDmConversationId] = useState(null);
   // Mobile bottom nav tab: home (DMs + servers) | notifications | profile
   const [mobileTab, setMobileTab] = useState('home');
   const { inboxItems } = useNotification();
@@ -196,6 +201,28 @@ function AppLayout() {
   const mutationSyncTimeoutRef = useRef(null);
   const swipeRef = useRef({ startX: 0, tracking: false });
   const isWindowFocusedRef = useRef(true);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setLastDmConversationId(null);
+      return;
+    }
+    try {
+      const saved = localStorage.getItem(dmReturnKey(user.id));
+      setLastDmConversationId(saved || null);
+    } catch {
+      setLastDmConversationId(null);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!params.conversationId) return;
+    setLastDmConversationId(params.conversationId);
+    if (!user?.id) return;
+    try {
+      localStorage.setItem(dmReturnKey(user.id), params.conversationId);
+    } catch {}
+  }, [params.conversationId, user?.id]);
 
   // Swipe from left edge to open server list (mobile) - low threshold for easy trigger
   const handleTouchStart = useCallback((e) => {
@@ -857,6 +884,7 @@ function AppLayout() {
                 teams={teams}
                 currentTeamId={params.teamId}
                 currentConversationId={params.conversationId}
+                lastDmConversationId={lastDmConversationId}
                 onTeamsChange={handleTeamsChange}
                 onLeaveServer={onLeaveServer}
                 isMobile={true}
@@ -987,6 +1015,7 @@ function AppLayout() {
         teams={teams}
         currentTeamId={params.teamId}
         currentConversationId={params.conversationId}
+        lastDmConversationId={lastDmConversationId}
         onTeamsChange={handleTeamsChange}
         onLeaveServer={onLeaveServer}
       />

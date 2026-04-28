@@ -1,7 +1,4 @@
-const FIXED_BACKEND_ORIGIN = 'http://192.168.1.176:3000';
-const SL1DE_WEB_BACKEND_ORIGIN = 'https://api.sl1de.xyz';
-const IS_WEB_ON_SL1DE_DOMAIN = typeof window !== 'undefined'
-  && /(^|\.)sl1de\.xyz$/i.test(window.location.hostname);
+const FIXED_BACKEND_ORIGIN = 'http://192.168.1.33:3000';
 const IS_ELECTRON = typeof window !== 'undefined' && !!window.electron?.isElectron;
 const IS_CAPACITOR = typeof window !== 'undefined' && !!window.Capacitor?.isNativePlatform?.();
 const IS_NATIVE_RUNTIME = IS_ELECTRON || IS_CAPACITOR;
@@ -13,11 +10,9 @@ const ELECTRON_BACKEND_ORIGIN = IS_ELECTRON
   : 'https://api.sl1de.xyz';
 const ELECTRON_API_BASE = IS_ELECTRON ? '/api' : `${ELECTRON_BACKEND_ORIGIN}/api`;
 const WEB_BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_ORIGIN
-  || (IS_WEB_ON_SL1DE_DOMAIN
-    ? SL1DE_WEB_BACKEND_ORIGIN
-    : (typeof window !== 'undefined' ? window.location.origin : FIXED_BACKEND_ORIGIN));
+  || (typeof window !== 'undefined' ? window.location.origin : FIXED_BACKEND_ORIGIN);
 const WEB_API_BASE = import.meta.env.VITE_API_BASE_URL
-  || (IS_WEB_ON_SL1DE_DOMAIN ? `${SL1DE_WEB_BACKEND_ORIGIN}/api` : '/api');
+  || '/api';
 const BACKEND_ORIGIN = IS_ELECTRON
   ? ELECTRON_BACKEND_ORIGIN
   : (IS_NATIVE_RUNTIME ? FIXED_BACKEND_ORIGIN : WEB_BACKEND_ORIGIN);
@@ -30,9 +25,7 @@ const DOWNLOAD_BASE = import.meta.env.VITE_BACKEND_ORIGIN
     ? ELECTRON_BACKEND_ORIGIN
     : IS_CAPACITOR
       ? FIXED_BACKEND_ORIGIN
-      : IS_WEB_ON_SL1DE_DOMAIN
-        ? SL1DE_WEB_BACKEND_ORIGIN
-        : '');
+      : '');
 
 export { API_BASE, BACKEND_ORIGIN, DOWNLOAD_BASE };
 
@@ -171,6 +164,33 @@ function sanitizeLegacyNickname(value) {
   return next || trimmed;
 }
 
+function looksLikeMojibake(value) {
+  if (typeof value !== 'string' || !value) return false;
+  return /(?:Ã.|Â.|â.|ðŸ|ï¿½)/.test(value);
+}
+
+function utf8MojibakeScore(value) {
+  if (typeof value !== 'string' || !value) return 0;
+  const suspicious = (value.match(/Ã|Â|â|ðŸ|ï¿½/g) || []).length;
+  const replacement = (value.match(/\uFFFD/g) || []).length;
+  return suspicious + replacement * 2;
+}
+
+function repairUtf8Mojibake(value) {
+  if (!looksLikeMojibake(value)) return value;
+  try {
+    const bytes = new Uint8Array(value.length);
+    for (let i = 0; i < value.length; i++) {
+      bytes[i] = value.charCodeAt(i) & 0xff;
+    }
+    const decoded = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+    if (!decoded) return value;
+    return utf8MojibakeScore(decoded) < utf8MojibakeScore(value) ? decoded : value;
+  } catch (_) {
+    return value;
+  }
+}
+
 function shouldSanitizeNameKey(key) {
   if (!key) return false;
   const k = String(key);
@@ -180,8 +200,25 @@ function shouldSanitizeNameKey(key) {
   return false;
 }
 
+function shouldRepairUtf8TextKey(key) {
+  if (!key) return false;
+  const k = String(key).toLowerCase();
+  return (
+    k === 'name' ||
+    k === 'title' ||
+    k === 'topic' ||
+    k === 'description' ||
+    k.endsWith('_name') ||
+    k.endsWith('_title') ||
+    k.endsWith('_topic') ||
+    k.endsWith('_description') ||
+    k === 'channelname' ||
+    k === 'teamname'
+  );
+}
+
 function sanitizeLegacyDisplayName(value, maybeUsername) {
-  const cleaned = sanitizeLegacyNickname(value);
+  const cleaned = sanitizeLegacyNickname(repairUtf8Mojibake(value));
   if (typeof cleaned !== 'string') return cleaned;
   const displayName = cleaned.trim();
   const username = sanitizeLegacyNickname(maybeUsername);
@@ -229,6 +266,11 @@ function sanitizeLegacyNicknamePayloadInPlace(payload) {
 
     const siblingUsername = node.username ?? node.user_name ?? node.handle;
     for (const [key, value] of Object.entries(node)) {
+      if (typeof value === 'string' && shouldRepairUtf8TextKey(key)) {
+        node[key] = repairUtf8Mojibake(value);
+        continue;
+      }
+
       if (shouldSanitizeNameKey(key)) {
         node[key] = key.toLowerCase().includes('display')
           ? sanitizeLegacyDisplayName(value, siblingUsername)
@@ -519,6 +561,8 @@ export const auth = {
 
 export const teams = {
   list: () => api('/teams'),
+  saveOrder: (teamIds) =>
+    api('/teams/order', { method: 'PUT', body: JSON.stringify({ teamIds }) }),
   create: (name, description) =>
     api('/teams', { method: 'POST', body: JSON.stringify({ name, description }) }),
   get: (id) => api(`/teams/${id}`),
