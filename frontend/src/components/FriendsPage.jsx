@@ -9,6 +9,7 @@ import { useNotification } from '../context/NotificationContext';
 import Avatar from './Avatar';
 import ClickableAvatar from './ClickableAvatar';
 import OnboardingTour, { hasSeenOnboarding } from './OnboardingTour';
+import { useSettings } from '../context/SettingsContext';
 import './FriendsPage.css';
 
 
@@ -38,6 +39,7 @@ export default function FriendsPage() {
   const socket = useSocket();
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { developerMode } = useSettings();
   const { notify } = useNotification();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -48,8 +50,9 @@ export default function FriendsPage() {
     window.dispatchEvent(new CustomEvent('slide:friends-changed'));
   }, []);
 
-  const loadFriends = useCallback(async () => {
-    setLoading(true);
+  const loadFriends = useCallback(async (opts = {}) => {
+    const silent = opts.silent === true;
+    if (!silent) setLoading(true);
     try {
       const [all, pending] = await Promise.allSettled([
         friendsApi.list(),
@@ -61,7 +64,7 @@ export default function FriendsPage() {
       setFriendsList([]);
       setPendingList([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -76,7 +79,7 @@ export default function FriendsPage() {
     if (!socket) return;
     const onFriendUpdate = () => {
       invalidateCache('/friends');
-      loadFriends();
+      loadFriends({ silent: true });
       emitFriendsChanged();
     };
     socket.on('friend_accepted', onFriendUpdate);
@@ -138,7 +141,7 @@ export default function FriendsPage() {
       setAddFriendStatus({ type: 'success', message: t('friends.requestSent').replace('{name}', addFriendInput.trim()) });
       setAddFriendInput('');
       invalidateCache('/friends');
-      loadFriends();
+      loadFriends({ silent: true });
       emitFriendsChanged();
     } catch (err) {
       const errorMessage = err.message || '';
@@ -167,7 +170,7 @@ export default function FriendsPage() {
     try {
       await friendsApi.acceptRequest(requestId);
       invalidateCache('/friends');
-      loadFriends();
+      loadFriends({ silent: true });
       emitFriendsChanged();
       if (otherUser?.id) {
         const conv = await directApi.createConversation(otherUser.id);
@@ -179,12 +182,17 @@ export default function FriendsPage() {
   };
 
   const handleDecline = async (requestId) => {
+    let snapshot;
+    setPendingList((prev) => {
+      snapshot = prev;
+      return prev.filter((p) => p.id !== requestId);
+    });
     try {
       await friendsApi.declineRequest(requestId);
       invalidateCache('/friends');
-      setPendingList(prev => prev.filter(p => p.id !== requestId));
       emitFriendsChanged();
     } catch (err) {
+      if (snapshot) setPendingList(snapshot);
       notify.error(err.message);
     }
   };
@@ -205,7 +213,7 @@ export default function FriendsPage() {
       await friendsApi.block(userId);
       invalidateCache('/friends');
       setFriendsList(prev => prev.filter(f => f.id !== userId));
-      loadFriends();
+      loadFriends({ silent: true });
       emitFriendsChanged();
     } catch (err) {
       notify.error(err.message);
@@ -572,11 +580,13 @@ export default function FriendsPage() {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
               <span>{t('friends.block') || 'Block'}</span>
             </button>
+            {developerMode && (<>
             <div className="friend-more-separator" />
             <button className="friend-more-item" onClick={() => { navigator.clipboard?.writeText(String(openFriend.id)); setOpenMoreFor(null); }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
               <span>{t('common.copyId') || 'Copy User ID'}</span>
             </button>
+            </>)}
           </div>
         );
         return createPortal(dropdownEl, document.body);

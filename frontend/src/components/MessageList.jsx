@@ -25,7 +25,7 @@ import './MessageList.css';
 import './MentionSuggestions.css';
 
 const EMPTY_REACTIONS = [];
-const VIRTUALIZATION_THRESHOLD = 80; // Activer la virtualisation à partir de 80 messages
+const VIRTUALIZATION_THRESHOLD = 30;
 const ESTIMATED_MESSAGE_HEIGHT = 56;
 
 // ── Blocked message placeholder (Discord-style) ────────────
@@ -83,7 +83,7 @@ function parseMessageContent(text, currentUserName, mentionUsers = [], onMention
     result.push(
       <div key="embeds" className="md-embeds">
         {imageUrls.map((url, idx) => (
-          <img key={idx} src={url} alt="" className="md-embed-image" loading="lazy" />
+          <img key={idx} src={url} alt="" className="md-embed-image" />
         ))}
       </div>
     );
@@ -94,12 +94,11 @@ function parseMessageContent(text, currentUserName, mentionUsers = [], onMention
 // Clickable sender name that opens profile card popup
 const ClickableSenderName = memo(function ClickableSenderName({ user, t, serverRoleBadges, serverTeamRole }) {
   const [showProfile, setShowProfile] = useState(false);
-  const [clickPos, setClickPos] = useState(null);
+  const nameRef = useRef(null);
   const { onMouseEnter, onMouseLeave } = usePrefetchOnHover();
 
   const handleClick = useCallback((e) => {
     e.stopPropagation();
-    setClickPos({ x: e.clientX, y: e.clientY });
     setShowProfile(true);
   }, []);
 
@@ -109,6 +108,7 @@ const ClickableSenderName = memo(function ClickableSenderName({ user, t, serverR
   return (
     <>
       <span
+        ref={nameRef}
         className={`message-sender message-sender-clickable${roleColor ? ' message-sender-role-color' : ''}`}
         style={roleColor ? { color: roleColor } : undefined}
         title={roleColor && user?.role_name ? user.role_name : undefined}
@@ -128,7 +128,7 @@ const ClickableSenderName = memo(function ClickableSenderName({ user, t, serverR
         user={user}
         isOpen={showProfile}
         onClose={() => setShowProfile(false)}
-        clickPos={clickPos}
+        anchorEl={nameRef.current}
         position="right"
         serverRoleBadges={serverRoleBadges}
         serverTeamRole={serverTeamRole}
@@ -1109,7 +1109,7 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setLightboxOpen(true); } }}
             aria-label={t('chat.openImage') || 'Open image'}
           >
-            <img src={imageUrl} alt={msg.attachment?.file_name || 'Image'} className="message-image" loading="lazy" />
+            <img src={imageUrl} alt={msg.attachment?.file_name || 'Image'} className="message-image" />
           </div>
           {lightboxOpen && (
             <ImageLightbox src={imageUrl} alt={msg.attachment?.file_name || 'Image'} onClose={() => setLightboxOpen(false)} />
@@ -1124,7 +1124,7 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
             <div className="message-content message-content-text">
               {parseMessageContent(msg.caption, currentUserName, mentionUsers, onMentionClick)}
               {embeddableUrls.map((url, index) => (
-                <LinkEmbed key={`embed-${index}`} url={url} />
+                <LinkEmbed key={`embed-${index}`} url={url} t={t} />
               ))}
             </div>
           </div>
@@ -1141,7 +1141,6 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
             src={imageUrl} 
             alt={msg.attachment?.file_name || 'Image'} 
             className="message-image"
-            loading="lazy"
           />
         </div>
         {lightboxOpen && (
@@ -1164,7 +1163,6 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
           src={stickerUrl} 
           alt="Sticker" 
           className="message-sticker"
-          loading="lazy"
           onClick={() => onStickerClick && onStickerClick(stickerUrl)}
           style={{ cursor: 'pointer' }}
         />
@@ -1181,7 +1179,6 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
           src={gifUrl} 
           alt="GIF" 
           className="message-gif"
-          loading="lazy"
         />
       </div>
     );
@@ -1196,7 +1193,6 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
           src={emojiUrl} 
           alt="Emoji" 
           className="message-emoji"
-          loading="lazy"
         />
       </div>
     );
@@ -1310,7 +1306,7 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
             <div className="message-content message-content-text">
               {parseMessageContent(msg.caption, currentUserName, mentionUsers, onMentionClick)}
               {embeddableUrls.map((url, index) => (
-                <LinkEmbed key={`embed-${index}`} url={url} />
+                <LinkEmbed key={`embed-${index}`} url={url} t={t} />
               ))}
             </div>
           </div>
@@ -1360,7 +1356,7 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
         ))}
         {/* Embeds pour les autres liens (Spotify, YouTube, etc.) */}
         {embeddableUrls.map((url, index) => (
-          <LinkEmbed key={`embed-${index}`} url={url} />
+          <LinkEmbed key={`embed-${index}`} url={url} t={t} />
         ))}
       </div>
     );
@@ -1374,7 +1370,7 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
     <div className={`message-content message-content-text${singleEmoji ? ' message-emoji-only' : ''}`}>
       {parsedContent}
       {embeddableUrls.map((url, index) => (
-        <LinkEmbed key={`embed-${index}`} url={url} />
+        <LinkEmbed key={`embed-${index}`} url={url} t={t} />
       ))}
     </div>
   );
@@ -1719,6 +1715,34 @@ const SystemMessageRow = memo(function SystemMessageRow({ msg, currentUserId, on
   );
 });
 
+// Member join system message row (Welcome user. Say hi!)
+const MemberJoinRow = memo(function MemberJoinRow({ msg, t }) {
+  let joinData = {};
+  try {
+    joinData = typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content;
+  } catch { /* fallback */ }
+
+  const displayName = joinData.display_name || msg.sender?.display_name || 'Someone';
+  const formattedTime = msg.created_at
+    ? new Date(msg.created_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    : '';
+
+  const template = t('chat.memberJoinWelcome', { user: '__USER__' });
+  const parts = template.split('__USER__');
+
+  return (
+    <div className="message-member-join-row" data-message-id={msg.id}>
+      <svg className="member-join-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+      <span className="member-join-text">
+        {parts[0]}<strong>{displayName}</strong>{parts[1]}
+      </span>
+      {formattedTime && <time className="member-join-time">{formattedTime}</time>}
+    </div>
+  );
+});
+
 // Memoized message item component
 const MessageItem = memo(function MessageItem({ 
   msg, isOwn, sender, showTime, formattedTime, isFirst, isLast,
@@ -1736,7 +1760,6 @@ const MessageItem = memo(function MessageItem({
   serverRoleBadges = null,
   serverTeamRole = null,
   reduceMotion = false,
-  animateMaterialize = false,
 }) {
   const [isMessageHovered, setIsMessageHovered] = useState(false);
   const isDeleting = !!msg?._deleting;
@@ -1765,7 +1788,6 @@ const MessageItem = memo(function MessageItem({
       onMouseEnter={() => setIsMessageHovered(true)}
       onMouseLeave={() => setIsMessageHovered(false)}
       data-message-id={msg.id}
-      data-animate-materialize={animateMaterialize ? 'true' : undefined}
     >
       <div className="message-hover-actions" onClick={(e) => e.stopPropagation()}>
               {onReact && (
@@ -1927,6 +1949,10 @@ const MessageList = memo(forwardRef(function MessageList({
   memberRolesMap = null,
   members = null,
   canModerateReactions = false,
+  onAtBottomChange = null,
+  onLoadMore = null,
+  hasMore = false,
+  loadingMore = false,
 }, ref) {
   const containerRef = useRef(null);
   const isAtBottomRef = useRef(true);
@@ -1936,8 +1962,6 @@ const MessageList = memo(forwardRef(function MessageList({
   const isInitialMount = useRef(true);
   const scrollRestoreRef = useRef(null);
   const lastScrollTopRef = useRef(0);
-  const prevLengthForMaterializeRef = useRef(0);
-  
   const [contextMenu, setContextMenu] = useState(null);
   const [selectedMessageId, setSelectedMessageId] = useState(null);
   const [editingId, setEditingId] = useState(null);
@@ -1986,18 +2010,38 @@ const MessageList = memo(forwardRef(function MessageList({
     };
   }, []);
 
-  // Detect conversation change and reset scroll state (useLayoutEffect so it runs before scroll effect)
+  // Detect conversation change vs. prepend (load-more).
+  // Channel switch: channel_id changes → reset scroll to bottom.
+  // Load-more: channel_id same, first id changes → preserve scroll position.
   const firstMsgId = messages[0]?.id;
+  const conversationKey = messages[0]?.channel_id ?? messages[0]?.conversation_id;
+  const conversationKeyRef = useRef(conversationKey);
   useLayoutEffect(() => {
-    if (firstMsgId && firstMsgId !== firstMessageIdRef.current) {
-      // New conversation detected - reset scroll state
+    if (!firstMsgId) return;
+    const isNewConversation = conversationKey !== conversationKeyRef.current;
+    conversationKeyRef.current = conversationKey;
+    if (isNewConversation) {
       isInitialMount.current = true;
       isAtBottomRef.current = true;
       prevMessagesLengthRef.current = 0;
       lastMessageIdRef.current = null;
       firstMessageIdRef.current = firstMsgId;
+    } else if (firstMsgId !== firstMessageIdRef.current) {
+      // Older messages prepended — preserve scroll position
+      const el = containerRef.current;
+      if (el) {
+        const prevHeight = el.scrollHeight;
+        const prevScroll = el.scrollTop;
+        requestAnimationFrame(() => {
+          if (containerRef.current) {
+            containerRef.current.scrollTop = containerRef.current.scrollHeight - prevHeight + prevScroll;
+          }
+        });
+      }
+      firstMessageIdRef.current = firstMsgId;
+      prevMessagesLengthRef.current = messages.length;
     }
-  }, [firstMsgId]);
+  }, [firstMsgId, conversationKey, messages.length]);
 
   const scrollToBottom = useCallback((instant = false) => {
     if (!containerRef.current) return;
@@ -2128,15 +2172,20 @@ const MessageList = memo(forwardRef(function MessageList({
       lastScrollTopRef.current = containerRef.current.scrollTop;
     }
     const atBottom = checkIfAtBottom();
+    const wasAtBottom = isAtBottomRef.current;
     isAtBottomRef.current = atBottom;
+    if (atBottom !== wasAtBottom && onAtBottomChange) onAtBottomChange(atBottom);
     if (atBottom) {
       setShowJumpToBottom(false);
       setNewMessagesBelow(0);
       if (onMarkRead) onMarkRead();
     }
+    if (containerRef.current && containerRef.current.scrollTop < 200 && onLoadMore && hasMore && !loadingMore) {
+      onLoadMore();
+    }
     setContextMenu(prev => (prev ? null : prev));
     setSelectedMessageId(null);
-  }, [checkIfAtBottom, onMarkRead]);
+  }, [checkIfAtBottom, onMarkRead, onAtBottomChange, onLoadMore, hasMore, loadingMore]);
 
   // Context menu handlers — right-click selects message (hover effects stay on it only)
   const handleContextMenu = useCallback((e, msg) => {
@@ -2370,10 +2419,18 @@ const MessageList = memo(forwardRef(function MessageList({
     }
     
     let lastDateStr = null;
+    let unreadDividerPlaced = false;
     return messages.map((msg, index) => {
       const prev = messages[index - 1];
       const next = messages[index + 1];
       const isSystem = msg.type === 'system';
+      let isMemberJoin = false;
+      if (isSystem && msg.content) {
+        try {
+          const parsed = typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content;
+          if (parsed?.subtype === 'member_join') isMemberJoin = true;
+        } catch { /* not JSON, treat as regular system message */ }
+      }
       const isOwn = !isSystem && msg.sender_id === currentUserId;
       const isLastOwnMessage = !isSystem && msg.id === lastOwnMessageId;
       
@@ -2381,6 +2438,12 @@ const MessageList = memo(forwardRef(function MessageList({
       const dateStr = isNaN(msgDate.getTime()) ? '' : msgDate.toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
       const showDateSeparator = dateStr !== lastDateStr;
       lastDateStr = dateStr;
+
+      let showUnreadDivider = false;
+      if (lastReadMessageId && !unreadDividerPlaced && msg.id > lastReadMessageId && !isOwn) {
+        showUnreadDivider = true;
+        unreadDividerPlaced = true;
+      }
 
       const TIME_GAP_MINUTES = 5;
 
@@ -2422,19 +2485,21 @@ const MessageList = memo(forwardRef(function MessageList({
         ...msg,
         renderKey: msg._clientKey || msg.id,
         isSystem,
+        isMemberJoin,
         isOwn,
         sender: msg.sender || {},
         formattedTime,
         showTime,
-        isFirst: !sameSenderAsPrev || showDateSeparator,
+        isFirst: !sameSenderAsPrev || showDateSeparator || showUnreadDivider,
         isLast: !sameSenderAsNext,
         readByUsers,
         replyToMessage,
         showDateSeparator,
+        showUnreadDivider,
         dateLabel: dateStr,
       };
     });
-  }, [messages, currentUserId, readReceipts, otherUsers, messagesById]);
+  }, [messages, currentUserId, readReceipts, otherUsers, messagesById, lastReadMessageId]);
 
   // Liste des items virtuels (banner optionnel + messages)
   const virtualItems = useMemo(() => {
@@ -2448,6 +2513,14 @@ const MessageList = memo(forwardRef(function MessageList({
 
   const rowVirtualizer = useVirtualizer({
     count: virtualItems.length,
+    // Stable keys per row — default index-based keys break when messages are prepended
+    // or the list changes: cached heights stick to indices and overlap / leave huge gaps.
+    getItemKey: (index) => {
+      const item = virtualItems[index];
+      if (item?.rowType === 'banner') return '__banner__';
+      if (item?.rowType === 'message') return String(item.renderKey ?? item.id ?? `idx-${index}`);
+      return index;
+    },
     getScrollElement: () => containerRef.current,
     estimateSize: (index) => {
       const item = virtualItems[index];
@@ -2456,6 +2529,7 @@ const MessageList = memo(forwardRef(function MessageList({
       let est = ESTIMATED_MESSAGE_HEIGHT;
       if (item.isSystem) return 48;
       if (item.showDateSeparator) est += 36;
+      if (item.showUnreadDivider && !item.showDateSeparator) est += 32;
       if (item.type === 'image' || item.type === 'file') est += 80;
       return est;
     },
@@ -2465,12 +2539,6 @@ const MessageList = memo(forwardRef(function MessageList({
   virtualizerRef.current = useVirtualization
     ? { useVirtualization: true, virtualizer: rowVirtualizer, itemCount: virtualItems.length }
     : null;
-
-  // Only run materialize animation when the last message was newly added (not when it became last after a delete)
-  const shouldAnimateLastMaterialize = messages.length > prevLengthForMaterializeRef.current;
-  useLayoutEffect(() => {
-    prevLengthForMaterializeRef.current = messages.length;
-  }, [messages.length]);
 
   // Scroll to a specific message by ID
   const scrollToMessage = useCallback((messageId) => {
@@ -2504,7 +2572,7 @@ const MessageList = memo(forwardRef(function MessageList({
   return (
     <div className="message-list-container">
       <div
-        className="message-list"
+        className={`message-list${!loading ? ' message-list--loaded' : ''}`}
         ref={containerRef}
         onScroll={handleScroll}
         data-display={isCompactMode ? 'compact' : 'cozy'}
@@ -2529,6 +2597,11 @@ const MessageList = memo(forwardRef(function MessageList({
           </div>
         ) : (
           <>
+            {loadingMore && (
+              <div className="message-list-load-more">
+                <div className="message-list-load-more-spinner" />
+              </div>
+            )}
             {messages.length === 0 && (
               !isDM && serverName && (onInviteClick || onFocusInput) ? (
                 <div className="channel-welcome">
@@ -2590,8 +2663,6 @@ const MessageList = memo(forwardRef(function MessageList({
                     );
                   }
                   const msg = item;
-                  const showUnreadDivider = lastReadMessageId && msg.id === lastReadMessageId;
-                  const isLastRow = virtualRow.index === virtualItems.length - 1;
                   return (
                     <div
                       key={msg.renderKey}
@@ -2605,18 +2676,21 @@ const MessageList = memo(forwardRef(function MessageList({
                         transform: `translateY(${virtualRow.start}px)`,
                       }}
                     >
-                      {msg.showDateSeparator && (
-                        <div className="date-separator">
+                      {msg.showDateSeparator && !msg._deleting && (
+                        <div className={`date-separator${msg.showUnreadDivider ? ' date-separator--new' : ''}`}>
                           <span className="date-separator-label">{msg.dateLabel}</span>
+                          {msg.showUnreadDivider && <span className="unread-badge">NEW</span>}
                         </div>
                       )}
-                      {showUnreadDivider && (
+                      {msg.showUnreadDivider && !msg.showDateSeparator && !msg._deleting && (
                         <div className="unread-divider">
-                          <span className="unread-divider-label">NEW MESSAGES</span>
+                          <span className="unread-divider-label">NEW</span>
                         </div>
                       )}
                       {(msg.isCommand || msg.subtype === 'command_result') ? (
                         <CommandResultRow msg={msg} t={t} />
+                      ) : msg.isMemberJoin ? (
+                        <MemberJoinRow msg={msg} t={t} />
                       ) : msg.isSystem ? (
                         <SystemMessageRow
                           msg={msg}
@@ -2668,7 +2742,6 @@ const MessageList = memo(forwardRef(function MessageList({
                         serverRoleBadges={roles && memberRolesMap && msg.sender?.id ? (roles.filter(r => (memberRolesMap[msg.sender.id] || []).includes(r.id)).map(r => ({ name: r.name, color: r.color }))) : null}
                         serverTeamRole={members && msg.sender?.id ? (members.find(m => m.id == msg.sender.id))?.role : null}
                         reduceMotion={!!settings?.reduce_motion}
-                        animateMaterialize={isLastRow && shouldAnimateLastMaterialize}
                       />
                       )}
                     </div>
@@ -2677,25 +2750,24 @@ const MessageList = memo(forwardRef(function MessageList({
               </div>
             ) : (
               (() => {
-                let passedLastRead = false;
-                return processedMessages.map((msg, msgIndex) => {
-                  const showDivider = lastReadMessageId && !passedLastRead && msg.id === lastReadMessageId;
-                  if (showDivider) passedLastRead = true;
-                  const isLastRow = msgIndex === processedMessages.length - 1;
+                return processedMessages.map((msg) => {
                   return (
                     <React.Fragment key={msg.renderKey}>
-                      {msg.showDateSeparator && (
-                        <div className="date-separator">
+                      {msg.showDateSeparator && !msg._deleting && (
+                        <div className={`date-separator${msg.showUnreadDivider ? ' date-separator--new' : ''}`}>
                           <span className="date-separator-label">{msg.dateLabel}</span>
+                          {msg.showUnreadDivider && <span className="unread-badge">NEW</span>}
                         </div>
                       )}
-                      {showDivider && (
+                      {msg.showUnreadDivider && !msg.showDateSeparator && !msg._deleting && (
                         <div className="unread-divider">
-                          <span className="unread-divider-label">NEW MESSAGES</span>
+                          <span className="unread-divider-label">NEW</span>
                         </div>
                       )}
                       {(msg.isCommand || msg.subtype === 'command_result') ? (
                         <CommandResultRow msg={msg} t={t} />
+                      ) : msg.isMemberJoin ? (
+                        <MemberJoinRow msg={msg} t={t} />
                       ) : msg.isSystem ? (
                         <SystemMessageRow
                           msg={msg}
@@ -2747,7 +2819,6 @@ const MessageList = memo(forwardRef(function MessageList({
                         serverRoleBadges={roles && memberRolesMap && msg.sender?.id ? (roles.filter(r => (memberRolesMap[msg.sender.id] || []).includes(r.id)).map(r => ({ name: r.name, color: r.color }))) : null}
                         serverTeamRole={members && msg.sender?.id ? (members.find(m => m.id == msg.sender.id))?.role : null}
                         reduceMotion={!!settings?.reduce_motion}
-                        animateMaterialize={isLastRow && shouldAnimateLastMaterialize}
                       />
                       )}
                     </React.Fragment>

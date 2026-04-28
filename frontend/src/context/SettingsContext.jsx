@@ -49,6 +49,8 @@ const DEFAULT_SETTINGS = {
   video_device: 'default',
   input_volume: 100,
   output_volume: 100,
+  /** 0–100: level of system/app audio mixed into the screen-share stream (sender). */
+  screen_share_capture_volume: 100,
   input_sensitivity: 50,
   echo_cancellation: true,
   noise_suppression: true,

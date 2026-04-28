@@ -1,0 +1,97 @@
+/* ═══════════════════════════════════════════════════════════
+   MOBILE APK SHELL — Capacitor / WebView: height, safe areas, overflow
+   Loaded after platform-android.css. Uses --app-height, --inset-* from main.jsx
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  --mobile-nav-bar-height: 56px;
+}
+
+/* Lock document to visible viewport — avoids rubber-band and double scroll */
+html.platform-mobile {
+  overflow: hidden;
+  width: 100%;
+  max-width: 100vw;
+  height: 100%;
+  height: var(--app-height, 100dvh);
+  max-height: var(--app-height, 100dvh);
+}
+
+html.platform-mobile body {
+  overflow: hidden;
+  width: 100%;
+  max-width: 100vw;
+  height: 100%;
+  height: var(--app-height, 100dvh);
+  max-height: var(--app-height, 100dvh);
+  /* Subtle overscroll containment */
+  overscroll-behavior: none;
+  touch-action: pan-y pinch-zoom;
+}
+
+html.platform-mobile #root {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  height: var(--app-height, 100dvh);
+  max-height: var(--app-height, 100dvh);
+  overflow: hidden;
+  width: 100%;
+  max-width: 100vw;
+}
+
+html.platform-mobile .app-root {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-width: 100vw;
+}
+
+html.platform-mobile .app-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Primary scroll surfaces: only inner panels scroll */
+html.platform-mobile .mobile-app-layout,
+html.platform-mobile .mobile-content,
+html.platform-mobile .mobile-content-main {
+  min-height: 0;
+}
+
+/* Offline banner below status bar / notch */
+html.platform-mobile .mobile-app-layout .offline-banner {
+  position: fixed;
+  top: var(--inset-top, env(safe-area-inset-top, 0px));
+  left: 0;
+  right: 0;
+  z-index: 9999;
+}
+
+/* Reduce horizontal bleed on very narrow phones */
+@media (max-width: 380px) {
+  html.platform-mobile .channel-header {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+/* Landscape: keep usable height */
+@media (orientation: landscape) and (max-height: 500px) {
+  html.platform-mobile {
+    --mobile-nav-bar-height: 48px;
+  }
+  html.platform-mobile .mobile-bottom-nav .mbn-label {
+    display: none;
+  }
+  html.platform-mobile .mbn-tab {
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+}

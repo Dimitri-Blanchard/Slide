@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useMemo, memo } from 'react';
 import Avatar from './Avatar';
 import { usePrefetchOnHover } from '../context/PrefetchContext';
+import { useSettings } from '../context/SettingsContext';
 import ProfileCard from './ProfileCard';
 import ContextMenu, { Icons } from './ContextMenu';
 import AddNoteModal from './AddNoteModal';
@@ -23,11 +24,11 @@ const ClickableAvatar = memo(function ClickableAvatar({
   serverTeamRole = null,
 }) {
   const [showProfile, setShowProfile] = useState(false);
-  const [clickPos, setClickPos] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [nicknameModalUser, setNicknameModalUser] = useState(null);
   const [noteModalUser, setNoteModalUser] = useState(null);
   const avatarRef = useRef(null);
+  const { developerMode } = useSettings();
 
   const handleContextMenuClose = useCallback(() => setContextMenu(null), []);
 
@@ -50,7 +51,6 @@ const ClickableAvatar = memo(function ClickableAvatar({
     e.stopPropagation();
     if (disabled) return;
     if (onClick) { onClick(e); return; }
-    setClickPos({ x: e.clientX, y: e.clientY });
     setShowProfile(true);
   }, [disabled, onClick]);
 
@@ -67,18 +67,22 @@ const ClickableAvatar = memo(function ClickableAvatar({
     };
     let items;
     if (contextMenuItems.length > 0 && Object.keys(contextMenuContext).length === 0) {
-      const copyIdItem = {
-        label: 'Copy User ID',
-        icon: null,
-        onClick: () => navigator.clipboard.writeText(String(user.id))
-      };
-      items = [viewProfileItem, { separator: true }, ...contextMenuItems, { separator: true }, copyIdItem];
+      const base = [viewProfileItem, { separator: true }, ...contextMenuItems];
+      if (developerMode) {
+        const copyIdItem = {
+          label: 'Copy User ID',
+          icon: null,
+          onClick: () => navigator.clipboard.writeText(String(user.id))
+        };
+        base.push({ separator: true }, copyIdItem);
+      }
+      items = base;
     } else {
       const fullItems = getFullContextMenuItems?.() || [];
       items = [viewProfileItem, { separator: true }, ...fullItems];
     }
     setContextMenu({ x: e.clientX, y: e.clientY, items });
-  }, [disabled, onClick, contextMenuItems, contextMenuContext, getFullContextMenuItems, user?.id]);
+  }, [disabled, onClick, contextMenuItems, contextMenuContext, getFullContextMenuItems, user?.id, developerMode]);
 
   const handleClose = useCallback(() => {
     setShowProfile(false);
@@ -117,7 +121,7 @@ const ClickableAvatar = memo(function ClickableAvatar({
         user={user}
         isOpen={showProfile}
         onClose={handleClose}
-        clickPos={clickPos}
+        anchorEl={avatarRef.current}
         position={position}
         serverRoleBadges={serverRoleBadges}
         serverTeamRole={serverTeamRole}

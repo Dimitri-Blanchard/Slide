@@ -5,8 +5,8 @@
   display: flex;
   align-items: flex-start;
   flex-shrink: 0;
-  /* 56px tabs + safe area for home indicator */
-  height: calc(56px + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
+  /* Tab row + home indicator (see mobile-shell --mobile-nav-bar-height) */
+  height: calc(var(--mobile-nav-bar-height, 56px) + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
   padding-bottom: var(--inset-bottom, env(safe-area-inset-bottom, 0px));
   background: var(--bg-secondary);
   border-top: 1px solid var(--border-subtle);
@@ -28,7 +28,7 @@
   color: var(--text-muted);
   cursor: pointer;
   padding: 6px 4px;
-  height: 56px;
+  height: var(--mobile-nav-bar-height, 56px);
   flex-shrink: 0;
   position: relative;
   transition: color 0.18s ease;

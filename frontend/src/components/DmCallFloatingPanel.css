@@ -1,0 +1,116 @@
+/* Floating DM call — draggable, snaps to nearest corner, collapsible */
+
+.dm-call-floating-root {
+  position: fixed;
+  z-index: 10040;
+  width: min(300px, calc(100vw - 32px));
+  max-height: min(440px, calc(100vh - 32px));
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+  animation: dmCallFloatIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  touch-action: none;
+}
+
+.dm-call-floating-root--dragging {
+  cursor: grabbing;
+  animation: none;
+  box-shadow:
+    0 20px 56px rgba(0, 0, 0, 0.58),
+    0 0 0 1px rgba(88, 101, 242, 0.35);
+}
+
+.dm-call-floating-root--collapsed {
+  width: min(280px, calc(100vw - 32px));
+  max-height: none;
+}
+
+@keyframes dmCallFloatIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Drag chrome */
+.dm-call-floating-chrome {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 8px 10px;
+  background: linear-gradient(180deg, #1a1b1e 0%, #151618 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: grab;
+  user-select: none;
+}
+
+.dm-call-floating-root--dragging .dm-call-floating-chrome {
+  cursor: grabbing;
+}
+
+.dm-call-floating-grip {
+  display: flex;
+  color: rgba(255, 255, 255, 0.28);
+  flex-shrink: 0;
+}
+
+.dm-call-floating-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.88);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dm-call-floating-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dm-call-floating-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.dm-call-floating-collapsed-hint {
+  padding: 10px 12px 12px;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.45);
+  background: #111214;
+  text-align: center;
+}
+
+.dm-call-floating-root .dm-call-panel {
+  border-bottom: none;
+  border-radius: 0;
+  min-height: 0;
+  flex: 1;
+}
+
+.dm-call-floating-root .dm-call-panel.has-video {
+  max-height: inherit;
+}

@@ -9,6 +9,8 @@ import { getStaticUrl } from '../utils/staticUrl';
 import { getStoredCustomStatus, getStoredOnlineStatus } from '../utils/presenceStorage';
 import { harmonizeGradientColors } from '../utils/gradientColors';
 import Avatar from './Avatar';
+import { useSettings } from '../context/SettingsContext';
+import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import './UserDetailModal.css';
 
 const STATUS_COLORS = {
@@ -40,6 +42,7 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const { isUserOnline } = useOnlineUsers();
+  const { developerMode } = useSettings();
 
   const [user, setUser]               = useState(providedUser || null);
   const [loading, setLoading]         = useState(!providedUser);
@@ -120,6 +123,8 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
     setTimeout(() => setCopied(false), 1500);
   };
 
+  const enterInstant = useModalEnterAnimation('user-detail-modal', isOpen);
+
   if (!isOpen) return null;
 
   // Derived display data
@@ -154,7 +159,7 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
       : { backgroundColor: c1 };
 
   const modal = (
-    <div className="udm-overlay" role="dialog" aria-modal="true" aria-label={`Profil de ${displayName}`} ref={containerRef}>
+    <div className={`udm-overlay${enterInstant ? ' modal-enter-instant' : ''}`} role="dialog" aria-modal="true" aria-label={`Profil de ${displayName}`} ref={containerRef}>
       <div
           className="udm-backdrop"
           onClick={() => {
@@ -214,6 +219,7 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
                       Modifier le profil
                     </button>
                   )}
+                  {developerMode && (
                   <button
                     className="udm-action-btn"
                     onClick={handleCopyId}
@@ -229,6 +235,7 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
                     )}
                     {copied ? 'Copié !' : 'Copier l\'ID'}
                   </button>
+                  )}
                 </div>
               )}
             </div>

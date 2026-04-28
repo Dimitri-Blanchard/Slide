@@ -1,14 +1,47 @@
-import { defineConfig } from 'vite';
+import fs from 'node:fs';
+import path from 'node:path';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import removeConsole from 'vite-plugin-remove-console';
 
+const PUBLIC_SITE_TOKEN = '__SLIDE_PUBLIC_SITE_URL__';
+
+function resolvePublicSiteUrl(mode) {
+  const env = loadEnv(mode, process.cwd(), '');
+  const raw = process.env.VITE_PUBLIC_SITE_URL || env.VITE_PUBLIC_SITE_URL || 'https://slide.app';
+  return String(raw).replace(/\/+$/, '');
+}
+
+/** Injects canonical / OG / sitemap URLs from VITE_PUBLIC_SITE_URL (default https://slide.app). */
+function slidePublicSitePlugin(mode) {
+  const siteUrl = resolvePublicSiteUrl(mode);
+  return {
+    name: 'slide-public-site-url',
+    transformIndexHtml(html) {
+      if (!html.includes(PUBLIC_SITE_TOKEN)) return html;
+      return html.split(PUBLIC_SITE_TOKEN).join(siteUrl);
+    },
+    closeBundle() {
+      const outDir = path.resolve(process.cwd(), 'dist');
+      for (const name of ['robots.txt', 'sitemap.xml']) {
+        const file = path.join(outDir, name);
+        if (!fs.existsSync(file)) continue;
+        let body = fs.readFileSync(file, 'utf8');
+        if (!body.includes(PUBLIC_SITE_TOKEN)) continue;
+        fs.writeFileSync(file, body.split(PUBLIC_SITE_TOKEN).join(siteUrl), 'utf8');
+      }
+    },
+  };
+}
+
 const isNativeBuild = process.env.VITE_ELECTRON || process.env.VITE_CAPACITOR;
 const isElectronBuild = !!process.env.VITE_ELECTRON;
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   base: isNativeBuild ? './' : '/',
   plugins: [
+    slidePublicSitePlugin(mode),
     react(),
     // basicSsl: only needed for the HTTPS dev server (Electron dev connects to https://localhost:5173)
     // Has no effect during builds, but limit to non-Electron builds for clarity
@@ -68,4 +101,4 @@ export default defineConfig({
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom', 'socket.io-client', 'canvas-confetti'],
   },
-});
+}));

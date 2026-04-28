@@ -2,6 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Globe } from 'lucide-react';
+import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import './CreateYourServerModal.css';
 
 // Icons matching the Discord-style modal
@@ -50,6 +51,7 @@ const TEMPLATES = [
 
 export default function CreateYourServerModal({ isOpen, onClose, onCreateServer, onJoinServer, onDiscoverServers, exiting }) {
   const navigate = useNavigate();
+  const enterInstant = useModalEnterAnimation('create-your-server-modal', isOpen);
   if (!isOpen) return null;
 
   const handleCreateMyOwn = () => {
@@ -74,7 +76,7 @@ export default function CreateYourServerModal({ isOpen, onClose, onCreateServer,
   };
 
   const modal = (
-    <div className={`cysm-overlay ${exiting ? 'cysm-exiting' : ''}`} onClick={handleOverlayClick}>
+    <div className={`cysm-overlay ${exiting ? 'cysm-exiting' : ''}${enterInstant && !exiting ? ' modal-enter-instant' : ''}`} onClick={handleOverlayClick}>
       <div className={`cysm-modal ${exiting ? 'cysm-exiting' : ''}`} onClick={(e) => e.stopPropagation()}>
         <div className="cysm-header">
           <button className="cysm-close" onClick={onClose} aria-label="Close">

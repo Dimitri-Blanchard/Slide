@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { AvatarImg } from './Avatar';
 import { servers } from '../api';
 import { useLanguage } from '../context/LanguageContext';
+import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import './DiscoverServersModal.css';
 
 const CATEGORIES = ['All', 'Gaming', 'Music', 'Education', 'Tech', 'Art', 'Social', 'Sports'];
@@ -17,6 +18,7 @@ export default function DiscoverServersModal({ isOpen, onClose, onServerJoined, 
   const [activeCategory, setActiveCategory] = useState('All');
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const enterInstant = useModalEnterAnimation('discover-servers-modal', isOpen);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -65,7 +67,7 @@ export default function DiscoverServersModal({ isOpen, onClose, onServerJoined, 
   });
 
   const modal = (
-    <div className={`dsm-overlay ${exiting ? 'dsm-exiting' : ''}`} onClick={handleOverlayClick}>
+    <div className={`dsm-overlay ${exiting ? 'dsm-exiting' : ''}${enterInstant && !exiting ? ' modal-enter-instant' : ''}`} onClick={handleOverlayClick}>
       <div className={`dsm-modal ${exiting ? 'dsm-exiting' : ''}`} onClick={(e) => e.stopPropagation()}>
         <button className="dsm-close" onClick={onBack || onClose} aria-label="Close">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">

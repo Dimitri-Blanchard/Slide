@@ -6,4 +6,4 @@ Disallow: /settings
 Disallow: /security
 Disallow: /dm/
 Disallow: /team/
-Sitemap: https://slide.app/sitemap.xml
+Sitemap: __SLIDE_PUBLIC_SITE_URL__/sitemap.xml

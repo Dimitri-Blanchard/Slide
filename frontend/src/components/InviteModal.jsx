@@ -5,6 +5,7 @@ import { AvatarImg } from './Avatar';
 import { servers, friends as friendsApi, direct as directApi } from '../api';
 import { useLanguage } from '../context/LanguageContext';
 import { useNotification } from '../context/NotificationContext';
+import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import './InviteModal.css';
 
 export default function InviteModal({ isOpen, onClose, initialCode = '', onServerJoined, onBack, exiting }) {
@@ -15,6 +16,7 @@ export default function InviteModal({ isOpen, onClose, initialCode = '', onServe
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const enterInstant = useModalEnterAnimation('invite-modal', isOpen);
 
   useEffect(() => {
     if (initialCode) {
@@ -102,7 +104,7 @@ export default function InviteModal({ isOpen, onClose, initialCode = '', onServe
   };
 
   const modal = (
-    <div className={`invite-modal-overlay ${exiting ? 'invite-exiting' : ''}`} onClick={handleOverlayClick}>
+    <div className={`invite-modal-overlay ${exiting ? 'invite-exiting' : ''}${enterInstant && !exiting ? ' modal-enter-instant' : ''}`} onClick={handleOverlayClick}>
       <div className={`invite-modal ${exiting ? 'invite-exiting' : ''}`} onClick={(e) => e.stopPropagation()}>
         <h2>Rejoindre un serveur</h2>
         <p className="invite-subtitle">
@@ -186,6 +188,7 @@ export function ShareInviteModal({ isOpen, onClose, team, channels = [] }) {
   const [sentFriendId, setSentFriendId] = useState(null);
   const { t } = useLanguage();
   const { notify } = useNotification();
+  const enterInstant = useModalEnterAnimation('share-invite-modal', isOpen);
 
   // Get default channel name (first text channel)
   const defaultChannelName = (channels || []).find(c => c?.channel_type === 'text')?.name || 'general';
@@ -292,7 +295,7 @@ export function ShareInviteModal({ isOpen, onClose, team, channels = [] }) {
   const inviteUrl = activeInvite ? `${window.location.origin}/invite/${activeInvite.code}` : '';
 
   const modal = (
-    <div className="invite-modal-overlay" onClick={onClose}>
+    <div className={`invite-modal-overlay${enterInstant ? ' modal-enter-instant' : ''}`} onClick={onClose}>
       <div className="invite-modal share-invite-modal" onClick={(e) => e.stopPropagation()}>
         <div className="share-invite-header">
           <div className="share-invite-title-wrap">

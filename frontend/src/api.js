@@ -1,13 +1,17 @@
 const FIXED_BACKEND_ORIGIN = 'http://192.168.1.176:3000';
 const SL1DE_WEB_BACKEND_ORIGIN = 'https://api.sl1de.xyz';
-/** Electron app MUST always use this backend (no override) */
-const ELECTRON_BACKEND_ORIGIN = 'https://api.sl1de.xyz';
-const ELECTRON_API_BASE = `${ELECTRON_BACKEND_ORIGIN}/api`;
 const IS_WEB_ON_SL1DE_DOMAIN = typeof window !== 'undefined'
   && /(^|\.)sl1de\.xyz$/i.test(window.location.hostname);
 const IS_ELECTRON = typeof window !== 'undefined' && !!window.electron?.isElectron;
 const IS_CAPACITOR = typeof window !== 'undefined' && !!window.Capacitor?.isNativePlatform?.();
 const IS_NATIVE_RUNTIME = IS_ELECTRON || IS_CAPACITOR;
+// In Electron, use relative URLs so requests go through the local proxy server
+// (main.cjs createStaticServer proxies /api/* → https://api.sl1de.xyz/api/*)
+// This avoids ERR_CONNECTION_REFUSED / ERR_QUIC_PROTOCOL_ERROR from direct Chromium fetch.
+const ELECTRON_BACKEND_ORIGIN = IS_ELECTRON
+  ? (typeof window !== 'undefined' ? window.location.origin : 'https://api.sl1de.xyz')
+  : 'https://api.sl1de.xyz';
+const ELECTRON_API_BASE = IS_ELECTRON ? '/api' : `${ELECTRON_BACKEND_ORIGIN}/api`;
 const WEB_BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_ORIGIN
   || (IS_WEB_ON_SL1DE_DOMAIN
     ? SL1DE_WEB_BACKEND_ORIGIN
@@ -87,12 +91,25 @@ const requestCache = new Map();
 const pendingRequests = new Map();
 const STALE_MAX_AGE_MS = 120000; // 2 min max - serve stale up to this age
 
+/** Isolate GET cache + in-flight dedupe per auth token so account switches never reuse another user's responses. */
+function getAuthCacheTag() {
+  const t = getToken();
+  if (!t) return 'anon';
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < t.length; i++) {
+    h ^= t.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return `t${h.toString(36)}`;
+}
+
 function getCacheKey(endpoint, options) {
-  return `${options.method || 'GET'}:${endpoint}`;
+  const method = options.method || 'GET';
+  return `${getAuthCacheTag()}:${method}:${endpoint}`;
 }
 
 function getCacheTtl(endpoint) {
-  if (endpoint.includes('/messages/channel') || (endpoint.includes('/direct/conversations/') && endpoint.includes('/messages'))) return 5000;
+  if (endpoint.includes('/messages/channel') || (endpoint.includes('/direct/conversations/') && endpoint.includes('/messages'))) return 30000;
   if (endpoint === '/teams' || endpoint === '/direct/conversations' || endpoint.startsWith('/friends') || endpoint.includes('/channels/team/')) return 30000;
   return 10000;
 }
@@ -102,6 +119,16 @@ function clearCache(pattern) {
     if (key.includes(pattern)) {
       requestCache.delete(key);
     }
+  }
+}
+
+function clearPendingMatching(pattern) {
+  if (!pattern) {
+    pendingRequests.clear();
+    return;
+  }
+  for (const key of pendingRequests.keys()) {
+    if (key.includes(pattern)) pendingRequests.delete(key);
   }
 }
 
@@ -137,14 +164,9 @@ function sanitizeLegacyNickname(value) {
   const trimmed = value.trim();
   if (!trimmed) return trimmed;
 
-  // Legacy format occasionally returns names like "User#0000".
-  let next = trimmed.replace(/\s*#\s*0+\s*$/i, '').trim();
-
-  // Another legacy bug appends a single trailing "0" to nick/display names.
-  // Remove only when it looks like a text suffix, not a numeric identifier.
-  if (/[^\d]0$/.test(next)) {
-    next = next.slice(0, -1).trimEnd();
-  }
+  // Legacy format occasionally returns names like "User#0000" — only strip
+  // the exact #0000 discriminator pattern, never a legitimate trailing "0".
+  let next = trimmed.replace(/\s*#0{4}\s*$/, '').trim();
 
   return next || trimmed;
 }
@@ -164,9 +186,7 @@ function sanitizeLegacyDisplayName(value, maybeUsername) {
   const displayName = cleaned.trim();
   const username = sanitizeLegacyNickname(maybeUsername);
   if (typeof username === 'string' && username) {
-    if (displayName.toLowerCase() === `${username}0`.toLowerCase()) {
-      return displayName.slice(0, -1).trimEnd();
-    }
+    // Only strip the exact Discord #0000 discriminator, nothing else
     if (displayName.toLowerCase() === `${username}#0000`.toLowerCase()) {
       return displayName.slice(0, -5).trimEnd();
     }
@@ -259,12 +279,12 @@ export async function api(endpoint, options = {}) {
   }
   
   const requestPromise = (async () => {
-    const maxRetries = 2;
+    const maxRetries = 3;
     let lastErr = null;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
         let res;
         try {
           res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers, signal: controller.signal });
@@ -399,13 +419,19 @@ export async function api(endpoint, options = {}) {
     return data;
       } catch (err) {
         lastErr = err;
-        const isRetryable = !err.isNetworkError && err.name === 'TypeError' && (
-          err.message?.includes('fetch') ||
-          err.message?.includes('Failed to fetch') ||
-          err.message?.includes('NetworkError')
+        // Retry on network errors: timeouts, failed fetch, connection refused
+        const isRetryable = (
+          err.isNetworkError ||
+          (err.name === 'TypeError' && (
+            err.message?.includes('fetch') ||
+            err.message?.includes('Failed to fetch') ||
+            err.message?.includes('NetworkError') ||
+            err.message?.includes('network') ||
+            err.message?.includes('Load failed')
+          ))
         );
         if (isRetryable && attempt < maxRetries) {
-          await new Promise(r => setTimeout(r, 800 * (attempt + 1)));
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
           continue;
         }
         throw lastErr;
@@ -430,8 +456,10 @@ export async function api(endpoint, options = {}) {
 export function invalidateCache(pattern = '') {
   if (pattern) {
     clearCache(pattern);
+    clearPendingMatching(pattern);
   } else {
     requestCache.clear();
+    pendingRequests.clear();
   }
 }
 
@@ -505,6 +533,8 @@ export const teams = {
     api(`/teams/${teamId}/channels/${channelId}/read`, { method: 'POST' }),
   // Get unread counts for a team
   getUnread: (teamId) => api(`/teams/${teamId}/unread`),
+  // Delete a server (owner only)
+  delete: (id, data) => api(`/teams/${id}`, { method: 'DELETE', body: JSON.stringify(data) }),
 };
 
 export const channels = {
@@ -813,9 +843,21 @@ export const avatars = {
     return data;
   },
   reset: () => api('/avatars/me', { method: 'PATCH', body: JSON.stringify({ reset: true }) }),
-  uploadBanner: async (file) => {
+  uploadBanner: async (file, cropParams) => {
     const formData = new FormData();
     formData.append('banner', file);
+    if (
+      cropParams != null &&
+      typeof cropParams.width === 'number' &&
+      cropParams.width > 0 &&
+      typeof cropParams.height === 'number' &&
+      cropParams.height > 0
+    ) {
+      formData.append('cropX', String(cropParams.x));
+      formData.append('cropY', String(cropParams.y));
+      formData.append('cropWidth', String(cropParams.width));
+      formData.append('cropHeight', String(cropParams.height));
+    }
     const token = getToken();
     const r = await fetch(`${API_BASE}/avatars/banner`, {
       method: 'POST',

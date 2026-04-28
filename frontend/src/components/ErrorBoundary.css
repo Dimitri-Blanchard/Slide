@@ -1,0 +1,139 @@
+/* Full-screen fatal error — matches app theme (NotFound / auth quality) */
+.eb-root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 2rem 1.25rem;
+  text-align: center;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  background:
+    radial-gradient(900px 520px at 15% -20%, var(--cosmic-bg-orb-1, rgba(79, 110, 247, 0.12)), transparent 70%),
+    radial-gradient(760px 480px at 95% 8%, var(--cosmic-bg-orb-2, rgba(99, 102, 241, 0.08)), transparent 72%),
+    linear-gradient(145deg, var(--bg-secondary, #f7f8fa) 0%, var(--bg-primary, #fff) 100%);
+  color: var(--text-primary, #0f1117);
+}
+
+[data-theme="dark"] .eb-root {
+  background:
+    radial-gradient(900px 520px at 15% -20%, var(--cosmic-bg-orb-1), transparent 70%),
+    radial-gradient(760px 480px at 95% 8%, var(--cosmic-bg-orb-2), transparent 72%),
+    var(--bg-tertiary, #191a1e);
+  color: var(--text-primary);
+}
+
+.eb-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 2rem 1.75rem;
+  border-radius: var(--modal-panel-radius, 18px);
+  background: var(--modal-panel-bg, rgba(255, 255, 255, 0.96));
+  border: 1px solid var(--modal-panel-border, rgba(0, 0, 0, 0.07));
+  box-shadow: var(--modal-panel-shadow, 0 24px 64px rgba(0, 0, 0, 0.12));
+}
+
+[data-theme="dark"] .eb-card {
+  background: var(--bg-floating);
+  border-color: var(--border-default);
+}
+
+.eb-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+  margin-bottom: 0.75rem;
+  user-select: none;
+}
+
+.eb-title {
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight, -0.025em);
+  color: var(--text-primary);
+  margin: 0 0 0.5rem;
+}
+
+.eb-desc {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0 0 1.25rem;
+}
+
+.eb-pre {
+  text-align: left;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  max-width: 100%;
+  overflow: auto;
+  padding: 0.65rem 0.75rem;
+  margin: 0 0 0.5rem;
+  border-radius: var(--radius, 8px);
+  background: var(--surface-2, #eff1f5);
+  color: var(--error, #dc2626);
+  border: 1px solid var(--border-subtle);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+[data-theme="dark"] .eb-pre {
+  background: var(--surface-2, #1c1c20);
+  color: var(--error, #f87171);
+}
+
+.eb-pre--stack {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 1.25rem;
+}
+
+.eb-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.eb-btn {
+  padding: 0.65rem 1.35rem;
+  border-radius: var(--radius, 8px);
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.eb-btn--secondary {
+  background: var(--surface-2, #eff1f5);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.eb-btn--secondary:hover {
+  background: var(--surface-3, #e4e7ed);
+}
+
+[data-theme="dark"] .eb-btn--secondary {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+[data-theme="dark"] .eb-btn--secondary:hover {
+  background: var(--bg-hover);
+}
+
+.eb-btn--primary {
+  background: var(--accent);
+  color: var(--accent-text, #fff);
+  border-color: transparent;
+}
+
+.eb-btn--primary:hover {
+  background: var(--accent-hover);
+}

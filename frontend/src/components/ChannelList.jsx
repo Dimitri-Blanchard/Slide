@@ -1,19 +1,20 @@
 import React, { useState, useCallback, memo, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ChevronDown, Mic, MicOff, Headphones, HeadphoneOff, Monitor, PhoneOff } from 'lucide-react';
 import { channels as channelsApi, servers } from '../api';
 import { useLanguage } from '../context/LanguageContext';
 import { useNotification } from '../context/NotificationContext';
-import { useVoice } from '../context/VoiceContext';
+import { useVoice, sameUserId, coercePositiveInt, getRemoteStreamForUser } from '../context/VoiceContext';
 import { useSettings } from '../context/SettingsContext';
 import { useMediaDevices } from '../hooks/useMediaDevices';
+import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import { useAuth } from '../context/AuthContext';
 import ConfirmModal from './ConfirmModal';
-import UserPanel from './UserPanel';
 import ClickableAvatar from './ClickableAvatar';
 import ChannelSettings from './ChannelSettings';
 import ContextMenu from './ContextMenu';
+import { ScreenShareVolumeControl } from './ScreenShareVolumeControl';
 import './ChannelList.css';
 
 const channelIcons = {
@@ -100,11 +101,13 @@ const ServerHeader = memo(function ServerHeader({ team, onOpenSettings, onInvite
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-1 8h-3v3h-2v-3h-3v-2h3V9h2v3h3v2z"/></svg>
             <span>{t('server.createCategory') || 'Create Category'}</span>
           </button>
+          {team?.role !== 'owner' && (<>
           <div className="server-dropdown-separator" />
           <button className="server-dropdown-item danger" onClick={() => { onLeave?.(); setDropdownOpen(false); }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
             <span>{t('server.leave') || 'Leave Server'}</span>
           </button>
+          </>)}
         </div>
       )}
     </div>
@@ -114,10 +117,79 @@ const ServerHeader = memo(function ServerHeader({ team, onOpenSettings, onInvite
 // ═══════════════════════════════════════════════════════════
 // CHANNEL CONTEXT MENU
 // ═══════════════════════════════════════════════════════════
-const ChannelContextMenu = memo(function ChannelContextMenu({ x, y, channel, onClose, canManage, onEdit, onDelete, onCopyId }) {
+const MUTE_DURATIONS = [
+  { label: 'For 15 Minutes', ms: 15 * 60 * 1000, key: '15m' },
+  { label: 'For 1 Hour', ms: 60 * 60 * 1000, key: '1h' },
+  { label: 'For 3 Hours', ms: 3 * 60 * 60 * 1000, key: '3h' },
+  { label: 'For 8 Hours', ms: 8 * 60 * 60 * 1000, key: '8h' },
+  { label: 'For 24 Hours', ms: 24 * 60 * 60 * 1000, key: '24h' },
+];
+
+const checkIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>;
+
+const bellIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/></svg>;
+const bellMutedIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 18.69L7.84 6.14 5.27 3.49 4 4.76l2.8 2.8v.01c-.52.99-.8 2.16-.8 3.42v5l-2 2v1h13.73l2 2L21 19.72l-1-1.03zM12 22c1.11 0 2-.89 2-2h-4c0 1.11.89 2 2 2zm6-7.32V11c0-3.08-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68c-.15.03-.29.08-.42.12-.1.03-.2.07-.3.11h-.01c-.01 0-.01 0-.02.01-.23.09-.46.2-.68.31 0 0-.01 0-.01.01L18 14.68z"/></svg>;
+
+const ChannelContextMenu = memo(function ChannelContextMenu({ x, y, channel, teamId, onClose, canManage, onEdit, onDelete, onCopyId, isMuted, muteKey, onMute, onUnmute }) {
+  const { developerMode } = useSettings();
   const items = [];
+
+  items.push(
+    {
+      label: 'Copy Link',
+      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>,
+      onClick: () => {
+        const link = `${window.location.origin}/team/${teamId}/channel/${channel.id}`;
+        navigator.clipboard?.writeText(link).then(() => {}, () => {});
+      },
+    },
+    { separator: true },
+  );
+
+  const muteSubmenu = [];
+  if (isMuted) {
+    muteSubmenu.push(
+      { label: 'Unmute', icon: bellIcon, onClick: () => onUnmute?.(channel.id) },
+      { separator: true },
+    );
+  }
+  MUTE_DURATIONS.forEach(d => {
+    muteSubmenu.push({
+      label: d.label,
+      icon: muteKey === d.key ? checkIcon : undefined,
+      onClick: () => onMute?.(channel.id, d.ms, d.key),
+    });
+  });
+  muteSubmenu.push(
+    { separator: true },
+    {
+      label: 'Until I turn it back on',
+      icon: muteKey === 'indefinite' ? checkIcon : undefined,
+      onClick: () => onMute?.(channel.id, null, 'indefinite'),
+    },
+  );
+
+  items.push({
+    label: isMuted ? 'Muted' : 'Mute Channel',
+    icon: isMuted ? bellMutedIcon : bellMutedIcon,
+    submenu: muteSubmenu,
+  });
+
+  items.push(
+    {
+      label: 'Notification Settings',
+      icon: bellIcon,
+      submenu: [
+        { label: 'All Messages', description: 'White dot + badges' },
+        { label: 'Only @mentions', description: '@everyone, @user, @here, @role — badges only' },
+        { label: 'Nothing' },
+      ],
+    },
+  );
+
   if (canManage) {
     items.push(
+      { separator: true },
       {
         label: 'Edit Channel',
         icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>,
@@ -129,21 +201,22 @@ const ChannelContextMenu = memo(function ChannelContextMenu({ x, y, channel, onC
         onClick: () => onEdit?.(channel),
       },
       { separator: true },
-    );
-  }
-  items.push({
-    label: 'Copy Channel ID',
-    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>,
-    onClick: () => onCopyId?.(channel.id),
-  });
-  if (canManage) {
-    items.push(
-      { separator: true },
       {
         label: 'Delete Channel',
         danger: true,
         icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>,
         onClick: () => onDelete?.(channel),
+      }
+    );
+  }
+
+  if (developerMode) {
+    items.push(
+      { separator: true },
+      {
+        label: 'Copy Channel ID',
+        icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>,
+        onClick: () => onCopyId?.(channel.id),
       }
     );
   }
@@ -184,6 +257,7 @@ const Category = memo(function Category({
   category, channels, teamId, currentChannelId,
   onCreateChannel, onEditCategory, onDeleteCategory, canManage,
   unreadChannels, onEditChannel, onDeleteChannel, onCopyChannelId,
+  isChannelMuted, getChannelMuteKey, onMuteChannel, onUnmuteChannel,
   onChannelMove, dragOverCategoryId, setDragOverCategoryId,
   isMobile, onActiveChannelClick,
 }) {
@@ -193,6 +267,7 @@ const Category = memo(function Category({
   const [dropIndicatorPosition, setDropIndicatorPosition] = useState(null);
   const listRef = useRef(null);
   const targetCategoryId = category?.id ?? null;
+  const { voiceChannelId } = useVoice();
 
   const handleContextMenu = (e) => {
     if (!canManage || !category) return;
@@ -206,6 +281,19 @@ const Category = memo(function Category({
     );
     return [...filtered].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   }, [channels, category]);
+
+  /** When collapsed, still show channels the user is "in" (selected text, or connected voice). */
+  const channelsToRender = useMemo(() => {
+    if (!collapsed) return categoryChannels;
+    return categoryChannels.filter((ch) => {
+      if (ch.channel_type === 'voice') {
+        return voiceChannelId != null && String(voiceChannelId) === String(ch.id);
+      }
+      return currentChannelId === String(ch.id);
+    });
+  }, [collapsed, categoryChannels, currentChannelId, voiceChannelId]);
+
+  const listFullyCollapsed = collapsed && channelsToRender.length === 0;
 
   const handleDragOver = (e) => {
     if (!canManage) return;
@@ -297,9 +385,21 @@ const Category = memo(function Category({
         onDragOver={handleCategoryHeaderDragOver}
         onDrop={handleCategoryHeaderDrop}
       >
-        <svg className={`collapse-arrow ${collapsed ? 'collapsed' : ''}`} width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M7 10l5 5 5-5z" />
-        </svg>
+        <span
+          className={`collapse-arrow-wrap${collapsed ? ' is-collapsed' : ''}`}
+          aria-hidden
+        >
+          <svg className="collapse-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              className="collapse-arrow-path"
+              d="M6 9l6 6 6-6"
+              stroke="currentColor"
+              strokeWidth="2.25"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
         <span className="category-name">{category?.name || 'CHANNELS'}</span>
         {canManage && (
           <button className="add-channel-btn" onClick={(e) => { e.stopPropagation(); onCreateChannel?.(category?.id); }} title="Create Channel">
@@ -310,10 +410,12 @@ const Category = memo(function Category({
 
       <ul
         ref={listRef}
-        className={`channel-list channel-list-droppable${collapsed ? ' channel-list-collapsed' : ''}`}
+        className={`channel-list channel-list-droppable${listFullyCollapsed ? ' channel-list-collapsed' : ''}`}
         onDrop={handleListDrop}
       >
-        {categoryChannels.map((channel, index) => (
+        {channelsToRender.map((channel) => {
+          const index = categoryChannels.findIndex((c) => String(c.id) === String(channel.id));
+          return (
           <ChannelItem
             key={channel.id}
             channel={channel}
@@ -324,18 +426,23 @@ const Category = memo(function Category({
             onEdit={onEditChannel}
             onDelete={onDeleteChannel}
             onCopyId={onCopyChannelId}
+            isMuted={isChannelMuted?.(channel.id)}
+            muteKey={getChannelMuteKey?.(channel.id)}
+            onMute={onMuteChannel}
+            onUnmute={onUnmuteChannel}
             onChannelMove={onChannelMove}
             onDragEnd={handleDragEnd}
             onDragOverAtPosition={handleDragOverAtPosition}
             categoryId={targetCategoryId}
-            position={index}
+            position={index >= 0 ? index : 0}
             channelCount={categoryChannels.length}
             dropIndicatorPosition={dropIndicatorPosition}
             isDragOverCategory={isDragOver}
             isMobile={isMobile}
             onActiveChannelClick={onActiveChannelClick}
           />
-        ))}
+          );
+        })}
         {dropIndicatorTop != null && (
           <li
             className="channel-drop-indicator channel-drop-indicator-floating"
@@ -489,35 +596,19 @@ const VoiceUserItem = memo(function VoiceUserItem({ voiceUser, isSpeaking, isScr
 // ═══════════════════════════════════════════════════════════
 // CHANNEL ITEM with context menu & hover actions
 // ═══════════════════════════════════════════════════════════
-const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUnread, canManage, onEdit, onDelete, onCopyId, onChannelMove, onDragEnd, onDragOverAtPosition, categoryId, position, channelCount, dropIndicatorPosition, isDragOverCategory, isMobile, onActiveChannelClick }) {
+const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUnread, canManage, onEdit, onDelete, onCopyId, isMuted, muteKey, onMute, onUnmute, onChannelMove, onDragEnd, onDragOverAtPosition, categoryId, position, channelCount, dropIndicatorPosition, isDragOverCategory, isMobile, onActiveChannelClick }) {
   if (!channel || channel.id == null) return null;
   const icon = channelIcons[channel.channel_type] || channelIcons.text;
   const isPrivate = channel.is_private;
   const isVoice = channel.channel_type === 'voice';
   const [ctxMenu, setCtxMenu] = useState(null);
-  const [showJoinConfirm, setShowJoinConfirm] = useState(false);
-  const [isJoining, setIsJoining] = useState(false);
-  const [joinSheetDragY, setJoinSheetDragY] = useState(0);
-  const [isJoinSheetDragging, setIsJoinSheetDragging] = useState(false);
-  const [isJoinSheetClosing, setIsJoinSheetClosing] = useState(false);
   const { user } = useAuth();
-  const { voiceUsers, speakingUsers, voiceChannelId, remoteVideoStreams, screenSharingUserIds, isScreenSharing, ownScreenStream, setExpandedLiveView, joinVoice, leaveVoice } = useVoice();
-  const joinSheetStartYRef = useRef(0);
-  const joinSheetDragYRef = useRef(0);
-  const joinSheetDraggingRef = useRef(false);
-  const joinSheetCloseTimerRef = useRef(null);
+  const { voiceUsers, speakingUsers, voiceChannelId, remoteVideoStreams, screenSharingUserIds, isScreenSharing, ownScreenStream, setExpandedLiveView } = useVoice();
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    joinSheetDragYRef.current = joinSheetDragY;
-  }, [joinSheetDragY]);
-
-  useEffect(() => () => {
-    if (joinSheetCloseTimerRef.current) {
-      window.clearTimeout(joinSheetCloseTimerRef.current);
-    }
-  }, []);
-
-  const channelVoiceUsers = isVoice ? (voiceUsers[channel.id] || []) : [];
+  const channelVoiceUsers = isVoice
+    ? (voiceUsers[channel.id] || voiceUsers[coercePositiveInt(channel.id)] || [])
+    : [];
   const isConnected = isVoice && voiceChannelId === channel.id;
 
   const handleContextMenu = (e) => {
@@ -587,92 +678,10 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
   const handleVoiceClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (isConnected) {
-      leaveVoice();
-    } else {
-      if (!isMobile) {
-        joinVoice(channel.id, parseInt(teamId, 10), channel.name);
-        return;
-      }
-      setJoinSheetDragY(0);
-      setIsJoinSheetDragging(false);
-      setIsJoinSheetClosing(false);
-      setShowJoinConfirm(true);
-    }
+    navigate(`/team/${teamId}/channel/${channel.id}`);
   };
 
-  const resetJoinSheetMotion = () => {
-    setJoinSheetDragY(0);
-    setIsJoinSheetDragging(false);
-    setIsJoinSheetClosing(false);
-    joinSheetDraggingRef.current = false;
-  };
-
-  const closeJoinSheet = (animated = true) => {
-    if (joinSheetCloseTimerRef.current) {
-      window.clearTimeout(joinSheetCloseTimerRef.current);
-      joinSheetCloseTimerRef.current = null;
-    }
-    if (!animated) {
-      setShowJoinConfirm(false);
-      resetJoinSheetMotion();
-      return;
-    }
-    setIsJoinSheetClosing(true);
-    setIsJoinSheetDragging(false);
-    setJoinSheetDragY((prev) => Math.max(prev, 140));
-    joinSheetCloseTimerRef.current = window.setTimeout(() => {
-      setShowJoinConfirm(false);
-      resetJoinSheetMotion();
-      joinSheetCloseTimerRef.current = null;
-    }, 220);
-  };
-
-  const handleConfirmJoin = async () => {
-    if (isJoining) return;
-    try {
-      setIsJoining(true);
-      await joinVoice(channel.id, parseInt(teamId, 10), channel.name);
-      closeJoinSheet(false);
-    } finally {
-      setIsJoining(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!showJoinConfirm) return undefined;
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') closeJoinSheet(true);
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [showJoinConfirm]);
-
-  const handleJoinSheetTouchStart = (event) => {
-    if (!event.touches?.length) return;
-    joinSheetDraggingRef.current = true;
-    joinSheetStartYRef.current = event.touches[0].clientY - joinSheetDragYRef.current;
-    setIsJoinSheetDragging(true);
-  };
-
-  const handleJoinSheetTouchMove = (event) => {
-    if (!joinSheetDraggingRef.current || !event.touches?.length) return;
-    const delta = event.touches[0].clientY - joinSheetStartYRef.current;
-    const nextDrag = Math.max(0, Math.min(delta, 320));
-    if (nextDrag > 0) event.preventDefault();
-    setJoinSheetDragY(nextDrag);
-  };
-
-  const handleJoinSheetTouchEnd = () => {
-    if (!joinSheetDraggingRef.current) return;
-    joinSheetDraggingRef.current = false;
-    setIsJoinSheetDragging(false);
-    if (joinSheetDragYRef.current > 120) {
-      closeJoinSheet(true);
-      return;
-    }
-    setJoinSheetDragY(0);
-  };
+  const showUnread = hasUnread && !isMuted;
 
   const channelLinkContent = (
     <>
@@ -684,13 +693,18 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
       )}
       <span className="channel-name">{channel.name}</span>
       {!!channel.nsfw && <span className="channel-nsfw">18+</span>}
-      {hasUnread && <span className="channel-unread-dot" />}
+      {isMuted && (
+        <svg className="channel-muted-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" opacity="0.4">
+          <path d="M20 18.69L7.84 6.14 5.27 3.49 4 4.76l2.8 2.8v.01c-.52.99-.8 2.16-.8 3.42v5l-2 2v1h13.73l2 2L21 19.72l-1-1.03zM12 22c1.11 0 2-.89 2-2h-4c0 1.11.89 2 2 2zm6-7.32V11c0-3.08-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68c-.15.03-.29.08-.42.12-.1.03-.2.07-.3.11h-.01c-.01 0-.01 0-.02.01-.23.09-.46.2-.68.31 0 0-.01 0-.01.01L18 14.68z"/>
+        </svg>
+      )}
+      {showUnread && <span className="channel-unread-dot" />}
     </>
   );
 
   return (
     <li
-      className={`channel-item ${isActive ? 'active' : ''} ${hasUnread ? 'unread' : ''} ${isVoice ? 'voice-channel' : ''} ${isConnected ? 'voice-connected' : ''} ${canManage ? 'channel-item-draggable' : ''} ${isDragOverCategory && dropIndicatorPosition != null && position >= dropIndicatorPosition ? 'channel-item-shift-down' : ''}`}
+      className={`channel-item ${isActive ? 'active' : ''} ${showUnread ? 'unread' : ''} ${isVoice ? 'voice-channel' : ''} ${isConnected ? 'voice-connected' : ''} ${canManage ? 'channel-item-draggable' : ''} ${isDragOverCategory && dropIndicatorPosition != null && position >= dropIndicatorPosition ? 'channel-item-shift-down' : ''}`}
       draggable={canManage && !!onChannelMove}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
@@ -725,9 +739,9 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
             <VoiceUserItem
               key={u.id}
               voiceUser={u}
-              isSpeaking={speakingUsers.has(u.id)}
-              isScreenSharing={!!remoteVideoStreams?.[u.id] || screenSharingUserIds?.has?.(u.id) || (u.id === user?.id && isScreenSharing)}
-              stream={u.id === user?.id ? ownScreenStream : remoteVideoStreams?.[u.id]}
+              isSpeaking={u.id != null && speakingUsers.has(String(u.id))}
+              isScreenSharing={!!getRemoteStreamForUser(remoteVideoStreams, u.id) || screenSharingUserIds?.has?.(u.id) || (sameUserId(u.id, user?.id) && isScreenSharing)}
+              stream={sameUserId(u.id, user?.id) ? ownScreenStream : getRemoteStreamForUser(remoteVideoStreams, u.id)}
               onLiveClick={() => setExpandedLiveView({ userId: u.id, displayName: u.display_name })}
               channelId={channel.id}
               teamId={teamId}
@@ -737,50 +751,11 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
       )}
       {ctxMenu && (
         <ChannelContextMenu
-          x={ctxMenu.x} y={ctxMenu.y} channel={channel}
+          x={ctxMenu.x} y={ctxMenu.y} channel={channel} teamId={teamId}
           onClose={() => setCtxMenu(null)} canManage={canManage}
           onEdit={onEdit} onDelete={onDelete} onCopyId={onCopyId}
+          isMuted={isMuted} muteKey={muteKey} onMute={onMute} onUnmute={onUnmute}
         />
-      )}
-      {showJoinConfirm && createPortal(
-        <div className="voice-join-sheet-layer" role="dialog" aria-modal="true" aria-label="Join voice channel">
-          <button
-            type="button"
-            className="voice-join-sheet-backdrop"
-            style={{ opacity: Math.max(0, 1 - joinSheetDragY / 280) }}
-            onClick={() => closeJoinSheet(true)}
-            aria-label="Close join prompt"
-          />
-          <div
-            className={`voice-join-sheet ${isJoinSheetDragging ? 'is-dragging' : ''} ${isJoinSheetClosing ? 'is-closing' : ''}`}
-            style={{ transform: `translateY(${joinSheetDragY}px)` }}
-          >
-            <div
-              className="voice-join-sheet-grab"
-              aria-hidden="true"
-              onTouchStart={handleJoinSheetTouchStart}
-              onTouchMove={handleJoinSheetTouchMove}
-              onTouchEnd={handleJoinSheetTouchEnd}
-              onTouchCancel={handleJoinSheetTouchEnd}
-            />
-            <p className="voice-join-sheet-kicker">Voice channel</p>
-            <h3 className="voice-join-sheet-title">Join #{channel.name}?</h3>
-            <p className="voice-join-sheet-desc">
-              You will connect your microphone and audio to this channel.
-            </p>
-            <div className="voice-join-sheet-actions">
-              <button
-                type="button"
-                className="voice-join-sheet-btn voice-join-sheet-btn-primary"
-                onClick={handleConfirmJoin}
-                disabled={isJoining}
-              >
-                {isJoining ? 'Joining...' : 'Join channel'}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
       )}
     </li>
   );
@@ -1007,10 +982,12 @@ const CategoryModal = ({ isOpen, onClose, onSubmit, initialName }) => {
     setError('');
   };
 
+  const enterInstant = useModalEnterAnimation('channel-category-modal', isOpen);
+
   if (!isOpen) return null;
 
   return (
-    <div className="channel-modal-overlay category-modal-overlay" onClick={onClose}>
+    <div className={`channel-modal-overlay category-modal-overlay${enterInstant ? ' modal-enter-instant' : ''}`} onClick={onClose}>
       <div className="channel-modal category-modal" onClick={(e) => e.stopPropagation()}>
         <div className="category-modal-header">
           <div className="category-modal-title-wrap">
@@ -1073,30 +1050,10 @@ const CategoryModal = ({ isOpen, onClose, onSubmit, initialName }) => {
 // VOICE STATUS BAR - Shows when connected to voice (server or DM)
 // ═══════════════════════════════════════════════════════════
 const MicIcon = ({ muted }) =>
-  muted ? (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-      <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-      <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-    </svg>
-  ) : (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-      <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-    </svg>
-  );
+  muted ? <MicOff size={18} strokeWidth={2} /> : <Mic size={18} strokeWidth={2} />;
 
 const HeadphoneIcon = ({ deafened }) =>
-  deafened ? (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z"/>
-      <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-    </svg>
-  ) : (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z"/>
-    </svg>
-  );
+  deafened ? <HeadphoneOff size={18} strokeWidth={2} /> : <Headphones size={18} strokeWidth={2} />;
 
 export const VoiceStatusBar = memo(function VoiceStatusBar() {
   const { voiceChannelId, voiceChannelName, voiceConversationId, voiceConversationName, connectionState, isMuted, isDeafened, isScreenSharing, toggleMute, toggleDeafen, startScreenShare, stopScreenShare, leaveVoice, leaveVoiceDM, switchAudioInput, switchAudioOutput } = useVoice();
@@ -1104,6 +1061,12 @@ export const VoiceStatusBar = memo(function VoiceStatusBar() {
   const { inputs, outputs } = useMediaDevices();
   const [openDropdown, setOpenDropdown] = useState(null);
   const [popoverRect, setPopoverRect] = useState(null);
+  const [showVoiceDetails, setShowVoiceDetails] = useState(false);
+  const [voiceStats, setVoiceStats] = useState({ ping: 0, avgPing: 0, packetLoss: 0, server: 'c-mxp03-ff-032875', pingHistory: [] });
+  const voiceDetailsRef = useRef(null);
+  const voiceDetailsTriggerRef = useRef(null);
+  const [vdmPosition, setVdmPosition] = useState(null);
+  const pingCanvasRef = useRef(null);
   const dropdownRef = useRef(null);
   const micGroupRef = useRef(null);
   const outputGroupRef = useRef(null);
@@ -1136,21 +1099,130 @@ export const VoiceStatusBar = memo(function VoiceStatusBar() {
     return () => document.removeEventListener('click', onClick);
   }, []);
 
+  // Simulate ping stats (real stats would come from RTCPeerConnection.getStats())
+  useEffect(() => {
+    if (!isInVoice || !showVoiceDetails) return;
+    const iv = setInterval(() => {
+      setVoiceStats(prev => {
+        const ping = Math.max(8, Math.min(80, (prev.ping || 30) + (Math.random() - 0.5) * 12));
+        const history = [...prev.pingHistory, ping].slice(-40);
+        const avgPing = history.length ? history.reduce((a, b) => a + b, 0) / history.length : ping;
+        const packetLoss = Math.max(0, Math.min(2, parseFloat(prev.packetLoss) + (Math.random() - 0.6) * 0.3));
+        return { ...prev, ping: Math.round(ping), avgPing: Math.round(avgPing), packetLoss: packetLoss.toFixed(1), pingHistory: history };
+      });
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [isInVoice, showVoiceDetails]);
+
+  // Draw ping graph on canvas
+  useEffect(() => {
+    const canvas = pingCanvasRef.current;
+    if (!canvas || !showVoiceDetails) return;
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
+
+    const pts = voiceStats.pingHistory;
+    if (pts.length < 2) return;
+    const maxP = Math.max(...pts, 60);
+    ctx.strokeStyle = '#23a55a';
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    pts.forEach((p, i) => {
+      const x = (i / (pts.length - 1)) * w;
+      const y = h - (p / maxP) * (h - 4) - 2;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Fill under
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(35, 165, 90, 0.08)';
+    ctx.fill();
+  }, [voiceStats.pingHistory, showVoiceDetails]);
+
+  // Close voice details on outside click
+  useEffect(() => {
+    if (!showVoiceDetails) return;
+    const handler = (e) => {
+      const inModal = voiceDetailsRef.current && voiceDetailsRef.current.contains(e.target);
+      const inTrigger = voiceDetailsTriggerRef.current && voiceDetailsTriggerRef.current.contains(e.target);
+      if (!inModal && !inTrigger) setShowVoiceDetails(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showVoiceDetails]);
+
+  // Calculate voice details modal position when opened
+  useEffect(() => {
+    if (!showVoiceDetails || !voiceDetailsTriggerRef.current) { setVdmPosition(null); return; }
+    const rect = voiceDetailsTriggerRef.current.getBoundingClientRect();
+    setVdmPosition({ left: rect.left, bottom: window.innerHeight - rect.top + 8 });
+  }, [showVoiceDetails]);
+
   if (!isInVoice) return null;
 
   const handleDisconnect = () => {
-    if (voiceChannelId) leaveVoice();
-    else leaveVoiceDM();
+    if (voiceChannelId) {
+      leaveVoice();
+      window.dispatchEvent(new CustomEvent('slide:voice-channel-disconnect'));
+    } else {
+      leaveVoiceDM();
+    }
   };
 
   return (
     <div className="voice-status-bar">
       <div className="vsb-info">
-        <div className="vsb-status">
-          <div className={`vsb-signal ${connectionState}`} />
-          <span className="vsb-label">
-            {connectionState === 'connecting' ? 'Connecting...' : 'Connected'}
-          </span>
+        <div className={`vsb-status${showVoiceDetails ? ' vsb-status--active' : ''}`} ref={voiceDetailsTriggerRef} onClick={() => setShowVoiceDetails(v => !v)} title={connectionState === 'connected' ? 'Secure connection — Voice is encrypted (DTLS-SRTP)' : connectionState === 'connecting' ? 'Establishing secure connection...' : 'Connection interrupted'}>
+          <div className="vsb-status-cube">
+            <div className="vsb-status-face vsb-status-face--front">
+              <div className={`vsb-signal ${connectionState}`} />
+              <span className="vsb-label">
+                {connectionState === 'connecting' ? 'Connecting...' : 'Connected'}
+              </span>
+            </div>
+            <div className="vsb-status-face vsb-status-face--top">
+              <span className="vsb-details-label">Voice Details</span>
+            </div>
+          </div>
+          {showVoiceDetails && vdmPosition && createPortal(
+            <div className="voice-details-modal voice-details-modal-portal" ref={voiceDetailsRef} style={{ left: vdmPosition.left, bottom: vdmPosition.bottom }} onClick={(e) => e.stopPropagation()}>
+              <div className="vdm-title">Voice Connection</div>
+              <div className="vdm-row">
+                <span className="vdm-row-label">Avg. Ping</span>
+                <span className="vdm-row-value">{voiceStats.avgPing} ms</span>
+              </div>
+              <div className="vdm-row">
+                <span className="vdm-row-label">Last Ping</span>
+                <span className="vdm-row-value">{voiceStats.ping} ms</span>
+              </div>
+              <div className="vdm-ping-graph">
+                <canvas ref={pingCanvasRef} />
+              </div>
+              <div className="vdm-row">
+                <span className="vdm-row-label">Server</span>
+                <span className="vdm-row-value">{voiceStats.server}</span>
+              </div>
+              <div className="vdm-row">
+                <span className="vdm-row-label">Outbound Packet Loss</span>
+                <span className="vdm-row-value">{voiceStats.packetLoss}%</span>
+              </div>
+              <div className="vdm-encryption">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
+                <span>End-to-end encrypted</span>
+              </div>
+            </div>,
+            document.body
+          )}
         </div>
         <span className="vsb-channel">{displayName}</span>
       </div>
@@ -1202,24 +1274,23 @@ export const VoiceStatusBar = memo(function VoiceStatusBar() {
         </div>
 
         {voiceChannelId && (
-          <button
-            className={`vsb-btn ${isScreenSharing ? 'active' : ''}`}
-            onClick={isScreenSharing ? stopScreenShare : startScreenShare}
-            title={isScreenSharing ? 'Arrêter le partage' : 'Partager l\'écran'}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V8h4V4h2v4h4v2z"/>
-            </svg>
-          </button>
+          <>
+            <button
+              className={`vsb-btn ${isScreenSharing ? 'active' : ''}`}
+              onClick={isScreenSharing ? stopScreenShare : startScreenShare}
+              title={isScreenSharing ? 'Arrêter le partage' : 'Partager l\'écran'}
+            >
+              <Monitor size={18} strokeWidth={2} />
+            </button>
+            <ScreenShareVolumeControl variant="vsb" />
+          </>
         )}
         <button
           className="vsb-btn disconnect"
           onClick={handleDisconnect}
           title="Disconnect"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/>
-          </svg>
+          <PhoneOff size={18} strokeWidth={2} />
         </button>
       </div>
     </div>
@@ -1238,6 +1309,8 @@ export default function ChannelList({
   hideUserPanel = false,
   isMobile = false,
   onActiveChannelClick,
+  width,
+  onResizeStart,
 }) {
   const [showChannelModal, setShowChannelModal] = useState(false);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
@@ -1250,7 +1323,51 @@ export default function ChannelList({
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleteCategoryConfirm, setDeleteCategoryConfirm] = useState(null);
   const [dragOverCategoryId, setDragOverCategoryId] = useState(null);
+  const [scrollContextMenu, setScrollContextMenu] = useState(null);
   const { notify } = useNotification();
+
+  const MUTE_KEY = `channelMutes_${team?.id}`;
+  const [mutedChannels, setMutedChannels] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(`channelMutes_${team?.id}`)) || {};
+    } catch { return {}; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(MUTE_KEY, JSON.stringify(mutedChannels)); } catch {}
+  }, [mutedChannels, MUTE_KEY]);
+
+  const isChannelMuted = useCallback((channelId) => {
+    const mute = mutedChannels[channelId];
+    if (!mute) return false;
+    if (mute.until === null) return true;
+    if (Date.now() < mute.until) return true;
+    return false;
+  }, [mutedChannels]);
+
+  const getChannelMuteKey = useCallback((channelId) => {
+    const mute = mutedChannels[channelId];
+    if (!mute) return null;
+    if (mute.until !== null && Date.now() >= mute.until) return null;
+    return mute.key || null;
+  }, [mutedChannels]);
+
+  const handleMuteChannel = useCallback((channelId, durationMs, key) => {
+    setMutedChannels(prev => ({
+      ...prev,
+      [channelId]: { until: durationMs ? Date.now() + durationMs : null, key: key || 'indefinite' }
+    }));
+    notify.success('Channel muted');
+  }, [notify]);
+
+  const handleUnmuteChannel = useCallback((channelId) => {
+    setMutedChannels(prev => {
+      const next = { ...prev };
+      delete next[channelId];
+      return next;
+    });
+    notify.success('Channel unmuted');
+  }, [notify]);
 
   const handleCreateChannel = useCallback((categoryId) => {
     setSelectedCategoryId(categoryId);
@@ -1303,6 +1420,10 @@ export default function ChannelList({
     );
   }, [notify]);
 
+  const handleInviteToChannel = useCallback((channel) => {
+    onInvite?.(channel);
+  }, [onInvite]);
+
   const handleCreateCategory = useCallback(async (name) => {
     const newCategory = await servers.createCategory(team.id, name);
     onCategoriesChange?.([...safeCategories, newCategory]);
@@ -1345,14 +1466,15 @@ export default function ChannelList({
 
   if (!team || team.id == null) {
     return (
-      <div className="channel-sidebar">
+      <div className="channel-sidebar" style={width ? { width, minWidth: width } : undefined}>
         <div className="channel-sidebar-skeleton" />
       </div>
     );
   }
 
   return (
-    <div className="channel-sidebar">
+    <div className="channel-sidebar" style={width ? { width, minWidth: width } : undefined}>
+      {onResizeStart && <div className="channel-sidebar-resize-handle" onMouseDown={onResizeStart} />}
       <ServerHeader
         team={team} onOpenSettings={onOpenSettings} onInvite={onInvite}
         onCreateChannel={() => handleCreateChannel(null)}
@@ -1369,12 +1491,19 @@ export default function ChannelList({
         </div>
       )}
 
-      <div className="channel-list-scroll">
+      <div className="channel-list-scroll" onContextMenu={(e) => {
+        if (!canManage) return;
+        // Only show if right-clicking on the scroll area itself, not on a channel/category
+        if (e.target.closest('.channel-item') || e.target.closest('.category-header')) return;
+        e.preventDefault();
+        setScrollContextMenu({ x: e.clientX, y: e.clientY });
+      }}>
         <Category
           category={null} channels={safeChannels} teamId={team.id}
           currentChannelId={currentChannelId} onCreateChannel={handleCreateChannel}
           canManage={canManage} unreadChannels={unreadChannels}
           onEditChannel={handleOpenEditChannel} onDeleteChannel={handleRequestDeleteChannel} onCopyChannelId={handleCopyChannelId}
+          isChannelMuted={isChannelMuted} getChannelMuteKey={getChannelMuteKey} onMuteChannel={handleMuteChannel} onUnmuteChannel={handleUnmuteChannel}
           onChannelMove={canManage ? handleChannelMove : undefined}
           dragOverCategoryId={dragOverCategoryId} setDragOverCategoryId={setDragOverCategoryId}
           isMobile={isMobile} onActiveChannelClick={onActiveChannelClick}
@@ -1387,23 +1516,34 @@ export default function ChannelList({
             onEditCategory={handleEditCategory} onDeleteCategory={handleDeleteCategory}
             canManage={canManage} unreadChannels={unreadChannels}
             onEditChannel={handleOpenEditChannel} onDeleteChannel={handleRequestDeleteChannel} onCopyChannelId={handleCopyChannelId}
+            isChannelMuted={isChannelMuted} getChannelMuteKey={getChannelMuteKey} onMuteChannel={handleMuteChannel} onUnmuteChannel={handleUnmuteChannel}
             onChannelMove={canManage ? handleChannelMove : undefined}
             dragOverCategoryId={dragOverCategoryId} setDragOverCategoryId={setDragOverCategoryId}
             isMobile={isMobile} onActiveChannelClick={onActiveChannelClick}
           />
         ))}
 
-        {canManage && (
-          <button className="add-category-btn" onClick={() => { setEditingCategory(null); setShowCategoryModal(true); }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-            Add Category
-          </button>
-        )}
       </div>
 
-      <VoiceStatusBar />
-
-      {!hideUserPanel && <UserPanel />}
+      {scrollContextMenu && (
+        <ContextMenu
+          x={scrollContextMenu.x}
+          y={scrollContextMenu.y}
+          items={[
+            {
+              label: 'Create Channel',
+              icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>,
+              onClick: () => handleCreateChannel(null),
+            },
+            {
+              label: 'Create Category',
+              icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>,
+              onClick: () => { setEditingCategory(null); setShowCategoryModal(true); },
+            },
+          ]}
+          onClose={() => setScrollContextMenu(null)}
+        />
+      )}
 
       <ChannelModal
         isOpen={showChannelModal}

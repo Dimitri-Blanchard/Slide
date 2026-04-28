@@ -241,6 +241,7 @@
 }
 
 .friend-card {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -249,14 +250,23 @@
   margin: 0 12px;
   border-radius: 10px;
   cursor: pointer;
-  border-top: 1px solid var(--border-subtle);
+  /* Separator is a straight bar (see ::before). border-top on a rounded box follows the radius and curves at the ends. */
+  border-top: none;
   transition: background 0.12s ease;
   min-width: 0;
   max-width: 100%;
 }
 
-.friend-card:first-of-type {
-  border-top: none;
+/* Flat horizontal rule between cards — inset matches border-radius so ends stay straight, not arced */
+.friend-card + .friend-card::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 0;
+  height: 1px;
+  background: var(--border-subtle);
+  pointer-events: none;
 }
 
 .friend-card:hover {
@@ -483,12 +493,22 @@
 
 .friends-add-input-wrap {
   display: flex;
-  align-items: center;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   background: var(--bg-tertiary);
   border-radius: 8px;
   border: 1px solid var(--bg-tertiary);
-  padding: 0 0 0 12px;
+  padding: 4px 4px 4px 12px;
+  gap: 8px;
   transition: border-color 0.15s;
+}
+
+/* Composite field: focus ring is on the whole bar (focus-within), not only the input */
+.friends-add-input-wrap .friends-add-input:focus,
+.friends-add-input-wrap .friends-add-input:focus-visible {
+  outline: none;
 }
 
 .friends-add-input-wrap:focus-within {
@@ -509,13 +529,15 @@
 
 .friends-add-input {
   flex: 1;
+  align-self: center;
+  min-width: 0;
+  min-height: 0;
   background: transparent;
   border: none;
   color: var(--text-primary);
   font-size: 0.9375rem;
-  padding: 12px 0;
+  padding: 10px 0;
   outline: none;
-  min-width: 0;
 }
 
 .friends-add-input::placeholder {
@@ -558,10 +580,11 @@
 
 .friends-add-btn {
   flex-shrink: 0;
+  align-self: stretch;
   padding: 10px 18px;
-  margin: 4px;
+  margin: 0;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--accent);
   color: var(--accent-text);
   font-size: 0.875rem;
@@ -820,7 +843,8 @@
 
 .friends-page-mobile .friends-add-input-wrap {
   flex-direction: row;
-  padding: 0 12px;
+  padding: 4px 4px 4px 12px;
+  gap: 8px;
   min-height: 52px;
 }
 
@@ -1015,19 +1039,24 @@
 
   .friends-add-input-wrap {
     flex-direction: column;
+    align-items: stretch;
     padding: 8px;
+    gap: 10px;
   }
 
   .friends-add-input {
     padding: 10px 0;
     width: 100%;
+    align-self: stretch;
   }
 
   .friends-add-btn {
     width: 100%;
+    align-self: stretch;
     margin: 0;
     padding: 10px 16px;
     min-height: 44px;
+    border-radius: 8px;
   }
 
   .friends-search-bar {

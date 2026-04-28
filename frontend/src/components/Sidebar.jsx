@@ -17,11 +17,8 @@ import { useVoice } from '../context/VoiceContext';
 import { useUserContextMenuItems } from '../hooks/useUserContextMenuItems';
 import { usePrefetchOnHover } from '../context/PrefetchContext';
 import { useOrbs } from '../context/OrbsContext';
-import UserPanel from './UserPanel';
 import { Lock } from 'lucide-react';
-import { VoiceStatusBar } from './ChannelList';
 import './Sidebar.css';
-import './ChannelList.css'; /* for .voice-status-bar */
 
 const MAX_PINNED = 5;
 
@@ -155,6 +152,8 @@ const Sidebar = memo(function Sidebar({
   loading,
   conversationsLoaded,
   onOpenSearch,
+  width,
+  onResizeStart,
 }) {
   const [showNewDM, setShowNewDM] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -332,7 +331,8 @@ const Sidebar = memo(function Sidebar({
   const showDmSkeleton = loading && allConversations.length === 0;
 
   return (
-    <aside className="sidebar" data-tour-id="tour-dms">
+    <aside className="sidebar" data-tour-id="tour-dms" style={width ? { width, minWidth: width } : undefined}>
+      {onResizeStart && <div className="sidebar-resize-handle" onMouseDown={onResizeStart} />}
       {/* Search bar at top (Discord style) */}
       <button className="sidebar-search-btn" onClick={onOpenSearch} data-tour-id="tour-search">
         <span>Find or start a conversation</span>
@@ -506,8 +506,6 @@ const Sidebar = memo(function Sidebar({
         )}
       </nav>
 
-      <VoiceStatusBar />
-      <UserPanel />
 
       {contextMenu.visible && (
         <ContextMenu x={contextMenu.x} y={contextMenu.y} items={getContextMenuItems()} onClose={closeContextMenu} />

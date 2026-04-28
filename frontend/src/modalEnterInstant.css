@@ -1,0 +1,113 @@
+/* Enter animations disabled while this class is on the overlay (hook always applies it). */
+
+.modal-enter-instant.confirm-overlay,
+.modal-enter-instant .confirm-modal {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.modal-enter-instant.search-modal-overlay,
+.modal-enter-instant .search-modal {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.modal-enter-instant.profile-modal-overlay,
+.modal-enter-instant.profile-modal-overlay .profile-modal {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: translateX(0) !important;
+}
+
+.modal-enter-instant.udm-overlay .udm-modal {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.modal-enter-instant.udm-overlay {
+  animation: none !important;
+  opacity: 1 !important;
+}
+
+.modal-enter-instant.invite-modal-overlay:not(.invite-exiting),
+.modal-enter-instant.invite-modal-overlay:not(.invite-exiting) .invite-modal:not(.invite-exiting) {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.modal-enter-instant.csm-overlay:not(.csm-exiting),
+.modal-enter-instant.csm-overlay:not(.csm-exiting) .csm-modal:not(.csm-exiting) {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.modal-enter-instant.dsm-overlay:not(.dsm-exiting),
+.modal-enter-instant.dsm-overlay:not(.dsm-exiting) .dsm-modal:not(.dsm-exiting) {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.modal-enter-instant.cysm-overlay:not(.cysm-exiting),
+.modal-enter-instant.cysm-overlay:not(.cysm-exiting) .cysm-modal:not(.cysm-exiting) {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.modal-enter-instant.topic-modal-overlay,
+.modal-enter-instant .topic-modal,
+.modal-enter-instant .topic-modal-header,
+.modal-enter-instant .topic-modal-body,
+.modal-enter-instant .topic-modal-footer {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.modal-enter-instant.cg-overlay,
+.modal-enter-instant .cg-modal {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.modal-enter-instant.add-note-overlay,
+.modal-enter-instant .add-note-modal {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.modal-enter-instant.friend-nickname-overlay,
+.modal-enter-instant .friend-nickname-modal {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.modal-enter-instant.member-roles-overlay,
+.modal-enter-instant .member-roles-modal {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.modal-enter-instant.category-modal-overlay,
+.modal-enter-instant .category-modal {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.modal-enter-instant.csw-overlay,
+.modal-enter-instant .csw-modal {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}

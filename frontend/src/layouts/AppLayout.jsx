@@ -22,39 +22,51 @@ const SecurityDashboard = lazy(() => import('../pages/SecurityDashboard'));
 const CommunityServersPage = lazy(() => import('../pages/CommunityServersPage'));
 import SearchModal from '../components/SearchModal';
 import VoiceFullscreenOverlay from '../components/VoiceFullscreenOverlay';
+import DmCallFloatingPanel from '../components/DmCallFloatingPanel';
 import ServerErrorBoundary from '../components/ServerErrorBoundary';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useOffline } from '../context/OfflineContext';
 import { useScene } from '../context/SceneContext';
 import { useNotification } from '../context/NotificationContext';
+import { usePlatform } from '../context/PlatformContext';
 import Settings from '../pages/Settings';
 import '../pages/SecurityDashboard.css';
 import '../pages/NitroPage.css';
 import '../pages/QuestsPage.css';
+import UserStatusAndSettings from '../components/UserStatusAndSettings';
 import './AppLayout.css';
 
 function useIsMobile(breakpoint = 768) {
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= breakpoint);
+  const { isMobileDevice } = usePlatform();
+  const [isSmallScreen, setIsSmallScreen] = useState(() => window.innerWidth <= breakpoint);
   useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${breakpoint}px)`);
-    const onChange = (e) => setIsMobile(e.matches);
+    const onChange = (e) => setIsSmallScreen(e.matches);
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
   }, [breakpoint]);
-  return isMobile;
+  // True if on an actual mobile device (Capacitor) OR a very small screen
+  return isMobileDevice || isSmallScreen;
 }
 
 // ═══════════════════════════════════════════════════════════
 // CACHE SYSTEM - Silent background sync
 // ═══════════════════════════════════════════════════════════
-const CACHE_KEY_CONVERSATIONS = 'slide_conversations_cache';
-const CACHE_KEY_TEAMS = 'slide_teams_cache';
 const SYNC_INTERVAL_MS = 10000; // 10s - cache + socket keep data fresh, no refresh needed
 
-function getCachedConversations() {
+function cacheKeyConversations(userId) {
+  return userId != null ? `slide_conversations_cache_u${userId}` : 'slide_conversations_cache';
+}
+
+function cacheKeyTeams(userId) {
+  return userId != null ? `slide_teams_cache_u${userId}` : 'slide_teams_cache';
+}
+
+function getCachedConversations(userId) {
+  if (userId == null) return null;
   try {
-    const cached = localStorage.getItem(CACHE_KEY_CONVERSATIONS);
+    const cached = localStorage.getItem(cacheKeyConversations(userId));
     if (cached) {
       const { data, timestamp } = JSON.parse(cached);
       // Cache valid for 24 hours max
@@ -68,9 +80,10 @@ function getCachedConversations() {
   return null;
 }
 
-function setCachedConversations(conversations) {
+function setCachedConversations(userId, conversations) {
+  if (userId == null) return;
   try {
-    localStorage.setItem(CACHE_KEY_CONVERSATIONS, JSON.stringify({
+    localStorage.setItem(cacheKeyConversations(userId), JSON.stringify({
       data: conversations,
       timestamp: Date.now()
     }));
@@ -79,9 +92,10 @@ function setCachedConversations(conversations) {
   }
 }
 
-function getCachedTeams() {
+function getCachedTeams(userId) {
+  if (userId == null) return null;
   try {
-    const cached = localStorage.getItem(CACHE_KEY_TEAMS);
+    const cached = localStorage.getItem(cacheKeyTeams(userId));
     if (cached) {
       const { data, timestamp } = JSON.parse(cached);
       if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
@@ -94,9 +108,10 @@ function getCachedTeams() {
   return null;
 }
 
-function setCachedTeams(teams) {
+function setCachedTeams(userId, teams) {
+  if (userId == null) return;
   try {
-    localStorage.setItem(CACHE_KEY_TEAMS, JSON.stringify({
+    localStorage.setItem(cacheKeyTeams(userId), JSON.stringify({
       data: teams,
       timestamp: Date.now()
     }));
@@ -126,24 +141,51 @@ function useAppParams() {
   }, [pathname]);
 }
 
-function AppLayout() {
-  const initialTeamsCache = useMemo(() => getCachedTeams(), []);
-  const initialConversationsCache = useMemo(() => getCachedConversations(), []);
-  const hasInitialConversationsCache = initialConversationsCache != null;
+const SIDEBAR_STORAGE_KEY = 'slide_sidebar_width';
+const SIDEBAR_DEFAULT_W = 300;
+const SIDEBAR_MIN_W = 260;
+const SIDEBAR_MAX_W = 480;
 
-  // Initialize from cache for instant display
-  const [teams, setTeams] = useState(() => {
-    return sanitizeTeamsList(initialTeamsCache);
+function useSidebarWidth() {
+  const [width, setWidth] = useState(() => {
+    try { const v = parseInt(localStorage.getItem(SIDEBAR_STORAGE_KEY), 10); return v >= SIDEBAR_MIN_W && v <= SIDEBAR_MAX_W ? v : SIDEBAR_DEFAULT_W; }
+    catch { return SIDEBAR_DEFAULT_W; }
   });
-  const [conversations, setConversations] = useState(() => (Array.isArray(initialConversationsCache) ? initialConversationsCache : []));
-  const [conversationsLoaded, setConversationsLoaded] = useState(() => hasInitialConversationsCache);
-  const [loading, setLoading] = useState(() => !hasInitialConversationsCache);
+  const widthRef = useRef(width);
+  widthRef.current = width;
+
+  const handleResizeStart = useCallback((e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = widthRef.current;
+    const onMove = (ev) => {
+      const next = Math.min(SIDEBAR_MAX_W, Math.max(SIDEBAR_MIN_W, startW + (ev.clientX - startX)));
+      setWidth(next);
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(widthRef.current)); } catch {}
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, []);
+
+  return { width, handleResizeStart };
+}
+
+function AppLayout() {
+  const { user } = useAuth();
+
+  const [teams, setTeams] = useState([]);
+  const [conversations, setConversations] = useState([]);
+  const [conversationsLoaded, setConversationsLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showCreateServer, setShowCreateServer] = useState(false);
   // Mobile bottom nav tab: home (DMs + servers) | notifications | profile
   const [mobileTab, setMobileTab] = useState('home');
-  const { user } = useAuth();
   const { inboxItems } = useNotification();
   const socket = useSocket();
   const { registerKeybindHandler } = useSettings();
@@ -272,33 +314,49 @@ function AppLayout() {
     return Promise.allSettled([teamsPromise, convosPromise]);
   }, []);
 
-  // Initial load + start background sync
+  // Per-account hydrate from localStorage + background sync (never mix users in sidebar cache)
   useEffect(() => {
+    if (!user?.id) {
+      setTeams([]);
+      setConversations([]);
+      setConversationsLoaded(false);
+      setLoading(false);
+      return;
+    }
+
+    const uid = user.id;
+    const teamsFromLs = sanitizeTeamsList(getCachedTeams(uid));
+    const convFromLs = getCachedConversations(uid);
+    setTeams(teamsFromLs);
+    if (convFromLs != null) {
+      setConversations(Array.isArray(convFromLs) ? convFromLs : []);
+      setConversationsLoaded(true);
+      setLoading(false);
+    } else {
+      setConversations([]);
+      setConversationsLoaded(false);
+      setLoading(true);
+    }
+
     const safetyTimeout = setTimeout(() => setLoading(false), 20000);
-
     silentSync(() => clearTimeout(safetyTimeout));
-
     const intervalId = setInterval(() => silentSync(), SYNC_INTERVAL_MS);
 
     return () => {
       clearTimeout(safetyTimeout);
       clearInterval(intervalId);
     };
-  }, [silentSync]);
+  }, [user?.id, silentSync]);
 
-  // Save to cache whenever conversations change
   useEffect(() => {
-    if (conversations.length > 0) {
-      setCachedConversations(conversations);
-    }
-  }, [conversations]);
+    if (!user?.id || !conversationsLoaded) return;
+    setCachedConversations(user.id, conversations);
+  }, [conversations, conversationsLoaded, user?.id]);
 
-  // Save to cache whenever teams change
   useEffect(() => {
-    if (teams.length > 0) {
-      setCachedTeams(sanitizeTeamsList(teams));
-    }
-  }, [teams]);
+    if (!user?.id || teams.length === 0) return;
+    setCachedTeams(user.id, sanitizeTeamsList(teams));
+  }, [teams, user?.id]);
 
   // Electron: sync OS taskbar badge with structured unread data
   useEffect(() => {
@@ -419,12 +477,21 @@ function AppLayout() {
       }));
     };
 
+    // Team deleted by owner
+    const onTeamDeleted = ({ teamId }) => {
+      setTeams((prev) => sanitizeTeamsList(prev).filter((t) => t.id !== teamId));
+      if (params.teamId === String(teamId)) {
+        navigate('/channels/@me');
+      }
+    };
+
     socket.on('team_created', onTeamCreated);
     socket.on('team_updated', onTeamUpdated);
     socket.on('server_updated', onServerUpdated);
     socket.on('added_to_team', onAddedToTeam);
     socket.on('joined_team', onJoinedTeam);
     socket.on('removed_from_team', onRemovedFromTeam);
+    socket.on('team_deleted', onTeamDeleted);
     socket.on('team_unread_update', onTeamUnreadUpdate);
     socket.on('team_mention_update', onTeamMentionUpdate);
 
@@ -435,6 +502,7 @@ function AppLayout() {
       socket.off('added_to_team', onAddedToTeam);
       socket.off('joined_team', onJoinedTeam);
       socket.off('removed_from_team', onRemovedFromTeam);
+      socket.off('team_deleted', onTeamDeleted);
       socket.off('team_unread_update', onTeamUnreadUpdate);
       socket.off('team_mention_update', onTeamMentionUpdate);
     };
@@ -740,6 +808,7 @@ function AppLayout() {
   const isOnline = useOnlineStatus();
   const { queuedCount, processing } = useOffline();
   const scene = useScene();
+  const { width: sidebarWidth, handleResizeStart: handleSidebarResizeStart } = useSidebarWidth();
 
 
   // ── Mobile layout (Discord-style 4-tab bottom nav) ─────────────────────────
@@ -921,6 +990,7 @@ function AppLayout() {
         onTeamsChange={handleTeamsChange}
         onLeaveServer={onLeaveServer}
       />
+      <UserStatusAndSettings sidebarWidth={sidebarWidth} />
       {showSidebar && (
         <ErrorBoundary fallback={<aside className="sidebar" style={{ padding: '1rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>DMs unavailable</aside>}>
           <Sidebar
@@ -934,6 +1004,8 @@ function AppLayout() {
             loading={loading}
             conversationsLoaded={conversationsLoaded}
             onOpenSearch={() => setShowSearch(true)}
+            width={sidebarWidth}
+            onResizeStart={handleSidebarResizeStart}
           />
         </ErrorBoundary>
       )}
@@ -953,7 +1025,7 @@ function AppLayout() {
             path="/team/:teamId/*"
             element={
               <ServerErrorBoundary>
-                <TeamChat teamId={params.teamId} initialChannelId={params.channelId} isMobile={isMobile} onLeaveServer={onLeaveServer} onOpenSearch={() => setShowSearch(true)} />
+                <TeamChat teamId={params.teamId} initialChannelId={params.channelId} isMobile={isMobile} onLeaveServer={onLeaveServer} onOpenSearch={() => setShowSearch(true)} sidebarWidth={sidebarWidth} onSidebarResizeStart={handleSidebarResizeStart} />
               </ServerErrorBoundary>
             }
           />
@@ -990,6 +1062,8 @@ function AppLayout() {
         conversations={conversations}
         teams={teams}
       />
+
+      <DmCallFloatingPanel conversations={conversations} isMobile={isMobile} />
 
     </div>
   );

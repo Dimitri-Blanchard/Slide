@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useVoice } from '../context/VoiceContext';
 import { useNotification } from '../context/NotificationContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useSettings } from '../context/SettingsContext';
 import { Icons } from '../components/ContextMenu';
 
 export function useUserContextMenuItems(user, context = {}) {
@@ -13,6 +14,7 @@ export function useUserContextMenuItems(user, context = {}) {
   const { joinVoiceDM, ringVoiceDM } = useVoice();
   const { notify } = useNotification();
   const { t } = useLanguage();
+  const { developerMode } = useSettings();
   const navigate = useNavigate();
   const [friendIds, setFriendIds] = useState(new Set());
   const emitFriendsChanged = useCallback(() => {
@@ -35,6 +37,10 @@ export function useUserContextMenuItems(user, context = {}) {
   const copyChannelId = useCallback(() => {
     if (channelId) navigator.clipboard?.writeText(String(channelId)).then(() => notify.success(t('common.copied') || 'Copied!'));
   }, [channelId, notify, t]);
+
+  const copyConversationId = useCallback(() => {
+    if (conversationId) navigator.clipboard?.writeText(String(conversationId)).then(() => notify.success(t('common.copied') || 'Copied!'));
+  }, [conversationId, notify, t]);
 
   const handleBlock = useCallback(async () => {
     if (!user?.id || isOwn) return;
@@ -91,8 +97,7 @@ export function useUserContextMenuItems(user, context = {}) {
   const handleStartCall = useCallback(() => {
     if (!conversationId || !user?.id) return;
     joinVoiceDM(parseInt(conversationId, 10), user.display_name || user.username);
-    navigate(`/channels/@me/${conversationId}`);
-  }, [conversationId, user?.id, user?.display_name, user?.username, joinVoiceDM, navigate]);
+  }, [conversationId, user?.id, user?.display_name, user?.username, joinVoiceDM]);
 
   const handleRingAgain = useCallback(() => {
     if (!conversationId) return;
@@ -182,22 +187,31 @@ export function useUserContextMenuItems(user, context = {}) {
       }
     }
 
-    items.push({ separator: true });
-
-    if (channelId) {
-      items.push({
-        label: t('common.copyChannelId') || 'Copy Channel ID',
-        icon: Icons.copy,
-        onClick: copyChannelId,
-      });
+    if (developerMode) {
       items.push({ separator: true });
-    }
 
-    items.push({
-      label: t('common.copyUserId') || 'Copy User ID',
-      icon: Icons.copy,
-      onClick: copyUserId,
-    });
+      if (channelId) {
+        items.push({
+          label: t('common.copyChannelId') || 'Copy Channel ID',
+          icon: Icons.copy,
+          onClick: copyChannelId,
+        });
+      }
+
+      if (conversationId) {
+        items.push({
+          label: t('common.copyConversationId') || 'Copy Conversation ID',
+          icon: Icons.copy,
+          onClick: copyConversationId,
+        });
+      }
+
+      items.push({
+        label: t('common.copyUserId') || 'Copy User ID',
+        icon: Icons.copy,
+        onClick: copyUserId,
+      });
+    }
 
     if (!isOwn) {
       items.push({ separator: true });
@@ -216,6 +230,6 @@ export function useUserContextMenuItems(user, context = {}) {
     friendIds,
     handleStartCall, handleRingAgain, handleMarkAsRead,
     handleBlock, handleAddFriend, handleRemoveFriend,
-    copyUserId, copyChannelId, onOpenNicknameModal, onOpenNoteModal, t, notify, navigate,
+    copyUserId, copyChannelId, copyConversationId, developerMode, onOpenNicknameModal, onOpenNoteModal, t, notify, navigate,
   ]);
 }

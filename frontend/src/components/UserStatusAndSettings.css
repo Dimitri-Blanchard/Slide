@@ -1,0 +1,485 @@
+/* ═══════════════════════════════════════════════════════════
+   USER STATUS AND SETTINGS - Floating Discord-style island
+   Compact by default, expands when in a voice call.
+   ═══════════════════════════════════════════════════════════ */
+.user-status-and-settings {
+  position: fixed;
+  bottom: 8px;
+  left: 8px;
+  z-index: 990;
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  overflow: visible;
+  pointer-events: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   VOICE EXPANDED ZONE — slides in when joining a call
+   ═══════════════════════════════════════════════════════════ */
+.usas-voice-zone {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 12px 12px 0 0;
+  animation: usas-expand 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes usas-expand {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 300px;
+  }
+}
+
+/* Reset voice-status-bar styles inside the island */
+.usas-voice-zone .voice-status-bar {
+  background: transparent !important;
+  border: none !important;
+  padding: 12px 14px !important;
+  gap: 10px !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.usas-voice-zone .vsb-info {
+  gap: 4px !important;
+  flex: 1;
+  min-width: 0;
+}
+
+.usas-voice-zone .vsb-channel {
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Hide the old voice controls — we have our own buttons now */
+.usas-voice-zone .vsb-controls {
+  display: none !important;
+}
+
+/* Constrain hover area to just the "Connected" text + signal dot */
+.usas-voice-zone .vsb-status {
+  width: fit-content;
+}
+
+/* Fix blurry text: avoid sub-pixel rendering from transforms */
+.usas-voice-zone .vsb-status-cube {
+  will-change: transform;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.usas-voice-zone .vsb-label,
+.usas-voice-zone .vsb-details-label {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+}
+
+/* Voice actions row — disconnect + icon buttons side by side */
+.usas-voice-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px 12px;
+}
+
+.usas-vc-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: none;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.usas-vc-btn svg {
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.usas-vc-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.usas-vc-btn:hover svg {
+  transform: scale(1.1);
+}
+
+.usas-vc-btn:active svg {
+  transform: scale(0.9);
+}
+
+.usas-vc-btn.active {
+  background: rgba(35, 165, 90, 0.15);
+  color: #23a55a;
+}
+
+.usas-vc-btn.active:hover {
+  background: rgba(35, 165, 90, 0.25);
+  color: #2dc770;
+}
+
+.usas-vc-btn.disabled,
+.usas-vc-btn.disabled:hover {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+}
+
+.usas-vc-btn.disabled svg {
+  transform: none !important;
+}
+
+/* Disconnect button */
+.usas-disconnect-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+  padding: 8px 0;
+  border: none;
+  border-radius: 8px;
+  background: rgba(237, 66, 69, 0.12);
+  color: #ed4245;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+
+.usas-disconnect-btn:hover {
+  background: rgba(237, 66, 69, 0.22);
+}
+
+.usas-disconnect-btn:active {
+  transform: scale(0.97);
+}
+
+.usas-disconnect-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.usas-disconnect-btn:hover svg {
+  transform: rotate(-12deg) scale(1.1);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BOTTOM BAR — always visible: user identity + controls
+   ═══════════════════════════════════════════════════════════ */
+.usas-bottom-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+}
+
+/* Reset user-panel inside the island */
+.usas-bottom-bar .user-panel {
+  position: relative !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 8px 10px !important;
+  height: auto !important;
+  min-height: auto !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Hide the settings button inside UserPanel — we have our own */
+.usas-bottom-bar .user-panel-controls {
+  display: none !important;
+}
+
+.usas-bottom-bar .user-panel-identity {
+  display: flex !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 4px 6px !important;
+  border-radius: 10px;
+}
+
+.usas-bottom-bar .user-panel-avatar {
+  width: 34px !important;
+  height: 34px !important;
+  flex-shrink: 0;
+}
+
+.usas-bottom-bar .user-panel-info {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1;
+  min-width: 0;
+}
+
+.usas-bottom-bar .user-panel-name {
+  font-size: 0.82rem !important;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usas-bottom-bar .user-panel-status {
+  font-size: 0.68rem !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CONTROL BUTTONS — mute, deafen, settings (always visible)
+   ═══════════════════════════════════════════════════════════ */
+.usas-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 10px 0 0;
+  flex-shrink: 0;
+}
+
+.usas-ctrl-btn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+  position: relative;
+}
+
+.usas-ctrl-btn svg {
+  transition:
+    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.15s ease;
+}
+
+.usas-ctrl-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.usas-ctrl-btn:hover svg {
+  transform: scale(1.12);
+}
+
+.usas-ctrl-btn:active svg {
+  transform: scale(0.9);
+}
+
+/* Active state — muted / deafened */
+.usas-ctrl-btn.active {
+  color: #ed4245;
+}
+
+.usas-ctrl-btn.active:hover {
+  background: rgba(237, 66, 69, 0.12);
+  color: #ed4245;
+}
+
+/* Settings button — spin on hover */
+.usas-settings-btn:hover svg {
+  transform: rotate(45deg) scale(1.1);
+}
+
+.usas-settings-btn:active svg {
+  transform: rotate(90deg) scale(0.9);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DEVICE SELECTION ARROW + POPOVER
+   ═══════════════════════════════════════════════════════════ */
+.usas-ctrl-group {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.usas-ctrl-arrow {
+  width: 16px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  margin-left: -4px;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.usas-ctrl-group:hover .usas-ctrl-arrow,
+.usas-ctrl-arrow.open {
+  opacity: 1;
+}
+
+.usas-ctrl-arrow:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.usas-ctrl-arrow.open {
+  color: var(--accent, #5865f2);
+}
+
+.usas-ctrl-arrow.active {
+  color: #ed4245;
+}
+
+.usas-ctrl-arrow.active:hover {
+  color: #fff;
+  background: rgba(237, 66, 69, 0.2);
+}
+
+.usas-ctrl-arrow.active.open {
+  color: #ed4245;
+}
+
+/* Device popover — portaled to body */
+.usas-device-popover {
+  position: fixed;
+  z-index: 99999;
+  background: var(--bg-floating, var(--bg-secondary));
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  padding: 6px 0;
+  min-width: 220px;
+  max-width: 300px;
+  max-height: 260px;
+  overflow-y: auto;
+  animation: usas-popover-in 0.12s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes usas-popover-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.usas-popover-title {
+  padding: 6px 12px 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.usas-device-popover button {
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.12s;
+  font-family: inherit;
+}
+
+.usas-device-popover button:hover {
+  background: var(--bg-hover);
+  color: #fff;
+}
+
+.usas-device-popover button[data-selected="true"] {
+  color: var(--accent, #5865f2);
+  font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   VOICE DETAILS MODAL — z-index fix
+   ═══════════════════════════════════════════════════════════ */
+.user-status-and-settings .voice-details-modal {
+  z-index: 99999 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DARK THEME
+   ═══════════════════════════════════════════════════════════ */
+[data-theme="dark"] .user-status-and-settings {
+  background: var(--bg-secondary);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .usas-voice-zone {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .usas-bottom-bar .user-panel {
+  background: transparent !important;
+}
+
+[data-theme="dark"] .usas-disconnect-btn {
+  background: rgba(237, 66, 69, 0.15);
+}
+
+[data-theme="dark"] .usas-disconnect-btn:hover {
+  background: rgba(237, 66, 69, 0.28);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DYNAMIC BOTTOM PADDING — push sidebar/channel content up
+   when usas is in voice (taller island)
+   ═══════════════════════════════════════════════════════════ */
+body:has(.usas-in-voice) .sidebar {
+  padding-bottom: 180px;
+}
+
+body:has(.usas-in-voice) .channel-sidebar {
+  padding-bottom: 180px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE: hide (mobile has its own bottom nav)
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .user-status-and-settings {
+    display: none !important;
+  }
+}

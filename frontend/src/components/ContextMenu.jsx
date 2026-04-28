@@ -80,9 +80,26 @@ const ContextMenu = memo(function ContextMenu({ x, y, items, onClose, onHoverFly
   const [submenuOpen, setSubmenuOpen] = useState(null);
   const submenuRef = useRef(null);
   const hoverFlyoutTimeoutRef = useRef(null);
+  const submenuCloseTimerRef = useRef(null);
   const [hoverFlyoutIndex, setHoverFlyoutIndex] = useState(null);
 
   const FLYOUT_DELAY = 150;
+
+  const openSubmenu = useCallback((index) => {
+    if (submenuCloseTimerRef.current) {
+      clearTimeout(submenuCloseTimerRef.current);
+      submenuCloseTimerRef.current = null;
+    }
+    setSubmenuOpen(index);
+  }, []);
+
+  const closeSubmenuDelayed = useCallback(() => {
+    if (submenuCloseTimerRef.current) clearTimeout(submenuCloseTimerRef.current);
+    submenuCloseTimerRef.current = setTimeout(() => {
+      setSubmenuOpen(null);
+      submenuCloseTimerRef.current = null;
+    }, 200);
+  }, []);
 
   const clearFlyoutTimer = useCallback(() => {
     if (hoverFlyoutTimeoutRef.current) {
@@ -117,7 +134,10 @@ const ContextMenu = memo(function ContextMenu({ x, y, items, onClose, onHoverFly
     }, FLYOUT_DELAY);
   }, [onHoverFlyout]);
 
-  useEffect(() => () => clearFlyoutTimer(), [clearFlyoutTimer]);
+  useEffect(() => () => {
+    clearFlyoutTimer();
+    if (submenuCloseTimerRef.current) clearTimeout(submenuCloseTimerRef.current);
+  }, [clearFlyoutTimer]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -199,11 +219,11 @@ const ContextMenu = memo(function ContextMenu({ x, y, items, onClose, onHoverFly
               className={`context-menu-item-wrap ${item.submenu ? 'has-submenu' : ''} ${item.hoverFlyout ? 'has-flyout' : ''}`}
               onMouseEnter={() => {
                 if (item.hoverFlyout) handleHoverFlyoutEnter(item, index);
-                else if (item.submenu) setSubmenuOpen(index);
+                else if (item.submenu) openSubmenu(index);
               }}
               onMouseLeave={() => {
                 if (item.hoverFlyout) handleHoverFlyoutLeave(item);
-                else if (item.submenu) setSubmenuOpen(null);
+                else if (item.submenu) closeSubmenuDelayed();
               }}
             >
               <button
@@ -219,17 +239,25 @@ const ContextMenu = memo(function ContextMenu({ x, y, items, onClose, onHoverFly
                 <div
                   ref={submenuRef}
                   className="context-menu-submenu"
-                  onMouseEnter={() => setSubmenuOpen(index)}
-                  onMouseLeave={() => setSubmenuOpen(null)}
+                  onMouseEnter={() => openSubmenu(index)}
+                  onMouseLeave={() => closeSubmenuDelayed()}
                 >
                   {item.submenu.map((subItem, si) => (
-                    <button
-                      key={si}
-                      className="context-menu-item"
-                      onClick={() => handleSubmenuItemClick(subItem)}
-                    >
-                      <span className="context-menu-label">{subItem.label}</span>
-                    </button>
+                    subItem.separator ? (
+                      <div key={si} className="context-menu-separator" />
+                    ) : (
+                      <button
+                        key={si}
+                        className="context-menu-item"
+                        onClick={() => handleSubmenuItemClick(subItem)}
+                      >
+                        {subItem.icon && <span className="context-menu-icon">{subItem.icon}</span>}
+                        <span className="context-menu-label">
+                          {subItem.label}
+                          {subItem.description && <span className="context-menu-item-desc">{subItem.description}</span>}
+                        </span>
+                      </button>
+                    )
                   ))}
                 </div>
               )}

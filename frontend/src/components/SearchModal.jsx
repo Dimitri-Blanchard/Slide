@@ -6,9 +6,11 @@ import Avatar from './Avatar';
 import ProfileCard from './ProfileCard';
 import { usePrefetchOnHover } from '../context/PrefetchContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import './SearchModal.css';
 
 export default function SearchModal({ isOpen, onClose, conversations, teams }) {
+  const enterInstant = useModalEnterAnimation('search-modal', isOpen);
   const { onMouseEnter, onMouseLeave } = usePrefetchOnHover();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState({ users: [], conversations: [], teams: [], messages: [] });
@@ -123,7 +125,7 @@ export default function SearchModal({ isOpen, onClose, conversations, teams }) {
   if (!isOpen) return null;
   
   const modal = (
-    <div className="search-modal-overlay" onClick={onClose}>
+    <div className={`search-modal-overlay${enterInstant ? ' modal-enter-instant' : ''}`} onClick={onClose}>
       <div className="search-modal" onClick={e => e.stopPropagation()}>
         <div className="search-modal-header">
           <svg className="search-modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

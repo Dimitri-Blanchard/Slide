@@ -1,6 +1,6 @@
 import React, { useState, useCallback, memo, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Bell, BellOff } from 'lucide-react';
 import { AvatarImg } from './Avatar';
 import { useLanguage } from '../context/LanguageContext';
@@ -369,10 +369,11 @@ const AddServerButton = memo(function AddServerButton({ onClick }) {
 
 // Discover communities button - navigates to full-screen community page
 const DiscoverButton = memo(function DiscoverButton() {
-  const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { t } = useLanguage();
   const [hovered, setHovered] = useState(false);
   const tooltipRef = useRef(null);
+  const isActive = pathname === '/community' || pathname.startsWith('/community/');
 
   return (
     <li
@@ -381,18 +382,18 @@ const DiscoverButton = memo(function DiscoverButton() {
       onMouseLeave={() => setHovered(false)}
       ref={tooltipRef}
     >
-      <button
-        type="button"
-        className="server-icon-link discover-server-btn"
+      <Link
+        to="/community"
+        className={`server-icon-link discover-server-btn${isActive ? ' active' : ''}`}
         title={t('sidebar.discover') || 'Explore Communities'}
-        onClick={() => navigate('/community')}
       >
-        <div className="server-icon discover-icon">
+        <div className={`server-icon discover-icon ${isActive ? 'active' : ''}`}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
             <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
           </svg>
         </div>
-      </button>
+        <div className={`server-indicator ${isActive ? 'active' : ''}`} />
+      </Link>
       {hovered && <ServerBarTooltip text={t('sidebar.discover') || 'Explore Communities'} anchorRef={tooltipRef} />}
     </li>
   );
@@ -429,6 +430,7 @@ const ServerBar = memo(function ServerBar({
   const [dragOverId, setDragOverId] = useState(null);
   const [draggedId, setDraggedId] = useState(null);
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { user } = useAuth();
   const { notify } = useNotification();
   const { t } = useLanguage();
@@ -528,8 +530,12 @@ const ServerBar = memo(function ServerBar({
 
   const handleLeaveClick = useCallback((team) => {
     closeServerContextMenu();
+    if (team?.role === 'owner') {
+      notify.error(t('server.ownerCannotLeave') || 'You are the owner of this server. Go to Server Settings to delete it.');
+      return;
+    }
     setLeaveConfirmTeam(team);
-  }, [closeServerContextMenu]);
+  }, [closeServerContextMenu, user?.id, notify, t]);
 
   const handleConfirmLeave = useCallback(async () => {
     const team = leaveConfirmTeam;
@@ -542,6 +548,12 @@ const ServerBar = memo(function ServerBar({
       notify.error(err?.message || 'Erreur');
     }
   }, [leaveConfirmTeam, user?.id, onLeaveServer, notify]);
+
+  const ctxTeam = serverContextMenu?.team;
+  const canManageServerFromList =
+    ctxTeam?.can_manage_server === true ||
+    ctxTeam?.role === 'owner' ||
+    ctxTeam?.role === 'admin';
 
   const serverMenuItems = serverContextMenu ? [
     {
@@ -560,15 +572,19 @@ const ServerBar = memo(function ServerBar({
       },
     },
     { separator: true },
-    {
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-        </svg>
-      ),
-      label: t('server.settings') || 'Paramètres du serveur',
-      onClick: () => handleOpenSettings(serverContextMenu.team),
-    },
+    ...(canManageServerFromList
+      ? [
+          {
+            icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+              </svg>
+            ),
+            label: t('server.settings') || 'Paramètres du serveur',
+            onClick: () => handleOpenSettings(serverContextMenu.team),
+          },
+        ]
+      : []),
     {
       icon: mutedServersSet.has(Number(serverContextMenu.team.id)) ? (
         <Bell size={16} strokeWidth={2} aria-hidden />
@@ -580,21 +596,25 @@ const ServerBar = memo(function ServerBar({
         : (t('server.muteServer') || 'Masquer les notifications'),
       onClick: () => handleToggleMute(serverContextMenu.team),
     },
-    { separator: true },
-    {
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
-        </svg>
-      ),
-      label: t('server.leaveServer') || 'Quitter le serveur',
-      onClick: () => handleLeaveClick(serverContextMenu.team),
-      danger: true,
-    },
+    ...(serverContextMenu.team?.role === 'owner' ? [] : [
+      { separator: true },
+      {
+        icon: (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
+          </svg>
+        ),
+        label: t('server.leaveServer') || 'Quitter le serveur',
+        onClick: () => handleLeaveClick(serverContextMenu.team),
+        danger: true,
+      },
+    ]),
   ] : [];
 
-  // Home is active when viewing DMs or welcome screen (no team selected)
-  const isHomeActive = !currentTeamId && !currentConversationId?.startsWith?.('team');
+  // Home (logo) is active for DMs — not when browsing /community (discover button owns that)
+  const isCommunityRoute = pathname === '/community' || pathname.startsWith('/community/');
+  const isHomeActiveBase = !currentTeamId && !currentConversationId?.startsWith?.('team');
+  const homeButtonActive = !isCommunityRoute && (isHomeActiveBase || !!currentConversationId);
 
   // Sort teams by saved order (new teams at end)
   const sortedTeams = useMemo(() => {
@@ -758,13 +778,13 @@ const ServerBar = memo(function ServerBar({
       <nav className="server-bar-nav">
         {/* Home (DMs) button */}
         <ul className="server-list home-section">
-          <HomeButton isActive={isHomeActive || !!currentConversationId} onContextMenu={handleHomeContextMenu} />
+          <HomeButton isActive={homeButtonActive} onContextMenu={handleHomeContextMenu} />
         </ul>
 
         {/* Separator */}
         <div className="server-separator" />
 
-        {/* Server list */}
+        {/* Server list + add/discover (same column, scrolls together — last rows look like server slots) */}
         <ul className="server-list servers-section">
           {sortedTeams.map((team) => (
             <ServerIcon
@@ -785,10 +805,6 @@ const ServerBar = memo(function ServerBar({
               hideTooltip={isMobile}
             />
           ))}
-        </ul>
-
-        {/* Action buttons - Add server + Discover communities */}
-        <ul className="server-list actions-section">
           <AddServerButton onClick={() => setShowHubModal(true)} />
           <DiscoverButton />
         </ul>

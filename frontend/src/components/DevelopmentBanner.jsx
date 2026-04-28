@@ -2,20 +2,36 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './DevelopmentBanner.css';
 
-const STORAGE_KEY = 'slide_dev_banner_accepted';
+const LOCAL_KEY = 'slide_dev_banner_accepted';
 
 export default function DevelopmentBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!localStorage.getItem(STORAGE_KEY)) {
-      setVisible(true);
-    }
+    // Quick local check first — if already dismissed locally, skip API call
+    if (localStorage.getItem(LOCAL_KEY)) return;
+
+    // Check server (per-IP tracking)
+    fetch('/api/banner/status')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.dismissed) {
+          localStorage.setItem(LOCAL_KEY, 'accepted');
+        } else {
+          setVisible(true);
+        }
+      })
+      .catch(() => {
+        // Server unreachable — fallback to showing banner
+        setVisible(true);
+      });
   }, []);
 
   const handleAccept = () => {
-    localStorage.setItem(STORAGE_KEY, 'accepted');
+    localStorage.setItem(LOCAL_KEY, 'accepted');
     setVisible(false);
+    // Notify server so this IP won't see it again
+    fetch('/api/banner/dismiss', { method: 'POST' }).catch(() => {});
   };
 
   if (!visible) return null;

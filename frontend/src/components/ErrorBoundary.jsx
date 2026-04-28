@@ -1,4 +1,5 @@
 import React from 'react';
+import './ErrorBoundary.css';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -20,7 +21,7 @@ class ErrorBoundary extends React.Component {
   };
 
   handleReset = () => {
-    this.setState({ hasError: false, error: null });
+    this.setState({ hasError: false, error: null, errorInfo: null });
   };
 
   render() {
@@ -29,66 +30,33 @@ class ErrorBoundary extends React.Component {
     }
     if (this.state.hasError) {
       return (
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
-          backgroundColor: '#f0f2f7',
-          color: '#0f1117',
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-          padding: '2rem',
-          textAlign: 'center',
-        }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>:(</div>
-          <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: '#fff' }}>
-            Something went wrong
-          </h1>
-          <p style={{ color: '#949ba4', marginBottom: '0.5rem', maxWidth: '400px' }}>
-            An unexpected error occurred. You can try going back or reloading the app.
-          </p>
-          {this.state.error && (
-            <>
-              <pre style={{ color: '#da373c', fontSize: '0.75rem', textAlign: 'left', maxWidth: '100%', overflow: 'auto', padding: '0.5rem', background: 'rgba(0,0,0,0.3)', borderRadius: 4, marginBottom: '0.5rem', userSelect: 'text', WebkitUserSelect: 'text' }}>
-                {this.state.error?.message || String(this.state.error)}
-              </pre>
-              {this.state.errorInfo?.componentStack && (
-                <pre style={{ color: '#b9bbbe', fontSize: '0.65rem', textAlign: 'left', maxWidth: '100%', overflow: 'auto', padding: '0.5rem', background: 'rgba(0,0,0,0.3)', borderRadius: 4, marginBottom: '1.5rem', whiteSpace: 'pre-wrap', userSelect: 'text', WebkitUserSelect: 'text' }}>
-                  {this.state.errorInfo.componentStack}
+        <div className="eb-root" role="alert">
+          <div className="eb-card">
+            <div className="eb-icon" aria-hidden>:(</div>
+            <h1 className="eb-title">Something went wrong</h1>
+            <p className="eb-desc">
+              An unexpected error occurred. You can try again or reload the app. If this keeps happening, contact support with the details below.
+            </p>
+            {this.state.error && (
+              <>
+                <pre className="eb-pre">
+                  {this.state.error?.message || String(this.state.error)}
                 </pre>
-              )}
-            </>
-          )}
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <button
-              onClick={this.handleReset}
-              style={{
-                padding: '0.6rem 1.5rem',
-                borderRadius: '4px',
-                border: 'none',
-                backgroundColor: '#e4e7ed',
-                color: '#fff',
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-              }}
-            >
-              Try Again
-            </button>
-            <button
-              onClick={this.handleReload}
-              style={{
-                padding: '0.6rem 1.5rem',
-                borderRadius: '4px',
-                border: 'none',
-                backgroundColor: '#4f6ef7',
-                color: '#fff',
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-              }}
-            >
-              Reload App
-            </button>
+                {this.state.errorInfo?.componentStack && (
+                  <pre className="eb-pre eb-pre--stack">
+                    {this.state.errorInfo.componentStack}
+                  </pre>
+                )}
+              </>
+            )}
+            <div className="eb-actions">
+              <button type="button" className="eb-btn eb-btn--secondary" onClick={this.handleReset}>
+                Try again
+              </button>
+              <button type="button" className="eb-btn eb-btn--primary" onClick={this.handleReload}>
+                Reload app
+              </button>
+            </div>
           </div>
         </div>
       );

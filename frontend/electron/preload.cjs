@@ -44,6 +44,26 @@ contextBridge.exposeInMainWorld('electron', {
   setMinimizeToTray: (enabled) => ipcRenderer.invoke('set-minimize-to-tray', enabled),
   getMinimizeToTray: () => ipcRenderer.invoke('get-minimize-to-tray'),
 
+  // ── Voice tray state ───────────────────────────────────────────────────────
+  // state: 'idle' | 'call' | 'speaking' | 'muted'
+  setTrayVoiceState: (state) => ipcRenderer.send('tray-voice-state', state),
+  // Listen for tray context menu actions (mute toggle, leave call)
+  onTrayToggleMute: (callback) => {
+    const fn = () => callback();
+    ipcRenderer.on('tray-toggle-mute', fn);
+    return () => ipcRenderer.removeListener('tray-toggle-mute', fn);
+  },
+  onTrayLeaveCall: (callback) => {
+    const fn = () => callback();
+    ipcRenderer.on('tray-leave-call', fn);
+    return () => ipcRenderer.removeListener('tray-leave-call', fn);
+  },
+  onAppBeforeQuit: (callback) => {
+    const fn = () => callback();
+    ipcRenderer.on('app-before-quit', fn);
+    return () => ipcRenderer.removeListener('app-before-quit', fn);
+  },
+
   // ── Notifications ────────────────────────────────────────────────────────────
   // options: { title, body, icon? }
   showNotification: (options) => ipcRenderer.invoke('show-notification', options),

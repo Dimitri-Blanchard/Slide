@@ -29,10 +29,14 @@ import './index.css';
 // env(safe-area-inset-*) which is often 0 in Android WebView
 // even when edge-to-edge is enabled.
 // ─────────────────────────────────────────────────────────────
+let viewportRaf = 0;
 function updateViewportMetrics() {
-  // Actual visible height — reliable on all platforms
-  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  document.documentElement.style.setProperty('--app-height', `${Math.round(h)}px`);
+  // Visible height — keyboard + edge-to-edge (visualViewport when available)
+  let h = window.innerHeight;
+  if (window.visualViewport?.height) {
+    h = window.visualViewport.height;
+  }
+  document.documentElement.style.setProperty('--app-height', `${Math.max(1, Math.round(h))}px`);
 
   // Probe env() values by measuring a test element.
   // Returns 0 if env() is unsupported/not dispatched yet.
@@ -53,6 +57,14 @@ function updateViewportMetrics() {
   document.documentElement.style.setProperty('--inset-bottom', `${insetBottom}px`);
 }
 
+function scheduleViewportMetrics() {
+  if (viewportRaf) cancelAnimationFrame(viewportRaf);
+  viewportRaf = requestAnimationFrame(() => {
+    viewportRaf = 0;
+    updateViewportMetrics();
+  });
+}
+
 // Anti-self-XSS: warn when dev tools/console is open
 if (typeof window !== 'undefined') {
   startDevToolsWarning();
@@ -62,12 +74,14 @@ if (typeof window !== 'undefined') {
 // Android WebView dispatches insets after first paint.
 if (typeof window !== 'undefined') {
   updateViewportMetrics();
-  // Retry — insets often arrive 100-300ms after page load on Android
   setTimeout(updateViewportMetrics, 100);
-  setTimeout(updateViewportMetrics, 500);
-  window.addEventListener('resize', updateViewportMetrics);
+  setTimeout(updateViewportMetrics, 400);
+  setTimeout(updateViewportMetrics, 800);
+  window.addEventListener('resize', scheduleViewportMetrics);
+  window.addEventListener('orientationchange', () => setTimeout(updateViewportMetrics, 50));
   if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', updateViewportMetrics);
+    window.visualViewport.addEventListener('resize', scheduleViewportMetrics);
+    window.visualViewport.addEventListener('scroll', scheduleViewportMetrics);
   }
 }
 

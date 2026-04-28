@@ -132,6 +132,7 @@ export function AuthProvider({ children }) {
               else await clearRefreshToken();
               storageAddAccount(normalized, newToken);
               setAccountsVersion((v) => v + 1);
+              invalidateCache();
               setUser(normalized);
               emitAuthChanged(normalized);
               setAuthError(null);
@@ -174,6 +175,7 @@ export function AuthProvider({ children }) {
       setAccountsVersion((v) => v + 1);
       await persistToken(token);
       if (data.refreshToken) await setRefreshToken(data.refreshToken);
+      invalidateCache();
       setUser(normalized);
       emitAuthChanged(normalized);
       setAuthError(null);
@@ -196,6 +198,7 @@ export function AuthProvider({ children }) {
       setAccountsVersion((v) => v + 1);
       await persistToken(token);
       if (rt2fa) await setRefreshToken(rt2fa);
+      invalidateCache();
       setUser(normalized);
       emitAuthChanged(normalized);
       setAuthError(null);
@@ -216,6 +219,7 @@ export function AuthProvider({ children }) {
       storageAddAccount(normalized, data.token);
       setAccountsVersion((v) => v + 1);
       await persistToken(data.token);
+      invalidateCache();
       setUser(normalized);
       emitAuthChanged(normalized);
       setAuthError(null);
@@ -232,6 +236,7 @@ export function AuthProvider({ children }) {
     storageAddAccount(normalized, token);
     setAccountsVersion((v) => v + 1);
     await persistToken(token);
+    invalidateCache();
     setUser(normalized);
     emitAuthChanged(normalized);
     setAuthError(null);
@@ -245,6 +250,7 @@ export function AuthProvider({ children }) {
     storageAddAccount(normalized, token);
     setAccountsVersion((v) => v + 1);
     await persistToken(token);
+    invalidateCache();
     setUser(normalized);
     emitAuthChanged(normalized);
     setAuthError(null);
@@ -260,6 +266,7 @@ export function AuthProvider({ children }) {
       storageAddAccount(normalized, token);
       setAccountsVersion((v) => v + 1);
       await persistToken(token);
+      invalidateCache();
       setUser(normalized);
       emitAuthChanged(normalized);
       setAuthError(null);

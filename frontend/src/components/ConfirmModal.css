@@ -10,7 +10,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
+  /* Above .settings-page (12000) and other full-screen shells */
+  z-index: 13000;
   animation: confirmOverlayFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -59,11 +60,11 @@
 @keyframes confirmModalEnter {
   0% {
     opacity: 0;
-    transform: scale(0.95) translateY(10px);
+    transform: translateX(20px);
   }
   100% {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: translateX(0);
   }
 }
 

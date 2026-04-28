@@ -1,5 +1,6 @@
 import React, { memo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import './TopicModal.css';
 
 const TextChannelIcon = () => (
@@ -10,6 +11,7 @@ const TextChannelIcon = () => (
 
 const TopicModal = memo(function TopicModal({ channel, canManage, onClose, onStartEditTopic }) {
   const overlayRef = useRef(null);
+  const enterInstant = useModalEnterAnimation('topic-modal', true);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -29,7 +31,7 @@ const TopicModal = memo(function TopicModal({ channel, canManage, onClose, onSta
   };
 
   const modal = (
-    <div className="topic-modal-overlay" ref={overlayRef} onClick={handleOverlayClick}>
+    <div className={`topic-modal-overlay${enterInstant ? ' modal-enter-instant' : ''}`} ref={overlayRef} onClick={handleOverlayClick}>
       <div className="topic-modal" role="dialog" aria-modal="true">
         <div className="topic-modal-header">
           <span className="topic-modal-icon"><TextChannelIcon /></span>

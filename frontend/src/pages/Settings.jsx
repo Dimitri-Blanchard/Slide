@@ -14,6 +14,7 @@ import { harmonizeGradientColors, lightenHex, isLightGradient, isHighContrastGra
 import QRCode from 'qrcode';
 import { useAudioDevices } from '../hooks/useAudioDevices';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+import { useVoice } from '../context/VoiceContext';
 import Avatar, { StatusBadgeIcon } from '../components/Avatar';
 import { PHONE_COUNTRIES } from '../constants/phoneCountries';
 import { AsYouType } from 'libphonenumber-js';
@@ -268,6 +269,199 @@ function AvatarCropModal({ file, onConfirm, onCancel }) {
         <div className="avatar-crop-actions">
           <button type="button" className="btn-cancel" onClick={onCancel}>Cancel</button>
           <button type="button" className="btn-confirm" onClick={handleConfirm}>Apply</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Profile banner: wide frame (40:14), zoom/pan then static → WebP blob client-side; GIF → server crop on save */
+function BannerCropModal({ file, onConfirm, onCancel }) {
+  const { t } = useLanguage();
+  const imgRef = useRef(null);
+  const containerRef = useRef(null);
+  const [loaded, setLoaded] = useState(false);
+  const [areaSize, setAreaSize] = useState({ w: 400, h: 140 });
+  const [zoom, setZoom] = useState(1);
+  const [minZoom, setMinZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const dragging = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+  const offsetStart = useRef({ x: 0, y: 0 });
+
+  const imgUrl = useMemo(() => URL.createObjectURL(file), [file]);
+  useEffect(() => () => URL.revokeObjectURL(imgUrl), [imgUrl]);
+
+  const isGif = file.type === 'image/gif';
+
+  const readAreaSize = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return { w: 400, h: 140 };
+    const w = el.clientWidth;
+    const h = el.clientHeight;
+    return w > 0 && h > 0 ? { w, h } : { w: 400, h: 140 };
+  }, []);
+
+  const handleLoad = useCallback(() => {
+    const img = imgRef.current;
+    if (!img) return;
+    requestAnimationFrame(() => {
+      const { w: vw, h: vh } = readAreaSize();
+      setAreaSize({ w: vw, h: vh });
+      const natW = img.naturalWidth;
+      const natH = img.naturalHeight;
+      const fillZoom = Math.max(vw / natW, vh / natH);
+      setMinZoom(fillZoom);
+      setZoom(fillZoom);
+      setOffset({ x: 0, y: 0 });
+      setLoaded(true);
+    });
+  }, [readAreaSize]);
+
+  const handlePointerDown = useCallback((e) => {
+    dragging.current = true;
+    dragStart.current = { x: e.clientX, y: e.clientY };
+    offsetStart.current = { ...offset };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, [offset]);
+
+  const handlePointerMove = useCallback((e) => {
+    if (!dragging.current) return;
+    setOffset({
+      x: offsetStart.current.x + (e.clientX - dragStart.current.x),
+      y: offsetStart.current.y + (e.clientY - dragStart.current.y),
+    });
+  }, []);
+
+  const handlePointerUp = useCallback(() => {
+    dragging.current = false;
+  }, []);
+
+  const handleWheel = useCallback((e) => {
+    e.preventDefault();
+    setZoom((z) => Math.max(minZoom, Math.min(6, z - e.deltaY * 0.001)));
+  }, [minZoom]);
+
+  const getBannerCropParams = useCallback(() => {
+    const img = imgRef.current;
+    if (!img) return null;
+    const { w: PREVIEW_W, h: PREVIEW_H } = readAreaSize();
+    const natW = img.naturalWidth;
+    const natH = img.naturalHeight;
+    const dispW = natW * zoom;
+    const dispH = natH * zoom;
+    const imgLeft = (PREVIEW_W - dispW) / 2 + offset.x;
+    const imgTop = (PREVIEW_H - dispH) / 2 + offset.y;
+    const interLeft = Math.max(0, -imgLeft);
+    const interTop = Math.max(0, -imgTop);
+    const interRight = Math.min(dispW, PREVIEW_W - imgLeft);
+    const interBottom = Math.min(dispH, PREVIEW_H - imgTop);
+    const interW = interRight - interLeft;
+    const interH = interBottom - interTop;
+    if (interW < 1 || interH < 1) return null;
+    const natX = (interLeft / dispW) * natW;
+    const natY = (interTop / dispH) * natH;
+    const natCropW = (interW / dispW) * natW;
+    const natCropH = (interH / dispH) * natH;
+    return {
+      x: natX,
+      y: natY,
+      width: natCropW,
+      height: natCropH,
+      sourceWidth: natW,
+      sourceHeight: natH,
+    };
+  }, [zoom, offset, readAreaSize]);
+
+  const handleConfirm = useCallback(() => {
+    const img = imgRef.current;
+    if (!img) return;
+    const crop = getBannerCropParams();
+    if (!crop) return;
+    const { w: vw, h: vh } = readAreaSize();
+
+    if (isGif) {
+      onConfirm({ file, cropParams: crop });
+      return;
+    }
+
+    const outW = 960;
+    const outH = Math.max(1, Math.round((outW * vh) / vw));
+    const canvas = document.createElement('canvas');
+    canvas.width = outW;
+    canvas.height = outH;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, crop.x, crop.y, crop.width, crop.height, 0, 0, outW, outH);
+    canvas.toBlob(
+      (blob) => {
+        if (blob) onConfirm({ blob });
+      },
+      'image/webp',
+      0.88
+    );
+  }, [file, isGif, getBannerCropParams, readAreaSize, onConfirm]);
+
+  const tx = (key, fallback) => {
+    const v = t(key);
+    return v === key ? fallback : v;
+  };
+
+  return (
+    <div className="banner-crop-overlay" onClick={onCancel}>
+      <div className="avatar-crop-modal banner-crop-modal" onClick={(e) => e.stopPropagation()}>
+        <h3>{tx('profile.bannerCropTitle', 'Frame your banner')}</h3>
+        <p className="banner-crop-hint">{tx('profile.bannerCropHint', 'Drag to position and zoom. Only the framed area will be saved.')}</p>
+        {isGif && (
+          <p className="avatar-crop-gif-note">{tx('profile.bannerCropGifNote', 'GIF: framing is applied on the server when you save your profile.')}</p>
+        )}
+        <div
+          ref={containerRef}
+          className="banner-crop-area"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onWheel={handleWheel}
+        >
+          <img
+            ref={imgRef}
+            src={imgUrl}
+            alt=""
+            className="avatar-crop-img"
+            draggable={false}
+            onLoad={handleLoad}
+            style={
+              loaded && imgRef.current
+                ? {
+                    width: imgRef.current.naturalWidth * zoom,
+                    height: imgRef.current.naturalHeight * zoom,
+                    left: (areaSize.w - imgRef.current.naturalWidth * zoom) / 2 + offset.x,
+                    top: (areaSize.h - imgRef.current.naturalHeight * zoom) / 2 + offset.y,
+                  }
+                : { opacity: 0 }
+            }
+          />
+        </div>
+
+        <div className="avatar-crop-zoom banner-crop-zoom">
+          <span style={{ fontSize: '0.75rem' }}>−</span>
+          <input
+            type="range"
+            min={minZoom}
+            max="6"
+            step="0.01"
+            value={Math.max(minZoom, Math.min(6, zoom))}
+            onChange={(e) => setZoom(Math.max(minZoom, Math.min(6, parseFloat(e.target.value))))}
+          />
+          <span style={{ fontSize: '0.75rem' }}>+</span>
+        </div>
+
+        <div className="avatar-crop-actions">
+          <button type="button" className="btn-cancel" onClick={onCancel}>
+            {t('common.cancel')}
+          </button>
+          <button type="button" className="btn-confirm" onClick={handleConfirm}>
+            {tx('profile.bannerCropApply', 'Apply')}
+          </button>
         </div>
       </div>
     </div>
@@ -676,6 +870,7 @@ export default function Settings() {
   const { notify } = useNotification();
   const { settings: globalSettings, updateSetting: updateGlobalSetting, updateSettings: updateGlobalSettings, loading: loadingGlobalSettings } = useSettings();
   const { playNotification } = useSounds();
+  const { switchAudioInput, switchAudioOutput } = useVoice();
   const { t, languages: availableLanguages, changeLanguage, formatDate } = useLanguage();
   
   // Get translated categories
@@ -701,6 +896,7 @@ export default function Settings() {
   const [bannerPosition, setBannerPosition] = useState('center');
   const [hasNitro, setHasNitro] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [bannerCropFile, setBannerCropFile] = useState(null);
   const bannerInputRef = useRef(null);
   const [originalProfile, setOriginalProfile] = useState(null);
   const [unsavedBarShake, setUnsavedBarShake] = useState(false);
@@ -799,6 +995,7 @@ export default function Settings() {
   // UI states
   const [saving, setSaving] = useState(false);
   const savingInProgressRef = useRef(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteAccountPassword, setDeleteAccountPassword] = useState('');
   const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
@@ -811,8 +1008,8 @@ export default function Settings() {
   
   // Electron: launch at startup
   const [launchAtStartup, setLaunchAtStartup] = useState(false);
-  // Electron: minimize to system tray on close
-  const [minimizeToTray, setMinimizeToTray] = useState(false);
+  // Electron: minimize to system tray on close (default true in Electron)
+  const [minimizeToTray, setMinimizeToTray] = useState(!!window.electron);
   
   // Debounced settings for auto-save
   const debouncedSettings = useDebounce(allSettings, 300);
@@ -1157,17 +1354,47 @@ export default function Settings() {
     </div>
   );
 
-  const handleUploadBanner = (e) => {
+  const handlePickBanner = (e) => {
     const file = e?.target?.files?.[0];
     if (!file) return;
-    const previewUrl = URL.createObjectURL(file);
-    setBannerUrl(previewUrl);
-    setProfile(p => (p ? { ...p, banner_url: previewUrl } : null));
-    setPendingToPersist(p => ({ ...p, banner: { file, previewUrl } }));
+    if (!/^image\/(gif|webp|png|jpeg|jpg)$/i.test(file.type)) {
+      notify.error(t('errors.invalidImageType') || 'Invalid format');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      notify.error(t('profile.bannerTooBig') || 'Banner too large (max 2 MB)');
+      e.target.value = '';
+      return;
+    }
+    setBannerCropFile(file);
     if (bannerInputRef.current) bannerInputRef.current.value = '';
   };
 
+  const handleBannerCropConfirm = useCallback((result) => {
+    setBannerCropFile(null);
+    if (result.blob) {
+      const uploadFile =
+        result.blob instanceof File
+          ? result.blob
+          : new File([result.blob], 'banner.webp', { type: result.blob.type || 'image/webp' });
+      const previewUrl = URL.createObjectURL(uploadFile);
+      setBannerUrl(previewUrl);
+      setProfile((p) => (p ? { ...p, banner_url: previewUrl } : null));
+      setPendingToPersist((p) => ({ ...p, banner: { file: uploadFile, previewUrl, cropParams: null } }));
+    } else if (result.file && result.cropParams) {
+      const previewUrl = URL.createObjectURL(result.file);
+      setBannerUrl(previewUrl);
+      setProfile((p) => (p ? { ...p, banner_url: previewUrl } : null));
+      setPendingToPersist((p) => ({
+        ...p,
+        banner: { file: result.file, previewUrl, cropParams: result.cropParams },
+      }));
+    }
+  }, []);
+
   const handleRemoveBanner = () => {
+    setBannerCropFile(null);
     setPendingToPersist(p => {
       if (p.banner?.previewUrl) URL.revokeObjectURL(p.banner.previewUrl);
       const { banner, ...rest } = p;
@@ -1389,7 +1616,7 @@ export default function Settings() {
       } else if (ptp.banner) {
         const { avatars } = await import('../api');
         const file = ptp.banner.file || ptp.banner;
-        const { banner_url } = await avatars.uploadBanner(file);
+        const { banner_url } = await avatars.uploadBanner(file, ptp.banner.cropParams || null);
         if (ptp.banner.previewUrl) URL.revokeObjectURL(ptp.banner.previewUrl);
         setBannerUrl(banner_url);
         setProfile(p => (p ? { ...p, banner_url } : null));
@@ -1433,6 +1660,11 @@ export default function Settings() {
     }
   };
   
+  const handleResetNitroStreamIntro = () => {
+    localStorage.removeItem('slide_nitro_stream_celebrated');
+    notify.success(t('advancedSettings.nitroStreamReset'));
+  };
+
   const handleUploadAvatar = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1510,6 +1742,11 @@ export default function Settings() {
   };
   
   const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
+    setShowLogoutConfirm(false);
     logout();
     navigate('/login');
   };
@@ -1755,6 +1992,10 @@ export default function Settings() {
           setShowPhoneModal(false);
           return;
         }
+        if (showLogoutConfirm) {
+          setShowLogoutConfirm(false);
+          return;
+        }
         if (showDeleteConfirm) {
           setShowDeleteConfirm(false);
           setDeleteAccountPassword('');
@@ -1765,7 +2006,7 @@ export default function Settings() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleClose, showMfaDisableModal, mfaSetupData, showCreatePackModal, showAddStickerModal, showEmailModal, showPasswordModal, showUsernameModal, showPhoneModal, showDeleteConfirm]);
+  }, [handleClose, showMfaDisableModal, mfaSetupData, showCreatePackModal, showAddStickerModal, showEmailModal, showPasswordModal, showUsernameModal, showPhoneModal, showLogoutConfirm, showDeleteConfirm]);
 
   useEffect(() => {
     const handleBeforeUnload = (e) => {
@@ -2219,6 +2460,14 @@ export default function Settings() {
                 />
               )}
 
+              {bannerCropFile && (
+                <BannerCropModal
+                  file={bannerCropFile}
+                  onConfirm={handleBannerCropConfirm}
+                  onCancel={() => setBannerCropFile(null)}
+                />
+              )}
+
               {/* Equipped shop items */}
               <div className="profile-section-card">
                 <div className="profile-section-header">
@@ -2311,8 +2560,8 @@ export default function Settings() {
                           <input
                             ref={bannerInputRef}
                             type="file"
-                            accept="image/gif,image/webp"
-                            onChange={handleUploadBanner}
+                            accept="image/gif,image/webp,image/png,image/jpeg"
+                            onChange={handlePickBanner}
                             style={{ display: 'none' }}
                           />
                           <span className="profile-banner-gif-btn">{uploadingBanner ? t('common.uploading') : (bannerUrl ? t('profile.changeBannerGif') : t('profile.uploadBannerGif'))}</span>
@@ -2958,7 +3207,7 @@ export default function Settings() {
                 <SelectRowWithArrow
                   label={t('voice.inputDevice')}
                   value={allSettings.input_device}
-                  onChange={(v) => updateSetting('input_device', v)}
+                  onChange={(v) => { switchAudioInput(v); }}
                   options={inputDevices.length > 0 ? inputDevices : [{ value: 'default', label: t('voice.default') }]}
                 />
                 
@@ -2974,7 +3223,7 @@ export default function Settings() {
                 <SelectRowWithArrow
                   label={t('voice.outputDevice')}
                   value={allSettings.output_device}
-                  onChange={(v) => updateSetting('output_device', v)}
+                  onChange={(v) => { switchAudioOutput(v); }}
                   options={outputDevices.length > 0 ? outputDevices : [{ value: 'default', label: t('voice.default') }]}
                 />
                 
@@ -3360,6 +3609,12 @@ export default function Settings() {
                     </svg>
                     {t('advancedSettings.resetSettings')}
                   </button>
+                  <button className="btn-secondary" onClick={handleResetNitroStreamIntro}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                    </svg>
+                    {t('advancedSettings.resetNitroStreamIntro')}
+                  </button>
                 </div>
               </>
             )}
@@ -3740,6 +3995,16 @@ export default function Settings() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        title={t('auth.logoutConfirmTitle')}
+        message={t('auth.logoutConfirmMessage')}
+        confirmText={t('auth.logout')}
+        cancelText={t('common.cancel')}
+        onConfirm={confirmLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
 
       <ConfirmModal
         isOpen={!!deletePackConfirm}

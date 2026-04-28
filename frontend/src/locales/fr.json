@@ -1,4 +1,16 @@
 {
+  "errorBoundary": {
+    "serverLoadFailed": "Un problème est survenu lors du chargement de cette vue.",
+    "backToMessages": "Retour aux messages directs"
+  },
+  "mobileMessages": {
+    "searchMessages": "Rechercher dans les messages",
+    "filterConversations": "Filtrer les conversations",
+    "sectionPinned": "Épinglés",
+    "sectionDirectMessages": "Messages directs",
+    "emptyTitle": "Aucune conversation pour l'instant",
+    "emptySubtitle": "Utilisez la recherche ci-dessus pour trouver des contacts et démarrer une conversation."
+  },
   "common": {
     "loading": "Chargement...",
     "save": "Enregistrer",
@@ -30,6 +42,7 @@
     "markedAsRead": "Marquer comme lu",
     "copyUserId": "Copier l'ID utilisateur",
     "copyChannelId": "Copier l'ID du canal",
+    "copyConversationId": "Copier l'ID de la conversation",
     "joining": "Connexion...",
     "more": "Plus",
     "copyId": "Copier l'ID"
@@ -83,6 +96,8 @@
     "login": "Connexion",
     "register": "Inscription",
     "logout": "Se déconnecter",
+    "logoutConfirmTitle": "Êtes-vous sûr de vouloir vous déconnecter ?",
+    "logoutConfirmMessage": "Vous pourrez vous reconnecter à tout moment.",
     "email": "Email",
     "password": "Mot de passe",
     "confirmPassword": "Confirmer le mot de passe",
@@ -264,8 +279,13 @@
     "customColor": "Couleur personnalisée",
     "nitroBanner": "Bannière Nitro",
     "customBanner": "Bannière personnalisée",
-    "uploadBannerGif": "Envoyer une bannière GIF",
-    "changeBannerGif": "Changer le GIF",
+    "uploadBannerGif": "Envoyer une image ou un GIF",
+    "bannerTooBig": "Fichier trop volumineux (max 2 Mo)",
+    "bannerCropTitle": "Cadrer la bannière",
+    "bannerCropHint": "Déplacez l’image et utilisez le curseur pour zoomer. Seule la zone dans le cadre est conservée.",
+    "bannerCropGifNote": "GIF animé : le recadrage est appliqué sur le serveur lors de l’enregistrement du profil.",
+    "bannerCropApply": "Appliquer",
+    "changeBannerGif": "Changer la bannière",
     "removeBannerGif": "Supprimer",
     "gradientColor": "Couleur du dégradé",
     "clearGradient": "Effacer le dégradé",
@@ -444,6 +464,7 @@
     "outputDevice": "Périphérique de sortie",
     "inputVolume": "Volume d'entrée",
     "outputVolume": "Volume de sortie",
+    "streamVolume": "Volume du flux",
     "default": "Par défaut",
     "audioProcessing": "Traitement audio",
     "echoCancellation": "Annulation d'écho",
@@ -517,7 +538,9 @@
     "debugMode": "Mode débogage",
     "debugModeDesc": "Active les logs de débogage dans la console.",
     "clearCache": "Vider le cache",
-    "resetSettings": "Réinitialiser les paramètres"
+    "resetSettings": "Réinitialiser les paramètres",
+    "resetNitroStreamIntro": "Réinitialiser l'intro stream Nitro",
+    "nitroStreamReset": "Intro stream Nitro réinitialisée — vous la verrez au prochain stream"
   },
   "activity": {
     "title": "Journal d'activité",
@@ -634,6 +657,7 @@
     "pressEnterToSend": "Appuyez Entrée pour envoyer...",
     "cancelReply": "Annuler la réponse",
     "removeFile": "Retirer",
+    "removeEmbed": "Masquer l’aperçu",
     "stickerPack": {
       "loading": "Chargement...",
       "notFound": "Pack non trouvé",
@@ -651,10 +675,17 @@
     "readBy": "Lu par",
     "typing": "écrit",
     "typingPlural": "écrivent",
+    "voiceChannelKicker": "Salon vocal",
+    "voiceJoinTitle": "Rejoindre #{name} ?",
+    "voiceJoinDesc": "Vous connecterez votre micro et l’audio à ce salon.",
+    "voiceJoinConfirm": "Rejoindre le salon",
+    "voiceJoining": "Connexion…",
+    "voiceJoinNotNow": "Pas maintenant",
     "messageTo": "Message dans",
     "beginningDm": "C'est le début de votre historique de messages directs avec {{name}}.",
     "sayHello": "Dire bonjour !",
     "waveTo": "Saluer {{name}}",
+    "memberJoinWelcome": "Bienvenue {user}. Dis bonjour !",
     "messageHidden": "Message masqué",
     "messageDeletedForAll": "Message supprimé pour tous",
     "deleteMessageConfirm": "Supprimer ce message pour tout le monde ?",
@@ -699,6 +730,7 @@
     "message": "Message",
     "call": "Appeler",
     "incomingCall": "Appel entrant...",
+    "incomingVoiceCallBanner": "Appel vocal",
     "remove": "Retirer",
     "removeFriend": "Supprimer de mes amis",
     "block": "Bloquer",
@@ -716,6 +748,14 @@
     "noBlocked": "Aucun utilisateur bloqué",
     "blockedSettingsDesc": "Utilisateurs que vous avez bloqués. Ils ne peuvent pas vous envoyer de messages ni voir votre statut en ligne.",
     "unblocked": "Utilisateur débloqué"
+  },
+  "dmCall": {
+    "aloneInCallDm": "Seul(e) dans l'appel — les autres peuvent rejoindre à tout moment",
+    "aloneInCallGroup": "Seul(e) dans l'appel — les autres peuvent rejoindre à tout moment",
+    "floatingToolbar": "Fenêtre d'appel vocal",
+    "collapsePanel": "Masquer le panneau d'appel",
+    "expandPanel": "Afficher le panneau d'appel",
+    "collapsedHint": "L'appel est toujours actif. Développez pour les commandes ou faites glisser la barre pour la déplacer."
   },
   "team": {
     "createTeam": "Créer un serveur",

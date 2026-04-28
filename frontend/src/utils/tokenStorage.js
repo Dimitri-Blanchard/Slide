@@ -17,9 +17,9 @@ function idsEqual(a, b) {
 }
 
 function sanitizeLegacyHandle(value) {
+  // Only strip exact Discord-style #0000 discriminator, never touch the username itself
   return String(value || '')
-    .replace(/(\s+|#)0*\s*$/, '')
-    .replace(/(?<![0-9])0\s*$/, '')
+    .replace(/\s*#0{4}\s*$/, '')
     .trim();
 }
 
@@ -30,11 +30,9 @@ function escapeRegExp(value) {
 function sanitizeLegacyDisplayName(displayName, username) {
   const raw = String(displayName || '').trim();
   if (!raw) return raw;
-  const handle = sanitizeLegacyHandle(username);
-  if (handle && new RegExp(`^${escapeRegExp(handle)}(?:\\s*#?\\s*0+)?$`, 'i').test(raw)) {
-    return handle;
-  }
-  return raw;
+  // Only strip exact #0000 discriminator from display name
+  const cleaned = raw.replace(/\s*#0{4}\s*$/, '').trim();
+  return cleaned || raw;
 }
 
 function normalizeAccount(raw) {

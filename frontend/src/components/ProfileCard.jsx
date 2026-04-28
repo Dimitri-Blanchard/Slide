@@ -22,6 +22,7 @@ import { getStoredCustomStatus, getStoredOnlineStatus } from '../utils/presenceS
 import { harmonizeGradientColors, lightenHex, isLightGradient, isHighContrastGradient, areMatchingBannerColors } from '../utils/gradientColors';
 import Avatar from './Avatar';
 import UserDetailModal from './UserDetailModal';
+import { useSettings } from '../context/SettingsContext';
 import './ProfileCard.css';
 
 const NOTE_KEY = 'slide_profile_notes';
@@ -99,6 +100,7 @@ const ProfileCard = memo(function ProfileCard({
   const { user: currentUser } = useAuth();
   const { t }      = useLanguage();
   const { isUserOnline } = useOnlineUsers();
+  const { developerMode } = useSettings();
 
   const resolvedId = userId || providedUser?.id;
   const cached = resolvedId ? getCachedProfile(resolvedId) : null;
@@ -275,7 +277,7 @@ const ProfileCard = memo(function ProfileCard({
   const bannerStyle  = bannerUrl
     ? (hasGifBanner
         ? { backgroundColor: c1 }
-        : { backgroundImage: `url(${bannerUrl})`, backgroundSize: 'cover', backgroundPosition: `center ${profile?.banner_position || 'center'}` })
+        : { backgroundImage: `url(${bannerUrl})`, backgroundSize: 'cover', backgroundPosition: `center ${user?.banner_position || 'center'}` })
     : hasDualBanner
       ? { backgroundImage: verticalGrad(c1, c2) }
       : { backgroundColor: c1 };
@@ -370,7 +372,8 @@ const ProfileCard = memo(function ProfileCard({
               </button>
             )}
 
-            {/* More (3-dot) menu */}
+            {/* More (3-dot) menu — only if developer mode */}
+            {developerMode && (
             <div className="profile-card-menu-wrap" ref={menuRef}>
               <button
                 className="profile-card-action-btn"
@@ -393,6 +396,7 @@ const ProfileCard = memo(function ProfileCard({
                 </div>
               )}
             </div>
+            )}
           </div>
         )}
       </div>
@@ -637,7 +641,7 @@ const ProfileCard = memo(function ProfileCard({
   const isLight = useAdaptiveContrastText && !isHighContrast && isLightGradient(bannerColor, bannerColor2 || '#000');
   const noOverlayBand = useAdaptiveContrastText && areMatchingBannerColors(bannerColor, bannerColor2 || '#000');
   const effectClass = user?.equipped_profile_effect_id ? ` profile-card-effect-${user.equipped_profile_effect_id}` : '';
-  const popupClasses = `profile-card-popup${hasDualBanner ? ' profile-card-popup--dual-banner' : ''}${isHighContrast && !noOverlayBand ? ' profile-card-popup--high-contrast-gradient' : ''}${isLight ? ' profile-card-popup--light-gradient' : ''}${noOverlayBand ? ' profile-card-popup--no-overlay-band' : ''}${effectClass}`;
+  const popupClasses = `profile-card-popup${position === 'left' ? ' pc-from-left' : ''}${hasDualBanner ? ' profile-card-popup--dual-banner' : ''}${isHighContrast && !noOverlayBand ? ' profile-card-popup--high-contrast-gradient' : ''}${isLight ? ' profile-card-popup--light-gradient' : ''}${noOverlayBand ? ' profile-card-popup--no-overlay-band' : ''}${effectClass}`;
 
   const cardContent = (
     <>

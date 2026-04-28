@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { teams as teamsApi, servers, channels as channelsApi } from '../api';
 import { useLanguage } from '../context/LanguageContext';
+import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import './CreateServerModal.css';
 
 const TEMPLATES = {
@@ -153,22 +154,25 @@ export default function CreateServerModal({ isOpen, onClose, onServerCreated, in
   const [progressPercent, setProgressPercent] = useState(0);
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const enterInstant = useModalEnterAnimation('create-server-modal', isOpen);
 
   useEffect(() => {
     if (isOpen) {
       setStep(initialTemplate ? 2 : 1);
       setTemplate(initialTemplate || 'empty');
+      setCreating(false);
     }
   }, [isOpen, initialTemplate]);
 
-  const handleClose = () => {
-    if (creating) return;
+  const handleClose = (force = false) => {
+    if (creating && !force) return;
     setStep(1);
     setServerName('');
     setDescription('');
     setTemplate('empty');
     setProgress('');
     setProgressPercent(0);
+    setCreating(false);
     onClose();
   };
 
@@ -229,7 +233,7 @@ export default function CreateServerModal({ isOpen, onClose, onServerCreated, in
 
       setTimeout(() => {
         onServerCreated?.(team);
-        handleClose();
+        handleClose(true);
         navigate(`/team/${team.id}`);
       }, 400);
 
@@ -243,7 +247,7 @@ export default function CreateServerModal({ isOpen, onClose, onServerCreated, in
   if (!isOpen) return null;
 
   const modal = (
-    <div className={`csm-overlay ${exiting ? 'csm-exiting' : ''}`} onClick={exiting ? undefined : handleClose}>
+    <div className={`csm-overlay ${exiting ? 'csm-exiting' : ''}${enterInstant && !exiting ? ' modal-enter-instant' : ''}`} onClick={exiting ? undefined : handleClose}>
       <div className={`csm-modal ${exiting ? 'csm-exiting' : ''}`} onClick={(e) => e.stopPropagation()}>
         {step === 1 && (
           <>

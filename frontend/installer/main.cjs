@@ -7,6 +7,10 @@ const APP_NAME = 'Slide';
 const APP_EXE = 'Slide.exe';
 const INSTALL_DIR = path.join(process.env.LOCALAPPDATA || process.env.APPDATA, 'Programs', APP_NAME);
 
+// GPU stability for Windows 10
+app.commandLine.appendSwitch('disable-gpu-compositing');
+app.commandLine.appendSwitch('use-angle', 'd3d11');
+
 let mainWindow = null;
 
 function getAppZipPath() {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { useNotification } from '../context/NotificationContext';
+import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import './AddNoteModal.css';
 
 const NOTE_KEY = (userId) => `slide_user_note_${userId}`;
@@ -29,6 +30,8 @@ export default function AddNoteModal({ isOpen, onClose, user, onSaved }) {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
+  const enterInstant = useModalEnterAnimation('add-note-modal', isOpen);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!user?.id) return;
@@ -47,7 +50,7 @@ export default function AddNoteModal({ isOpen, onClose, user, onSaved }) {
   const userName = user?.display_name || user?.username || 'user';
 
   return createPortal(
-    <div className="add-note-overlay" onClick={onClose}>
+    <div className={`add-note-overlay${enterInstant ? ' modal-enter-instant' : ''}`} onClick={onClose}>
       <div className="add-note-modal" onClick={(e) => e.stopPropagation()}>
         <h3 className="add-note-title">
           {t('chat.addNote') || 'Add Note'}

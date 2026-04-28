@@ -60,11 +60,12 @@
   flex-shrink: 0;
   padding: 8px 20px;
   font-size: 0.9rem;
-  font-weight: 500;
+  font-weight: 600;
+  font-family: var(--font-sans, inherit);
   color: var(--accent-text);
   background: var(--accent);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius, 8px);
   cursor: pointer;
   transition: background 0.15s ease;
 }

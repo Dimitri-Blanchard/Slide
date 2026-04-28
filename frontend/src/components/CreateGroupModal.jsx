@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { direct as directApi, users as usersApi } from '../api';
 import Avatar from './Avatar';
+import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import './CreateGroupModal.css';
 
 export default function CreateGroupModal({ isOpen, onClose, onGroupCreated, currentUser }) {
@@ -75,10 +76,12 @@ export default function CreateGroupModal({ isOpen, onClose, onGroupCreated, curr
     }
   }, [selected, groupName, onGroupCreated, onClose]);
 
+  const enterInstant = useModalEnterAnimation('create-group-modal', isOpen);
+
   if (!isOpen) return null;
 
   const modal = (
-    <div className="cg-overlay" onClick={onClose}>
+    <div className={`cg-overlay${enterInstant ? ' modal-enter-instant' : ''}`} onClick={onClose}>
       <div className="cg-modal" onClick={e => e.stopPropagation()}>
         <div className="cg-header">
           <h2>Create Group</h2>

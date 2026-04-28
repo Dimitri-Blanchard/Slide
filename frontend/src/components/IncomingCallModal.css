@@ -1,158 +1,180 @@
 /* ═══════════════════════════════════════════════════════════
-   INCOMING CALL MODAL - Discord-style
+   Incoming call — compact top banner (does not block the rest of the UI)
    ═══════════════════════════════════════════════════════════ */
 
-.incoming-call-overlay {
+.incoming-call-banner-host {
   position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.92);
-  animation: incomingFadeIn 0.2s ease-out;
+  top: max(12px, env(safe-area-inset-top, 12px));
+  right: max(12px, env(safe-area-inset-right, 12px));
+  left: auto;
+  z-index: 10050;
+  pointer-events: none;
+  max-width: min(400px, calc(100vw - 24px));
+  animation: incomingBannerSlide 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.incoming-call-discord {
-  background: rgba(0, 0, 0, 0.9);
-}
-
-@keyframes incomingFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.incoming-call-modal {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 48px 40px;
-  background: var(--glass-float-bg);
-  border-radius: 18px;
-  box-shadow: var(--shadow-elevated), 0 0 0 1px rgba(0,0,0,0.04);
-  border: 1px solid var(--border-default);
-  backdrop-filter: var(--glass-blur-sm);
-  -webkit-backdrop-filter: var(--glass-blur-sm);
-  max-width: 380px;
-  width: 90%;
-  animation: incomingSlideUp 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.incoming-call-discord .incoming-call-modal {
-  background: var(--bg-secondary);
-}
-
-@keyframes incomingSlideUp {
+@keyframes incomingBannerSlide {
   from {
     opacity: 0;
-    transform: translateY(16px) scale(0.98);
+    transform: translateY(-12px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
-.incoming-call-avatar-wrap {
+.incoming-call-banner {
   position: relative;
-  margin-bottom: 24px;
+  pointer-events: auto;
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(145deg, #313338 0%, #2b2d31 100%);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.incoming-call-avatar-ring {
+.incoming-call-banner-pulse {
   position: absolute;
-  inset: -8px;
+  inset: 0;
+  background: radial-gradient(ellipse 120% 80% at 0% 50%, rgba(35, 165, 90, 0.12), transparent 55%);
+  pointer-events: none;
+  animation: incomingBannerGlow 2s ease-in-out infinite;
+}
+
+@keyframes incomingBannerGlow {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.incoming-call-banner-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px 12px 12px;
+  min-height: 56px;
+}
+
+.incoming-call-banner-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.incoming-call-banner-ring {
+  position: absolute;
+  inset: -4px;
   border-radius: 50%;
-  border: 3px solid #4f6ef7;
+  border: 2px solid #23a55a;
   animation: incomingRingPulse 1.2s ease-in-out infinite;
 }
 
-.incoming-call-discord .incoming-call-avatar-ring {
-  border-color: #3ba55d;
-}
-
 @keyframes incomingRingPulse {
-  0%, 100% { opacity: 0.7; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.03); }
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
 }
 
-.incoming-call-name {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #fff;
-  margin: 0 0 6px;
-  text-align: center;
-}
-
-.incoming-call-label {
-  font-size: 0.95rem;
-  color: #b9bbbe;
-  margin: 0 0 32px;
-}
-
-.incoming-call-actions {
-  display: flex;
-  gap: 20px;
-  width: 100%;
-  justify-content: center;
-  align-items: stretch;
-}
-
-.incoming-call-btn {
+.incoming-call-banner-copy {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 2px;
+}
+
+.incoming-call-banner-name {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #f2f3f5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.incoming-call-banner-hint {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #949ba4;
+  letter-spacing: 0.02em;
+}
+
+.incoming-call-banner-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.incoming-call-icon-btn {
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 20px 32px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   border: none;
-  border-radius: 12px;
-  font-size: 0.9rem;
-  font-weight: 600;
+  border-radius: 50%;
   cursor: pointer;
-  transition: filter 0.12s ease, transform 0.12s var(--transition-spring, cubic-bezier(0.34, 1.56, 0.64, 1)), box-shadow 0.12s ease;
+  color: #fff;
+  transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease;
   font-family: inherit;
-  min-width: 100px;
 }
 
-.incoming-call-btn:hover {
-  transform: scale(1.05);
+.incoming-call-icon-btn:hover {
+  transform: scale(1.06);
+  filter: brightness(1.08);
 }
 
-.incoming-call-btn:active {
+.incoming-call-icon-btn:active {
   transform: scale(0.96);
 }
 
-.incoming-call-btn.decline {
-  background: #4f545c;
-  color: #fff;
+.incoming-call-icon-btn.decline {
+  background: #ed4245;
+  box-shadow: 0 4px 12px rgba(237, 66, 69, 0.35);
 }
 
-.incoming-call-btn.decline:hover {
-  background: #f04747;
+.incoming-call-icon-btn.decline:hover {
+  background: #f06163;
 }
 
-.incoming-call-discord .incoming-call-btn.decline {
-  background: #f04747;
-  color: #fff;
+.incoming-call-icon-btn.accept {
+  background: #23a55a;
+  box-shadow: 0 4px 12px rgba(35, 165, 90, 0.35);
 }
 
-.incoming-call-discord .incoming-call-btn.decline:hover {
-  background: #d84040;
+.incoming-call-icon-btn.accept:hover {
+  background: #2bc770;
 }
 
-.incoming-call-btn.accept {
-  background: #3ba55d;
-  color: #fff;
-}
+@media (max-width: 480px) {
+  .incoming-call-banner-host {
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
 
-.incoming-call-btn.accept:hover {
-  background: #2d7d46;
-}
+  .incoming-call-banner-row {
+    padding: 10px 12px;
+    gap: 10px;
+  }
 
-.incoming-call-discord .incoming-call-btn.accept {
-  background: #3ba55d;
-}
-
-.incoming-call-discord .incoming-call-btn.accept:hover {
-  background: #2d7d46;
+  .incoming-call-icon-btn {
+    width: 42px;
+    height: 42px;
+  }
 }

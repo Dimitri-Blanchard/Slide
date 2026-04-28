@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useState, useCallback } from 'react';
 import './LinkEmbed.css';
 
 // Whitelist des domaines avec embeds stylisés (iframe natif)
@@ -27,7 +27,7 @@ const EMBED_WHITELIST = {
       return vid ? `https://www.youtube.com/embed/${vid}` : null;
     },
     type: 'youtube',
-    height: 315,
+    height: null,
   },
   soundcloud: {
     domains: ['soundcloud.com'],
@@ -90,7 +90,38 @@ function getWhitelistMatch(url) {
   return null;
 }
 
-const LinkEmbed = memo(function LinkEmbed({ url }) {
+function DismissEmbedButton({ label, onDismiss }) {
+  const handleClick = useCallback(
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onDismiss();
+    },
+    [onDismiss]
+  );
+  return (
+    <button
+      type="button"
+      className="link-embed__dismiss"
+      aria-label={label}
+      title={label}
+      onClick={handleClick}
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
+        <path d="M18 6L6 18M6 6l12 12" />
+      </svg>
+    </button>
+  );
+}
+
+const LinkEmbed = memo(function LinkEmbed({ url, t }) {
+  const [dismissed, setDismissed] = useState(false);
+  const dismissLabel = useMemo(() => {
+    if (typeof t !== 'function') return 'Remove preview';
+    const v = t('chat.removeEmbed');
+    return v === 'chat.removeEmbed' ? 'Remove preview' : v;
+  }, [t]);
+
   const { embedType, embedUrl, height, domain, isWhitelist } = useMemo(() => {
     const match = getWhitelistMatch(url);
     const d = getDomain(url);
@@ -107,24 +138,44 @@ const LinkEmbed = memo(function LinkEmbed({ url }) {
   }, [url]);
 
   if (!url) return null;
+  if (dismissed) return null;
 
   // Embed whitelist (Spotify, YouTube, etc.) — iframe stylisé
   if (isWhitelist && embedUrl) {
+    const isYoutube = embedType === 'youtube';
     return (
-      <div className={`link-embed link-embed--${embedType}`} onClick={e => e.stopPropagation()}>
-        <iframe
-          src={embedUrl}
-          width="100%"
-          height={height || 152}
-          frameBorder="0"
-          allowFullScreen
-          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-          loading="lazy"
-          title={domain}
-        />
-        <a href={url} target="_blank" rel="noopener noreferrer" className="link-embed__url">
-          {url}
-        </a>
+      <div className={`link-embed-wrap link-embed-wrap--${embedType}`}>
+        <div className={`link-embed link-embed--${embedType}`} onClick={(e) => e.stopPropagation()}>
+          {isYoutube ? (
+            <div className="link-embed__iframe-shell">
+              <iframe
+                src={embedUrl}
+                width="100%"
+                height="100%"
+                frameBorder="0"
+                allowFullScreen
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                loading="lazy"
+                title={domain}
+              />
+            </div>
+          ) : (
+            <iframe
+              src={embedUrl}
+              width="100%"
+              height={height || 152}
+              frameBorder="0"
+              allowFullScreen
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+              loading="lazy"
+              title={domain}
+            />
+          )}
+          <a href={url} target="_blank" rel="noopener noreferrer" className="link-embed__url">
+            {url}
+          </a>
+        </div>
+        <DismissEmbedButton label={dismissLabel} onDismiss={() => setDismissed(true)} />
       </div>
     );
   }
@@ -134,31 +185,34 @@ const LinkEmbed = memo(function LinkEmbed({ url }) {
   const truncatedUrl = displayUrl.length > 60 ? displayUrl.slice(0, 60) + '…' : displayUrl;
 
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="link-embed link-embed--default"
-      onClick={e => e.stopPropagation()}
-    >
-      <div className="link-embed-default__icon">
-        {domain && (
-          <img
-            src={`https://www.google.com/s2/favicons?sz=32&domain=${encodeURIComponent(domain)}`}
-            alt=""
-            width={20}
-            height={20}
-          />
-        )}
-      </div>
-      <div className="link-embed-default__content">
-        <span className="link-embed-default__domain">{domain || 'Link'}</span>
-        <span className="link-embed-default__url">{truncatedUrl}</span>
-      </div>
-      <svg className="link-embed-default__arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M7 17L17 7M17 7h-6M17 7v6" />
-      </svg>
-    </a>
+    <div className="link-embed-wrap link-embed-wrap--default">
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="link-embed link-embed--default"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="link-embed-default__icon">
+          {domain && (
+            <img
+              src={`https://www.google.com/s2/favicons?sz=32&domain=${encodeURIComponent(domain)}`}
+              alt=""
+              width={20}
+              height={20}
+            />
+          )}
+        </div>
+        <div className="link-embed-default__content">
+          <span className="link-embed-default__domain">{domain || 'Link'}</span>
+          <span className="link-embed-default__url">{truncatedUrl}</span>
+        </div>
+        <svg className="link-embed-default__arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M7 17L17 7M17 7h-6M17 7v6" />
+        </svg>
+      </a>
+      <DismissEmbedButton label={dismissLabel} onDismiss={() => setDismissed(true)} />
+    </div>
   );
 });
 

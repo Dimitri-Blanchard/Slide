@@ -20,7 +20,7 @@ function parseDiscoveryTags(v) {
 // ═══════════════════════════════════════════════════════════
 // OVERVIEW TAB
 // ═══════════════════════════════════════════════════════════
-const OverviewTab = ({ team, onUpdate, onDirtyChange }) => {
+const OverviewTab = ({ team, channels, onUpdate, onDirtyChange }) => {
   const [name, setName] = useState(team?.name || '');
   const [description, setDescription] = useState(team?.description || '');
   const [isPublic, setIsPublic] = useState(!!team?.is_public);
@@ -28,6 +28,8 @@ const OverviewTab = ({ team, onUpdate, onDirtyChange }) => {
   const [discoveryBlurb, setDiscoveryBlurb] = useState(team?.discovery_blurb || '');
   const [verificationLevel, setVerificationLevel] = useState(team?.verification_level || 'none');
   const [defaultNotifications, setDefaultNotifications] = useState(team?.default_notifications || 'all');
+  const [welcomeMessagesEnabled, setWelcomeMessagesEnabled] = useState(team?.welcome_messages_enabled !== false);
+  const [welcomeChannelId, setWelcomeChannelId] = useState(team?.welcome_channel_id || '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploadingIcon, setUploadingIcon] = useState(false);
@@ -35,6 +37,11 @@ const OverviewTab = ({ team, onUpdate, onDirtyChange }) => {
   const iconInputRef = React.useRef(null);
   const savedBaselineRef = React.useRef(null);
   const { notify } = useNotification();
+
+  const textChannels = useMemo(() =>
+    (channels || []).filter(c => c.channel_type === 'text' || !c.channel_type),
+    [channels]
+  );
 
   const tagsEqual = useMemo(() => {
     const t = parseDiscoveryTags(team?.discovery_tags);
@@ -51,7 +58,9 @@ const OverviewTab = ({ team, onUpdate, onDirtyChange }) => {
     !tagsEqual ||
     discoveryBlurb.trim() !== teamBlurb ||
     verificationLevel !== (team?.verification_level || 'none') ||
-    defaultNotifications !== (team?.default_notifications || 'all');
+    defaultNotifications !== (team?.default_notifications || 'all') ||
+    welcomeMessagesEnabled !== (team?.welcome_messages_enabled !== false) ||
+    String(welcomeChannelId || '') !== String(team?.welcome_channel_id || '');
 
   useEffect(() => {
     // After save, suppress one effect run to avoid overwriting onDirtyChange(false) with stale hasChanges
@@ -78,7 +87,9 @@ const OverviewTab = ({ team, onUpdate, onDirtyChange }) => {
         verification_level: verificationLevel,
         default_notifications: defaultNotifications,
         discovery_tags: discoveryTags.length ? discoveryTags : null,
-        discovery_blurb: discoveryBlurb.trim() || null
+        discovery_blurb: discoveryBlurb.trim() || null,
+        welcome_messages_enabled: welcomeMessagesEnabled,
+        welcome_channel_id: welcomeChannelId ? parseInt(welcomeChannelId, 10) : null
       });
       onUpdate?.(updated);
       savedBaselineRef.current = true;
@@ -122,6 +133,8 @@ const OverviewTab = ({ team, onUpdate, onDirtyChange }) => {
     setDiscoveryBlurb(team?.discovery_blurb || '');
     setVerificationLevel(team?.verification_level || 'none');
     setDefaultNotifications(team?.default_notifications || 'all');
+    setWelcomeMessagesEnabled(team?.welcome_messages_enabled !== false);
+    setWelcomeChannelId(team?.welcome_channel_id || '');
   };
 
   const handleCommunityToggle = () => {
@@ -279,6 +292,48 @@ const OverviewTab = ({ team, onUpdate, onDirtyChange }) => {
           onComplete={handleCommunityWizardComplete}
           onCancel={() => setShowCommunityWizard(false)}
         />
+      )}
+
+      <div className="ss-divider" />
+
+      <div className="ss-section-header">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <line x1="19" y1="8" x2="19" y2="14"/>
+          <line x1="22" y1="11" x2="16" y2="11"/>
+        </svg>
+        <h3>Welcome Messages</h3>
+      </div>
+      <p className="ss-field-desc" style={{ marginBottom: 12 }}>
+        Send a message when someone joins this server. Show new members some love!
+      </p>
+
+      <div className="ss-toggle-field">
+        <div>
+          <span className="ss-toggle-label">Send welcome message</span>
+          <span className="ss-toggle-desc">Automatically post a welcome message when a new member joins</span>
+        </div>
+        <div className={`ss-toggle ${welcomeMessagesEnabled ? 'on' : ''}`} onClick={() => setWelcomeMessagesEnabled(!welcomeMessagesEnabled)}>
+          <div className="ss-toggle-knob" />
+        </div>
+      </div>
+
+      {welcomeMessagesEnabled && (
+        <div className="ss-field" style={{ marginTop: 12 }}>
+          <label>Welcome Channel</label>
+          <p className="ss-field-desc">Choose which channel receives the welcome message. Leave as default to use the first text channel.</p>
+          <select
+            className="ss-select"
+            value={welcomeChannelId}
+            onChange={(e) => setWelcomeChannelId(e.target.value)}
+          >
+            <option value="">Default (first text channel)</option>
+            {textChannels.map(ch => (
+              <option key={ch.id} value={ch.id}>#{ch.name}</option>
+            ))}
+          </select>
+        </div>
       )}
 
       {hasChanges && (
@@ -1585,7 +1640,80 @@ const WebhooksTab = ({ team, channels }) => {
 // ═══════════════════════════════════════════════════════════
 // MAIN SERVER SETTINGS COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function ServerSettings({ team, roles, members, channels, categories, isOpen, onClose, onUpdate }) {
+// ═══════════════════════════════════════════════════════════
+// DELETE SERVER TAB (owner only — requires exact name match + 2FA if active)
+// ═══════════════════════════════════════════════════════════
+function DeleteServerTab({ team, onClose, onUpdate }) {
+  const [confirmName, setConfirmName] = useState('');
+  const [twoFaCode, setTwoFaCode] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const { user } = useAuth();
+  const { notify } = useNotification();
+  const { t } = useLanguage();
+
+  const nameMatches = confirmName === team?.name;
+  const has2FA = !!user?.two_factor_enabled;
+
+  const handleDelete = async () => {
+    if (!nameMatches) return;
+    setDeleting(true);
+    try {
+      await teamsApi.delete(team.id, { confirmName, ...(has2FA ? { twoFactorCode: twoFaCode } : {}) });
+      notify.success(t('server.deleted') || 'Server deleted');
+      onUpdate?.();
+      onClose();
+    } catch (err) {
+      notify.error(err?.message || 'Failed to delete server');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className="ss-tab-content">
+      <h2 className="ss-tab-title" style={{ color: 'var(--error)' }}>Delete Server</h2>
+      <p className="ss-tab-desc">
+        This action is <strong>irreversible</strong>. All channels, messages, roles and data will be permanently deleted.
+      </p>
+      <div className="ss-danger-zone">
+        <div className="ss-field">
+          <label>Type the server name <strong>{team?.name}</strong> to confirm:</label>
+          <input
+            type="text"
+            value={confirmName}
+            onChange={(e) => setConfirmName(e.target.value)}
+            placeholder={team?.name}
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+        {has2FA && (
+          <div className="ss-field">
+            <label>Enter your 2FA code:</label>
+            <input
+              type="text"
+              value={twoFaCode}
+              onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="000000"
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              maxLength={6}
+            />
+          </div>
+        )}
+        <button
+          className="ss-btn-danger"
+          disabled={!nameMatches || deleting || (has2FA && twoFaCode.length < 6)}
+          onClick={handleDelete}
+        >
+          {deleting ? 'Deleting...' : 'Delete Server'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function ServerSettings({ team, roles, members, channels, categories, isOwner: isOwnerProp, isOpen, onClose, onUpdate }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
@@ -1611,6 +1739,9 @@ export default function ServerSettings({ team, roles, members, channels, categor
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, handleClose]);
 
+  const { user: currentUser } = useAuth();
+  const isOwner = isOwnerProp || String(team?.owner_id) === String(currentUser?.id);
+
   if (!isOpen || !team) return null;
 
   const navGroups = [
@@ -1631,12 +1762,18 @@ export default function ServerSettings({ team, roles, members, channels, categor
         { id: 'bans', label: 'Bans', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z"/></svg> },
         { id: 'audit', label: 'Audit Log', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg> },
       ]
-    }
+    },
+    ...(isOwner ? [{
+      label: 'Danger Zone',
+      items: [
+        { id: 'delete', label: 'Delete Server', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--error)"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>, danger: true },
+      ]
+    }] : []),
   ];
 
   const renderTab = () => {
     switch (activeTab) {
-      case 'overview': return <OverviewTab team={team} onUpdate={onUpdate} onDirtyChange={setHasUnsavedChanges} />;
+      case 'overview': return <OverviewTab team={team} channels={channels} onUpdate={onUpdate} onDirtyChange={setHasUnsavedChanges} />;
       case 'roles': return <RolesTab team={team} initialRoles={roles} />;
       case 'emoji': return <EmojiTab team={team} />;
       case 'members': return <MembersTab team={team} roles={roles} />;
@@ -1644,6 +1781,7 @@ export default function ServerSettings({ team, roles, members, channels, categor
       case 'bans': return <BansTab team={team} />;
       case 'audit': return <AuditLogTab team={team} />;
       case 'webhooks': return <WebhooksTab team={team} channels={channels} />;
+      case 'delete': return <DeleteServerTab team={team} onClose={onClose} onUpdate={onUpdate} />;
       default: return null;
     }
   };
@@ -1660,7 +1798,7 @@ export default function ServerSettings({ team, roles, members, channels, categor
                 {group.items.map(item => (
                   <button
                     key={item.id}
-                    className={`ss-nav-item ${activeTab === item.id ? 'active' : ''}`}
+                    className={`ss-nav-item ${activeTab === item.id ? 'active' : ''}${item.danger ? ' danger' : ''}`}
                     onClick={() => setActiveTab(item.id)}
                   >
                     <span className="ss-nav-icon">{item.icon}</span>

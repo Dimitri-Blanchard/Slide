@@ -122,16 +122,18 @@ const ChannelHeader = memo(function ChannelHeader({
             </svg>
           </button>
         )}
-        <button
-          className={`ch-btn${showMembers ? ' active' : ''}`}
-          onClick={onToggleMembers}
-          title="Member List"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M14 8.00598C14 10.211 12.206 12.006 10 12.006C7.795 12.006 6 10.211 6 8.00598C6 5.80098 7.795 4.00598 10 4.00598C12.206 4.00598 14 5.80098 14 8.00598ZM2 19.006C2 15.473 5.29 13.006 10 13.006C14.711 13.006 18 15.473 18 19.006V20.006H2V19.006Z"/>
-            <path d="M18 17.006V20.006H22V17.006C22 14.473 19.711 13.006 17 13.006C16.114 13.006 15.243 13.206 14.45 13.556C16.562 14.816 18 16.656 18 17.006Z" opacity="0.5"/>
-          </svg>
-        </button>
+        {!isVoice && (
+          <button
+            className={`ch-btn${showMembers ? ' active' : ''}`}
+            onClick={onToggleMembers}
+            title="Member List"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M14 8.00598C14 10.211 12.206 12.006 10 12.006C7.795 12.006 6 10.211 6 8.00598C6 5.80098 7.795 4.00598 10 4.00598C12.206 4.00598 14 5.80098 14 8.00598ZM2 19.006C2 15.473 5.29 13.006 10 13.006C14.711 13.006 18 15.473 18 19.006V20.006H2V19.006Z"/>
+              <path d="M18 17.006V20.006H22V17.006C22 14.473 19.711 13.006 17 13.006C16.114 13.006 15.243 13.206 14.45 13.556C16.562 14.816 18 16.656 18 17.006Z" opacity="0.5"/>
+            </svg>
+          </button>
+        )}
       </div>
     </header>
   );

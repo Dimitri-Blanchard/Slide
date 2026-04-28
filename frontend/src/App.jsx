@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { getToken } from './utils/tokenStorage';
@@ -19,11 +19,19 @@ const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
+function RouteLoadingFallback() {
+  return (
+    <div className="slide-loading-screen" role="status" aria-live="polite" aria-label="Loading">
+      <div className="slide-spinner" aria-hidden />
+    </div>
+  );
+}
+
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   const hasToken = !!getToken();
   if (!loading && !user) return <Navigate to="/login" replace />;
-  if (loading && !hasToken) return null;
+  if (loading && !hasToken) return <RouteLoadingFallback />;
   return children;
 }
 
@@ -31,8 +39,28 @@ function PublicRoute({ children }) {
   const { user, loading } = useAuth();
   const hasToken = !!getToken();
   if (!loading && user) return <Navigate to="/channels/@me" replace />;
-  if (loading && hasToken) return null;
+  if (loading && hasToken) return <RouteLoadingFallback />;
   return children;
+}
+
+function SplashScreen({ onDone, quick }) {
+  const [fadeOut, setFadeOut] = useState(false);
+
+  useEffect(() => {
+    const fadeAt = quick ? 400 : 800;
+    const doneAt = quick ? 700 : 1200;
+    const t1 = setTimeout(() => setFadeOut(true), fadeAt);
+    const t2 = setTimeout(onDone, doneAt);
+    const safety = setTimeout(onDone, quick ? 2000 : 3000);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(safety); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quick]);
+
+  return (
+    <div className={`splash-screen ${fadeOut ? 'splash-fade-out' : ''}`}>
+      <img src="/logo.png" alt="Slide" className="splash-logo" />
+    </div>
+  );
 }
 
 export default function App() {
@@ -40,13 +68,33 @@ export default function App() {
   const isCapacitor = typeof window !== 'undefined' && !!window.Capacitor?.isNativePlatform?.();
   const isNativeApp = isElectron || isCapacitor;
   const rootRedirect = getToken() ? '/channels/@me' : '/login';
+  const [showSplash, setShowSplash] = useState(isElectron || isCapacitor);
+  const dismissSplash = useCallback(() => {
+    setShowSplash(false);
+    if (isCapacitor) {
+      import('@capacitor/splash-screen')
+        .then(({ SplashScreen }) => SplashScreen.hide().catch(() => {}))
+        .catch(() => {});
+    }
+  }, [isCapacitor]);
+
+  if (showSplash) {
+    return (
+      <div className={`app-root ${isElectron ? 'has-electron-title-bar' : ''}`}>
+        {isElectron && <ElectronTitleBar />}
+        <SplashScreen onDone={dismissSplash} quick={isCapacitor} />
+      </div>
+    );
+  }
 
   return (
     <div className={`app-root ${isElectron ? 'has-electron-title-bar' : ''}`}>
       <ElectronTitleBar />
-      <DevelopmentBanner />
+      {(import.meta.env.DEV || import.meta.env.VITE_SHOW_DEV_BANNER === 'true') && (
+        <DevelopmentBanner />
+      )}
       <div className="app-content">
-        <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: 'var(--bg-primary, #fff)' }}><div style={{ width: 32, height: 32, border: '3px solid var(--border-default, #e5e7eb)', borderTopColor: 'var(--accent, #4f6ef7)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /></div>}>
+        <Suspense fallback={<RouteLoadingFallback />}>
           <Routes>
             <Route
               path="/"

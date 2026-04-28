@@ -4,6 +4,7 @@ import { servers } from '../api';
 import { useLanguage } from '../context/LanguageContext';
 import { useNotification } from '../context/NotificationContext';
 import Avatar from './Avatar';
+import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import './MemberRolesModal.css';
 
 export default function MemberRolesModal({ isOpen, onClose, team, member }) {
@@ -37,6 +38,8 @@ export default function MemberRolesModal({ isOpen, onClose, team, member }) {
     }
   }, [isOpen, loadData]);
 
+  const enterInstant = useModalEnterAnimation('member-roles-modal', isOpen);
+
   const toggleRole = async (roleId) => {
     const hasRole = memberRoles.includes(roleId);
     setSaving(true);
@@ -59,7 +62,7 @@ export default function MemberRolesModal({ isOpen, onClose, team, member }) {
   if (!isOpen || !member) return null;
 
   const modal = (
-    <div className="member-roles-overlay" onClick={onClose}>
+    <div className={`member-roles-overlay${enterInstant ? ' modal-enter-instant' : ''}`} onClick={onClose}>
       <div className="member-roles-modal" onClick={(e) => e.stopPropagation()}>
         <div className="member-roles-header">
           <Avatar user={member} size="medium" />

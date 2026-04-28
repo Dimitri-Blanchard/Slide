@@ -10,6 +10,14 @@
   background: var(--bg-primary);
 }
 
+/* Mobile: VoiceChannel renders inside VoiceFullscreenOverlay while expanded */
+.voice-mobile-overlay-placeholder {
+  flex: 1;
+  min-height: 120px;
+  min-width: 0;
+  background: color-mix(in srgb, var(--bg-primary) 96%, transparent);
+}
+
 /* When picker + members are visible, allow horizontal scroll instead of overlap. */
 .team-view.sticker-panel-open {
   overflow-x: auto;
@@ -211,8 +219,8 @@
     position: fixed;
     top: 0;
     left: 0;
-    /* Stop above the mobile bottom nav (60px) so the nav stays accessible */
-    bottom: 60px;
+    /* Tab bar + home indicator (aligned with MobileBottomNav + mobile-shell) */
+    bottom: calc(var(--mobile-nav-bar-height, 56px) + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
     z-index: 200;
     /* Full-width so it feels like a native screen, not a slide-over panel */
     width: 100%;

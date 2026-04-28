@@ -1,5 +1,8 @@
 @import './animations.css';
+@import './modalEnterInstant.css';
 @import './platform-android.css';
+@import './mobile-shell.css';
+@import './design-quality.css';
 
 /* ═══════════════════════════════════════════════════════════
    GLOBAL RESET
@@ -48,6 +51,25 @@ html, body, #root {
   min-height: 0;
 }
 
+/* ═══════════════════════════════════════════════════════════
+   PLATFORM-SPECIFIC RULES
+   ═══════════════════════════════════════════════════════════ */
+
+/* Web browser: enforce minimum width so the app doesn't break on tiny windows */
+html.platform-web body {
+  min-width: 940px;
+}
+
+/* Electron: no min-width needed, Electron handles its own min size in main.cjs */
+html.platform-electron body {
+  min-width: 0;
+}
+
+/* Mobile (Capacitor): full width, no min */
+html.platform-mobile body {
+  min-width: 0;
+}
+
 .app-root > .electron-title-bar {
   flex-shrink: 0;
 }
@@ -64,8 +86,35 @@ html, body, #root {
   overflow: hidden;
 }
 
+/* ── Splash Screen ── */
+.splash-screen {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary, #111114);
+  transition: opacity 0.4s ease;
+}
+
+.splash-screen.splash-fade-out {
+  opacity: 0;
+}
+
+.splash-logo {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  animation: splash-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes splash-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+
 body {
-  font-family: Inter, "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans, Inter, system-ui, sans-serif);
+  line-height: var(--leading-body, 1.55);
   background:
     radial-gradient(1300px 820px at 8% -15%, var(--cosmic-bg-orb-1), transparent 68%),
     radial-gradient(980px 680px at 102% 4%, var(--cosmic-bg-orb-2), transparent 66%),
@@ -76,7 +125,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
   overflow-x: hidden;
-  line-height: 1.5;
   /* Safe area padding is NOT set on body — we let the app fill edge-to-edge
      and each component handles its own inset (top nav, bottom nav, etc.).
      This prevents the 100dvh overflow bug where #root height > body content area. */
@@ -371,28 +419,28 @@ textarea:-webkit-autofill:active {
    DARK THEME
    ═══════════════════════════════════════════════════════════ */
 [data-theme="dark"] {
-  --bg-primary:   #000000;
-  --bg-secondary: #050505;
-  --bg-tertiary:  #0a0a0a;
-  --bg-hover:     rgba(255, 255, 255, 0.08);
-  --bg-active:    rgba(255, 255, 255, 0.14);
-  --bg-floating:  #0f0f10;
-  --bg-message-hover: rgba(255, 255, 255, 0.05);
-  --channel-active: rgba(255, 255, 255, 0.14);
-  --input-bg:     #121214;
+  --bg-primary:   #111114;
+  --bg-secondary: #0b0b0e;
+  --bg-tertiary:  #191a1e;
+  --bg-hover:     rgba(255, 255, 255, 0.07);
+  --bg-active:    rgba(255, 255, 255, 0.12);
+  --bg-floating:  #1a1a1f;
+  --bg-message-hover: rgba(255, 255, 255, 0.03);
+  --channel-active: rgba(255, 255, 255, 0.10);
+  --input-bg:     #1a1a1f;
 
-  --surface-1: #0f0f10;
-  --surface-2: #151517;
-  --surface-3: #1d1d20;
+  --surface-1: #141417;
+  --surface-2: #1c1c20;
+  --surface-3: #242428;
 
-  --text-primary:   #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.92);
-  --text-muted:     rgba(255, 255, 255, 0.72);
+  --text-primary:   #f0f0f3;
+  --text-secondary: rgba(255, 255, 255, 0.82);
+  --text-muted:     rgba(255, 255, 255, 0.48);
   --text-link:      #8b9cfd;
 
-  --border-subtle:  rgba(255, 255, 255, 0.14);
-  --border-default: rgba(255, 255, 255, 0.22);
-  --border-strong:  rgba(255, 255, 255, 0.34);
+  --border-subtle:  rgba(255, 255, 255, 0.08);
+  --border-default: rgba(255, 255, 255, 0.14);
+  --border-strong:  rgba(255, 255, 255, 0.24);
 
   --accent:       #6b7efd;
   --accent-hover: #7d8fff;
@@ -414,22 +462,22 @@ textarea:-webkit-autofill:active {
   --radius-lg: 12px;
   --radius-xl: 16px;
 
-  --shadow-sm:       0 1px 3px rgba(0, 0, 0, 0.7);
-  --shadow-md:       0 4px 16px rgba(0, 0, 0, 0.7);
-  --shadow-lg:       0 8px 32px rgba(0, 0, 0, 0.8);
-  --shadow-soft:     0 4px 24px rgba(0, 0, 0, 0.75);
-  --shadow-elevated: 0 12px 48px rgba(0, 0, 0, 0.85), 0 4px 12px rgba(0, 0, 0, 0.5);
-  --shadow-inner:    inset 0 1px 2px rgba(0,0,0,0.5);
+  --shadow-sm:       0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md:       0 4px 16px rgba(0, 0, 0, 0.55);
+  --shadow-lg:       0 8px 32px rgba(0, 0, 0, 0.6);
+  --shadow-soft:     0 4px 24px rgba(0, 0, 0, 0.5);
+  --shadow-elevated: 0 12px 48px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-inner:    inset 0 1px 2px rgba(0,0,0,0.35);
 
   /* ── Cosmic Ambient Layer ── */
-  --cosmic-bg-orb-1: rgba(255, 255, 255, 0.03);
-  --cosmic-bg-orb-2: rgba(255, 255, 255, 0.02);
-  --cosmic-bg-orb-3: rgba(255, 255, 255, 0.015);
-  --cosmic-glow-soft: rgba(255, 255, 255, 0.09);
-  --cosmic-glow-strong: rgba(255, 255, 255, 0.16);
-  --cosmic-border: rgba(255, 255, 255, 0.20);
-  --cosmic-surface-soft: linear-gradient(155deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.022) 46%, rgba(255, 255, 255, 0.012) 100%);
-  --cosmic-surface-flat: linear-gradient(180deg, rgba(255, 255, 255, 0.032) 0%, rgba(255, 255, 255, 0.012) 100%);
+  --cosmic-bg-orb-1: rgba(255, 255, 255, 0.025);
+  --cosmic-bg-orb-2: rgba(255, 255, 255, 0.015);
+  --cosmic-bg-orb-3: rgba(255, 255, 255, 0.01);
+  --cosmic-glow-soft: rgba(255, 255, 255, 0.06);
+  --cosmic-glow-strong: rgba(255, 255, 255, 0.12);
+  --cosmic-border: rgba(255, 255, 255, 0.14);
+  --cosmic-surface-soft: linear-gradient(155deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.018) 46%, rgba(255, 255, 255, 0.008) 100%);
+  --cosmic-surface-flat: linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, rgba(255, 255, 255, 0.008) 100%);
 
   --modal-overlay-bg:      rgba(0, 0, 0, 0.88);
   --modal-overlay-blur:    20px;
@@ -456,60 +504,46 @@ textarea:-webkit-autofill:active {
   --btn-primary-border-hover: rgba(255, 255, 255, 0.24);
 
   /* ── Void Intelligence variables ── */
-  --bg-void: #000000;
-  --bg-deep: #060607;
-  --grid-line: rgba(255, 255, 255, 0.032);
-  --grid-dot:  rgba(255, 255, 255, 0.022);
-  --bg-surface: #111114;
-  --bg-elevated: #18181c;
+  --bg-void: #060608;
+  --bg-deep: #0a0a0d;
+  --grid-line: rgba(255, 255, 255, 0.04);
+  --grid-dot:  rgba(255, 255, 255, 0.025);
+  --bg-surface: #141417;
+  --bg-elevated: #1c1c20;
   --text-nebula: #d4d8de;
-  --text-void-dim: rgba(255,255,255,0.62);
-  --void-border-resting: rgba(255,255,255,0.10);
-  --void-border-focus: rgba(255,255,255,0.42);
+  --text-void-dim: rgba(255,255,255,0.55);
+  --void-border-resting: rgba(255,255,255,0.08);
+  --void-border-focus: rgba(255,255,255,0.35);
 
   /* ── Glassmorphism ── */
-  --glass-sidebar-bg: rgba(0, 0, 0, 0.88);
-  --glass-panel-bg:   rgba(14, 14, 16, 0.92);
-  --glass-float-bg:   rgba(18, 18, 21, 0.95);
+  --glass-sidebar-bg: rgba(8, 8, 12, 0.92);
+  --glass-panel-bg:   rgba(18, 18, 22, 0.94);
+  --glass-float-bg:   rgba(24, 24, 28, 0.96);
   --glass-blur:       blur(16px) saturate(120%);
   --glass-blur-sm:    blur(10px) saturate(110%);
-  --glass-border-hi:  rgba(255, 255, 255, 0.14);
+  --glass-border-hi:  rgba(255, 255, 255, 0.10);
   --modal-panel-bg:   var(--glass-panel-bg);
 }
 
 /* Dark theme scrollbars */
 [data-theme="dark"] ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.20);
+  background: rgba(255, 255, 255, 0.12);
 }
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.22);
 }
 [data-theme="dark"] * {
-  scrollbar-color: rgba(255, 255, 255, 0.20) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
 
 /* ═══════════════════════════════════════════════════════════
-   IMMERSIVE DARK MODE — cleaner, calmer, deeper UI
+   IMMERSIVE DARK MODE — subtle depth refinements
    ═══════════════════════════════════════════════════════════ */
 [data-theme="dark"] {
-  --bg-secondary: #030303;
-  --bg-tertiary: #070707;
-  --bg-floating: #0b0b0c;
-  --surface-1: #0b0b0c;
-  --surface-2: #111113;
-  --surface-3: #17171a;
-  --modal-overlay-bg: rgba(0, 0, 0, 0.92);
+  --modal-overlay-bg: rgba(0, 0, 0, 0.85);
   --modal-overlay-blur: 0px;
-  --glass-panel-bg: #0d0d0f;
-  --glass-float-bg: #101013;
-  --glass-sidebar-bg: #080809;
   --glass-blur: none;
   --glass-blur-sm: none;
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.55);
-  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.62);
-  --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.72);
-  --shadow-soft: 0 10px 26px rgba(0, 0, 0, 0.66);
-  --shadow-elevated: 0 18px 40px rgba(0, 0, 0, 0.78), 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 [data-theme="dark"] .context-menu,
@@ -585,12 +619,12 @@ textarea:-webkit-autofill:active {
 
 /* Page content enter animation */
 @keyframes pageEnter {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: none; }
 }
 
 .page-enter {
-  animation: pageEnter 0.3s var(--transition-smooth, cubic-bezier(0.22, 1, 0.36, 1)) both;
+  animation: pageEnter 0.38s var(--transition-smooth, cubic-bezier(0.22, 1, 0.36, 1)) both;
 }
 
 /* Immersive interactions: no hover/press motion on buttons */
@@ -694,10 +728,6 @@ button:focus-visible:not(:disabled),
   80%  { opacity: 0.7; }
   100% { transform: translateX(200%); opacity: 0; }
 }
-@keyframes message-materialize {
-  from { opacity: 0; transform: translateY(5px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
 @keyframes orbital-ring {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
@@ -732,4 +762,98 @@ button:focus-visible:not(:disabled),
 [data-theme="dark"] * {
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   NITRO STREAM CELEBRATION — first-time Nitro streaming toast
+   ═══════════════════════════════════════════════════════════ */
+.nitro-stream-celebration {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-120%);
+  z-index: 999999;
+  cursor: pointer;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(168, 85, 247, 0.25),
+    0 8px 40px rgba(109, 40, 217, 0.35),
+    0 0 60px rgba(168, 85, 247, 0.15);
+  animation: nsc-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.nitro-stream-celebration.exit {
+  animation: nsc-exit 0.45s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+
+@keyframes nsc-enter {
+  0%   { transform: translateX(-50%) translateY(-120%); opacity: 0; }
+  100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+
+@keyframes nsc-exit {
+  0%   { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-20px) scale(0.92); opacity: 0; }
+}
+
+.nsc-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #7c3aed, #6d28d9 30%, #4f46e5 60%, #7c3aed);
+  background-size: 300% 300%;
+  animation: nsc-shimmer 2.5s ease infinite;
+}
+
+@keyframes nsc-shimmer {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.nsc-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 24px 14px 18px;
+}
+
+.nsc-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  flex-shrink: 0;
+  animation: nsc-icon-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes nsc-icon-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.15); }
+  50%      { box-shadow: 0 0 0 6px rgba(255, 255, 255, 0); }
+}
+
+.nsc-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.nsc-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.nsc-specs {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+  letter-spacing: 0.04em;
 }

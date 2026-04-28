@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import './CommunitySetupWizard.css';
 
 const PRESET_TAGS = [
@@ -8,6 +9,7 @@ const PRESET_TAGS = [
 ];
 
 export default function CommunitySetupWizard({ team, onComplete, onCancel }) {
+  const enterInstant = useModalEnterAnimation('community-setup-wizard', true);
   const [step, setStep] = useState(1);
   const [tags, setTags] = useState(team?.discovery_tags || []);
   const [blurb, setBlurb] = useState(team?.discovery_blurb || '');
@@ -29,7 +31,7 @@ export default function CommunitySetupWizard({ team, onComplete, onCancel }) {
   };
 
   return (
-    <div className="csw-overlay" onClick={(e) => e.target === e.currentTarget && onCancel?.()}>
+    <div className={`csw-overlay${enterInstant ? ' modal-enter-instant' : ''}`} onClick={(e) => e.target === e.currentTarget && onCancel?.()}>
       <div className="csw-modal" onClick={(e) => e.stopPropagation()}>
         <div className="csw-progress">
           <div className={`csw-step ${step >= 1 ? 'done' : ''}`} />

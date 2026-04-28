@@ -1,20 +1,21 @@
 import React, { memo } from 'react';
-import { ChevronDown, Phone, Radio, Users } from 'lucide-react';
+import { ChevronDown, Waves } from 'lucide-react';
 import { useVoice } from '../context/VoiceContext';
 import { useAuth } from '../context/AuthContext';
-import VoiceUserProfileBar from './VoiceUserProfileBar';
+import VoiceChannel from './VoiceChannel';
 import DMCallView from './DMCallView';
 import './VoiceFullscreenOverlay.css';
 
 /**
  * Fullscreen voice/call overlay on mobile.
- * When in a voice channel or DM call: fullscreen by default.
- * Minimize button collapses to a compact bar; tapping bar expands again.
+ * Server voice: real VoiceChannel (stage, streams, participants) — not a static card.
+ * DM: DMCallView. Minimize collapses to a compact bar.
  */
 const VoiceFullscreenOverlay = memo(function VoiceFullscreenOverlay({ isMobile, conversations }) {
   const { user } = useAuth();
   const {
     voiceChannelId,
+    voiceTeamId,
     voiceChannelName,
     voiceConversationId,
     voiceConversationName,
@@ -41,8 +42,16 @@ const VoiceFullscreenOverlay = memo(function VoiceFullscreenOverlay({ isMobile, 
         onClick={() => setVoiceViewMinimized(false)}
         aria-label="Expand voice"
       >
-        <span className="voice-fullscreen-minimized-icon">
-          <Phone size={18} strokeWidth={2} />
+        <span className="voice-fullscreen-minimized-icon" aria-hidden>
+          <svg className="voice-fullscreen-wave-icon" viewBox="0 0 32 32" width="22" height="22" fill="none">
+            <path
+              d="M6 16c0-1.5.4-2.9 1.1-4.1M10 22c-1.8-1.7-3-4.1-3-6.9s1.2-5.2 3-6.9M14 24c-2.5-2.4-4-5.8-4-9.5s1.5-7.1 4-9.5M18 24c2.5-2.4 4-5.8 4-9.5s-1.5-7.1-4-9.5M22 22c1.8-1.7 3-4.1 3-6.9s-1.2-5.2-3-6.9M26 16c0-1.5-.4-2.9-1.1-4.1"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+            <circle cx="16" cy="16" r="2.2" fill="currentColor" />
+          </svg>
         </span>
         <span className="voice-fullscreen-minimized-label">{displayName}</span>
         <ChevronDown size={18} className="voice-fullscreen-minimized-chevron" />
@@ -51,50 +60,42 @@ const VoiceFullscreenOverlay = memo(function VoiceFullscreenOverlay({ isMobile, 
   }
 
   return (
-    <div className="voice-fullscreen-overlay">
-      <button
-        type="button"
-        className="voice-fullscreen-minimize"
-        onClick={() => setVoiceViewMinimized(true)}
-        aria-label="Minimize"
-      >
-        <ChevronDown size={24} strokeWidth={2.5} />
-      </button>
-      <div className="voice-fullscreen-content">
+    <div className="voice-fullscreen-overlay voice-fullscreen-overlay--v2">
+      <div className="voice-fullscreen-topbar">
+        <div className="voice-fullscreen-brand">
+          <span className="voice-fullscreen-brand-icon" aria-hidden>
+            <Waves size={18} strokeWidth={2.4} />
+          </span>
+          <span className="voice-fullscreen-brand-text">Voice</span>
+        </div>
+        <button
+          type="button"
+          className="voice-fullscreen-minimize"
+          onClick={() => setVoiceViewMinimized(true)}
+          aria-label="Minimize"
+        >
+          <ChevronDown size={22} strokeWidth={2.5} />
+        </button>
+      </div>
+      <div className="voice-fullscreen-content voice-fullscreen-content--fill">
         {voiceConversationId ? (
           <DMCallView
             otherUserName={otherUserName}
             otherUser={otherUser}
             isGroup={isGroup}
           />
-        ) : (
-          <div className="voice-fullscreen-channel">
-            <div className="voice-fullscreen-channel-orb" aria-hidden="true" />
-            <div className="voice-fullscreen-channel-shell">
-              <div className="voice-fullscreen-channel-pill">
-                <Radio size={14} strokeWidth={2.5} />
-                <span>Live voice channel</span>
-              </div>
-              <div className="voice-fullscreen-channel-info">
-                <h2 className="voice-fullscreen-channel-title">#{displayName}</h2>
-                <p className="voice-fullscreen-channel-desc">
-                  You are connected and ready to talk with your team.
-                </p>
-              </div>
-              <div className="voice-fullscreen-channel-stats">
-                <div className="voice-fullscreen-channel-stat">
-                  <Phone size={15} strokeWidth={2.3} />
-                  <span>Connected</span>
-                </div>
-                <div className="voice-fullscreen-channel-stat">
-                  <Users size={15} strokeWidth={2.3} />
-                  <span>Channel room</span>
-                </div>
-              </div>
-              <VoiceUserProfileBar />
-            </div>
-          </div>
-        )}
+        ) : voiceChannelId && voiceTeamId != null ? (
+          <VoiceChannel
+            channel={{
+              id: voiceChannelId,
+              name: voiceChannelName || 'voice',
+              channel_type: 'voice',
+            }}
+            teamId={String(voiceTeamId)}
+            className="voice-channel-view--mobile-overlay"
+            defaultShowParticipants
+          />
+        ) : null}
       </div>
     </div>
   );

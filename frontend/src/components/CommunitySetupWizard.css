@@ -33,11 +33,11 @@
 
 @keyframes cswSlideUp {
   from {
-    transform: translateY(20px) scale(0.98);
+    transform: translateX(28px);
     opacity: 0;
   }
   to {
-    transform: translateY(0) scale(1);
+    transform: translateX(0);
     opacity: 1;
   }
 }

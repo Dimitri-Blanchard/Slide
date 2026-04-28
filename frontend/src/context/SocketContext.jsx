@@ -30,11 +30,7 @@ export function SocketProvider({ children }) {
       }
       return;
     }
-    
-    if (socketRef.current?.connected) {
-      return;
-    }
-    
+
     const token = getToken();
     const socketTarget = (typeof window !== 'undefined' && window.location?.origin === BACKEND_ORIGIN)
       ? window.location.origin
@@ -47,8 +43,8 @@ export function SocketProvider({ children }) {
       reconnectionDelay: 500,
       reconnectionDelayMax: 3000,
       timeout: 15000,
-      forceNew: false,
-      multiplex: true,
+      forceNew: true,
+      multiplex: false,
     });
 
     s.on('online_users', (userIds) => {

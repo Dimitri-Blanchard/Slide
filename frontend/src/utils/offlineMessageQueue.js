@@ -40,14 +40,22 @@ export function generateTempId() {
  */
 export function isNetworkError(err) {
   if (!err) return false;
+  if (err.isNetworkError === true) return true;
+  const st = err.status;
+  if (st === 502 || st === 503 || st === 504 || st === 408) return true;
   const msg = (err.message || '').toLowerCase();
   const name = (err.name || '').toLowerCase();
   return (
-    name === 'typeerror' && (msg.includes('fetch') || msg.includes('failed to fetch') ||
-    msg.includes('network') || msg.includes('load failed')) ||
+    (name === 'typeerror' && (
+      msg.includes('fetch') ||
+      msg.includes('failed to fetch') ||
+      msg.includes('network') ||
+      msg.includes('load failed')
+    )) ||
     msg.includes('network') ||
     msg.includes('failed to fetch') ||
     msg.includes('networkerror') ||
+    msg.includes('joindre le serveur') ||
     err.code === 'ECONNREFUSED' ||
     err.code === 'ENOTFOUND' ||
     err.code === 'ETIMEDOUT' ||
@@ -99,6 +107,18 @@ export async function removeFromQueue(id) {
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
     const req = store.delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/** Drop all queued sends (e.g. account switch) so another user never posts another account's drafts. */
+export async function clearAllQueuedMessages() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.clear();
     req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);
   });

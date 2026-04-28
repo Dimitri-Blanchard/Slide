@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useOnlineUsers } from '../context/SocketContext';
 import { getStaticUrl } from '../utils/staticUrl';
 import { getStoredOnlineStatus } from '../utils/presenceStorage';
+import { getMemoryCachedSrc, getCachedAvatarSrc, revalidateAvatar, subscribeAvatar } from '../utils/avatarCache';
 import './Avatar.css';
 
 const DEFAULT_AVATAR = '/avatars/default.png';
@@ -67,6 +68,46 @@ export function StatusBadgeIcon({ status, size = 10, borderColor = 'var(--bg-sec
 
 const BADGE_SIZES = { small: 8, medium: 10, large: 12, xlarge: 14 };
 
+function isSkippableAvatarUrl(url) {
+  if (!url) return true;
+  if (url.startsWith('data:') || url.startsWith('blob:')) return true;
+  if (url.includes('/default/default') || url.includes('/avatars/default.png') || url.endsWith('/default.png')) return true;
+  return false;
+}
+
+function useCachedAvatar(avatarPath) {
+  const staticUrl = useMemo(() => (avatarPath ? getStaticUrl(avatarPath) : ''), [avatarPath]);
+  const skip = isSkippableAvatarUrl(staticUrl);
+
+  const initialSrc = useMemo(() => {
+    if (skip) return staticUrl;
+    return getMemoryCachedSrc(staticUrl) || staticUrl;
+  }, [staticUrl, skip]);
+
+  const [src, setSrc] = useState(initialSrc);
+
+  useEffect(() => {
+    if (skip) { setSrc(staticUrl); return; }
+    let active = true;
+
+    const memoryCached = getMemoryCachedSrc(staticUrl);
+    if (memoryCached) {
+      setSrc(memoryCached);
+    } else {
+      setSrc(staticUrl);
+      getCachedAvatarSrc(staticUrl).then(cached => {
+        if (active && cached) setSrc(cached);
+      });
+    }
+
+    revalidateAvatar(staticUrl);
+    const unsub = subscribeAvatar(staticUrl, newSrc => { if (active) setSrc(newSrc); });
+    return () => { active = false; unsub(); };
+  }, [staticUrl, skip]);
+
+  return src;
+}
+
 const Avatar = memo(function Avatar({ 
   user, 
   size = 'medium', 
@@ -101,7 +142,7 @@ const Avatar = memo(function Avatar({
     e.target.src = e.target.src?.includes(DEFAULT_AVATAR) ? getFallbackSvg(name) : getStaticUrl(DEFAULT_AVATAR);
   }, [name]);
 
-  const imgSrc = getStaticUrl(avatarUrl);
+  const imgSrc = useCachedAvatar(avatarUrl);
   const imgRef = useRef(null);
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
@@ -207,10 +248,10 @@ const Avatar = memo(function Avatar({
 export const AvatarImg = memo(function AvatarImg({ src, alt = '', className = '', ...props }) {
   const imgRef = useRef(null);
   const gifActivatedRef = useRef(false);
-  const resolvedSrc = src ? getStaticUrl(src) : '';
+  const cachedSrc = useCachedAvatar(src);
 
   useEffect(() => {
-    if (!isGifUrl(src) || gifActivatedRef.current || !resolvedSrc) return;
+    if (!isGifUrl(src) || gifActivatedRef.current || !cachedSrc) return;
     const el = imgRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
@@ -219,7 +260,7 @@ export const AvatarImg = memo(function AvatarImg({ src, alt = '', className = ''
           if (e.isIntersecting) {
             gifActivatedRef.current = true;
             const img = imgRef.current;
-            if (img) { img.src = ''; img.src = resolvedSrc; }
+            if (img) { img.src = ''; img.src = cachedSrc; }
             observer.disconnect();
             break;
           }
@@ -229,11 +270,11 @@ export const AvatarImg = memo(function AvatarImg({ src, alt = '', className = ''
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [src, resolvedSrc]);
+  }, [src, cachedSrc]);
 
-  if (!resolvedSrc) return null;
+  if (!cachedSrc) return null;
   return (
-    <img ref={imgRef} src={resolvedSrc} alt={alt} loading="eager" draggable={false} className={`avatar-img-gif ${className}`.trim()} style={{ objectFit: 'cover', width: '100%', height: '100%' }} {...props} />
+    <img ref={imgRef} src={cachedSrc} alt={alt} loading="eager" draggable={false} className={`avatar-img-gif ${className}`.trim()} style={{ objectFit: 'cover', width: '100%', height: '100%' }} {...props} />
   );
 });
 

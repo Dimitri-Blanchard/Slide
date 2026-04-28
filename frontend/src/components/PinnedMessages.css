@@ -22,11 +22,11 @@
 @keyframes pinnedPanelSlide {
   from {
     opacity: 0;
-    transform: translateY(-10px) scale(0.95);
+    transform: translateX(18px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateX(0);
   }
 }
 

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, memo } from 'react';
 import { Link } from 'react-router-dom';
+import { useLanguage } from '../context/LanguageContext';
 import { AvatarImg } from './Avatar';
 import ClickableAvatar from './ClickableAvatar';
 import './MobileMessagesView.css';
@@ -111,6 +112,7 @@ export default function MobileMessagesView({
   }, [unpinned, searchQuery]);
 
   const showDmSkeleton = loading && allConversations.length === 0;
+  const { t } = useLanguage();
 
   return (
     <div className="mobile-messages-view">
@@ -121,13 +123,13 @@ export default function MobileMessagesView({
             <path d="m21 21-4.35-4.35" />
           </svg>
         </span>
-        <span className="mobile-messages-search-text">Rechercher dans les messages</span>
+        <span className="mobile-messages-search-text">{t('mobileMessages.searchMessages')}</span>
       </button>
 
       <div className="mobile-messages-search-inline">
         <input
           type="text"
-          placeholder="Filtrer les conversations"
+          placeholder={t('mobileMessages.filterConversations')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="mobile-messages-search-input"
@@ -149,7 +151,7 @@ export default function MobileMessagesView({
           <>
             {filteredPinned.length > 0 && (
               <div className="mobile-dm-section">
-                <span className="mobile-dm-section-label">Favoris</span>
+                <span className="mobile-dm-section-label">{t('mobileMessages.sectionPinned')}</span>
                 {filteredPinned.map((c) => (
                   <DMItem
                     key={c.conversation_id}
@@ -162,7 +164,7 @@ export default function MobileMessagesView({
             )}
             {filteredUnpinned.length > 0 && (
               <div className="mobile-dm-section">
-                <span className="mobile-dm-section-label">Messages directs</span>
+                <span className="mobile-dm-section-label">{t('mobileMessages.sectionDirectMessages')}</span>
                 {filteredUnpinned.map((c) => (
                   <DMItem
                     key={c.conversation_id}
@@ -175,8 +177,8 @@ export default function MobileMessagesView({
             )}
             {filteredPinned.length === 0 && filteredUnpinned.length === 0 && !showDmSkeleton && (
               <div className="mobile-messages-empty">
-                <p>No conversations yet</p>
-                <span>Start a DM to find your friends</span>
+                <p>{t('mobileMessages.emptyTitle')}</p>
+                <span>{t('mobileMessages.emptySubtitle')}</span>
               </div>
             )}
           </>

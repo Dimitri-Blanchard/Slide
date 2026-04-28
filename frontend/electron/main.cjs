@@ -21,6 +21,21 @@ const PROXY_PATHS = ['/avatars', '/uploads', '/api', '/socket.io'];
 
 if (isDev) app.commandLine.appendSwitch('ignore-certificate-errors');
 
+// ─── Network stability ──────────────────────────────────────────────────────
+// Disable QUIC (HTTP/3) — Electron's Chromium QUIC implementation causes
+// ERR_QUIC_PROTOCOL_ERROR on many networks. Force HTTP/2 + TCP instead.
+app.commandLine.appendSwitch('disable-quic');
+// Disable HTTP/2 server push which can also cause issues in Electron
+app.commandLine.appendSwitch('disable-http2-server-push');
+
+// ─── GPU / rendering ─────────────────────────────────────────────────────────
+app.commandLine.appendSwitch('enable-features', 'SharedArrayBuffer');
+// Enable hardware acceleration — let Chromium pick the best GPU backend
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+// Use hardware-accelerated video decode when available
+app.commandLine.appendSwitch('enable-accelerated-video-decode');
+
 // ─── Single instance lock ─────────────────────────────────────────────────────
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) { app.quit(); process.exit(0); }
@@ -30,9 +45,11 @@ let splashWindow = null;
 let mainWindow = null;
 let tray = null;
 let powerSaveId = null;
-let minimizeToTray = false;
+let minimizeToTray = true; // Always minimize to tray by default (like Discord)
 let pendingSourceId = null;
 let currentBadgeCount = 0;
+let currentVoiceState = 'idle'; // 'idle' | 'call' | 'speaking' | 'muted'
+let speakingAnimInterval = null;
 app.isQuitting = false;
 
 // ─── PNG badge generation (16×16 for Windows overlay icon) ────────────────────
@@ -173,28 +190,172 @@ function updateBadge(data) {
   updateTrayMenu(mentions || (hasUnreadDm || hasUnreadServer ? 1 : 0));
 }
 
+// ─── Tray icon generation (16×16 for system tray) ─────────────────────────────
+
+// Default Slide icon (loaded from file)
+let trayIconDefault = null;
+
+// Speech bubble icon — green bubble with sound waves
+function buildSpeakingIcon(frame = 0) {
+  return buildPng(16, (x, y) => {
+    // Speech bubble shape (rounded rect 2..13 x 2..11, tail at bottom-left)
+    const inBubble = x >= 2 && x <= 13 && y >= 2 && y <= 10;
+    const isTail = (x === 3 && y === 11) || (x === 2 && y === 12) || (x === 4 && y === 11);
+    const isCorner = (x === 2 && y === 2) || (x === 13 && y === 2) ||
+                     (x === 2 && y === 10) || (x === 13 && y === 10);
+
+    if ((inBubble && !isCorner) || isTail) {
+      // Sound wave lines inside the bubble (animated by frame)
+      const cx = 7.5, cy = 6;
+      const dist = Math.sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+
+      // Animate: show 1-3 arcs based on frame
+      const waveCount = (frame % 3) + 1;
+      if (dist >= 1 && dist < 2 && waveCount >= 1 && x > cx) return [255, 255, 255, 230];
+      if (dist >= 2.5 && dist < 3.5 && waveCount >= 2 && x > cx) return [255, 255, 255, 180];
+      if (dist >= 4 && dist < 5 && waveCount >= 3 && x > cx) return [255, 255, 255, 130];
+
+      // Center dot (mouth)
+      if (dist < 1.2) return [255, 255, 255, 255];
+
+      // Bubble fill — green
+      return [35, 165, 90, 255];
+    }
+    return null;
+  });
+}
+
+// Muted mic icon — red mic with strikethrough
+function buildMutedMicIcon() {
+  return buildPng(16, (x, y) => {
+    // Mic body (rect 6..9 x 2..9 with rounded top)
+    const inMicBody = x >= 6 && x <= 9 && y >= 3 && y <= 9;
+    const micTop = x >= 7 && x <= 8 && y === 2;
+    const micBottom = x >= 7 && x <= 8 && y === 10;
+    // Mic stand
+    const stand = x >= 5 && x <= 10 && y === 11 &&
+                  (x === 5 || x === 10 || (x >= 7 && x <= 8));
+    const standArm = (x === 5 || x === 10) && (y === 10 || y === 11);
+    const standBase = x >= 6 && x <= 9 && y === 13;
+    const standPole = (x === 7 || x === 8) && y === 12;
+
+    // Strikethrough line (diagonal, red)
+    const onStrike = Math.abs((x - 2) - (y - 1)) < 1.2 && x >= 2 && x <= 13 && y >= 1 && y <= 14;
+
+    if (onStrike) return [239, 68, 68, 255]; // red line on top
+
+    if (inMicBody || micTop || micBottom) return [180, 60, 60, 255]; // darker red mic
+    if (stand || standArm || standBase || standPole) return [180, 60, 60, 200];
+
+    return null;
+  });
+}
+
+// In-call icon (no speaking, no mute) — green headphone/phone
+function buildInCallIcon() {
+  return buildPng(16, (x, y) => {
+    const cx = 7.5, cy = 7.5;
+    const dist = Math.sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+    // Ring
+    if (dist >= 4.5 && dist <= 6.5 && y <= 9) return [35, 165, 90, 255];
+    // Ear pads
+    if (x >= 2 && x <= 4 && y >= 7 && y <= 12) return [35, 165, 90, 255];
+    if (x >= 11 && x <= 13 && y >= 7 && y <= 12) return [35, 165, 90, 255];
+    return null;
+  });
+}
+
+const _trayIconCache = {};
+function getTrayIcon(type, frame) {
+  const key = `${type}_${frame || 0}`;
+  if (!_trayIconCache[key]) {
+    let buf;
+    if (type === 'speaking') buf = buildSpeakingIcon(frame || 0);
+    else if (type === 'muted') buf = buildMutedMicIcon();
+    else if (type === 'call') buf = buildInCallIcon();
+    else return trayIconDefault;
+    _trayIconCache[key] = nativeImage.createFromBuffer(buf);
+  }
+  return _trayIconCache[key];
+}
+
 // ─── Tray ─────────────────────────────────────────────────────────────────────
+function updateTrayVoiceState(state) {
+  if (!tray) return;
+  currentVoiceState = state;
+
+  // Stop any existing animation
+  if (speakingAnimInterval) {
+    clearInterval(speakingAnimInterval);
+    speakingAnimInterval = null;
+  }
+
+  if (state === 'speaking') {
+    let frame = 0;
+    // Animate the speaking icon at ~4fps
+    const updateFrame = () => {
+      if (!tray || currentVoiceState !== 'speaking') return;
+      tray.setImage(getTrayIcon('speaking', frame));
+      frame = (frame + 1) % 3;
+    };
+    updateFrame();
+    speakingAnimInterval = setInterval(updateFrame, 250);
+    tray.setToolTip('Slide — En train de parler');
+  } else if (state === 'muted') {
+    tray.setImage(getTrayIcon('muted'));
+    tray.setToolTip('Slide — Micro coupé');
+  } else if (state === 'call') {
+    tray.setImage(getTrayIcon('call'));
+    tray.setToolTip('Slide — En appel');
+  } else {
+    // idle — restore default icon
+    if (trayIconDefault) tray.setImage(trayIconDefault);
+    tray.setToolTip('Slide');
+  }
+  updateTrayMenu();
+}
+
 function updateTrayMenu(count = currentBadgeCount) {
   if (!tray) return;
   try {
     const label = count > 0
       ? `Ouvrir Slide (${count} non lu${count > 1 ? 's' : ''})`
       : 'Ouvrir Slide';
-    tray.setToolTip(count > 0 ? `Slide — ${count} non lu${count > 1 ? 's' : ''}` : 'Slide');
-    tray.setContextMenu(Menu.buildFromTemplate([
+    if (currentVoiceState === 'idle') {
+      tray.setToolTip(count > 0 ? `Slide — ${count} non lu${count > 1 ? 's' : ''}` : 'Slide');
+    }
+
+    const menuItems = [
       { label, click: () => { mainWindow?.show(); mainWindow?.focus(); } },
       { type: 'separator' },
-      { label: 'Quitter', click: () => { app.isQuitting = true; app.quit(); } },
-    ]));
+    ];
+
+    // Voice controls in context menu when in call
+    if (currentVoiceState !== 'idle') {
+      menuItems.push({
+        label: currentVoiceState === 'muted' ? '🔇 Unmute' : '🎤 Mute',
+        click: () => safeSend(mainWindow, 'tray-toggle-mute'),
+      });
+      menuItems.push({
+        label: '📞 Quitter l\'appel',
+        click: () => safeSend(mainWindow, 'tray-leave-call'),
+      });
+      menuItems.push({ type: 'separator' });
+    }
+
+    menuItems.push({ label: 'Quitter Slide', click: () => { app.isQuitting = true; app.quit(); } });
+    tray.setContextMenu(Menu.buildFromTemplate(menuItems));
   } catch (_) {}
 }
 
 function createTray() {
   const iconPath = path.join(__dirname, '../public/icon.png');
-  let icon;
-  try { icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 }); }
-  catch { icon = nativeImage.createEmpty(); }
-  tray = new Tray(icon);
+  try {
+    trayIconDefault = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+  } catch {
+    trayIconDefault = nativeImage.createEmpty();
+  }
+  tray = new Tray(trayIconDefault);
   updateTrayMenu(0);
   tray.on('click', () => {
     if (!mainWindow) return;
@@ -230,6 +391,30 @@ function isValidBounds(b) {
            b.x + b.width > r.x && b.y + b.height > r.y;
   });
 }
+
+// ─── Persisted settings ──────────────────────────────────────────────────────
+function getSettingsFile() {
+  return path.join(app.getPath('userData'), 'slide-settings.json');
+}
+function loadPersistedSettings() {
+  try { return JSON.parse(fs.readFileSync(getSettingsFile(), 'utf8')); }
+  catch { return {}; }
+}
+function savePersistedSetting(key, value) {
+  try {
+    const data = loadPersistedSettings();
+    data[key] = value;
+    fs.writeFileSync(getSettingsFile(), JSON.stringify(data));
+  } catch (_) {}
+}
+
+// Load minimize-to-tray from persisted settings (default: true)
+(function initPersistedSettings() {
+  const saved = loadPersistedSettings();
+  if (typeof saved.minimizeToTray === 'boolean') {
+    minimizeToTray = saved.minimizeToTray;
+  }
+})();
 
 // ─── System power commands ────────────────────────────────────────────────────
 const SYSTEM_CMDS = {
@@ -308,6 +493,42 @@ function createStaticServer(distPath) {
         });
       } else res.writeHead(403).end();
     });
+    // WebSocket upgrade proxy (needed for Socket.IO)
+    server.on('upgrade', (req, socket, head) => {
+      const parsed = url.parse(req.url);
+      if (!PROXY_PATHS.some(p => parsed.pathname.startsWith(p))) {
+        socket.destroy();
+        return;
+      }
+      const backend = url.parse(ELECTRON_BACKEND_URL);
+      const lib = backend.protocol === 'https:' ? https : http;
+      const port = backend.port || (backend.protocol === 'https:' ? 443 : 80);
+      const fwdHeaders = { ...req.headers, host: backend.host };
+      delete fwdHeaders.origin;
+      delete fwdHeaders.referer;
+      const proxyReq = lib.request({
+        hostname: backend.hostname,
+        port,
+        path: req.url,
+        method: req.method,
+        headers: fwdHeaders,
+      });
+      proxyReq.on('upgrade', (proxyRes, proxySocket, proxyHead) => {
+        socket.write(
+          `HTTP/1.1 ${proxyRes.statusCode || 101} ${proxyRes.statusMessage || 'Switching Protocols'}\r\n` +
+          Object.entries(proxyRes.headers).map(([k, v]) => `${k}: ${v}`).join('\r\n') +
+          '\r\n\r\n'
+        );
+        if (proxyHead.length) socket.write(proxyHead);
+        proxySocket.pipe(socket);
+        socket.pipe(proxySocket);
+        proxySocket.on('error', () => socket.destroy());
+        socket.on('error', () => proxySocket.destroy());
+      });
+      proxyReq.on('error', () => socket.destroy());
+      proxyReq.end();
+    });
+
     server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`));
   });
 }
@@ -430,10 +651,12 @@ async function createMainWindow() {
     icon: path.join(__dirname, '../public/icon.png'),
     title: 'Slide',
     backgroundColor: '#1e1f22',
+    paintWhenInitiallyHidden: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
+      backgroundThrottling: false,
     },
   };
   if (validBounds) { winOpts.x = state.x; winOpts.y = state.y; }
@@ -494,17 +717,31 @@ async function createMainWindow() {
     }
   }
 
-  // Log load failures for debugging
-  win.webContents.on('did-fail-load', (_, errorCode, errorDescription) => {
+  // Log load failures and retry once after a short delay
+  let loadRetried = false;
+  win.webContents.on('did-fail-load', (_, errorCode, errorDescription, validatedURL) => {
     console.error(`[Slide] Page load failed: ${errorCode} ${errorDescription}`);
+    if (!loadRetried && errorCode !== -3) { // -3 = aborted (intentional navigation)
+      loadRetried = true;
+      console.log('[Slide] Retrying page load in 2s...');
+      setTimeout(() => {
+        if (!win.isDestroyed()) win.webContents.reload();
+      }, 2000);
+    }
   });
 
-  win.once('ready-to-show', () => {
+  let shown = false;
+  const showWindow = () => {
+    if (shown) return;
+    shown = true;
     if (splashWindow && !splashWindow.isDestroyed()) { splashWindow.close(); splashWindow = null; }
     if (state?.isMaximized) win.maximize();
     win.show();
     win.focus();
-  });
+  };
+  win.once('ready-to-show', showWindow);
+  // Fallback: force-show after 8s even if ready-to-show never fires (black screen fix)
+  setTimeout(showWindow, 8000);
 
   win.on('maximize', () => safeSend(win, 'window-maximize-change', true));
   win.on('unmaximize', () => safeSend(win, 'window-maximize-change', false));
@@ -520,7 +757,8 @@ app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler((_, permission, cb) => cb(true));
   session.defaultSession.setPermissionCheckHandler(() => true);
 
-  // Screen sharing: use pending source if set, otherwise primary screen
+  // Screen sharing: use pending source if set, otherwise primary screen.
+  // Windows: loopback captures system/screen audio even when `video` is a single window.
   session.defaultSession.setDisplayMediaRequestHandler(async (_, callback) => {
     try {
       const sources = await desktopCapturer.getSources({ types: ['screen', 'window'] });
@@ -531,7 +769,15 @@ app.whenReady().then(async () => {
           || sources.find(s => s.id.startsWith('screen:'))
           || sources[0];
       }
-      callback(chosen ? { video: chosen } : {});
+      if (!chosen) {
+        callback({});
+        return;
+      }
+      const payload = { video: chosen };
+      if (process.platform === 'win32') {
+        payload.audio = 'loopback';
+      }
+      callback(payload);
     } catch { callback({}); }
   });
 
@@ -588,7 +834,19 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on('before-quit', () => { app.isQuitting = true; });
+app.on('before-quit', (e) => {
+  // Clean up speaking animation interval
+  if (speakingAnimInterval) { clearInterval(speakingAnimInterval); speakingAnimInterval = null; }
+
+  // First time: notify renderer to leave voice, then quit after a short delay
+  if (!app.isQuitting) {
+    app.isQuitting = true;
+    e.preventDefault();
+    safeSend(mainWindow, 'app-before-quit');
+    setTimeout(() => app.quit(), 300);
+    return;
+  }
+});
 
 app.on('will-quit', () => { globalShortcut.unregisterAll(); });
 
@@ -598,10 +856,23 @@ app.on('window-all-closed', () => {
 
 // ─── IPC: Window controls ─────────────────────────────────────────────────────
 ipcMain.handle('set-launch-at-startup', (_, enabled) => {
-  app.setLoginItemSettings({ openAtLogin: enabled });
+  const settings = {
+    openAtLogin: enabled,
+    path: app.getPath('exe'),
+    args: [],
+  };
+  // On Windows, also set openAsHidden so the app starts minimized to tray
+  if (process.platform === 'win32') {
+    settings.openAsHidden = false;
+    // Use name for the registry entry
+    settings.name = 'Slide';
+  }
+  app.setLoginItemSettings(settings);
   return app.getLoginItemSettings().openAtLogin;
 });
-ipcMain.handle('get-launch-at-startup', () => app.getLoginItemSettings().openAtLogin);
+ipcMain.handle('get-launch-at-startup', () => {
+  return app.getLoginItemSettings().openAtLogin;
+});
 
 ipcMain.on('window-minimize', () => mainWindow?.minimize());
 ipcMain.on('window-maximize', () => mainWindow?.isMaximized() ? mainWindow.unmaximize() : mainWindow?.maximize());
@@ -611,8 +882,18 @@ ipcMain.handle('window-is-maximized', () => mainWindow?.isMaximized() ?? false);
 ipcMain.handle('set-always-on-top', (_, flag) => { mainWindow?.setAlwaysOnTop(flag); return flag; });
 
 // ─── IPC: Tray / minimize-to-tray ────────────────────────────────────────────
-ipcMain.handle('set-minimize-to-tray', (_, enabled) => { minimizeToTray = !!enabled; return minimizeToTray; });
+ipcMain.handle('set-minimize-to-tray', (_, enabled) => {
+  minimizeToTray = !!enabled;
+  savePersistedSetting('minimizeToTray', minimizeToTray);
+  return minimizeToTray;
+});
 ipcMain.handle('get-minimize-to-tray', () => minimizeToTray);
+
+// ─── IPC: Voice tray state ───────────────────────────────────────────────────
+// state: 'idle' | 'call' | 'speaking' | 'muted'
+ipcMain.on('tray-voice-state', (_, state) => {
+  updateTrayVoiceState(state);
+});
 
 // ─── IPC: Notifications ───────────────────────────────────────────────────────
 ipcMain.handle('show-notification', (_, { title, body, icon } = {}) => {

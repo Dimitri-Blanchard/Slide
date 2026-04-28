@@ -103,18 +103,26 @@ const MessageInput = memo(forwardRef(function MessageInput({
     };
   }, []);
 
-  // Load draft from localStorage on mount or when draftKey changes
+  // Load draft when draftKey changes: read storage first (avoids wrong-channel bleed), then sync DOM when ref exists
   useEffect(() => {
-    if (draftKey && inputRef.current) {
-      const savedDraft = localStorage.getItem(`draft_${draftKey}`);
-      if (savedDraft) {
-        setContent(inputRef.current, savedDraft);
-        setValue(savedDraft);
-      } else {
-        setContent(inputRef.current, '');
-        setValue('');
+    if (!draftKey) return;
+    const savedDraft = localStorage.getItem(`draft_${draftKey}`) ?? '';
+    setValue(savedDraft);
+
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 40;
+    const syncDom = () => {
+      if (cancelled) return;
+      const el = inputRef.current;
+      if (el) {
+        setContent(el, savedDraft);
+        return;
       }
-    }
+      if (attempts++ < maxAttempts) requestAnimationFrame(syncDom);
+    };
+    requestAnimationFrame(syncDom);
+    return () => { cancelled = true; };
   }, [draftKey]);
 
   // Save draft to localStorage (debounced)

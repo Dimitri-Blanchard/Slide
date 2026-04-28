@@ -3,7 +3,6 @@ import { useOnlineUsers } from '../context/SocketContext';
 import { useLanguage } from '../context/LanguageContext';
 import { usePrefetchOnHover } from '../context/PrefetchContext';
 import ClickableAvatar from './ClickableAvatar';
-import ProfileCard from './ProfileCard';
 import './MembersPanel.css';
 
 const MEMBERS_PANEL_WIDTH_KEY = 'slide_members_panel_width';
@@ -29,8 +28,6 @@ function setStoredWidth(w) {
 }
 
 const MemberItem = memo(function MemberItem({ member, isOnline, roleColor, channelId, teamId, serverRoleBadges, serverTeamRole }) {
-  const [showProfile, setShowProfile] = useState(false);
-  const [clickPos, setClickPos] = useState(null);
   const memberRowRef = useRef(null);
   const { onMouseEnter, onMouseLeave } = usePrefetchOnHover();
 
@@ -49,10 +46,12 @@ const MemberItem = memo(function MemberItem({ member, isOnline, roleColor, chann
     }));
   };
 
-  const handleNameClick = (e) => {
+  const handleRowClick = (e) => {
     e.stopPropagation();
-    setClickPos({ x: e.clientX, y: e.clientY });
-    setShowProfile(true);
+    // Single ProfileCard lives inside ClickableAvatar; opening from the row must use that
+    // instance only — otherwise context menu "View Profile" + click-through opens two cards.
+    const avatarEl = memberRowRef.current?.querySelector('.clickable-avatar');
+    avatarEl?.click();
   };
 
   return (
@@ -60,7 +59,7 @@ const MemberItem = memo(function MemberItem({ member, isOnline, roleColor, chann
       <div
         ref={memberRowRef}
         className={`mp-member ${isOnline ? '' : 'offline'}`}
-        onClick={handleNameClick}
+        onClick={handleRowClick}
         onContextMenu={handleContextMenu}
         onMouseEnter={() => onMouseEnter(member?.id, member)}
         onMouseLeave={onMouseLeave}
@@ -93,16 +92,6 @@ const MemberItem = memo(function MemberItem({ member, isOnline, roleColor, chann
           </svg>
         )}
       </div>
-      <ProfileCard
-        userId={member?.id}
-        user={member}
-        isOpen={showProfile}
-        onClose={() => setShowProfile(false)}
-        clickPos={clickPos}
-        position="left"
-        serverRoleBadges={serverRoleBadges}
-        serverTeamRole={serverTeamRole}
-      />
     </>
   );
 });

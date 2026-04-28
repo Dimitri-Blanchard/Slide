@@ -1,0 +1,89 @@
+.rsv-btn {
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  border: none;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.rsv-btn--dm {
+  width: 36px;
+  height: 36px;
+}
+
+.rsv-btn--dm.active {
+  color: var(--accent, #5865f2);
+  background: var(--surface-3, rgba(255, 255, 255, 0.08));
+}
+
+.rsv-btn--stage {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  backdrop-filter: blur(6px);
+}
+
+.rsv-btn--stage.active {
+  color: var(--accent, #5865f2);
+}
+
+.rsv-btn--strip {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  z-index: 3;
+}
+
+.rsv-btn--strip.active {
+  color: var(--accent, #5865f2);
+}
+
+.rsv-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  min-width: 200px;
+  background: var(--glass-float-bg);
+  border: 1px solid var(--border-default);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-radius: 8px;
+  box-shadow: var(--shadow-elevated);
+  z-index: 10000;
+}
+
+.rsv-popover-portal {
+  position: fixed;
+  z-index: 99999;
+}
+
+.rsv-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.rsv-popover input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent, #5865f2);
+  cursor: pointer;
+}
+
+.rsv-value {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary, var(--text-muted));
+  text-align: right;
+}

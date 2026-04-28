@@ -40,17 +40,17 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ── Touch targets: Material minimum 48dp ── */
-.platform-android button,
-.platform-android [role="button"],
-.platform-android .server-icon-link,
-.platform-android .channel-item,
-.platform-android .dm-item,
-.platform-android a[class*="btn"],
-.platform-android input[type="submit"],
-.platform-android input[type="button"] {
+/* ── Touch targets: list rows & primary nav (avoid bloating every tiny icon button) ── */
+.platform-android .mobile-dm-item,
+.platform-android .channel-item .channel-link {
   min-height: 48px;
+}
+.platform-android .mbn-tab {
+  min-height: var(--mobile-nav-bar-height, 56px);
+}
+.platform-android .mobile-server-bar .server-icon-link {
   min-width: 48px;
+  min-height: 48px;
 }
 
 /* ── Input fields: 16px prevents any system zoom ── */
@@ -130,7 +130,9 @@
 }
 
 /* ── Bottom sheet feel for modals that slide up ── */
-.platform-android .incoming-call-modal,
+.platform-android .incoming-call-banner {
+  border-radius: 16px;
+}
 .platform-android .ssp-overlay .ssp-modal {
   border-radius: 20px 20px 0 0;
 }

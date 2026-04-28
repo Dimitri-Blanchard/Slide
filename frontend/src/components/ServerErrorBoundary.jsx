@@ -1,5 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../context/LanguageContext';
+import './ServerErrorBoundary.css';
 
 /**
  * Error boundary for the server view (TeamChat). Shows a fallback with "Go back"
@@ -30,58 +32,25 @@ class ServerErrorBoundaryClass extends React.Component {
 
 export default function ServerErrorBoundary({ children }) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const renderFallback = (error) => (
-    <div style={{
-      flex: 1,
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'var(--bg-secondary)',
-      color: 'var(--text-primary)',
-      padding: '2rem',
-      textAlign: 'center',
-      minHeight: '200px',
-      userSelect: 'text',
-      WebkitUserSelect: 'text',
-    }}>
-      <div style={{ fontSize: '2rem', marginBottom: '0.5rem', userSelect: 'text', WebkitUserSelect: 'text' }}>:(</div>
-      <p style={{ color: 'var(--text-muted)', marginBottom: '1rem', userSelect: 'text', WebkitUserSelect: 'text' }}>
-        Something went wrong loading this server.
+    <div className="seb-fallback" role="alert">
+      <div className="seb-fallback-icon" aria-hidden>:(</div>
+      <p className="seb-fallback-msg">
+        {t('errorBoundary.serverLoadFailed')}
       </p>
       {error && (
-        <pre style={{
-          color: 'var(--error, #da373c)',
-          fontSize: '0.7rem',
-          maxWidth: '100%',
-          overflow: 'auto',
-          padding: '0.5rem',
-          background: 'rgba(0,0,0,0.3)',
-          borderRadius: 4,
-          marginBottom: '1rem',
-          userSelect: 'text',
-          WebkitUserSelect: 'text',
-          cursor: 'text',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-        }}>
+        <pre className="seb-fallback-pre">
           {error?.message || String(error)}
         </pre>
       )}
       <button
+        type="button"
+        className="seb-fallback-btn"
         onClick={() => navigate('/channels/@me')}
-        style={{
-          padding: '0.5rem 1.25rem',
-          borderRadius: 4,
-          border: 'none',
-          background: 'var(--accent)',
-          color: '#fff',
-          cursor: 'pointer',
-          fontSize: '0.9rem',
-        }}
       >
-        Go back to DMs
+        {t('errorBoundary.backToMessages')}
       </button>
     </div>
   );

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { useNotification } from '../context/NotificationContext';
+import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import './FriendNicknameModal.css';
 
 const NICKNAME_KEY = (userId) => `slide_friend_nickname_${userId}`;
@@ -29,6 +30,8 @@ export default function FriendNicknameModal({ isOpen, onClose, user, onSaved }) 
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
+  const enterInstant = useModalEnterAnimation('friend-nickname-modal', isOpen);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!user?.id) return;
@@ -47,7 +50,7 @@ export default function FriendNicknameModal({ isOpen, onClose, user, onSaved }) 
   const friendName = user?.display_name || user?.username || 'friend';
 
   return createPortal(
-    <div className="friend-nickname-overlay" onClick={onClose}>
+    <div className={`friend-nickname-overlay${enterInstant ? ' modal-enter-instant' : ''}`} onClick={onClose}>
       <div className="friend-nickname-modal" onClick={(e) => e.stopPropagation()}>
         <h3 className="friend-nickname-title">
           {t('chat.addFriendNickname') || 'Add Friend Nickname'}

@@ -10,6 +10,8 @@ import { getStaticUrl } from '../utils/staticUrl';
 import { getStoredCustomStatus, getStoredOnlineStatus } from '../utils/presenceStorage';
 import { harmonizeGradientColors, lightenHex, isLightGradient, isHighContrastGradient, areMatchingBannerColors } from '../utils/gradientColors';
 import Avatar from './Avatar';
+import { useSettings } from '../context/SettingsContext';
+import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import './ProfileModal.css';
 
 const NOTE_KEY = 'slide_profile_notes';
@@ -77,6 +79,7 @@ const ProfileModal = memo(function ProfileModal({ userId, onClose }) {
   const { user: currentUser } = useAuth();
   const { t } = useLanguage();
   const { isUserOnline } = useOnlineUsers();
+  const { developerMode } = useSettings();
 
   const [profile, setProfile]         = useState(null);
   const [loading, setLoading]         = useState(true);
@@ -88,6 +91,8 @@ const ProfileModal = memo(function ProfileModal({ userId, onClose }) {
 
   const modalRef = useRef(null);
   const menuRef  = useRef(null);
+
+  const enterInstant = useModalEnterAnimation('profile-modal', !!userId);
 
   const isOwnProfile = currentUser?.id === parseInt(userId, 10);
 
@@ -219,7 +224,7 @@ const ProfileModal = memo(function ProfileModal({ userId, onClose }) {
   const statusColor = STATUS_COLORS[presenceStatus] || STATUS_COLORS.offline;
 
   return createPortal(
-    <div className="profile-modal-overlay">
+    <div className={`profile-modal-overlay${enterInstant ? ' modal-enter-instant' : ''}`}>
       <div className="profile-modal-backdrop" aria-hidden="true" />
       <div className={`profile-modal${hasDualBanner ? ' profile-modal--dual-banner' : ''}${isHighContrast && !noOverlayBand ? ' profile-modal--high-contrast-gradient' : ''}${isLight ? ' profile-modal--light-gradient' : ''}${noOverlayBand ? ' profile-modal--no-overlay-band' : ''}`} ref={modalRef} role="dialog" aria-label={finalDisplayName ? `${finalDisplayName} profile` : 'Profile'} style={modalStyle}>
 
@@ -291,7 +296,8 @@ const ProfileModal = memo(function ProfileModal({ userId, onClose }) {
                   </button>
                 )}
 
-                {/* 3-dot menu */}
+                {/* 3-dot menu — only if developer mode */}
+                {developerMode && (
                 <div className="profile-modal-menu-wrap" ref={menuRef}>
                   <button
                     onClick={() => setMenuOpen(v => !v)}
@@ -313,6 +319,7 @@ const ProfileModal = memo(function ProfileModal({ userId, onClose }) {
                     </div>
                   )}
                 </div>
+                )}
               </div>
             </div>
 

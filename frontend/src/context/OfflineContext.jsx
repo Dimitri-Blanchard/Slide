@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { useAuth } from './AuthContext';
 import { direct as directApi, messages as messagesApi } from '../api';
 import {
   getQueue,
@@ -7,6 +8,7 @@ import {
   removeFromQueue,
   generateTempId,
   isNetworkError,
+  clearAllQueuedMessages,
 } from '../utils/offlineMessageQueue';
 
 const OfflineContext = createContext(null);
@@ -25,8 +27,11 @@ export function emitOfflineQueueSent({ tempId, message, context, targetId }) {
 
 export function OfflineProvider({ children }) {
   const isOnline = useOnlineStatus();
+  const { user } = useAuth();
   const [queue, setQueue] = useState([]);
   const [processing, setProcessing] = useState(false);
+  const prevAuthUserIdRef = useRef(null);
+  const offlineAuthHydratedRef = useRef(false);
 
   const refreshQueue = useCallback(async () => {
     try {
@@ -43,6 +48,23 @@ export function OfflineProvider({ children }) {
   useEffect(() => {
     refreshQueue();
   }, [refreshQueue]);
+
+  useEffect(() => {
+    const cur = user?.id ?? null;
+    if (!offlineAuthHydratedRef.current) {
+      offlineAuthHydratedRef.current = true;
+      prevAuthUserIdRef.current = cur;
+      return;
+    }
+    const prev = prevAuthUserIdRef.current;
+    prevAuthUserIdRef.current = cur;
+    const switchedAccount = prev != null && cur != null && String(prev) !== String(cur);
+    const loggedOut = prev != null && cur == null;
+    if (!switchedAccount && !loggedOut) return;
+    clearAllQueuedMessages()
+      .then(() => refreshQueue())
+      .catch(() => refreshQueue());
+  }, [user?.id, refreshQueue]);
 
   // Retry périodique quand en ligne et file non vide (cas reconnexion lente)
   useEffect(() => {

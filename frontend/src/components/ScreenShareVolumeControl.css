@@ -1,0 +1,55 @@
+.ssc-vol-btn {
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ssc-vol-btn--vsb.active {
+  background: var(--surface-3);
+  color: var(--accent, #5865f2);
+}
+
+.ssc-vol-btn--dm.active {
+  color: var(--accent, #5865f2);
+}
+
+.ssc-vol-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  min-width: 200px;
+  background: var(--glass-float-bg);
+  border: 1px solid var(--border-default);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-radius: 8px;
+  box-shadow: var(--shadow-elevated);
+  z-index: 10000;
+}
+
+.ssc-vol-popover-portal {
+  position: fixed;
+  z-index: 99999;
+}
+
+.ssc-vol-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.ssc-vol-popover input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent, #5865f2);
+  cursor: pointer;
+}
+
+.ssc-vol-value {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary, var(--text-muted));
+  text-align: right;
+}

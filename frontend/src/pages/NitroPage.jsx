@@ -33,16 +33,16 @@ const QUALITY_BENEFITS = [
 ];
 
 const QUALITY_COMPARISON = [
-  { featureKey: 'nitro.specVideo', basic: '720p', nitro: '1080p @ 60fps', basicPct: 42, nitroPct: 100 },
+  { featureKey: 'nitro.specVideo', basic: '720p @ 30fps', nitro: '1080p @ 90fps', basicPct: 25, nitroPct: 100 },
   { featureKey: 'nitro.specAudio', basic: '48 kHz', nitro: '96 kHz stereo', basicPct: 50, nitroPct: 100 },
   { featureKey: 'nitro.specUploads', basic: '50 MB', nitro: '500 MB', basicPct: 10, nitroPct: 100 },
-  { featureKey: 'nitro.specScreenShare', basic: '720p', nitro: '1080p @ 60fps', basicPct: 42, nitroPct: 100 },
+  { featureKey: 'nitro.specScreenShare', basic: '720p @ 30fps', nitro: '1080p @ 90fps', basicPct: 25, nitroPct: 100 },
   { featureKey: 'nitro.specVoice', basic: 'Standard', nitro: 'Enhanced HQ', basicPct: 60, nitroPct: 100 },
 ];
 
 const PLAN_FEATURES = {
-  basic: ['720p video calls', 'Standard audio', '50 MB uploads', '720p screen share', 'Basic voice quality'],
-  nitro: ['1080p 60fps video', 'High-fidelity audio', '500 MB uploads', '1080p screen share', 'Enhanced voice'],
+  basic: ['720p 30fps video calls', 'Standard audio', '50 MB uploads', '720p 30fps screen share', 'Basic voice quality'],
+  nitro: ['1080p 90fps video', 'High-fidelity audio', '500 MB uploads', '1080p 90fps screen share', 'Enhanced voice'],
 };
 
 const STRIPE_CHECKOUT_URL = import.meta.env.VITE_STRIPE_CHECKOUT_URL || '';

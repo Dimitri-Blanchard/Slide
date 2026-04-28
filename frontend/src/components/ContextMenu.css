@@ -9,7 +9,7 @@
   border-radius: 10px;
   padding: 5px 6px;
   box-shadow: var(--shadow-elevated), 0 0 0 1px rgba(0,0,0,0.04);
-  animation: contextMenuEnter 0.12s var(--transition-smooth, cubic-bezier(0.22, 1, 0.36, 1)) forwards;
+  animation: none;
   transform-origin: var(--ctx-origin, top left);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
@@ -27,11 +27,11 @@
 @keyframes contextMenuEnter {
   0% {
     opacity: 0;
-    transform: scale(0.94) translateY(-4px);
+    transform: translateX(16px);
   }
   100% {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: translateX(0);
   }
 }
 
@@ -107,7 +107,7 @@
   position: relative;
 }
 
-.context-menu-item-wrap.has-submenu:hover .context-menu-item {
+.context-menu-item-wrap.has-submenu:hover > .context-menu-item {
   background: var(--accent);
   color: var(--accent-text);
 }
@@ -123,7 +123,7 @@
   left: 100%;
   top: 0;
   min-width: 180px;
-  max-width: 240px;
+  max-width: 260px;
   max-height: 320px;
   overflow-y: auto;
   background: var(--glass-float-bg);
@@ -131,8 +131,25 @@
   border-radius: 10px;
   padding: 5px 6px;
   box-shadow: var(--shadow-elevated);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   margin-left: 4px;
   z-index: 99999;
+}
+
+.context-menu-submenu::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  pointer-events: auto;
+}
+
+.context-menu-item-desc {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 400;
+  opacity: 0.5;
+  margin-top: 1px;
+  line-height: 1.3;
 }

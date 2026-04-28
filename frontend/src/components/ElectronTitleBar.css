@@ -1,18 +1,22 @@
 .electron-title-bar {
-  display: flex;
+  display: flex !important;
   align-items: center;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 32px;
-  min-height: 32px;
-  z-index: 2147483647;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  z-index: 2147483647 !important;
   background: var(--bg-tertiary);
   border-bottom: 1px solid var(--border-subtle);
   -webkit-app-region: drag;
   user-select: none;
   flex-shrink: 0;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: none !important;
 }
 
 .electron-title-bar-drag {
@@ -65,12 +69,15 @@
 }
 
 .electron-title-bar-controls {
-  display: flex;
+  display: flex !important;
   -webkit-app-region: no-drag;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  flex-shrink: 0;
 }
 
 .electron-title-bar-btn {
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
   width: 46px;
@@ -81,6 +88,9 @@
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
   -webkit-app-region: no-drag;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
 }
 
 .electron-title-bar-btn:hover {

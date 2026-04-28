@@ -34,6 +34,10 @@
   flex-shrink: 0;
   width: 60px;
   min-width: 60px;
+  min-height: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
   background: var(--bg-tertiary);
   border-right: 1px solid var(--border-subtle);
   overflow: visible;
@@ -43,6 +47,8 @@
 .mobile-server-bar .server-bar {
   width: 60px;
   min-width: 60px;
+  flex: 1;
+  min-height: 0;
   /* Extra headroom to prevent first icon/ring clipping on Android WebView */
   padding-top: 16px;
   padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
@@ -175,6 +181,8 @@
   background:
     var(--cosmic-surface-flat),
     var(--bg-primary);
+  /* Subtle top edge — reads as a finished panel, not a flat div */
+  box-shadow: inset 0 1px 0 rgba(15, 17, 23, 0.05);
   transition:
     box-shadow var(--dur-slow, 520ms) var(--ease-flow, cubic-bezier(0.2, 0.8, 0.2, 1)),
     background var(--dur-slow, 520ms) ease;
@@ -187,7 +195,14 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  animation: content-phase-appear 0.18s ease-out;
 }
+
+@keyframes content-phase-appear {
+  from { opacity: 0.6; }
+  to { opacity: 1; }
+}
+
 .app-main > .content-phase-in > * {
   flex: 1;
   min-width: 0;
@@ -261,7 +276,7 @@
    VOID INTELLIGENCE — AppLayout dark overrides + immersive glass
    ═══════════════════════════════════════════════════════════ */
 [data-theme="dark"] .app-layout {
-  background: #000000;
+  background: #060608;
   position: relative;
 }
 [data-theme="dark"] .app-layout::before {
@@ -275,16 +290,12 @@
   z-index: 1;
 }
 [data-theme="dark"] .app-main {
-  background: linear-gradient(165deg, rgba(10, 10, 10, 0.9), rgba(10, 10, 10, 0.75));
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-left: 1px solid rgba(255, 255, 255, 0.04);
-  box-shadow: none;
+  background: var(--bg-primary);
+  border-left: 1px solid var(--border-subtle);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
 }
 [data-theme="dark"] .mobile-app-layout .app-main {
-  background: linear-gradient(165deg, rgba(10, 10, 10, 0.9), rgba(10, 10, 10, 0.75));
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: none;
+  background: var(--bg-primary);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 

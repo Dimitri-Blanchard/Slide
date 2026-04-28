@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { messages as messagesApi, channels as channelsApi, teams as teamsApi, reactions as reactionsApi, servers, invalidateCache } from '../api';
 import { useSocket } from '../context/SocketContext';
@@ -12,23 +13,99 @@ import ConfirmModal from './ConfirmModal';
 import StickerPicker from './StickerPicker';
 import { undoToast } from './UndoToast';
 import { useLanguage } from '../context/LanguageContext';
-import { useVoice } from '../context/VoiceContext';
+import { useVoice, getRemoteStreamForUser } from '../context/VoiceContext';
 import ChannelList from './ChannelList';
 import MembersPanel from './MembersPanel';
 import ServerSettings from './ServerSettings';
 import { ShareInviteModal } from './InviteModal';
 import MemberRolesModal from './MemberRolesModal';
-import VoiceUserProfileBar from './VoiceUserProfileBar';
 import ChannelHeader from './ChannelHeader';
 import TopicModal from './TopicModal';
 import InboxPanel from './InboxPanel';
 import { useSwipeBack } from '../hooks/useSwipeBack';
 import FileDropOverlay from './FileDropOverlay';
+import VoiceChannel from './VoiceChannel';
 import './Chat.css';
 import './TeamChat.css';
 
-// Persisted cache survives TeamChat remounts so revisiting a channel shows messages instantly
+// ═══════════════════════════════════════════════════════════
+// Persistent message cache — stores last 30 messages per channel in localStorage.
+// Works on Web, Electron, and Capacitor. In-memory Map used as hot layer.
+// ═══════════════════════════════════════════════════════════
+const MSG_CACHE_LIMIT = 30;
+
 const channelMessagesCache = new Map();
+
+/** Which account owns persisted channel message cache (must match before read/write localStorage). */
+let channelMsgCacheOwnerId = null;
+
+function channelMsgLsKey() {
+  return channelMsgCacheOwnerId != null ? `slide_channel_msgs_u${channelMsgCacheOwnerId}` : 'slide_channel_msgs_legacy';
+}
+
+function rehydrateChannelMsgCacheFromStorage(userId) {
+  channelMessagesCache.clear();
+  channelMsgCacheOwnerId = userId ?? null;
+  if (userId == null) return;
+  try {
+    const raw = localStorage.getItem(channelMsgLsKey());
+    if (raw) {
+      const entries = JSON.parse(raw);
+      if (Array.isArray(entries)) {
+        for (const [k, v] of entries) channelMessagesCache.set(k, v);
+      }
+    }
+  } catch (_) {}
+}
+
+function persistMsgCache() {
+  try {
+    if (channelMsgCacheOwnerId == null) return;
+    const entries = [];
+    for (const [k, v] of channelMessagesCache) {
+      entries.push([k, {
+        messages: (v.messages || []).slice(-MSG_CACHE_LIMIT),
+        reactions: v.reactions || {},
+        _ts: v._ts,
+      }]);
+    }
+    localStorage.setItem(channelMsgLsKey(), JSON.stringify(entries));
+  } catch (_) {}
+}
+
+function setMsgCache(key, value) {
+  channelMessagesCache.set(key, value);
+  persistMsgCache();
+}
+
+// localStorage cache for instant server data paint on revisit
+const TEAM_CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
+
+function teamDataLsKey(userId, teamId) {
+  if (userId == null) return null;
+  return `slide_team_data_u${userId}_${teamId}`;
+}
+
+function getCachedTeamData(userId, teamId) {
+  const key = teamDataLsKey(userId, teamId);
+  if (!key) return null;
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const { data, timestamp } = JSON.parse(raw);
+      if (Date.now() - timestamp < TEAM_CACHE_MAX_AGE) return data;
+    }
+  } catch (_) {}
+  return null;
+}
+
+function setCachedTeamData(userId, teamId, data) {
+  const key = teamDataLsKey(userId, teamId);
+  if (!key) return;
+  try {
+    localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
+  } catch (_) {}
+}
 
 const LiveStreamFullscreenVideo = memo(function LiveStreamFullscreenVideo({ stream, displayName, onClose }) {
   const videoRef = React.useRef(null);
@@ -58,7 +135,7 @@ const LiveStreamFullscreenVideo = memo(function LiveStreamFullscreenVideo({ stre
   );
 });
 
-const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, onLeaveServer, onOpenSearch }) {
+const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, onLeaveServer, onOpenSearch, sidebarWidth, onSidebarResizeStart }) {
   const DELETE_FUME_MS = 760;
   const [team, setTeam] = useState(null);
   const [channelId, setChannelId] = useState(initialChannelId || null);
@@ -77,21 +154,28 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   const [replyTo, setReplyTo] = useState(null);
   const [messageReactions, setMessageReactions] = useState({});
   const [showStickerPanel, setShowStickerPanel] = useState(false);
+  const [inputDocked, setInputDocked] = useState(true);
   const [showServerSettings, setShowServerSettings] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showRolesModal, setShowRolesModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [unreadChannels, setUnreadChannels] = useState(new Set());
+  const [channelReadStates, setChannelReadStates] = useState({});
+  const [currentLastRead, setCurrentLastRead] = useState(null);
   const [mobileChannelListOpen, setMobileChannelListOpen] = useState(!initialChannelId);
   const [editingTopic, setEditingTopic] = useState(false);
   const [topicDraft, setTopicDraft] = useState('');
   const [showTopicModal, setShowTopicModal] = useState(false);
   const [showInbox, setShowInbox] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [voiceJoining, setVoiceJoining] = useState(false);
 
   const socket = useSocket();
   const { user } = useAuth();
   const { isOnline, addToQueue: addToOfflineQueue } = useOffline();
-  const { expandedLiveView, setExpandedLiveView, remoteVideoStreams, ownScreenStream, voiceChannelId, voiceConversationId } = useVoice();
+  const { expandedLiveView, setExpandedLiveView, remoteVideoStreams, ownScreenStream, voiceChannelId, voiceConversationId, voiceViewMinimized, joinVoice } = useVoice();
   const { notify, addInboxItem } = useNotification();
   const { playPing } = useSounds();
   const { t } = useLanguage();
@@ -100,16 +184,40 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   const messageListRef = useRef(null);
   const messageInputRef = useRef(null);
   const prevTeamIdRef = useRef(null);
+
+  useEffect(() => {
+    rehydrateChannelMsgCacheFromStorage(user?.id ?? null);
+    prevTeamIdRef.current = null;
+    setMessages([]);
+    setMessageReactions({});
+  }, [user?.id]);
   const skipMessagesEffectRef = useRef(false);
   const lastChannelIdRef = useRef(null);
+  const lastTextChannelIdRef = useRef(null);
 
   const currentChannel = useMemo(() =>
     channels.find(c => c.id === parseInt(channelId, 10)),
     [channels, channelId]
   );
 
+  useEffect(() => {
+    if (currentChannel && currentChannel.channel_type !== 'voice') {
+      lastTextChannelIdRef.current = currentChannel.id;
+    }
+  }, [currentChannel]);
+
+  useEffect(() => {
+    const onVoiceDisconnect = () => {
+      const fallback = lastTextChannelIdRef.current || channels.find(c => c?.channel_type !== 'voice')?.id;
+      if (fallback) navigate(`/team/${teamId}/channel/${fallback}`);
+    };
+    window.addEventListener('slide:voice-channel-disconnect', onVoiceDisconnect);
+    return () => window.removeEventListener('slide:voice-channel-disconnect', onVoiceDisconnect);
+  }, [channels, teamId, navigate]);
+
   // ═══════════════════════════════════════════════════════════
   // LOAD TEAM DATA - only when teamId changes
+  // Hydrates from localStorage instantly, then refreshes from network.
   // ═══════════════════════════════════════════════════════════
   useEffect(() => {
     if (!teamId) return;
@@ -117,10 +225,21 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
     prevTeamIdRef.current = teamId;
 
     if (isNewTeam) {
-      setTeamLoading(true);
+      // Hydrate from localStorage cache for instant paint (no blank screen)
+      const stale = getCachedTeamData(user?.id, teamId);
+      if (stale) {
+        setTeam(stale.team || null);
+        setChannels(stale.channels || []);
+        setCategories(stale.categories || []);
+        setMembers(stale.members || []);
+        setRoles(stale.roles || []);
+        setTeamLoading(false);
+      } else {
+        setTeamLoading(true);
+        setChannels([]);
+        setCategories([]);
+      }
       setMessages([]);
-      setChannels([]);
-      setCategories([]);
     }
 
     let cancelled = false;
@@ -131,9 +250,10 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
       teamsApi.members(teamId),
       servers.getCategories(teamId).catch(() => []),
       servers.getRoles(teamId).catch(() => []),
-      teamsApi.getUnread(teamId).catch(() => null)
+      teamsApi.getUnread(teamId).catch(() => null),
+      user?.id ? servers.getMemberRoles(teamId, user.id).catch(() => []) : Promise.resolve([])
     ])
-      .then(([teamData, channelsList, membersList, categoriesList, rolesList, unreadData]) => {
+      .then(([teamData, channelsList, membersList, categoriesList, rolesList, unreadData, memberRoles]) => {
         if (cancelled) return;
         const safeChannels = (Array.isArray(channelsList) ? channelsList : []).filter(c => c && c.id != null);
         const safeCategories = Array.isArray(categoriesList) ? categoriesList : [];
@@ -141,9 +261,6 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
         let targetId = initialChannelId && safeChannels.some(c => c && String(c.id) === String(initialChannelId))
           ? initialChannelId
           : firstText?.id;
-        const targetCh = safeChannels.find(c => c && String(c.id) === String(targetId));
-        const isVoiceRedirect = targetCh?.channel_type === 'voice';
-        if (isVoiceRedirect) targetId = firstText?.id;
         const toUse = targetId ? String(targetId) : null;
 
         setTeam(teamData);
@@ -152,16 +269,36 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
         setCategories(safeCategories);
         setRoles(rolesList || []);
 
+        // Persist to localStorage for instant paint on next visit
+        setCachedTeamData(user?.id, teamId, {
+          team: teamData,
+          channels: safeChannels,
+          categories: safeCategories,
+          members: membersList || [],
+          roles: rolesList || [],
+        });
+
+        if (user?.id && Array.isArray(memberRoles)) {
+          const roleIds = memberRoles
+            .map(r => r?.role_id ?? r?.id)
+            .filter(v => v != null);
+          setMemberRolesMap(prev => ({ ...prev, [user.id]: roleIds }));
+        }
+
         if (unreadData?.channels) {
           const unread = new Set();
+          const readStates = {};
           for (const ch of unreadData.channels) {
-            if (ch && ch.has_unread && ch.channel_id != null) unread.add(ch.channel_id);
+            if (ch && ch.channel_id != null) {
+              if (ch.has_unread) unread.add(ch.channel_id);
+              if (ch.last_read_message_id) readStates[ch.channel_id] = ch.last_read_message_id;
+            }
           }
           setUnreadChannels(unread);
+          setChannelReadStates(readStates);
         }
 
         if (toUse) {
-          // On mobile with no channel in URL: show channel list only, don't auto-redirect (server bar stays visible)
           if (isMobile && !initialChannelId) {
             setChannelId(null);
           } else {
@@ -170,13 +307,15 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
             if (cached) {
               setMessages(cached.messages);
               setMessageReactions(cached.reactions || {});
+              setMessagesLoading(false);
               skipMessagesEffectRef.current = true;
             }
             setChannelId(toUse);
-            if (isVoiceRedirect || !initialChannelId || !safeChannels.some(c => String(c.id) === String(initialChannelId))) {
+            if (!initialChannelId || !safeChannels.some(c => String(c.id) === String(initialChannelId))) {
               navigate(`/team/${teamId}/channel/${toUse}`, { replace: true });
             }
             if (!cached) {
+              setMessagesLoading(true);
               messagesApi.channel(toUse).then((msgs) => {
                 if (cancelled) return;
                 const safeMsgs = Array.isArray(msgs) ? msgs : [];
@@ -186,8 +325,9 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
                 }
                 setMessages(safeMsgs);
                 setMessageReactions(rxMap);
-                channelMessagesCache.set(cacheKey, { messages: safeMsgs, reactions: rxMap });
-              }).catch(() => {});
+                setMessagesLoading(false);
+                setMsgCache(cacheKey, { messages: safeMsgs, reactions: rxMap, _ts: Date.now() });
+              }).catch(() => { if (!cancelled) setMessagesLoading(false); });
             }
           }
         } else {
@@ -205,7 +345,7 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
       })
       .finally(() => { if (!cancelled) setTeamLoading(false); });
     return () => { cancelled = true; };
-  }, [teamId, onLeaveServer, navigate, isMobile, initialChannelId]);
+  }, [teamId, onLeaveServer, navigate, isMobile, initialChannelId, user?.id]);
 
   // ═══════════════════════════════════════════════════════════
   // SYNC channelId from URL when initialChannelId changes
@@ -221,20 +361,7 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   }, [initialChannelId, channelId, isMobile]);
 
   // ═══════════════════════════════════════════════════════════
-  // REDIRECT: Voice channels are join-only, never shown as main view
-  // If URL points to a voice channel, redirect to first text channel
-  // ═══════════════════════════════════════════════════════════
-  useEffect(() => {
-    if (!channels.length || !channelId) return;
-    const ch = channels.find(c => c && c.id === parseInt(channelId, 10));
-    if (ch?.channel_type === 'voice') {
-      const firstText = channels.find(c => c && c.channel_type === 'text') || channels[0];
-      if (firstText && String(firstText.id) !== channelId) {
-        setChannelId(firstText.id);
-        navigate(`/team/${teamId}/channel/${firstText.id}`, { replace: true });
-      }
-    }
-  }, [channels, channelId, teamId, navigate]);
+  // Voice channels are now viewable — no redirect needed
 
   // Old servers: if channelId points to deleted/missing channel, redirect to first available
   useEffect(() => {
@@ -252,21 +379,7 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
     if (channelId && isMobile) setMobileChannelListOpen(false);
   }, [channelId, isMobile]);
 
-  // Ensure current user's role IDs are loaded (needed for permission-gated UI actions).
-  useEffect(() => {
-    if (!teamId || !user?.id) return;
-    let cancelled = false;
-    servers.getMemberRoles(teamId, user.id)
-      .then((memberRoles) => {
-        if (cancelled) return;
-        const roleIds = (Array.isArray(memberRoles) ? memberRoles : [])
-          .map(r => r?.role_id ?? r?.id)
-          .filter(v => v != null);
-        setMemberRolesMap(prev => ({ ...prev, [user.id]: roleIds }));
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [teamId, user?.id]);
+  // Member roles are now fetched in the main Promise.all above to avoid waterfall.
 
   // ═══════════════════════════════════════════════════════════
   // LOAD MESSAGES - only when channelId changes (fast switching!)
@@ -286,29 +399,34 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
       setMessageReactions(cached.reactions || {});
       setTypingUsers([]);
       setReplyTo(null);
-      // Still fetch in background to refresh (cache may be stale if channel got new messages)
+      setMessagesLoading(false);
+      // If cache is fresh enough (<15s), skip network fetch entirely
+      if (cached._ts && Date.now() - cached._ts < 15000) return;
     } else {
       setMessages([]);
       setTypingUsers([]);
       setReplyTo(null);
       setMessageReactions({});
+      setMessagesLoading(true);
     }
 
     let cancelled = false;
-    messagesApi.channel(channelId)
+    setHasMore(true);
+    messagesApi.channel(channelId, { limit: 50 })
       .then((msgs) => {
         const safeMsgs = Array.isArray(msgs) ? msgs : [];
         const rxMap = {};
         for (const m of safeMsgs) {
           if (m.reactions?.length) rxMap[m.id] = m.reactions;
         }
-        // Always cache for when user switches back to this channel
-        channelMessagesCache.set(cacheKey, { messages: safeMsgs, reactions: rxMap });
+        setMsgCache(cacheKey, { messages: safeMsgs, reactions: rxMap, _ts: Date.now() });
         if (cancelled) return;
         setMessages(safeMsgs);
         setMessageReactions(rxMap);
+        setMessagesLoading(false);
+        if (safeMsgs.length < 50) setHasMore(false);
       })
-      .catch((err) => { if (!cancelled) console.error(err); });
+      .catch((err) => { if (!cancelled) { console.error(err); setMessagesLoading(false); } });
 
     return () => { cancelled = true; };
   }, [channelId, teamLoading, teamId]);
@@ -324,9 +442,33 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
         ? false
         : messages.every((m) => (m.channel_id ?? m.channelId) === chIdNum);
     if (messagesBelongToChannel) {
-      channelMessagesCache.set(`${teamId}-${channelId}`, { messages, reactions: messageReactions });
+      setMsgCache(`${teamId}-${channelId}`, { messages, reactions: messageReactions, _ts: Date.now() });
     }
   }, [teamId, channelId, messages, messageReactions]);
+
+  // ═══════════════════════════════════════════════════════════
+  // LOAD MORE (scroll-up pagination) — fetches older messages
+  // ═══════════════════════════════════════════════════════════
+  const loadMoreMessages = useCallback(() => {
+    if (!channelId || loadingMore || !hasMore) return;
+    const oldest = messages[0];
+    if (!oldest) return;
+    setLoadingMore(true);
+    messagesApi.channel(channelId, { before: oldest.id, limit: 50 })
+      .then((older) => {
+        const safeOlder = Array.isArray(older) ? older : [];
+        if (safeOlder.length < 50) setHasMore(false);
+        if (safeOlder.length === 0) { setLoadingMore(false); return; }
+        const rxMap = { ...messageReactions };
+        for (const m of safeOlder) {
+          if (m.reactions?.length) rxMap[m.id] = m.reactions;
+        }
+        setMessages(prev => [...safeOlder, ...prev]);
+        setMessageReactions(rxMap);
+      })
+      .catch(console.error)
+      .finally(() => setLoadingMore(false));
+  }, [channelId, loadingMore, hasMore, messages, messageReactions]);
 
   // ═══════════════════════════════════════════════════════════
   // SOCKET: Join/leave channel room
@@ -343,13 +485,16 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
     };
   }, [socket, channelId]);
 
-  // Mark channel as read when viewing
+  // Capture last-read position + mark channel as read when viewing
   useEffect(() => {
     if (!teamId || !channelId) return;
+    const chId = parseInt(channelId, 10);
+    const savedLastRead = channelReadStates[chId];
+    setCurrentLastRead(savedLastRead && unreadChannels.has(chId) ? savedLastRead : null);
     setUnreadChannels(prev => {
-      if (!prev.has(parseInt(channelId, 10))) return prev;
+      if (!prev.has(chId)) return prev;
       const next = new Set(prev);
-      next.delete(parseInt(channelId, 10));
+      next.delete(chId);
       return next;
     });
     const timeout = setTimeout(() => {
@@ -378,12 +523,16 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
     if (!socket || !teamId) return;
 
     const onMemberAdded = ({ teamId: tId, member }) => {
-      if (tId === parseInt(teamId, 10)) {
-        setMembers(prev => prev.some(m => m.id === member.id) ? prev : [...prev, member]);
+      if (tId === parseInt(teamId, 10) && member?.id != null) {
+        setMembers(prev =>
+          prev.some(m => String(m.id) === String(member.id)) ? prev : [...prev, member]
+        );
       }
     };
     const onMemberRemoved = ({ teamId: tId, userId }) => {
-      if (tId === parseInt(teamId, 10)) setMembers(prev => prev.filter(m => m.id !== userId));
+      if (tId === parseInt(teamId, 10)) {
+        setMembers(prev => prev.filter(m => String(m.id) !== String(userId)));
+      }
     };
     const onTeamUpdated = ({ team: t }) => {
       if (t.id === parseInt(teamId, 10)) setTeam(prev => ({ ...prev, ...t }));
@@ -609,13 +758,32 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   // Écouter quand un message en file d'attente est envoyé
   useEffect(() => {
     const handler = (e) => {
-      const { tempId, message, context, targetId } = e.detail || {};
-      if (context !== 'channel' || String(targetId) !== String(channelId) || !message) return;
-      setMessages(prev => prev.map(m => (
-        m.id === tempId
-          ? { ...message, _clientKey: m._clientKey || m.id }
-          : m
-      )));
+      const { tempId, message, context, targetId, error } = e.detail || {};
+      if (context !== 'channel' || String(targetId) !== String(channelId)) return;
+      if (message) {
+        setMessages(prev => prev.map(m => (
+          m.id === tempId
+            ? { ...message, _clientKey: m._clientKey || m.id }
+            : m
+        )));
+        return;
+      }
+      if (error && tempId) {
+        setMessages(prev => prev.map(m => (
+          m.id === tempId
+            ? {
+                ...m,
+                _pending: false,
+                _failed: true,
+                _retryPayload: m._retryPayload || {
+                  content: m.content,
+                  type: m.type || 'text',
+                  replyToId: m.reply_to_id ?? null,
+                },
+              }
+            : m
+        )));
+      }
     };
     window.addEventListener(OFFLINE_SENT_EVENT, handler);
     return () => window.removeEventListener(OFFLINE_SENT_EVENT, handler);
@@ -986,6 +1154,27 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   const displayTeam = team || (teamId ? { id: parseInt(teamId, 10), name: '' } : null);
   const displayChannel = currentChannel || (channelId && channels.find(c => String(c.id) === String(channelId))) || null;
 
+  const needsVoiceJoinPrompt = useMemo(() => {
+    if (!isMobile || !displayChannel || displayChannel.channel_type !== 'voice' || !teamId) return false;
+    return String(voiceChannelId ?? '') !== String(displayChannel.id);
+  }, [isMobile, displayChannel?.id, displayChannel?.channel_type, teamId, voiceChannelId]);
+
+  const handleVoiceJoinConfirm = useCallback(async () => {
+    if (!displayChannel || displayChannel.channel_type !== 'voice' || !teamId || voiceJoining) return;
+    setVoiceJoining(true);
+    try {
+      await joinVoice(displayChannel.id, parseInt(teamId, 10), displayChannel.name);
+    } finally {
+      setVoiceJoining(false);
+    }
+  }, [displayChannel, teamId, joinVoice, voiceJoining]);
+
+  const handleVoiceJoinCancel = useCallback(() => {
+    const fallback = lastTextChannelIdRef.current || channels.find(c => c?.channel_type !== 'voice')?.id;
+    if (fallback) navigate(`/team/${teamId}/channel/${fallback}`);
+    else navigate(`/team/${teamId}`);
+  }, [channels, teamId, navigate]);
+
   const handleSwipeBack = useCallback(() => {
     if (mobileChannelListOpen) {
       navigate(`/channels/@me`);
@@ -1043,6 +1232,8 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
         team={displayTeam}
         channels={channels}
         categories={categories}
+        width={sidebarWidth}
+        onResizeStart={onSidebarResizeStart}
         currentChannelId={String(channelId)}
         onChannelsChange={setChannels}
         onCategoriesChange={setCategories}
@@ -1061,13 +1252,10 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
       {expandedLiveView ? (
         <div className="live-stream-fullscreen">
           <LiveStreamFullscreenVideo
-            stream={expandedLiveView.userId === user?.id ? ownScreenStream : remoteVideoStreams?.[expandedLiveView.userId]}
+            stream={expandedLiveView.userId === user?.id ? ownScreenStream : getRemoteStreamForUser(remoteVideoStreams, expandedLiveView.userId)}
             displayName={expandedLiveView.displayName}
             onClose={() => setExpandedLiveView(null)}
           />
-          <div className="live-stream-profile-bar">
-            <VoiceUserProfileBar />
-          </div>
         </div>
       ) : (
       <>
@@ -1100,7 +1288,11 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
         />
 
         {displayChannel?.channel_type === 'voice' ? (
-          <div className="team-chat-loading">{t('voice.redirecting') || 'Redirecting…'}</div>
+          isMobile && !voiceViewMinimized ? (
+            <div className="voice-mobile-overlay-placeholder" aria-hidden />
+          ) : (
+            <VoiceChannel channel={displayChannel} teamId={teamId} />
+          )
         ) : (
           <div className="chat-main">
             <FileDropOverlay
@@ -1110,10 +1302,11 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
               onDrop={(file) => messageInputRef.current?.attachFile?.(file)}
               onUploadDirect={(file) => uploadFile(file).catch(() => {})}
             >
-              <div className="chat-main-content">
+              <div className={`chat-main-content ${inputDocked ? 'input-docked' : 'input-floating'}`}>
                 <MessageList
                   ref={messageListRef}
                   messages={messages}
+                  loading={messagesLoading}
                   currentUserId={user?.id}
                   currentUserName={user?.display_name}
                   otherUsers={members}
@@ -1130,9 +1323,14 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
                   canModerateReactions={canModerateReactions}
                   messageReactions={messageReactions}
                   onRetryFailedMessage={retryFailedMessage}
+                  onLoadMore={loadMoreMessages}
+                  hasMore={hasMore}
+                  loadingMore={loadingMore}
+                  onAtBottomChange={() => {}}
                   topBanner={displayTeam?.banner_url ? (
                     <div className="team-chat-banner" style={{ backgroundImage: `url(${displayTeam.banner_url})` }} />
                   ) : null}
+                  lastReadMessageId={currentLastRead}
                   serverName={displayTeam?.name}
                   onInviteClick={() => setShowInviteModal(true)}
                   onFocusInput={() => messageInputRef.current?.focus?.()}
@@ -1187,7 +1385,7 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
         />
       )}
 
-      {showMembers && (
+      {showMembers && displayChannel?.channel_type !== 'voice' && (
         <MembersPanel teamId={teamId} channelId={channelId} members={members} roles={roles} memberRolesMap={memberRolesMap} currentUserId={user?.id} isOwner={isOwner} canManage={canManage}
           onManageRoles={m => { setSelectedMember(m); setShowRolesModal(true); }} onKick={m => handleRemoveMember(m.id, m.display_name)} onBan={m => handleBanMember(m.id)} />
       )}
@@ -1197,7 +1395,7 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
       <ConfirmModal isOpen={confirmModal.isOpen} title={confirmModal.userId === user?.id ? t('team.leaveGroup') : t('team.removeMember')} message={confirmModal.userId === user?.id ? t('team.leaveConfirm') : t('team.removeConfirm', { name: confirmModal.displayName })} confirmText={confirmModal.userId === user?.id ? t('team.leave') : t('team.remove')} cancelText={t('common.cancel')} type="danger" onConfirm={confirmRemoveMember} onCancel={() => setConfirmModal({ isOpen: false, userId: null, displayName: '' })} />
       <ConfirmModal isOpen={!!deleteConfirm} message={t('chat.deleteMessageConfirm')} confirmText={t('chat.delete')} cancelText={t('common.cancel')} type="danger" onConfirm={handleConfirmDelete} onCancel={() => setDeleteConfirm(null)} />
       <ConfirmModal isOpen={!!deleteCaptionConfirm} message={t('chat.deleteCaptionConfirm')} confirmText={t('chat.delete')} cancelText={t('common.cancel')} type="danger" onConfirm={handleConfirmDeleteCaption} onCancel={() => setDeleteCaptionConfirm(null)} />
-      <ServerSettings team={team} roles={roles} members={members} channels={channels} categories={categories} isOpen={showServerSettings} onClose={() => setShowServerSettings(false)} onUpdate={(updatedTeam) => {
+      <ServerSettings team={team} roles={roles} members={members} channels={channels} categories={categories} isOwner={isOwner} isOpen={showServerSettings} onClose={() => setShowServerSettings(false)} onUpdate={(updatedTeam) => {
   invalidateCache('/teams');
   invalidateCache('/servers');
   if (updatedTeam) {
@@ -1218,6 +1416,36 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
         />
       )}
       {showInbox && <InboxPanel onClose={() => setShowInbox(false)} />}
+
+      {needsVoiceJoinPrompt && displayChannel && createPortal(
+        <div className="voice-join-sheet-layer" role="dialog" aria-modal="true" aria-labelledby="voice-join-sheet-title">
+          <button type="button" className="voice-join-sheet-backdrop" onClick={handleVoiceJoinCancel} aria-label={t('common.close')} />
+          <div className="voice-join-sheet">
+            <div className="voice-join-sheet-grab" aria-hidden />
+            <p className="voice-join-sheet-kicker">{t('chat.voiceChannelKicker')}</p>
+            <h2 id="voice-join-sheet-title" className="voice-join-sheet-title">
+              {t('chat.voiceJoinTitle', { name: displayChannel.name })}
+            </h2>
+            <p className="voice-join-sheet-desc">
+              {t('chat.voiceJoinDesc')}
+            </p>
+            <div className="voice-join-sheet-actions">
+              <button
+                type="button"
+                className="voice-join-sheet-btn voice-join-sheet-btn-primary"
+                onClick={handleVoiceJoinConfirm}
+                disabled={voiceJoining}
+              >
+                {voiceJoining ? t('chat.voiceJoining') : t('chat.voiceJoinConfirm')}
+              </button>
+              <button type="button" className="voice-join-sheet-btn voice-join-sheet-btn-muted" style={{ marginTop: 10 }} onClick={handleVoiceJoinCancel}>
+                {t('chat.voiceJoinNotNow')}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 });

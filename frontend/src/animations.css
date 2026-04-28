@@ -23,22 +23,22 @@
 @keyframes modalEnter {
   0% {
     opacity: 0;
-    transform: scale(0.97) translateY(10px);
+    transform: translateX(24px);
   }
   100% {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: translateX(0);
   }
 }
 
 @keyframes modalExit {
   0% {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: translateX(0);
   }
   100% {
     opacity: 0;
-    transform: scale(0.97) translateY(10px);
+    transform: translateX(-12px);
   }
 }
 

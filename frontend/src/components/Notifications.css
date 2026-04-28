@@ -13,6 +13,11 @@
   pointer-events: none;
 }
 
+/* Push notifications below Electron title bar (32px) */
+body:has(.electron-title-bar) .notifications-container {
+  top: calc(32px + 0.75rem);
+}
+
 .notification {
   display: flex;
   align-items: center;

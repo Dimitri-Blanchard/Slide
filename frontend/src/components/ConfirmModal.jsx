@@ -1,8 +1,11 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import './ConfirmModal.css';
 
 export default function ConfirmModal({ isOpen, title, message, confirmText, cancelText, onConfirm, onCancel, type }) {
+  const enterInstant = useModalEnterAnimation('confirm-modal', isOpen);
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
@@ -21,7 +24,7 @@ export default function ConfirmModal({ isOpen, title, message, confirmText, canc
   if (!isOpen) return null;
 
   const modal = (
-    <div className="confirm-overlay" onClick={onCancel}>
+    <div className={`confirm-overlay${enterInstant ? ' modal-enter-instant' : ''}`} onClick={onCancel}>
       <div className={`confirm-modal confirm-${type || 'default'}`} onClick={(e) => e.stopPropagation()}>
         {title && <h3 className="confirm-title">{title}</h3>}
         <p className="confirm-message">{message}</p>

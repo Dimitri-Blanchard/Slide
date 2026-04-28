@@ -3,12 +3,82 @@
    Cachés quand data-hide-embeds sur le parent
    ═══════════════════════════════════════════════════════════ */
 
+.link-embed-wrap {
+  position: relative;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 8px;
+}
+
+.link-embed-wrap .link-embed {
+  margin-top: 0;
+}
+
+.link-embed-wrap--youtube {
+  width: 100%;
+  max-width: min(600px, 100%);
+}
+
 .link-embed {
   max-width: 400px;
-  margin-top: 8px;
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
+}
+
+/* Dismiss — plain cross, top-right outside the embed box; visible on message hover / selected */
+.link-embed__dismiss {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  margin-left: 8px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0;
+  padding: 4px;
+  width: auto;
+  min-width: 28px;
+  min-height: 28px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, color 0.12s ease;
+}
+
+.message-item:hover .link-embed__dismiss,
+.message-item.selected .link-embed__dismiss {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.message-list[data-has-selected] .message-item:not(.selected) .link-embed__dismiss {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.message-item.deleting .link-embed__dismiss {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.link-embed__dismiss:hover {
+  color: var(--text-primary);
+}
+
+.link-embed__dismiss:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  outline: 2px solid var(--accent, #5865f2);
+  outline-offset: 1px;
 }
 
 /* Whitelist embeds (Spotify, YouTube, SoundCloud, Vimeo) */
@@ -18,7 +88,15 @@
 }
 
 .link-embed--youtube {
+  max-width: none;
+  width: 100%;
   background: #0f0f0f;
+}
+
+.link-embed__iframe-shell {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  background: #000;
 }
 
 .link-embed--soundcloud {
@@ -120,6 +198,6 @@
 }
 
 /* Cacher les embeds si paramètre désactivé */
-.message-list[data-hide-embeds="true"] .link-embed {
+.message-list[data-hide-embeds="true"] .link-embed-wrap {
   display: none;
 }
