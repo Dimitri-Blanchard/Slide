@@ -1,4 +1,5 @@
 const FIXED_BACKEND_ORIGIN = 'http://192.168.1.33:3000';
+const PUBLIC_BACKEND_ORIGIN = 'https://api.sl1de.xyz';
 const IS_ELECTRON = typeof window !== 'undefined' && !!window.electron?.isElectron;
 const IS_CAPACITOR = typeof window !== 'undefined' && !!window.Capacitor?.isNativePlatform?.();
 const IS_NATIVE_RUNTIME = IS_ELECTRON || IS_CAPACITOR;
@@ -19,13 +20,19 @@ const BACKEND_ORIGIN = IS_ELECTRON
 const API_BASE = IS_ELECTRON ? ELECTRON_API_BASE : (IS_NATIVE_RUNTIME ? `${FIXED_BACKEND_ORIGIN}/api` : WEB_API_BASE);
 
 /** Public release files (backend GET /download/:filename). Web dev uses relative `/download/...` + Vite proxy. */
+const WEB_DOWNLOAD_BASE = import.meta.env.DEV
+  ? ''
+  : (import.meta.env.VITE_BACKEND_ORIGIN
+    ? String(import.meta.env.VITE_BACKEND_ORIGIN).replace(/\/$/, '')
+    : PUBLIC_BACKEND_ORIGIN);
+
 const DOWNLOAD_BASE = import.meta.env.VITE_BACKEND_ORIGIN
   ? String(import.meta.env.VITE_BACKEND_ORIGIN).replace(/\/$/, '')
   : (IS_ELECTRON
     ? ELECTRON_BACKEND_ORIGIN
     : IS_CAPACITOR
       ? FIXED_BACKEND_ORIGIN
-      : '');
+      : WEB_DOWNLOAD_BASE);
 
 export { API_BASE, BACKEND_ORIGIN, DOWNLOAD_BASE };
 
