@@ -950,17 +950,22 @@
    ═══════════════════════════════════════════════════════════ */
 .message-image-wrap {
   position: relative;
+  /* No min-height + transparent background: shrink-wrap to the image so a
+     200×100 photo doesn't get a 400-wide colored block around it.
+     Inline-block avoids the wrapper stretching to flex-row width. */
+  display: inline-block;
   max-width: 400px;
-  min-height: 80px;
   border-radius: 12px;
   overflow: hidden;
   cursor: pointer;
-  background: var(--bg-tertiary);
+  background: transparent;
   margin-top: 4px;
   transition: box-shadow 0.15s ease, transform 0.15s ease;
-  box-shadow: var(--shadow-sm);
-  /* Use box-shadow instead of outline so the focus ring follows border-radius */
+  /* No box-shadow at rest — the previous shadow looked like a colored border
+     halo on small images. Apply on hover/focus only for the press affordance. */
+  box-shadow: none;
   outline: none;
+  line-height: 0; /* kill the inline-image baseline gap below the <img> */
 }
 
 .message-image-wrap:hover {
@@ -979,12 +984,12 @@
 .message-image {
   display: block;
   max-width: 100%;
-  min-height: 80px;
   max-height: 400px;
-  object-fit: contain;
-  border-radius: 8px;
+  /* Match wrapper radius — having two different radii (12 vs 8) made the
+     wrapper bleed visible as a "frame". */
+  border-radius: 12px;
   outline: none;
-  background: var(--bg-tertiary);
+  background: transparent;
 }
 
 .message-image-overlay {

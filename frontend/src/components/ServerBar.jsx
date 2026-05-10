@@ -310,7 +310,10 @@ const ServerIcon = memo(function ServerIcon({ team, isActive, hasUnread = false,
             className={`server-icon ${isActive ? 'active' : ''} ${isMuted ? 'muted' : ''}`}
           >
             {hasAvatar ? (
-              <AvatarImg src={team.avatar_url || team.icon_url} alt={team.name} />
+              // gifAnimate={isActive}: server you're currently in keeps its
+              // GIF playing without needing hover. Hover still animates
+              // others (built-in to AvatarImg).
+              <AvatarImg src={team.avatar_url || team.icon_url} alt={team.name} gifAnimate={isActive} />
             ) : (
               <span className="server-initials">{initials}</span>
             )}

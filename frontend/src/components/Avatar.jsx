@@ -108,49 +108,20 @@ function useCachedAvatar(avatarPath) {
   return src;
 }
 
-const Avatar = memo(function Avatar({ 
-  user, 
-  size = 'medium', 
-  className = '', 
-  showPresence = false,
-  gifAnimate
-}) {
-  const name = user?.display_name || '?';
-  const { user: currentUser } = useAuth();
-  const { isUserOnline } = useOnlineUsers();
-  const [isHovered, setIsHovered] = useState(false);
-  const showAnimated = gifAnimate !== undefined ? gifAnimate : isHovered;
-
-  const presenceStatus = useMemo(() => {
-    if (!user?.id) return 'offline';
-    if (user.id === currentUser?.id) {
-      return getStoredOnlineStatus(currentUser?.id);
-    }
-    return isUserOnline(user.id) ? 'online' : 'offline';
-  }, [user?.id, currentUser?.id, isUserOnline]);
-  
-  const avatarUrl = useMemo(() => {
-    if (!hasDefaultAvatar(user)) {
-      return user.avatar_url;
-    }
-    return DEFAULT_AVATAR;
-  }, [user?.avatar_url]);
-  const isDefault = hasDefaultAvatar(user);
-  
-  const handleError = useCallback((e) => {
-    e.target.onerror = null;
-    e.target.src = e.target.src?.includes(DEFAULT_AVATAR) ? getFallbackSvg(name) : getStaticUrl(DEFAULT_AVATAR);
-  }, [name]);
-
-  const imgSrc = useCachedAvatar(avatarUrl);
+/**
+ * Hook that captures the first frame of a GIF to a canvas, used to render a
+ * static placeholder so the GIF only animates when wanted.
+ *
+ * Returns { canvasRef, imgRef, captureStaticFrame } and the consumer is
+ * expected to render an <img ref={imgRef}> + <canvas ref={canvasRef}>
+ * inside a container of fixed size, then toggle visibility based on
+ * `showAnimated`.
+ */
+function useGifStaticFrame(isGif) {
   const imgRef = useRef(null);
-  const containerRef = useRef(null);
   const canvasRef = useRef(null);
+  const containerRef = useRef(null);
 
-  const isGif = isGifUrl(avatarUrl);
-
-  // Capture first frame of GIF to canvas when loaded (for hover-to-animate)
-  // Uses object-fit: cover logic to avoid distortion (same as the img element)
   const captureStaticFrame = useCallback(() => {
     const img = imgRef.current;
     const canvas = canvasRef.current;
@@ -185,26 +156,76 @@ const Avatar = memo(function Avatar({
     ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, drawW, drawH);
   }, [isGif]);
 
-  const handleMouseEnter = useCallback(() => {
-    if (isGif) setIsHovered(true);
-  }, [isGif]);
+  return { imgRef, canvasRef, containerRef, captureStaticFrame };
+}
 
-  const handleMouseLeave = useCallback(() => {
-    if (isGif) setIsHovered(false);
-  }, [isGif]);
+/**
+ * Resolves whether a GIF should currently be animated.
+ * Rule (consistent across Avatar and AvatarImg):
+ *  - `gifAnimate === true`  → always animated (e.g. active server, profile card open)
+ *  - any other value        → animated only while the user hovers the element
+ *
+ * The OR-with-hover means callers can pass a context-derived bool (isActive,
+ * isMessageHovered, etc.) WITHOUT losing the local hover affordance.
+ */
+function useGifAnimateState(isGif, gifAnimate) {
+  const [isHovered, setIsHovered] = useState(false);
+  const onMouseEnter = useCallback(() => { if (isGif) setIsHovered(true); }, [isGif]);
+  const onMouseLeave = useCallback(() => { if (isGif) setIsHovered(false); }, [isGif]);
+  const showAnimated = gifAnimate === true || isHovered;
+  return { showAnimated, onMouseEnter, onMouseLeave };
+}
+
+const Avatar = memo(function Avatar({
+  user,
+  size = 'medium',
+  className = '',
+  showPresence = false,
+  gifAnimate,
+}) {
+  const name = user?.display_name || '?';
+  const { user: currentUser } = useAuth();
+  const { isUserOnline } = useOnlineUsers();
+
+  const presenceStatus = useMemo(() => {
+    if (!user?.id) return 'offline';
+    if (user.id === currentUser?.id) {
+      return getStoredOnlineStatus(currentUser?.id);
+    }
+    return isUserOnline(user.id) ? 'online' : 'offline';
+  }, [user?.id, currentUser?.id, isUserOnline]);
+
+  const avatarUrl = useMemo(() => {
+    if (!hasDefaultAvatar(user)) {
+      return user.avatar_url;
+    }
+    return DEFAULT_AVATAR;
+  }, [user?.avatar_url]);
+  const isDefault = hasDefaultAvatar(user);
+
+  const handleError = useCallback((e) => {
+    e.target.onerror = null;
+    e.target.src = e.target.src?.includes(DEFAULT_AVATAR) ? getFallbackSvg(name) : getStaticUrl(DEFAULT_AVATAR);
+  }, [name]);
+
+  const imgSrc = useCachedAvatar(avatarUrl);
+  const isGif = isGifUrl(avatarUrl);
+
+  const { imgRef, canvasRef, containerRef, captureStaticFrame } = useGifStaticFrame(isGif);
+  const { showAnimated, onMouseEnter, onMouseLeave } = useGifAnimateState(isGif, gifAnimate);
 
   return (
-    <div 
-      ref={containerRef} 
+    <div
+      ref={containerRef}
       className={`avatar avatar-${size} ${isGif ? 'avatar-has-gif' : ''} ${isDefault ? 'avatar-default' : ''} ${className}`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
       {isGif ? (
         <>
-          <img 
+          <img
             ref={imgRef}
-            src={imgSrc} 
+            src={imgSrc}
             alt={name}
             onError={handleError}
             onLoad={captureStaticFrame}
@@ -219,9 +240,9 @@ const Avatar = memo(function Avatar({
           />
         </>
       ) : (
-        <img 
+        <img
           ref={imgRef}
-          src={imgSrc} 
+          src={imgSrc}
           alt={name}
           onError={handleError}
           loading="eager"
@@ -244,37 +265,72 @@ const Avatar = memo(function Avatar({
   );
 });
 
-/** Drop-in img for avatar URLs - use when Avatar component doesn't fit. Handles GIF animation. */
-export const AvatarImg = memo(function AvatarImg({ src, alt = '', className = '', ...props }) {
-  const imgRef = useRef(null);
-  const gifActivatedRef = useRef(false);
+/**
+ * Drop-in <img>-style avatar for places where the full Avatar component
+ * doesn't fit (server icons, modal headers, action sheets…). Same
+ * static-frame-on-rest, animate-when-context-active behaviour as Avatar.
+ *
+ * Props:
+ *   src         - avatar URL (string, may be a GIF)
+ *   alt         - accessible name
+ *   className   - extra classes added to the wrapper
+ *   gifAnimate  - true: always animate. Otherwise: animate only on hover.
+ *   ...rest     - forwarded to the wrapper <span>
+ */
+export const AvatarImg = memo(function AvatarImg({
+  src,
+  alt = '',
+  className = '',
+  gifAnimate,
+  ...rest
+}) {
   const cachedSrc = useCachedAvatar(src);
+  const isGif = isGifUrl(src);
 
-  useEffect(() => {
-    if (!isGifUrl(src) || gifActivatedRef.current || !cachedSrc) return;
-    const el = imgRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (e.isIntersecting) {
-            gifActivatedRef.current = true;
-            const img = imgRef.current;
-            if (img) { img.src = ''; img.src = cachedSrc; }
-            observer.disconnect();
-            break;
-          }
-        }
-      },
-      { root: null, rootMargin: '50px', threshold: 0.01 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [src, cachedSrc]);
+  const { imgRef, canvasRef, containerRef, captureStaticFrame } = useGifStaticFrame(isGif);
+  const { showAnimated, onMouseEnter, onMouseLeave } = useGifAnimateState(isGif, gifAnimate);
 
   if (!cachedSrc) return null;
+
+  // Non-GIF fast path — render plain <img> with the same wrapper class so
+  // existing CSS (object-fit / sizing) keeps working.
+  if (!isGif) {
+    return (
+      <img
+        src={cachedSrc}
+        alt={alt}
+        loading="eager"
+        draggable={false}
+        className={`avatar-img-gif ${className}`.trim()}
+        style={{ objectFit: 'cover', width: '100%', height: '100%' }}
+        {...rest}
+      />
+    );
+  }
+
   return (
-    <img ref={imgRef} src={cachedSrc} alt={alt} loading="eager" draggable={false} className={`avatar-img-gif ${className}`.trim()} style={{ objectFit: 'cover', width: '100%', height: '100%' }} {...props} />
+    <span
+      ref={containerRef}
+      className={`avatar-img-wrap ${className}`.trim()}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      {...rest}
+    >
+      <img
+        ref={imgRef}
+        src={cachedSrc}
+        alt={alt}
+        loading="eager"
+        draggable={false}
+        onLoad={captureStaticFrame}
+        className={`avatar-img-gif avatar-gif-layer ${showAnimated ? 'avatar-gif-visible' : 'avatar-gif-hidden'}`}
+      />
+      <canvas
+        ref={canvasRef}
+        className={`avatar-gif-layer avatar-gif-static ${showAnimated ? 'avatar-gif-hidden' : 'avatar-gif-visible'}`}
+        aria-hidden
+      />
+    </span>
   );
 });
 

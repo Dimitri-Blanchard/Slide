@@ -320,7 +320,96 @@ html.platform-mobile.kb-hiding *::after {
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
-   13. REDUCED MOTION — respect OS-level setting
+   13. MEDIA PLAYERS ON MOBILE — voice + video touch ergonomics
+   The desktop CSS sizes controls for mouse precision (8 px slider thumbs,
+   22 px control buttons, scrubber dot only on :hover). All of that fails
+   the moment a finger replaces a cursor. Override per-mobile only.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Voice message: drop hover-only scrubber, tighten min-width on small phones */
+html.platform-mobile .voice-message {
+  min-width: 0;
+  /* Keep upper bound but let it shrink to fit narrow viewports */
+  max-width: 100%;
+}
+
+/* Show scrubber dot at all times on mobile — there is no hover */
+html.platform-mobile .voice-message-scrubber {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+  width: 18px;
+  height: 18px;
+  margin-top: -9px;
+  border-width: 3px;
+}
+
+/* Larger touch surface on the waveform (taps further from a bar still register) */
+html.platform-mobile .voice-message-waveform {
+  height: 44px;
+  padding: 4px 2px;
+}
+
+/* Played bars stay full-opacity (no hover needed to confirm) */
+html.platform-mobile .voice-message-bar {
+  opacity: 0.65;
+}
+html.platform-mobile .voice-message-bar.played {
+  opacity: 1;
+}
+
+/* Speed pill: comfy 36 px tap target instead of 7 × 2 px padding */
+html.platform-mobile .voice-message-speed {
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  min-height: 28px;
+}
+
+/* Video player: pump control buttons and slider thumbs to touch sizes */
+html.platform-mobile .message-video-control-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+}
+
+html.platform-mobile .message-video-controls {
+  /* More vertical breathing room — 5 px padding + 22 px button was cramped */
+  padding: 8px 8px;
+  gap: 8px;
+}
+
+html.platform-mobile .message-video-progress,
+html.platform-mobile .message-video-volume {
+  height: 5px;
+}
+
+html.platform-mobile .message-video-progress::-webkit-slider-thumb,
+html.platform-mobile .message-video-volume::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
+}
+
+html.platform-mobile .message-video-progress::-moz-range-thumb,
+html.platform-mobile .message-video-volume::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+}
+
+/* Mobile is space-constrained — the inline volume slider is rarely useful
+   (system volume rocker covers it). Hide on phones, keep the mute toggle. */
+@media (max-width: 480px) {
+  html.platform-mobile .message-video-volume {
+    display: none;
+  }
+}
+
+/* Make the timecode breathe so it doesn't crash into the buttons */
+html.platform-mobile .message-video-time {
+  font-size: 0.78rem;
+  padding: 0 4px;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   14. REDUCED MOTION — respect OS-level setting
    ─────────────────────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   html.platform-mobile *,
