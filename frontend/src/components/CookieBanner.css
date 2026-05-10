@@ -7,7 +7,10 @@
   left: 0;
   right: 0;
   z-index: 9999;
-  padding: 12px 20px;
+  /* Respect Android gesture nav bar / iOS home indicator so the button stays tappable */
+  padding: 12px calc(20px + env(safe-area-inset-right, 0px))
+           calc(12px + var(--inset-bottom, env(safe-area-inset-bottom, 0px)))
+           calc(20px + env(safe-area-inset-left, 0px));
   background: var(--glass-float-bg);
   border-top: 1px solid var(--border-subtle);
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
@@ -79,7 +82,9 @@
 
 @media (max-width: 500px) {
   .cookie-banner {
-    padding: 14px 16px;
+    padding: 14px calc(16px + env(safe-area-inset-right, 0px))
+             calc(14px + var(--inset-bottom, env(safe-area-inset-bottom, 0px)))
+             calc(16px + env(safe-area-inset-left, 0px));
   }
   .cookie-banner-content {
     flex-direction: column;

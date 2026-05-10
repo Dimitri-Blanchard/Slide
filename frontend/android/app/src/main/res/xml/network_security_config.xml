@@ -5,9 +5,10 @@
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+    <!-- Cleartext only allowed for local dev loopback (Android emulator host: 10.0.2.2,
+         on-device localhost). Production traffic targets https://api.sl1de.xyz. -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">10.0.2.2</domain>
         <domain includeSubdomains="true">localhost</domain>
-        <domain includeSubdomains="true">192.168.1.176</domain>
     </domain-config>
 </network-security-config>

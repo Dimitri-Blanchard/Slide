@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { auth } from '../api';
+import AuthShell from '../components/AuthShell';
 import './Auth.css';
 
 export default function VerifyEmail() {
@@ -26,7 +27,7 @@ export default function VerifyEmail() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="auth-page">
+    <AuthShell>
       <div className="auth-card">
         <div className="auth-brand">
           <img src="/logo.png" alt="Slide" className="auth-logo" />
@@ -57,6 +58,6 @@ export default function VerifyEmail() {
           <Link to="/">{t('auth.backToApp')}</Link>
         </div>
       </div>
-    </div>
+    </AuthShell>
   );
 }

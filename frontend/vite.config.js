@@ -37,6 +37,8 @@ function slidePublicSitePlugin(mode) {
 
 const isNativeBuild = process.env.VITE_ELECTRON || process.env.VITE_CAPACITOR;
 const isElectronBuild = !!process.env.VITE_ELECTRON;
+const DEV_BACKEND_TARGET = process.env.VITE_DEV_BACKEND_TARGET || 'http://127.0.0.1:3000';
+const DEV_HTTPS_ENABLED = process.env.VITE_DEV_HTTPS === '1';
 
 export default defineConfig(({ mode }) => ({
   base: isNativeBuild ? './' : '/',
@@ -58,13 +60,15 @@ export default defineConfig(({ mode }) => ({
     port: 5173,
     strictPort: true, // fail if 5173 is in use (close other Vite/Electron instances first)
     host: '0.0.0.0',
-    https: true,
+    // Public dev defaults to HTTP to avoid TLS/SNI cert mismatches on IP/domain testing.
+    // Enable HTTPS explicitly with VITE_DEV_HTTPS=1 when needed (e.g. Electron localhost flow).
+    https: DEV_HTTPS_ENABLED,
     proxy: {
-      '/api': { target: 'http://192.168.1.33:3000', changeOrigin: true },
-      '/socket.io': { target: 'http://192.168.1.33:3000', ws: true },
-      '/avatars': { target: 'http://192.168.1.33:3000', changeOrigin: true },
-      '/uploads': { target: 'http://192.168.1.33:3000', changeOrigin: true },
-      '/download': { target: 'http://192.168.1.33:3000', changeOrigin: true },
+      '/api': { target: DEV_BACKEND_TARGET, changeOrigin: true },
+      '/socket.io': { target: DEV_BACKEND_TARGET, ws: true },
+      '/avatars': { target: DEV_BACKEND_TARGET, changeOrigin: true },
+      '/uploads': { target: DEV_BACKEND_TARGET, changeOrigin: true },
+      '/download': { target: DEV_BACKEND_TARGET, changeOrigin: true },
     },
   },
   // ═══════════════════════════════════════════════════════════

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { messages as messagesApi, channels as channelsApi, teams as teamsApi, reactions as reactionsApi, servers, invalidateCache } from '../api';
+import { messages as messagesApi, channels as channelsApi, teams as teamsApi, reactions as reactionsApi, servers, invalidateCache, direct as directApi } from '../api';
 import { useSocket } from '../context/SocketContext';
 import { useOffline, OFFLINE_SENT_EVENT } from '../context/OfflineContext';
 import { useAuth } from '../context/AuthContext';
@@ -1038,6 +1038,36 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   const handleReply = useCallback(msg => setReplyTo(msg), []);
   const handleCancelReply = useCallback(() => setReplyTo(null), []);
 
+  const messageSurfaceContext = useMemo(
+    () => (teamId && channelId ? { kind: 'server', teamId, channelId } : null),
+    [teamId, channelId]
+  );
+
+  const handleChannelMarkedUnread = useCallback(({ channelId: chId, lastReadMessageId }) => {
+    const idNum = parseInt(chId, 10);
+    setChannelReadStates((prev) => ({ ...prev, [idNum]: lastReadMessageId }));
+    setUnreadChannels((prev) => {
+      const next = new Set(prev);
+      next.add(idNum);
+      return next;
+    });
+  }, []);
+
+  const handleOpenDmFromMessage = useCallback(
+    async (msg) => {
+      const uid = msg?.sender_id ?? msg?.sender?.id;
+      if (!uid) return;
+      try {
+        const conv = await directApi.createConversation(uid);
+        const id = conv?.id ?? conv?.conversation_id;
+        if (id) navigate(`/channels/@me/${id}`);
+      } catch (err) {
+        notify.error(err?.message || t('chat.openDmError'));
+      }
+    },
+    [navigate, notify, t]
+  );
+
   const handleAddReaction = useCallback(async (messageId, emoji) => {
     if (!channelId) return;
     try {
@@ -1334,6 +1364,10 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
                   serverName={displayTeam?.name}
                   onInviteClick={() => setShowInviteModal(true)}
                   onFocusInput={() => messageInputRef.current?.focus?.()}
+                  messageSurfaceContext={messageSurfaceContext}
+                  messageInputRef={messageInputRef}
+                  onChannelMarkedUnread={handleChannelMarkedUnread}
+                  onOpenDmFromMessage={handleOpenDmFromMessage}
                 />
                 {typingUsers.length > 0 && (
                   <div className="chat-typing">

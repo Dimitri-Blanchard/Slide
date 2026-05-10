@@ -1,24 +1,8 @@
+/* Uses global [data-theme="dark"] tokens from index.css (see LandingPage.jsx root). */
 .landing-page {
-  /* Scoped design tokens — dark standalone marketing page */
   scroll-behavior: smooth;
-  --bg-primary: #313338;
-  --bg-secondary: #2b2d31;
-  --bg-tertiary: #1e1f22;
-  --text-primary: #f2f3f5;
-  --text-secondary: #b5bac1;
-  --text-muted: #949ba4;
-  --text-link: #00a8fc;
-  --border-default: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.16);
-  --accent: #5865f2;
-  --accent-hover: #4752c4;
-  --accent-muted: rgba(88, 101, 242, 0.15);
-  --radius: 8px;
-  --radius-lg: 12px;
-  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.24);
-  --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.4);
-
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg-tertiary);
   color: var(--text-primary);
   overflow-x: hidden;
@@ -40,9 +24,10 @@
   right: 0;
   z-index: 100;
   padding: 16px 24px;
-  background: rgba(30, 31, 34, 0.85);
+  background: color-mix(in srgb, var(--bg-floating) 88%, transparent);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border-default);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .nav {

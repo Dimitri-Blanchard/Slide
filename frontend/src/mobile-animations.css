@@ -1,0 +1,310 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE ANIMATIONS — Material You motion system
+   Loaded AFTER animations.css + platform-android.css (in index.css), so it wins.
+   Targets html.platform-mobile (Android + iOS Capacitor; web mobile uses
+   touch-only fallbacks below).
+
+   Principles:
+   - Only `transform` / `opacity` (GPU-composited).
+   - No `filter: blur()` on running animations (kills mobile GPUs).
+   - Material You durations: 120 / 200 / 280 / 400 ms.
+   - Emphasized-decel easing for entrances, accel for exits.
+   - Press feedback = scale 0.97 (no opacity flash).
+   - prefers-reduced-motion respected at the bottom.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+html.platform-mobile {
+  /* Material You motion tokens */
+  --m-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --m-ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
+  --m-ease-emphasized-decel: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --m-ease-emphasized-accel: cubic-bezier(0.3, 0, 0.8, 0.15);
+  /* Generic spring used for pop / press */
+  --m-ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  --m-dur-quick: 120ms;
+  --m-dur-short: 200ms;
+  --m-dur-medium: 280ms;
+  --m-dur-long: 400ms;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   1. CONTENT PHASE — replace heavy blur fade with a lightweight rise
+   ─────────────────────────────────────────────────────────────────────────── */
+html.platform-mobile .content-phase-in {
+  /* Override animations.css `stage-in` (520ms blur) */
+  animation: m-content-rise var(--m-dur-short) var(--m-ease-emphasized-decel) forwards;
+  filter: none;
+}
+
+html.platform-mobile .content-phase-out {
+  /* Override the blurred exit too */
+  filter: none;
+  transform: translateY(6px);
+  opacity: 0;
+  transition:
+    opacity var(--m-dur-quick) var(--m-ease-emphasized-accel),
+    transform var(--m-dur-quick) var(--m-ease-emphasized-accel);
+}
+
+/* The wrapper inside .app-main also runs `content-phase-appear` (180ms). Keep
+   it but disable on mobile so we only run our animation, not both. */
+html.platform-mobile .app-main > .content-phase-in {
+  animation: m-content-rise var(--m-dur-short) var(--m-ease-emphasized-decel) forwards;
+}
+
+@keyframes m-content-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   2. PAGE TRANSITIONS — chat enter (subtle, GPU-only)
+   ─────────────────────────────────────────────────────────────────────────── */
+html.platform-mobile .mobile-app-layout .direct-chat,
+html.platform-mobile .mobile-app-layout .team-chat,
+html.platform-mobile .platform-android .direct-chat,
+html.platform-mobile .platform-android .team-chat {
+  /* Override platform-android.css + AppLayout.css 40px slide (felt heavy) */
+  animation: m-page-in var(--m-dur-medium) var(--m-ease-emphasized-decel) forwards;
+}
+
+@keyframes m-page-in {
+  from { opacity: 0; transform: translate3d(12px, 0, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   3. BOTTOM NAV — gentler tab indicator + icon pop
+   Overrides MobileBottomNav.css width/translate keyframes.
+   ─────────────────────────────────────────────────────────────────────────── */
+html.platform-mobile .mbn-tab.active::before {
+  /* Use scaleX (compositor-only) instead of width: 0 → 32px (layout reflow) */
+  width: 32px;
+  transform-origin: center;
+  animation: m-tab-indicator var(--m-dur-medium) var(--m-ease-emphasized-decel) forwards;
+}
+
+@keyframes m-tab-indicator {
+  from { transform: translateX(-50%) scaleX(0); opacity: 0; }
+  to   { transform: translateX(-50%) scaleX(1); opacity: 1; }
+}
+
+html.platform-mobile .mbn-tab.active .mbn-icon-wrap {
+  /* Reduce 1.2× scale + translateY → simple 1.08 pop */
+  animation: m-tab-pop var(--m-dur-short) var(--m-ease-spring) forwards;
+}
+
+@keyframes m-tab-pop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+html.platform-mobile .mbn-tab:active .mbn-icon-wrap {
+  transform: scale(0.92);
+  transition: transform var(--m-dur-quick) var(--m-ease-emphasized-accel);
+}
+
+html.platform-mobile .mbn-badge {
+  animation: m-badge-pop var(--m-dur-short) var(--m-ease-spring) forwards;
+}
+
+@keyframes m-badge-pop {
+  0%   { transform: scale(0); }
+  100% { transform: scale(1); }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   4. PRESS FEEDBACK — Material You: scale 0.97, no opacity flash
+   Override platform-android.css `:active { opacity: 0.65 }` which flashed.
+   ─────────────────────────────────────────────────────────────────────────── */
+html.platform-mobile button,
+html.platform-mobile [role="button"],
+html.platform-mobile .server-icon-link,
+html.platform-mobile .channel-link,
+html.platform-mobile .channel-item,
+html.platform-mobile .mobile-dm-item,
+html.platform-mobile .msp-item,
+html.platform-mobile .dm-item {
+  transition:
+    transform var(--m-dur-short) var(--m-ease-emphasized-decel),
+    background-color var(--m-dur-short) var(--m-ease-standard),
+    color var(--m-dur-short) var(--m-ease-standard);
+}
+
+html.platform-mobile button:active:not(:disabled),
+html.platform-mobile [role="button"]:active:not([aria-disabled="true"]),
+html.platform-mobile .server-icon-link:active,
+html.platform-mobile .channel-link:active,
+html.platform-mobile .channel-item:active,
+html.platform-mobile .mobile-dm-item:active,
+html.platform-mobile .msp-item:active,
+html.platform-mobile .dm-item:active {
+  transform: scale(0.97);
+  /* Cancel the opacity dim from platform-android.css */
+  opacity: 1;
+  transition: transform var(--m-dur-quick) var(--m-ease-emphasized-accel);
+}
+
+/* Keep the active scale only on direct touch; revert with normal duration */
+html.platform-android button,
+html.platform-android [role="button"],
+html.platform-android .server-icon-link,
+html.platform-android .msp-item,
+html.platform-android .mbn-tab,
+html.platform-android .dm-item,
+html.platform-android .channel-item {
+  /* Override the platform-android.css opacity 0.65 flash */
+  opacity: 1 !important;
+}
+html.platform-android button:active,
+html.platform-android [role="button"]:active,
+html.platform-android .server-icon-link:active,
+html.platform-android .msp-item:active,
+html.platform-android .mbn-tab:active,
+html.platform-android .dm-item:active,
+html.platform-android .channel-item:active {
+  opacity: 0.92 !important;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   5. RIPPLE — calmer Material You ripple (was scale 4)
+   ─────────────────────────────────────────────────────────────────────────── */
+html.platform-mobile .ripple-wave,
+html.platform-android .ripple-wave {
+  background: rgba(255, 255, 255, 0.16);
+  animation: m-ripple 380ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes m-ripple {
+  0%   { transform: scale(0);   opacity: 0.4; }
+  60%  { opacity: 0.22; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   6. MODALS — slide up from bottom (native-feeling), not lateral
+   Targets the generic .modal class but lets bottom-sheets keep their own anim.
+   ─────────────────────────────────────────────────────────────────────────── */
+html.platform-mobile .modal {
+  animation: m-modal-rise var(--m-dur-medium) var(--m-ease-emphasized-decel) forwards;
+}
+
+@keyframes m-modal-rise {
+  from { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.98); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+html.platform-mobile .modal-overlay {
+  animation: m-overlay-in var(--m-dur-short) linear forwards;
+}
+
+@keyframes m-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Bottom sheets and action sheets: keep their slide-up but standardize timing */
+html.platform-mobile [class*="bottom-sheet"],
+html.platform-mobile .ssp-modal,
+html.platform-mobile .mobile-action-sheet {
+  animation: m-sheet-rise var(--m-dur-medium) var(--m-ease-emphasized-decel) forwards;
+}
+
+@keyframes m-sheet-rise {
+  from { transform: translate3d(0, 100%, 0); }
+  to   { transform: translate3d(0, 0, 0); }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   7. SPLASH — one-shot reveal, no infinite pulse (battery + jank)
+   ─────────────────────────────────────────────────────────────────────────── */
+html.platform-mobile .splash-logo {
+  animation: m-splash-in 360ms var(--m-ease-emphasized-decel) forwards;
+}
+
+@keyframes m-splash-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+html.platform-mobile .splash-screen {
+  transition: opacity 240ms var(--m-ease-emphasized-accel);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   8. ERROR / NOTIFICATION — gentler shake + slide
+   ─────────────────────────────────────────────────────────────────────────── */
+html.platform-mobile [class*="error-shake"],
+html.platform-mobile .auth-error {
+  animation: m-shake 320ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes m-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-3px); }
+  40%, 80% { transform: translateX(3px); }
+}
+
+html.platform-mobile .notification,
+html.platform-mobile .toast {
+  animation: m-toast-in var(--m-dur-medium) var(--m-ease-emphasized-decel) forwards;
+}
+
+@keyframes m-toast-in {
+  from { opacity: 0; transform: translate3d(0, -16px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   9. TYPING INDICATOR — keep dots smooth (already short, just nudge)
+   ─────────────────────────────────────────────────────────────────────────── */
+html.platform-mobile .typing-dot {
+  animation-duration: 1100ms;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   10. GPU COMPOSITING HINTS for the surfaces that animate
+   ─────────────────────────────────────────────────────────────────────────── */
+html.platform-mobile .mobile-bottom-nav,
+html.platform-mobile .mobile-server-bar,
+html.platform-mobile .mobile-content-main,
+html.platform-mobile .direct-chat,
+html.platform-mobile .team-chat,
+html.platform-mobile .modal,
+html.platform-mobile .modal-overlay,
+html.platform-mobile [class*="bottom-sheet"] {
+  /* Promote to its own layer so the animation doesn't repaint nearby elements. */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   11. REMOVE retriggers on rerender for chat lists
+   When React re-renders an unchanged DOM node, CSS animations don't replay.
+   But we want page-in to NOT play when navigating between siblings of the
+   same component (e.g. switching DM A → DM B). React keeps the same instance
+   if it has the same key, so animations don't replay. Good.
+   No fix required here, but documented for context.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ───────────────────────────────────────────────────────────────────────────
+   12. REDUCED MOTION — respect OS-level setting
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html.platform-mobile *,
+  html.platform-mobile *::before,
+  html.platform-mobile *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Keep press scale visible (otherwise no feedback at all) */
+  html.platform-mobile *:active {
+    transition-duration: 60ms !important;
+  }
+}

@@ -2163,6 +2163,20 @@
   margin-right: 0;
 }
 
+@media (max-width: 1024px), (hover: none) {
+  .message-item:not(.selected) .message-hover-actions {
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  .message-item.selected .message-hover-actions {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    top: -36px;
+    right: 8px;
+  }
+}
+
 /* ── Mobile ── */
 @media (max-width: 768px) {
   .message-item {
@@ -2179,11 +2193,6 @@
 
   .message-header {
     margin-bottom: 0;
-  }
-
-  .message-hover-actions {
-    opacity: 0 !important;
-    pointer-events: none !important;
   }
 
   .message-item.first {

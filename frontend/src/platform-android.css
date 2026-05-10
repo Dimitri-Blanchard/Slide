@@ -60,17 +60,9 @@
   min-height: 48px;
 }
 
-/* ── Ripple-style active feedback ── */
-.platform-android button:active,
-.platform-android [role="button"]:active,
-.platform-android .server-icon-link:active,
-.platform-android .msp-item:active,
-.platform-android .mbn-tab:active,
-.platform-android .dm-item:active,
-.platform-android .channel-item:active {
-  opacity: 0.65;
-  transition: opacity 0.05s;
-}
+/* Press feedback now lives in mobile-animations.css (Material You scale 0.97)
+   to replace the harsh opacity-0.65 flash this used to do here.
+   Kept block intentionally empty so any cached selectors no-op cleanly. */
 
 /* ── Ripple container for elements that use JS ripple ── */
 .platform-android .ripple-container {
@@ -116,13 +108,9 @@
   backface-visibility: hidden;
 }
 
-/* ── Chat/page enter animation on mobile ── */
-@media (max-width: 768px) {
-  .platform-android .direct-chat,
-  .platform-android .team-chat {
-    animation: pageSlideInFromRight 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  }
-}
+/* Chat/page enter animation now defined in mobile-animations.css (m-page-in,
+   12px slide instead of 40px, GPU-only). The previous rule lived here AND in
+   AppLayout.css — duplicated. Kept comment for grep history. */
 
 /* ── Material elevation for floating cards / modals ── */
 .platform-android .settings-page .settings-modal-container {

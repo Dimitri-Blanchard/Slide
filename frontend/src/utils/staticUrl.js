@@ -5,7 +5,7 @@
  * - Absolute URLs (http/https) are returned as-is
  */
 
-const FIXED_BACKEND_ORIGIN = 'http://192.168.1.176:3000';
+const FIXED_BACKEND_ORIGIN = 'https://api.sl1de.xyz';
 
 function getStaticBase() {
   const isElectron = typeof window !== 'undefined' && !!window.electron?.isElectron;

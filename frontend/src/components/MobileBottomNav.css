@@ -42,13 +42,12 @@
   color: var(--accent);
 }
 
-/* Press feedback */
-.mbn-tab:active .mbn-icon-wrap {
-  transform: scale(0.88);
-  transition: transform 0.08s ease;
-}
+/* Press feedback — handled globally in mobile-animations.css (scale 0.92 on
+   .mbn-tab:active .mbn-icon-wrap). No need to duplicate here. */
 
-/* Active indicator pill above icon */
+/* Active indicator pill above icon. The animation (scaleX from 0) runs from
+   mobile-animations.css `m-tab-indicator` so it stays GPU-only. The desktop /
+   web fallback below uses opacity (no animated width = no layout reflow). */
 .mbn-tab.active::before {
   content: '';
   position: absolute;
@@ -59,24 +58,20 @@
   height: 3px;
   border-radius: 0 0 3px 3px;
   background: var(--accent);
-  /* Slide in from top */
-  animation: tabIndicatorIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  opacity: 1;
+  transition: opacity 0.18s ease;
 }
 
-@keyframes tabIndicatorIn {
-  0% { width: 0; opacity: 0; }
-  100% { width: 32px; opacity: 1; }
-}
-
-/* Icon pop when switching to this tab */
+/* Icon pop on active — desktop fallback. Mobile gets a softer 1.08 spring via
+   mobile-animations.css `m-tab-pop`. */
 .mbn-tab.active .mbn-icon-wrap {
-  animation: tabIconPop 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: tabIconPop 0.24s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 @keyframes tabIconPop {
   0%   { transform: scale(1); }
-  40%  { transform: scale(1.2) translateY(-2px); }
-  100% { transform: scale(1) translateY(0); }
+  50%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
 }
 
 .mbn-icon-wrap {

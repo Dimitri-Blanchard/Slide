@@ -5,6 +5,7 @@ import { getToken } from './utils/tokenStorage';
 import AppLayout from './layouts/AppLayout';
 import ElectronTitleBar from './components/ElectronTitleBar';
 import DevelopmentBanner from './components/DevelopmentBanner';
+import CookieBanner from './components/CookieBanner';
 
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
@@ -41,6 +42,14 @@ function PublicRoute({ children }) {
   if (!loading && user) return <Navigate to="/channels/@me" replace />;
   if (loading && hasToken) return <RouteLoadingFallback />;
   return children;
+}
+
+function ProtectedAppLayout() {
+  return (
+    <ProtectedRoute>
+      <AppLayout />
+    </ProtectedRoute>
+  );
 }
 
 function SplashScreen({ onDone, quick }) {
@@ -122,18 +131,12 @@ export default function App() {
               }
             />
             <Route path="/channels" element={<Navigate to="/channels/@me" replace />} />
-            <Route
-              path="/*"
-              element={
-                <ProtectedRoute>
-                  <AppLayout />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/*" element={<ProtectedAppLayout />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
       </div>
+      <CookieBanner />
     </div>
   );
 }

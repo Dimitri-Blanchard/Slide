@@ -1,0 +1,194 @@
+/* Mobile message actions — bottom sheet (voice-join family) */
+.message-action-sheet-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: stretch;
+}
+
+.message-action-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: rgba(0, 0, 0, 0.46);
+  cursor: pointer;
+  animation: messageActionBackdropIn 0.2s ease;
+}
+
+@keyframes messageActionBackdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.message-action-sheet {
+  position: relative;
+  width: 100vw;
+  margin-top: auto;
+  border-radius: 36px 36px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--border-subtle) 88%, transparent);
+  background: linear-gradient(175deg, var(--bg-secondary) 0%, color-mix(in srgb, var(--bg-primary) 84%, #000 16%) 100%);
+  box-shadow: 0 -16px 42px rgba(0, 0, 0, 0.38);
+  padding: 10px 0 calc(12px + env(safe-area-inset-bottom));
+  animation: messageActionSheetUp 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+  max-height: min(88vh, 640px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.message-action-sheet.is-dragging {
+  transition: none;
+}
+
+@keyframes messageActionSheetUp {
+  from {
+    opacity: 0.96;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-action-sheet-grab {
+  width: 50px;
+  height: 5px;
+  border-radius: 999px;
+  margin: 4px auto 10px;
+  background: color-mix(in srgb, var(--text-muted) 70%, transparent);
+  touch-action: none;
+  flex-shrink: 0;
+}
+
+.message-action-sheet-quick-label {
+  padding: 0 20px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.message-action-sheet-quick-row {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  padding: 0 16px 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-shrink: 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.message-action-sheet-quick-row::-webkit-scrollbar {
+  display: none;
+}
+
+.message-action-sheet-emoji-btn {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-tertiary, rgba(0, 0, 0, 0.06));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s ease, transform 0.1s ease;
+}
+
+.message-action-sheet-emoji-btn img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.message-action-sheet-emoji-btn:active {
+  transform: scale(0.96);
+}
+
+.message-action-sheet-emoji-btn.active {
+  background: var(--accent-muted);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-subtle));
+}
+
+.message-action-sheet-emoji-btn--more {
+  color: var(--text-muted);
+}
+
+.message-action-sheet-scroll {
+  flex: 1;
+  min-height: 0;
+  max-height: 46vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 10px 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.message-action-sheet-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 12px;
+  margin: 2px 0;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s ease;
+}
+
+.message-action-sheet-row:active {
+  background: var(--bg-hover);
+}
+
+.message-action-sheet-row--danger {
+  color: var(--danger, #f04747);
+}
+
+.message-action-sheet-row-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  color: var(--text-muted);
+}
+
+.message-action-sheet-row--danger .message-action-sheet-row-icon {
+  color: var(--danger, #f04747);
+}
+
+.message-action-sheet-row-label {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (min-width: 600px) {
+  .message-action-sheet-scroll {
+    max-height: 50vh;
+  }
+}

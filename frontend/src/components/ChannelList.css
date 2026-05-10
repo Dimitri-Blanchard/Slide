@@ -513,6 +513,42 @@
   pointer-events: none;
 }
 
+/* ⋯ on compact / touch — primary way to open channel menu when hover is unavailable */
+.channel-mobile-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  margin-right: 2px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.channel-mobile-menu-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.channel-mobile-menu-btn:active {
+  background: var(--bg-tertiary, rgba(0, 0, 0, 0.08));
+}
+
+/* Match useCompactTouchUi: no hover-only gear on narrow or touch-primary devices */
+@media (max-width: 1024px), (hover: none) {
+  .channel-item:hover .channel-actions {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
 .channel-action-btn {
   width: 22px;
   height: 22px;

@@ -4,6 +4,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { auth } from '../api';
 import { isValidEmail } from '../utils/security';
 import MfaCodeInput from '../components/MfaCodeInput';
+import AuthShell from '../components/AuthShell';
 import './Auth.css';
 
 export default function ForgotPassword() {
@@ -105,7 +106,7 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="auth-page">
+    <AuthShell>
       <div className="auth-card">
         <div className="auth-brand">
           <img src="/logo.png" alt="Slide" className="auth-logo" />
@@ -181,6 +182,6 @@ export default function ForgotPassword() {
           </div>
         </form>
       </div>
-    </div>
+    </AuthShell>
   );
 }

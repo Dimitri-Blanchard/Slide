@@ -2,6 +2,9 @@
 @import './modalEnterInstant.css';
 @import './platform-android.css';
 @import './mobile-shell.css';
+/* Mobile motion overrides — must come AFTER platform-android.css and animations.css
+   so its rules win on html.platform-mobile (Capacitor Android/iOS + small web). */
+@import './mobile-animations.css';
 @import './design-quality.css';
 
 /* ═══════════════════════════════════════════════════════════
@@ -55,9 +58,9 @@ html, body, #root {
    PLATFORM-SPECIFIC RULES
    ═══════════════════════════════════════════════════════════ */
 
-/* Web browser: keep desktop guardrail only on wide screens.
-   On phones/tablets, allow full responsive width. */
-@media (min-width: 941px) {
+/* Web: desktop min width only when viewport is wide enough that we use desktop shell
+   (see AppLayout useIsMobile — web uses mobile shell at <=1024px). */
+@media (min-width: 1025px) {
   html.platform-web body {
     min-width: 940px;
   }
@@ -109,6 +112,9 @@ html.platform-mobile body {
   object-fit: contain;
   animation: splash-pulse 1.2s ease-in-out infinite;
 }
+
+/* On mobile, mobile-animations.css overrides this with a one-shot reveal
+   (m-splash-in). The infinite pulse below stays for desktop where it's cheap. */
 
 @keyframes splash-pulse {
   0%, 100% { transform: scale(1); opacity: 0.9; }

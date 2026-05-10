@@ -12,6 +12,16 @@
   -webkit-user-select: text;
 }
 
+/* Nested under AuthShell: scroll is on auth-shell-legal-scroll; page fills width */
+.legal-page--in-shell {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  overflow: visible;
+  background: transparent;
+}
+
 /* Top bar: logo + back link */
 .legal-topbar {
   flex-shrink: 0;

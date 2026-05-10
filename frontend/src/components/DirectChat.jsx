@@ -781,6 +781,11 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
   const other = isGroup ? null : conversation?.participants?.[0];
   const otherUsers = useMemo(() => conversation?.participants || [], [conversation?.participants]);
 
+  const messageSurfaceContext = useMemo(
+    () => (conversationId ? { kind: 'dm', conversationId, isGroup: !!isGroup } : null),
+    [conversationId, isGroup]
+  );
+
   // Prefetch DM partner profile on load so profile card opens instantly
   useEffect(() => {
     if (other?.id && !isGroup) prefetchProfile(other.id, other);
@@ -819,6 +824,22 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
   const handleCancelReply = useCallback(() => {
     setReplyTo(null);
   }, []);
+
+  const handleOpenDmFromMessage = useCallback(
+    async (msg) => {
+      if (!isGroup) return;
+      const uid = msg?.sender_id ?? msg?.sender?.id;
+      if (!uid || String(uid) === String(user?.id)) return;
+      try {
+        const conv = await directApi.createConversation(uid);
+        const id = conv?.id ?? conv?.conversation_id;
+        if (id) navigate(`/channels/@me/${id}`);
+      } catch (err) {
+        notify.error(err?.message || t('chat.openDmError'));
+      }
+    },
+    [isGroup, user?.id, navigate, notify, t]
+  );
 
   // Reaction handlers
   const handleAddReaction = useCallback(async (messageId, emoji) => {
@@ -1196,6 +1217,9 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
               onRetryFailedMessage={retryFailedMessage}
               isDM={true}
               onAtBottomChange={() => {}}
+              messageSurfaceContext={messageSurfaceContext}
+              messageInputRef={messageInputRef}
+              onOpenDmFromMessage={handleOpenDmFromMessage}
               topBanner={!loading && (
                 <div className="dm-empty-conversation">
                   <div className="dm-empty-avatar-section">

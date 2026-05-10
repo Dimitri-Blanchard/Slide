@@ -1,52 +1,41 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef, lazy } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { teams as teamsApi, direct as directApi, invalidateCache } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useSettings } from '../context/SettingsContext';
-import ServerBar from '../components/ServerBar';
-import Sidebar from '../components/Sidebar';
-import TeamChat from '../components/TeamChat';
-import DirectChat from '../components/DirectChat';
-import FriendsPage from '../components/FriendsPage';
-import ActiveNow from '../components/ActiveNow';
-import MobileBottomNav from '../components/MobileBottomNav';
-import MobileMessagesView from '../components/MobileMessagesView';
-import MobileNotificationsView from '../components/MobileNotificationsView';
-import MobileYouView from '../components/MobileYouView';
-import CreateServerModal from '../components/CreateServerModal';
-const NitroPage = lazy(() => import('../pages/NitroPage'));
-const ShopPage = lazy(() => import('../pages/ShopPage'));
-const QuestsPage = lazy(() => import('../pages/QuestsPage'));
-const SecurityDashboard = lazy(() => import('../pages/SecurityDashboard'));
-const CommunityServersPage = lazy(() => import('../pages/CommunityServersPage'));
-import SearchModal from '../components/SearchModal';
-import VoiceFullscreenOverlay from '../components/VoiceFullscreenOverlay';
-import DmCallFloatingPanel from '../components/DmCallFloatingPanel';
-import ServerErrorBoundary from '../components/ServerErrorBoundary';
-import ErrorBoundary from '../components/ErrorBoundary';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useOffline } from '../context/OfflineContext';
 import { useScene } from '../context/SceneContext';
 import { useNotification } from '../context/NotificationContext';
 import { usePlatform } from '../context/PlatformContext';
-import Settings from '../pages/Settings';
-import '../pages/SecurityDashboard.css';
-import '../pages/NitroPage.css';
-import '../pages/QuestsPage.css';
-import UserStatusAndSettings from '../components/UserStatusAndSettings';
+import MobileAppLayoutShell from './MobileAppLayoutShell';
+import DesktopAppLayoutShell from './DesktopAppLayoutShell';
+import NotFound from '../pages/NotFound';
+import { isAuthenticatedAppPath } from './appPaths';
 import './AppLayout.css';
 
-function useIsMobile(breakpoint = 768) {
-  const { isMobileDevice } = usePlatform();
-  const [isSmallScreen, setIsSmallScreen] = useState(() => window.innerWidth <= breakpoint);
+function useIsMobile(breakpoint = 768, webTabletBreakpoint = 1024) {
+  const { isMobileDevice, isWeb } = usePlatform();
+  const evalNarrow = useCallback(() => {
+    if (typeof window === 'undefined') return false;
+    const w = window.innerWidth;
+    return w <= breakpoint || (isWeb && w <= webTabletBreakpoint);
+  }, [breakpoint, webTabletBreakpoint, isWeb]);
+  const [isSmallScreen, setIsSmallScreen] = useState(evalNarrow);
   useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${breakpoint}px)`);
-    const onChange = (e) => setIsSmallScreen(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, [breakpoint]);
-  // True if on an actual mobile device (Capacitor) OR a very small screen
+    const onChange = () => setIsSmallScreen(evalNarrow());
+    const mqMobile = window.matchMedia(`(max-width: ${breakpoint}px)`);
+    const mqTablet = window.matchMedia(`(max-width: ${webTabletBreakpoint}px)`);
+    mqMobile.addEventListener('change', onChange);
+    mqTablet.addEventListener('change', onChange);
+    window.addEventListener('resize', onChange);
+    return () => {
+      mqMobile.removeEventListener('change', onChange);
+      mqTablet.removeEventListener('change', onChange);
+      window.removeEventListener('resize', onChange);
+    };
+  }, [evalNarrow, breakpoint, webTabletBreakpoint]);
   return isMobileDevice || isSmallScreen;
 }
 
@@ -837,264 +826,75 @@ function AppLayout() {
   const scene = useScene();
   const { width: sidebarWidth, handleResizeStart: handleSidebarResizeStart } = useSidebarWidth();
 
+  if (!isAuthenticatedAppPath(pathname)) {
+    return <NotFound />;
+  }
 
-  // ── Mobile layout (Discord-style 4-tab bottom nav) ─────────────────────────
   if (isMobile) {
-    const isCommunityPage = pathname === '/community';
-    const inSpecificRoute = !!(params.teamId || params.conversationId || isCommunityPage);
-
-    // Content to show when no chat open: home (DMs) | notifications | profile
-    const contentTab = params.isSettings ? 'profile' : mobileTab;
-
-    // activeTab: home when in DMs/servers, notifications, or profile
-    const activeTab = params.conversationId || params.teamId ? 'home'
-      : params.isSettings ? 'profile'
-      : mobileTab;
-
-    // Unread badge counts for the bottom nav
-    const dmUnreadTotal = (Array.isArray(conversations) ? conversations : []).reduce((n, c) => n + (c.unread_count || 0), 0);
-    const serverUnreadTotal = (Array.isArray(teams) ? teams : []).reduce((n, t) => n + (t.unread_count || 0), 0);
-
-    const handleMobileTabChange = (tab) => {
-      setMobileTab(tab);
-      if (inSpecificRoute) {
-        navigate('/channels/@me');
-      }
-    };
-
     return (
-      <div className={`mobile-app-layout scene-${scene}`}>
-        {!isOnline && (
-          <div className="offline-banner" role="alert">
-            <span className="offline-banner-icon">⚠</span>
-            <span>
-              Pas de connexion.
-              {queuedCount > 0
-                ? ` ${queuedCount} message${queuedCount > 1 ? 's' : ''} en attente.`
-                : ''}
-              {processing && ' Envoi en cours…'}
-            </span>
-          </div>
-        )}
-
-        <div className={`mobile-content ${!isCommunityPage ? 'mobile-split-layout' : ''}`}>
-          {!isCommunityPage && !(params.conversationId || (params.teamId && params.channelId)) && (
-            <aside className="mobile-server-bar">
-              <ServerBar
-                teams={teams}
-                currentTeamId={params.teamId}
-                currentConversationId={params.conversationId}
-                lastDmConversationId={lastDmConversationId}
-                onTeamsChange={handleTeamsChange}
-                onLeaveServer={onLeaveServer}
-                isMobile={true}
-              />
-            </aside>
-          )}
-          <div className="mobile-content-main">
-          {!inSpecificRoute ? (
-            // ── Tab content: Home = DMs (Slide icon in bar), Notifications, You ──
-            contentTab === 'home' ? (
-              <ErrorBoundary fallback={<div className="mobile-messages-view" style={{ padding: '1rem', color: 'var(--text-muted)' }}>Messages unavailable</div>}>
-                <MobileMessagesView
-                  conversations={conversations}
-                  currentConversationId={params.conversationId}
-                  loading={loading}
-                  onOpenSearch={() => setShowSearch(true)}
-                />
-              </ErrorBoundary>
-            ) : contentTab === 'notifications' ? (
-              <MobileNotificationsView />
-            ) : contentTab === 'profile' ? (
-              <MobileYouView onOpenSettings={() => navigate('/settings')} />
-            ) : null
-          ) : (
-            // ── Specific route: show TeamChat, DirectChat, or Community full-screen ──
-            <main className="app-main">
-              <div className="content-phase-in">
-              <Routes>
-                <Route path="/community" element={<CommunityServersPage />} />
-                <Route
-                  path="/team/:teamId/*"
-                  element={
-                    <ServerErrorBoundary>
-                      <TeamChat
-                        teamId={params.teamId}
-                        initialChannelId={params.channelId}
-                        isMobile={true}
-                        onLeaveServer={onLeaveServer}
-                        onOpenSearch={() => setShowSearch(true)}
-                      />
-                    </ServerErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/channels/@me/:conversationId"
-                  element={
-                    <DirectChat
-                      conversationId={params.conversationId}
-                      onConversationsChange={setConversations}
-                      conversations={conversations}
-                      isMobile={true}
-                    />
-                  }
-                />
-                <Route path="/*" element={null} />
-              </Routes>
-              </div>
-            </main>
-          )}
-          </div>
-        </div>
-
-        <VoiceFullscreenOverlay isMobile={true} conversations={conversations} />
-
-        {!(params.channelId || params.conversationId) && (
-          <MobileBottomNav
-            activeTab={activeTab}
-            onTabChange={handleMobileTabChange}
-            unreadCounts={{
-              home: dmUnreadTotal + serverUnreadTotal,
-              notifications: (inboxItems || []).length,
-            }}
-            userAvatar={user?.avatar_url}
-          />
-        )}
-
-        <SearchModal
-          isOpen={showSearch}
-          onClose={() => setShowSearch(false)}
-          conversations={conversations}
-          teams={teams}
-        />
-
-        {params.isSettings && <Settings />}
-
-        <CreateServerModal
-          isOpen={showCreateServer}
-          onClose={() => setShowCreateServer(false)}
-          onServerCreated={(newTeam) => {
-            setTeams(prev => [...prev, { ...newTeam, unread_count: 0, mention_count: 0, has_unread: false }]);
-            setShowCreateServer(false);
-            navigate(`/team/${newTeam.id}`);
-          }}
-        />
-
-      </div>
+      <MobileAppLayoutShell
+        pathname={pathname}
+        params={params}
+        scene={scene}
+        isOnline={isOnline}
+        queuedCount={queuedCount}
+        processing={processing}
+        teams={teams}
+        conversations={conversations}
+        setConversations={setConversations}
+        loading={loading}
+        user={user}
+        lastDmConversationId={lastDmConversationId}
+        handleTeamsChange={handleTeamsChange}
+        onLeaveServer={onLeaveServer}
+        mobileTab={mobileTab}
+        setMobileTab={setMobileTab}
+        showSearch={showSearch}
+        setShowSearch={setShowSearch}
+        showCreateServer={showCreateServer}
+        setShowCreateServer={setShowCreateServer}
+        setTeams={setTeams}
+        inboxItems={inboxItems}
+      />
     );
   }
-  // ── End mobile layout ────────────────────────────────────────────────────────
 
-  // Hide sidebar only when viewing a team (server) or community page (full-screen).
-  // DM list remains visible on desktop while opening direct messages.
   const showSidebar = !params.teamId && pathname !== '/community';
 
   return (
-    <div className={`app-layout scene-${scene} ${mobileNavOpen ? 'mobile-nav-open' : ''}`}>
-      {!isOnline && (
-        <div className="offline-banner" role="alert">
-          <span className="offline-banner-icon">⚠</span>
-          <span>
-            Pas de connexion.
-            {queuedCount > 0
-              ? ` ${queuedCount} message${queuedCount > 1 ? 's' : ''} en attente — envoi dès la reconnexion.`
-              : ' Les messages seront mis en file et envoyés à la reconnexion.'}
-            {processing && ' Envoi en cours…'}
-          </span>
-        </div>
-      )}
-      {isMobile && mobileNavOpen && (
-        <div
-          className="mobile-nav-overlay"
-          onClick={() => setMobileNavOpen(false)}
-          onTouchStart={handleOverlayTouchStart}
-          onTouchMove={handleOverlayTouchMove}
-        />
-      )}
-      <ServerBar
-        teams={teams}
-        currentTeamId={params.teamId}
-        currentConversationId={params.conversationId}
-        lastDmConversationId={lastDmConversationId}
-        onTeamsChange={handleTeamsChange}
-        onLeaveServer={onLeaveServer}
-      />
-      <UserStatusAndSettings sidebarWidth={sidebarWidth} />
-      {showSidebar && (
-        <ErrorBoundary fallback={<aside className="sidebar" style={{ padding: '1rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>DMs unavailable</aside>}>
-          <Sidebar
-            user={user}
-            conversations={conversations}
-            currentConversationId={params.conversationId}
-            onRefreshConversations={refreshConversations}
-            onAddConversation={addConversation}
-            onRemoveConversation={removeConversationLocal}
-            onRestoreConversation={restoreConversationLocal}
-            loading={loading}
-            conversationsLoaded={conversationsLoaded}
-            onOpenSearch={() => setShowSearch(true)}
-            width={sidebarWidth}
-            onResizeStart={handleSidebarResizeStart}
-          />
-        </ErrorBoundary>
-      )}
-      <main className="app-main">
-        {/* Edge swipe zone - captures touch from left edge on mobile, above scrollable content */}
-        {isMobile && (
-          <div
-            className="mobile-edge-swipe-zone"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          />
-        )}
-        <div className="content-phase-in">
-        <Routes>
-          <Route
-            path="/team/:teamId/*"
-            element={
-              <ServerErrorBoundary>
-                <TeamChat teamId={params.teamId} initialChannelId={params.channelId} isMobile={isMobile} onLeaveServer={onLeaveServer} onOpenSearch={() => setShowSearch(true)} sidebarWidth={sidebarWidth} onSidebarResizeStart={handleSidebarResizeStart} />
-              </ServerErrorBoundary>
-            }
-          />
-          <Route
-            path="/channels/@me/:conversationId"
-            element={
-              <DirectChat
-                conversationId={params.conversationId}
-                onConversationsChange={setConversations}
-                conversations={conversations}
-              />
-            }
-          />
-          <Route path="/community" element={<CommunityServersPage />} />
-          <Route path="/nitro" element={<NitroPage />} />
-          <Route path="/security" element={<SecurityDashboard />} />
-          <Route path="/shop" element={<ShopPage />} />
-          <Route path="/quests" element={<QuestsPage />} />
-          <Route path="/channels/@me" element={<FriendsPage />} />
-          <Route path="/settings" element={<FriendsPage />} />
-          <Route path="/" element={<Navigate to="/channels/@me" replace />} />
-          <Route path="/home" element={<Navigate to="/channels/@me" replace />} />
-          <Route path="/profile/*" element={<Navigate to="/channels/@me" replace />} />
-        </Routes>
-        </div>
-      </main>
-      {!params.teamId && !params.conversationId && <ActiveNow />}
-
-      {params.isSettings && <Settings />}
-      
-      <SearchModal
-        isOpen={showSearch}
-        onClose={() => setShowSearch(false)}
-        conversations={conversations}
-        teams={teams}
-      />
-
-      <DmCallFloatingPanel conversations={conversations} isMobile={isMobile} />
-
-    </div>
+    <DesktopAppLayoutShell
+      params={params}
+      scene={scene}
+      isMobile={isMobile}
+      mobileNavOpen={mobileNavOpen}
+      setMobileNavOpen={setMobileNavOpen}
+      handleOverlayTouchStart={handleOverlayTouchStart}
+      handleOverlayTouchMove={handleOverlayTouchMove}
+      isOnline={isOnline}
+      queuedCount={queuedCount}
+      processing={processing}
+      teams={teams}
+      user={user}
+      conversations={conversations}
+      setConversations={setConversations}
+      lastDmConversationId={lastDmConversationId}
+      handleTeamsChange={handleTeamsChange}
+      onLeaveServer={onLeaveServer}
+      showSidebar={showSidebar}
+      sidebarWidth={sidebarWidth}
+      handleSidebarResizeStart={handleSidebarResizeStart}
+      refreshConversations={refreshConversations}
+      addConversation={addConversation}
+      removeConversationLocal={removeConversationLocal}
+      restoreConversationLocal={restoreConversationLocal}
+      loading={loading}
+      conversationsLoaded={conversationsLoaded}
+      setShowSearch={setShowSearch}
+      showSearch={showSearch}
+      handleTouchStart={handleTouchStart}
+      handleTouchMove={handleTouchMove}
+      handleTouchEnd={handleTouchEnd}
+    />
   );
 }
 

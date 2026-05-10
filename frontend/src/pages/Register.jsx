@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { validatePassword, validateDisplayName, isValidEmail, checkRateLimit } from '../utils/security';
 import { API_BASE, auth as authApi } from '../api';
+import AuthShell from '../components/AuthShell';
 import './Auth.css';
 
 // Validate username format (3-32 chars, alphanumeric, underscores, dots)
@@ -171,18 +172,21 @@ export default function Register() {
   };
 
   return (
-    <div className="auth-page">
-      <video
-        className="auth-bg-video"
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="metadata"
-        aria-hidden="true"
-      >
-        <source src="/bg.mp4" type="video/mp4" />
-      </video>
+    <AuthShell
+      backgroundMedia={(
+        <video
+          className="auth-bg-video"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          aria-hidden="true"
+        >
+          <source src="/bg.mp4" type="video/mp4" />
+        </video>
+      )}
+    >
       <div className="auth-card">
         <div className="auth-brand">
           <img src="/logo.png" alt="Slide" className="auth-logo" />
@@ -327,6 +331,6 @@ export default function Register() {
           {t('auth.hasAccount')} <Link to="/login">{t('auth.loginButton')}</Link>
         </p>
       </div>
-    </div>
+    </AuthShell>
   );
 }

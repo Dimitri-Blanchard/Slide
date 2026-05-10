@@ -9,6 +9,7 @@ import { useVoice, sameUserId, coercePositiveInt, getRemoteStreamForUser } from 
 import { useSettings } from '../context/SettingsContext';
 import { useMediaDevices } from '../hooks/useMediaDevices';
 import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
+import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import { useAuth } from '../context/AuthContext';
 import ConfirmModal from './ConfirmModal';
 import ClickableAvatar from './ClickableAvatar';
@@ -131,7 +132,6 @@ const bellIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="currentCo
 const bellMutedIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 18.69L7.84 6.14 5.27 3.49 4 4.76l2.8 2.8v.01c-.52.99-.8 2.16-.8 3.42v5l-2 2v1h13.73l2 2L21 19.72l-1-1.03zM12 22c1.11 0 2-.89 2-2h-4c0 1.11.89 2 2 2zm6-7.32V11c0-3.08-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68c-.15.03-.29.08-.42.12-.1.03-.2.07-.3.11h-.01c-.01 0-.01 0-.02.01-.23.09-.46.2-.68.31 0 0-.01 0-.01.01L18 14.68z"/></svg>;
 
 const ChannelContextMenu = memo(function ChannelContextMenu({ x, y, channel, teamId, onClose, canManage, onEdit, onDelete, onCopyId, isMuted, muteKey, onMute, onUnmute }) {
-  const { developerMode } = useSettings();
   const items = [];
 
   items.push(
@@ -142,6 +142,11 @@ const ChannelContextMenu = memo(function ChannelContextMenu({ x, y, channel, tea
         const link = `${window.location.origin}/team/${teamId}/channel/${channel.id}`;
         navigator.clipboard?.writeText(link).then(() => {}, () => {});
       },
+    },
+    {
+      label: 'Copy Channel ID',
+      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>,
+      onClick: () => onCopyId?.(channel.id),
     },
     { separator: true },
   );
@@ -206,17 +211,6 @@ const ChannelContextMenu = memo(function ChannelContextMenu({ x, y, channel, tea
         danger: true,
         icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>,
         onClick: () => onDelete?.(channel),
-      }
-    );
-  }
-
-  if (developerMode) {
-    items.push(
-      { separator: true },
-      {
-        label: 'Copy Channel ID',
-        icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>,
-        onClick: () => onCopyId?.(channel.id),
       }
     );
   }
@@ -603,6 +597,46 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
   const isVoice = channel.channel_type === 'voice';
   const [ctxMenu, setCtxMenu] = useState(null);
   const { user } = useAuth();
+  const { t } = useLanguage();
+  const compactTouchUi = useCompactTouchUi();
+  const longPressTimerRef = useRef(null);
+  const longPressStartRef = useRef(null);
+  const clearChannelLongPress = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    longPressStartRef.current = null;
+  }, []);
+
+  const openChannelMenuAt = useCallback((clientX, clientY) => {
+    setCtxMenu({ x: clientX, y: clientY });
+  }, []);
+
+  const onChannelRowPointerDown = useCallback((e) => {
+    if (!compactTouchUi || e.button !== 0) return;
+    longPressStartRef.current = { x: e.clientX, y: e.clientY };
+    const cx = e.clientX;
+    const cy = e.clientY;
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTimerRef.current = null;
+      longPressStartRef.current = null;
+      if ('vibrate' in navigator) {
+        try { navigator.vibrate(12); } catch (_) { /* ignore */ }
+      }
+      openChannelMenuAt(cx, cy);
+    }, 500);
+  }, [compactTouchUi, openChannelMenuAt]);
+
+  const onChannelRowPointerMove = useCallback((e) => {
+    if (!longPressStartRef.current) return;
+    const dx = e.clientX - longPressStartRef.current.x;
+    const dy = e.clientY - longPressStartRef.current.y;
+    if (dx * dx + dy * dy > 100) clearChannelLongPress();
+  }, [clearChannelLongPress]);
+
+  const onChannelRowPointerUp = useCallback(() => clearChannelLongPress(), [clearChannelLongPress]);
+
   const { voiceUsers, speakingUsers, voiceChannelId, remoteVideoStreams, screenSharingUserIds, isScreenSharing, ownScreenStream, setExpandedLiveView } = useVoice();
   const navigate = useNavigate();
 
@@ -713,7 +747,18 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
       onDragEnd={handleDragEnd}
     >
       {isVoice ? (
-        <div className="channel-link" onClick={handleVoiceClick} onContextMenu={handleContextMenu} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleVoiceClick(e); } }}>
+        <div
+          className="channel-link"
+          onClick={handleVoiceClick}
+          onContextMenu={handleContextMenu}
+          onPointerDown={onChannelRowPointerDown}
+          onPointerMove={onChannelRowPointerMove}
+          onPointerUp={onChannelRowPointerUp}
+          onPointerCancel={onChannelRowPointerUp}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleVoiceClick(e); } }}
+        >
           {channelLinkContent}
         </div>
       ) : (
@@ -721,10 +766,33 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
           to={`/team/${teamId}/channel/${channel.id}`}
           className="channel-link"
           onContextMenu={handleContextMenu}
+          onPointerDown={onChannelRowPointerDown}
+          onPointerMove={onChannelRowPointerMove}
+          onPointerUp={onChannelRowPointerUp}
+          onPointerCancel={onChannelRowPointerUp}
           onClick={isMobile && isActive && onActiveChannelClick ? (e) => { e.preventDefault(); onActiveChannelClick(); } : undefined}
         >
           {channelLinkContent}
         </Link>
+      )}
+      {compactTouchUi && (
+        <button
+          type="button"
+          className="channel-mobile-menu-btn"
+          aria-label={t('chat.moreOptions')}
+          onClick={(ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            const r = ev.currentTarget.getBoundingClientRect();
+            setCtxMenu({ x: r.left, y: r.bottom + 4 });
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <circle cx="12" cy="5" r="2" />
+            <circle cx="12" cy="12" r="2" />
+            <circle cx="12" cy="19" r="2" />
+          </svg>
+        </button>
       )}
       {canManage && (
         <div className="channel-actions">

@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Lock } from 'lucide-react';
-import { messages as messagesApi, channels as channelsApi, reactions as reactionsApi, teams as teamsApi } from '../api';
+import { messages as messagesApi, channels as channelsApi, reactions as reactionsApi, teams as teamsApi, direct as directApi } from '../api';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -367,6 +368,26 @@ const ChannelChat = memo(function ChannelChat({ teamId, channelId, currentTeam, 
     setReplyTo(msg);
   }, []);
 
+  const navigate = useNavigate();
+  const messageSurfaceContext = useMemo(
+    () => (teamId && channelId ? { kind: 'server', teamId, channelId } : null),
+    [teamId, channelId]
+  );
+  const handleOpenDmFromMessage = useCallback(
+    async (msg) => {
+      const uid = msg?.sender_id ?? msg?.sender?.id;
+      if (!uid) return;
+      try {
+        const conv = await directApi.createConversation(uid);
+        const id = conv?.id ?? conv?.conversation_id;
+        if (id) navigate(`/channels/@me/${id}`);
+      } catch (err) {
+        notify.error(err?.message || t('chat.openDmError'));
+      }
+    },
+    [navigate, notify, t]
+  );
+
   const handleCancelReply = useCallback(() => {
     setReplyTo(null);
   }, []);
@@ -475,6 +496,9 @@ const ChannelChat = memo(function ChannelChat({ teamId, channelId, currentTeam, 
               canModerateReactions={currentTeam?.role === 'owner' || currentTeam?.role === 'admin' || user?.role === 'admin'}
             messageReactions={messageReactions}
             onRetryFailedMessage={retryFailedMessage}
+            messageSurfaceContext={messageSurfaceContext}
+            messageInputRef={messageInputRef}
+            onOpenDmFromMessage={handleOpenDmFromMessage}
           />
           {typingUsers.length > 0 && (
             <div className="chat-typing">

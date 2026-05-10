@@ -7,7 +7,7 @@ import VoiceRecorder from './VoiceRecorder';
 import MentionSuggestions from './MentionSuggestions';
 import CommandPalette from './CommandPalette';
 import TextWithAranjaEmojis from './TextWithAranjaEmojis';
-import { getContent, setContent, insertEmoji, getTextBeforeCursor, getCursorOffset, setCursorAtOffset } from '../utils/contentEditableEmoji';
+import { getContent, setContent, insertEmoji, insertPlainTextAtCursor, getTextBeforeCursor, getCursorOffset, setCursorAtOffset } from '../utils/contentEditableEmoji';
 import { parseMessageContent, HAS_MARKDOWN_RE } from '../utils/markdownParser';
 import './MessageInput.css';
 
@@ -74,6 +74,11 @@ const MessageInput = memo(forwardRef(function MessageInput({
     insertText: (emoji) => {
       if (!inputRef.current) return;
       insertEmoji(inputRef.current, emoji);
+      syncValueFromEditable();
+    },
+    insertPlainText: (text) => {
+      if (!inputRef.current) return;
+      insertPlainTextAtCursor(inputRef.current, text);
       syncValueFromEditable();
     },
     focus: () => {

@@ -14,6 +14,7 @@ import InviteModal from './InviteModal';
 import { ShareInviteModal } from './InviteModal';
 import ContextMenu from './ContextMenu';
 import ConfirmModal from './ConfirmModal';
+import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import './ServerBar.css';
 
 const MUTED_SERVERS_KEY = 'slide_muted_servers';
@@ -160,9 +161,50 @@ const ServerBarTooltip = ({ text, anchorRef }) => {
 // Server icon component with avatar or initials
 const ServerIcon = memo(function ServerIcon({ team, isActive, hasUnread = false, mentionCount = 0, isMuted = false, onContextMenu, onDragStart, onDragOver, onDrop, onDragLeave, onDragEnd, isDragOver, isDragging, hideTooltip = false }) {
   const navigate = useNavigate();
+  const compactTouchUi = useCompactTouchUi();
   const didDragRef = useRef(false);
+  const longPressTimerRef = useRef(null);
+  const longPressStartRef = useRef(null);
+  const longPressFiredRef = useRef(false);
   const [hovered, setHovered] = useState(false);
   const tooltipRef = useRef(null);
+
+  const clearLongPress = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    longPressStartRef.current = null;
+  }, []);
+
+  const onServerPointerDown = useCallback((e) => {
+    if (!compactTouchUi) return;
+    if (e.button !== 0) return;
+    longPressFiredRef.current = false;
+    longPressStartRef.current = { x: e.clientX, y: e.clientY };
+    const cx = e.clientX;
+    const cy = e.clientY;
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTimerRef.current = null;
+      longPressStartRef.current = null;
+      longPressFiredRef.current = true;
+      if ('vibrate' in navigator) {
+        try { navigator.vibrate(12); } catch (_) { /* ignore */ }
+      }
+      onContextMenu?.({ clientX: cx, clientY: cy, preventDefault: () => {}, stopPropagation: () => {} }, team);
+    }, 480);
+  }, [compactTouchUi, team, onContextMenu]);
+
+  const onServerPointerMove = useCallback((e) => {
+    if (!longPressStartRef.current) return;
+    const dx = e.clientX - longPressStartRef.current.x;
+    const dy = e.clientY - longPressStartRef.current.y;
+    if (dx * dx + dy * dy > 100) clearLongPress();
+  }, [clearLongPress]);
+
+  const onServerPointerUp = useCallback(() => {
+    clearLongPress();
+  }, [clearLongPress]);
   // Get initials from server name (max 2 chars)
   const getInitials = (name) => {
     if (!name) return '?';
@@ -183,6 +225,7 @@ const ServerIcon = memo(function ServerIcon({ team, isActive, hasUnread = false,
   const handleContextMenu = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    clearLongPress();
     onContextMenu?.(e, team);
   };
 
@@ -234,9 +277,17 @@ const ServerIcon = memo(function ServerIcon({ team, isActive, hasUnread = false,
         onDrop={canDrag ? handleDrop : undefined}
         onDragEnd={canDrag ? (() => { didDragRef.current = false; onDragEnd?.(); }) : undefined}
         onDragLeave={canDrag ? handleDragLeave : undefined}
+        onPointerDown={onServerPointerDown}
+        onPointerMove={onServerPointerMove}
+        onPointerUp={onServerPointerUp}
+        onPointerCancel={onServerPointerUp}
         onClick={() => {
           if (didDragRef.current) {
             didDragRef.current = false;
+            return;
+          }
+          if (longPressFiredRef.current) {
+            longPressFiredRef.current = false;
             return;
           }
           navigate(`/team/${team.id}`);
@@ -288,14 +339,56 @@ const ServerIcon = memo(function ServerIcon({ team, isActive, hasUnread = false,
 // Home button (DMs)
 const HomeButton = memo(function HomeButton({ isActive, onContextMenu, homeTarget }) {
   const { t } = useLanguage();
+  const compactTouchUi = useCompactTouchUi();
   const [hovered, setHovered] = useState(false);
   const tooltipRef = useRef(null);
+  const longPressTimerRef = useRef(null);
+  const longPressStartRef = useRef(null);
+  const longPressFiredRef = useRef(false);
+
+  const clearLongPress = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    longPressStartRef.current = null;
+  }, []);
 
   const handleContextMenu = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    clearLongPress();
     onContextMenu?.(e);
   };
+
+  const onHomePointerDown = useCallback((e) => {
+    if (!compactTouchUi) return;
+    if (e.button !== 0) return;
+    longPressFiredRef.current = false;
+    longPressStartRef.current = { x: e.clientX, y: e.clientY };
+    const cx = e.clientX;
+    const cy = e.clientY;
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTimerRef.current = null;
+      longPressStartRef.current = null;
+      longPressFiredRef.current = true;
+      if ('vibrate' in navigator) {
+        try { navigator.vibrate(12); } catch (_) { /* ignore */ }
+      }
+      onContextMenu?.({ clientX: cx, clientY: cy, preventDefault: () => {}, stopPropagation: () => {} });
+    }, 480);
+  }, [compactTouchUi, onContextMenu]);
+
+  const onHomePointerMove = useCallback((e) => {
+    if (!longPressStartRef.current) return;
+    const dx = e.clientX - longPressStartRef.current.x;
+    const dy = e.clientY - longPressStartRef.current.y;
+    if (dx * dx + dy * dy > 100) clearLongPress();
+  }, [clearLongPress]);
+
+  const onHomePointerUp = useCallback(() => {
+    clearLongPress();
+  }, [clearLongPress]);
 
   return (
     <li
@@ -309,6 +402,16 @@ const HomeButton = memo(function HomeButton({ isActive, onContextMenu, homeTarge
         to={homeTarget}
         className={`server-icon-link ${isActive ? 'active' : ''}`}
         title={t('sidebar.directMessages')}
+        onClick={(e) => {
+          if (longPressFiredRef.current) {
+            e.preventDefault();
+            longPressFiredRef.current = false;
+          }
+        }}
+        onPointerDown={onHomePointerDown}
+        onPointerMove={onHomePointerMove}
+        onPointerUp={onHomePointerUp}
+        onPointerCancel={onHomePointerUp}
       >
         <div className={`server-icon home-icon ${isActive ? 'active' : ''}`}>
           <img src="/logo.png" alt="Slide" className="home-logo" />
@@ -555,8 +658,31 @@ const ServerBar = memo(function ServerBar({
       },
     },
     { separator: true },
+    {
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+        </svg>
+      ),
+      label: t('server.copyServerId') || 'Copy Server ID',
+      onClick: () => {
+        const id = String(serverContextMenu.team.id);
+        closeServerContextMenu();
+        const w = navigator.clipboard?.writeText(id);
+        if (!w) {
+          notify.error(t('common.copyFailed'));
+          return;
+        }
+        w.then(() => {
+          notify.success(t('common.copied') || 'Copied!');
+        }).catch(() => {
+          notify.error(t('common.copyFailed'));
+        });
+      },
+    },
     ...(canManageServerFromList
       ? [
+          { separator: true },
           {
             icon: (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">

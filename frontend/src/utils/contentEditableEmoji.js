@@ -108,6 +108,31 @@ export function insertEmoji(editable, shortcode) {
   editable.focus();
 }
 
+/** Insert plain text at selection; used for @mentions in the composer. */
+export function insertPlainTextAtCursor(editable, text) {
+  if (!editable || text == null || text === '') return;
+  const sel = window.getSelection();
+  const range = sel?.rangeCount ? sel.getRangeAt(0) : null;
+  const node = document.createTextNode(text);
+  if (!range || !editable.contains(range.commonAncestorContainer)) {
+    editable.appendChild(node);
+    editable.focus();
+    const r = document.createRange();
+    r.setStartAfter(node);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+    return;
+  }
+  range.deleteContents();
+  range.insertNode(node);
+  range.setStartAfter(node);
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
+  editable.focus();
+}
+
 /**
  * Get text before cursor (for @ mention detection etc).
  * Includes img data-emoji as in getContent.

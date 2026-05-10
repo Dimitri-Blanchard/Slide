@@ -6,6 +6,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { auth } from '../api';
 import { checkRateLimit, isValidEmail } from '../utils/security';
 import MfaCodeInput from '../components/MfaCodeInput';
+import AuthShell from '../components/AuthShell';
 import './Auth.css';
 
 const QR_POLL_INTERVAL = 2000;
@@ -180,18 +181,21 @@ const [error, setError] = useState('');
   };
 
   return (
-    <div className="auth-page">
-      <video
-        className="auth-bg-video"
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="metadata"
-        aria-hidden="true"
-      >
-        <source src="/bg.mp4" type="video/mp4" />
-      </video>
+    <AuthShell
+      backgroundMedia={(
+        <video
+          className="auth-bg-video"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          aria-hidden="true"
+        >
+          <source src="/bg.mp4" type="video/mp4" />
+        </video>
+      )}
+    >
       <div className="auth-card login-card">
         <div className="login-left">
           <div className="auth-brand">
@@ -286,11 +290,6 @@ const [error, setError] = useState('');
               <span>{t('auth.noAccount')}</span>{' '}
               <Link to="/register">{t('auth.registerButton')}</Link>
             </div>
-            <div className="auth-footer-links">
-              <Link to="/privacy">{t('legal.privacyLink')}</Link>
-              <span className="auth-footer-sep">·</span>
-              <Link to="/terms">{t('legal.termsLink')}</Link>
-            </div>
           </form>
         </div>
 
@@ -351,6 +350,6 @@ const [error, setError] = useState('');
           )}
         </div>
       </div>
-    </div>
+    </AuthShell>
   );
 }

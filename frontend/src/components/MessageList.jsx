@@ -13,6 +13,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { stickers as stickersApi, users as usersApi, friends as friendsApi } from '../api';
 import ReportModal from './ReportModal';
 import { useBlockedUsers } from '../hooks/useBlockedUsers';
+import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import { usePrefetchOnHover } from '../context/PrefetchContext';
 import { getRecentEmojis, saveRecentEmoji } from './StickerPicker';
 import { shortcodeToEmoji, emojiToShortcode, emojifyText } from '../utils/emojiShortcodes';
@@ -21,10 +22,25 @@ import { Spoiler, parseInlineMarkdown, parseMessageContent as _parseMarkdown, HA
 import { getStaticUrl } from '../utils/staticUrl';
 import TextWithAranjaEmojis from './TextWithAranjaEmojis';
 import ContextMenu from './ContextMenu';
+import MessageMobileActionSheet from './MessageMobileActionSheet';
+import { teams as teamsApi, direct as directApi } from '../api';
+import { useNotification } from '../context/NotificationContext';
 import './MessageList.css';
 import './MentionSuggestions.css';
 
 const EMPTY_REACTIONS = [];
+
+function buildMessagePermalink(surface, msg) {
+  if (!surface || msg?.id == null) return '';
+  const o = typeof window !== 'undefined' ? window.location.origin : '';
+  if (surface.kind === 'server') {
+    return `${o}/team/${surface.teamId}/channel/${surface.channelId}#msg-${msg.id}`;
+  }
+  if (surface.kind === 'dm') {
+    return `${o}/channels/@me/${surface.conversationId}#msg-${msg.id}`;
+  }
+  return '';
+}
 const VIRTUALIZATION_THRESHOLD = 30;
 const ESTIMATED_MESSAGE_HEIGHT = 56;
 
@@ -1446,6 +1462,18 @@ const MessageMenu = memo(function MessageMenu({ x, y, msg, isOwn, isDM, reaction
     ),
     onClick: () => onCopy(msg),
   });
+  items.push({
+    label: tx('chat.copyMessageId', 'Copier l’ID du message'),
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </svg>
+    ),
+    onClick: () => {
+      navigator.clipboard?.writeText(String(msg.id)).catch(console.error);
+    },
+  });
   if (onPin || onUnpin) {
     if (isPinned) {
       items.push({
@@ -1760,6 +1788,9 @@ const MessageItem = memo(function MessageItem({
   serverRoleBadges = null,
   serverTeamRole = null,
   reduceMotion = false,
+  compactTouchUi = false,
+  onToggleSelect = null,
+  onMobileLongPress = null,
 }) {
   const [isMessageHovered, setIsMessageHovered] = useState(false);
   const isDeleting = !!msg?._deleting;
@@ -1772,14 +1803,65 @@ const MessageItem = memo(function MessageItem({
     String(replyToMessage.sender.id) === String(currentUserId)
   );
 
+  const longPressTimerRef = useRef(null);
+  const longPressStartRef = useRef(null);
+
+  const clearLongPress = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    longPressStartRef.current = null;
+  }, []);
+
   const handleContextMenu = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX || rect.right;
     const y = e.clientY || rect.bottom;
+    clearLongPress();
     onContextMenu({ clientX: x, clientY: y, preventDefault: () => {} }, msg);
-  }, [msg, onContextMenu]);
+  }, [msg, onContextMenu, clearLongPress]);
+
+  const onMessagePointerDown = useCallback((e) => {
+    if (!compactTouchUi) return;
+    if (e.button !== 0) return;
+    if (e.target.closest('button, a, input, textarea, [contenteditable="true"], .message-reactions, .message-reaction, .hover-action-btn, .clickable-avatar, .message-content a')) return;
+    longPressStartRef.current = { x: e.clientX, y: e.clientY };
+    const cx = e.clientX;
+    const cy = e.clientY;
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTimerRef.current = null;
+      longPressStartRef.current = null;
+      if ('vibrate' in navigator) {
+        try { navigator.vibrate(12); } catch (_) { /* ignore */ }
+      }
+      if (onMobileLongPress) {
+        onMobileLongPress(msg);
+      } else {
+        onContextMenu({ clientX: cx, clientY: cy, preventDefault: () => {} }, msg);
+      }
+    }, 480);
+  }, [compactTouchUi, msg, onContextMenu, onMobileLongPress]);
+
+  const onMessagePointerMove = useCallback((e) => {
+    if (!longPressStartRef.current) return;
+    const dx = e.clientX - longPressStartRef.current.x;
+    const dy = e.clientY - longPressStartRef.current.y;
+    if (dx * dx + dy * dy > 100) clearLongPress();
+  }, [clearLongPress]);
+
+  const onMessagePointerUp = useCallback(() => {
+    clearLongPress();
+  }, [clearLongPress]);
+
+  const onMessageClick = useCallback((e) => {
+    if (!compactTouchUi || !onToggleSelect) return;
+    if (e.target.closest('button, a, input, textarea, [contenteditable="true"], .message-reactions, .message-reaction, .hover-action-btn, .clickable-avatar, .message-content a')) return;
+    e.preventDefault();
+    onToggleSelect(msg.id);
+  }, [compactTouchUi, onToggleSelect, msg.id]);
   
   return (
     <div 
@@ -1787,6 +1869,11 @@ const MessageItem = memo(function MessageItem({
       onContextMenu={handleContextMenu}
       onMouseEnter={() => setIsMessageHovered(true)}
       onMouseLeave={() => setIsMessageHovered(false)}
+      onPointerDown={onMessagePointerDown}
+      onPointerMove={onMessagePointerMove}
+      onPointerUp={onMessagePointerUp}
+      onPointerCancel={onMessagePointerUp}
+      onClick={onMessageClick}
       data-message-id={msg.id}
     >
       <div className="message-hover-actions" onClick={(e) => e.stopPropagation()}>
@@ -1953,6 +2040,10 @@ const MessageList = memo(forwardRef(function MessageList({
   onLoadMore = null,
   hasMore = false,
   loadingMore = false,
+  messageSurfaceContext = null,
+  messageInputRef = null,
+  onChannelMarkedUnread = null,
+  onOpenDmFromMessage = null,
 }, ref) {
   const containerRef = useRef(null);
   const isAtBottomRef = useRef(true);
@@ -1974,14 +2065,21 @@ const MessageList = memo(forwardRef(function MessageList({
   const [newMessagesBelow, setNewMessagesBelow] = useState(0);
   const [mentionProfileUser, setMentionProfileUser] = useState(null);
   const [mentionProfilePos, setMentionProfilePos] = useState(null);
-  
+  const [mobileActionSheetMsg, setMobileActionSheetMsg] = useState(null);
+
   const { settings, isCompactMode, showAvatars, showEmbeds, animateEmoji } = useSettings();
   const { t } = useLanguage();
+  const { notify } = useNotification();
   const { blockedIds } = useBlockedUsers();
   const [revealedBlockedIds, setRevealedBlockedIds] = useState(() => new Set());
 
   const pinnedIdsSet = useMemo(() => new Set(pinnedMessageIds), [pinnedMessageIds]);
   const cachedRecentEmojis = useMemo(() => getRecentEmojis().slice(0, 3), []);
+  const compactTouchUi = useCompactTouchUi();
+
+  const handleToggleMessageSelect = useCallback((id) => {
+    setSelectedMessageId((prev) => (prev === id ? null : id));
+  }, []);
 
   // Enrich otherUsers with message senders so mentions resolve without API call
   const mentionUsers = useMemo(() => {
@@ -2213,7 +2311,11 @@ const MessageList = memo(forwardRef(function MessageList({
       setSelectedMessageId(null);
     };
     document.addEventListener('mousedown', handleClickAway);
-    return () => document.removeEventListener('mousedown', handleClickAway);
+    document.addEventListener('pointerdown', handleClickAway, true);
+    return () => {
+      document.removeEventListener('mousedown', handleClickAway);
+      document.removeEventListener('pointerdown', handleClickAway, true);
+    };
   }, [selectedMessageId]);
   
   // Edit handlers
@@ -2272,6 +2374,107 @@ const MessageList = memo(forwardRef(function MessageList({
     const text = msg.type === 'text' ? msg.content : (msg.attachment?.file_url || msg.content);
     navigator.clipboard.writeText(text).catch(console.error);
   }, []);
+
+  const closeMobileActionSheet = useCallback(() => {
+    setMobileActionSheetMsg(null);
+    setSelectedMessageId(null);
+  }, []);
+
+  const handleMobileLongPressOpen = useCallback((msg) => {
+    setContextMenu(null);
+    setSelectedMessageId(msg.id);
+    setMobileActionSheetMsg(msg);
+  }, []);
+
+  const handleMarkUnreadFromSheet = useCallback(async (msg) => {
+    if (!messageSurfaceContext) {
+      notify.error(t('chat.markUnreadUnavailable'));
+      return;
+    }
+    try {
+      if (messageSurfaceContext.kind === 'server') {
+        await teamsApi.markChannelUnread(
+          messageSurfaceContext.teamId,
+          messageSurfaceContext.channelId,
+          msg.id
+        );
+        onChannelMarkedUnread?.({
+          channelId: messageSurfaceContext.channelId,
+          beforeMessageId: msg.id,
+          lastReadMessageId: Math.max(0, msg.id - 1),
+        });
+      } else if (messageSurfaceContext.kind === 'dm') {
+        await directApi.markUnread(messageSurfaceContext.conversationId, msg.id);
+      }
+      notify.success(t('chat.markedUnread'));
+    } catch (err) {
+      notify.error(err?.message || t('chat.markUnreadError'));
+    }
+  }, [messageSurfaceContext, onChannelMarkedUnread, notify, t]);
+
+  const handleForwardFromSheet = useCallback(
+    (msg) => {
+      const snippet =
+        msg.type === 'text'
+          ? (msg.content || '').slice(0, 800)
+          : (msg.caption || '').slice(0, 800);
+      const url = buildMessagePermalink(messageSurfaceContext, msg);
+      const block = [snippet && snippet.trim(), url && url.trim()].filter(Boolean).join('\n\n');
+      const text = block || url || snippet || String(msg.id);
+      if (typeof navigator !== 'undefined' && navigator.share && text) {
+        navigator.share({ text }).catch(() => {
+          navigator.clipboard?.writeText(text).then(() => notify.success(t('common.copied'))).catch(() => notify.error(t('common.copyFailed')));
+        });
+      } else {
+        navigator.clipboard?.writeText(text).then(() => notify.success(t('common.copied'))).catch(() => notify.error(t('common.copyFailed')));
+      }
+    },
+    [messageSurfaceContext, notify, t]
+  );
+
+  const handleCopyMessageLink = useCallback(
+    async (msg) => {
+      const url = buildMessagePermalink(messageSurfaceContext, msg);
+      if (!url) {
+        notify.error(t('chat.copyLinkUnavailable'));
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(url);
+        notify.success(t('common.copied'));
+      } catch {
+        notify.error(t('common.copyFailed'));
+      }
+    },
+    [messageSurfaceContext, notify, t]
+  );
+
+  const handleCopyMessageIdSheet = useCallback(
+    async (msg) => {
+      try {
+        await navigator.clipboard.writeText(String(msg.id));
+        notify.success(t('common.copied'));
+      } catch {
+        notify.error(t('common.copyFailed'));
+      }
+    },
+    [notify, t]
+  );
+
+  const mobileSheetOpenEmojiPicker = useCallback(() => {
+    const m = mobileActionSheetMsg;
+    if (!m || !onAddReaction) return;
+    setReactionPicker({ x: typeof window !== 'undefined' ? window.innerWidth / 2 : 0, y: 96, msg: m });
+  }, [mobileActionSheetMsg, onAddReaction]);
+
+  const handleInsertMentionFromSheet = useCallback(
+    (_msg, username) => {
+      if (!username) return;
+      messageInputRef?.current?.insertPlainText?.(`@${username} `);
+      messageInputRef?.current?.focus?.();
+    },
+    [messageInputRef]
+  );
 
   const handleMentionClick = useCallback((userOrUsername, e) => {
     const pos = { x: e.clientX, y: e.clientY };
@@ -2739,6 +2942,9 @@ const MessageList = memo(forwardRef(function MessageList({
                         onReveal={() => handleRevealBlockedMessage(msg.id)}
                         onRetryFailedMessage={onRetryFailedMessage}
                         isSelected={selectedMessageId === msg.id}
+                        compactTouchUi={compactTouchUi}
+                        onToggleSelect={handleToggleMessageSelect}
+                        onMobileLongPress={compactTouchUi ? handleMobileLongPressOpen : null}
                         serverRoleBadges={roles && memberRolesMap && msg.sender?.id ? (roles.filter(r => (memberRolesMap[msg.sender.id] || []).includes(r.id)).map(r => ({ name: r.name, color: r.color }))) : null}
                         serverTeamRole={members && msg.sender?.id ? (members.find(m => m.id == msg.sender.id))?.role : null}
                         reduceMotion={!!settings?.reduce_motion}
@@ -2816,6 +3022,9 @@ const MessageList = memo(forwardRef(function MessageList({
                         onReveal={() => handleRevealBlockedMessage(msg.id)}
                         onRetryFailedMessage={onRetryFailedMessage}
                         isSelected={selectedMessageId === msg.id}
+                        compactTouchUi={compactTouchUi}
+                        onToggleSelect={handleToggleMessageSelect}
+                        onMobileLongPress={compactTouchUi ? handleMobileLongPressOpen : null}
                         serverRoleBadges={roles && memberRolesMap && msg.sender?.id ? (roles.filter(r => (memberRolesMap[msg.sender.id] || []).includes(r.id)).map(r => ({ name: r.name, color: r.color }))) : null}
                         serverTeamRole={members && msg.sender?.id ? (members.find(m => m.id == msg.sender.id))?.role : null}
                         reduceMotion={!!settings?.reduce_motion}
@@ -2838,6 +3047,38 @@ const MessageList = memo(forwardRef(function MessageList({
             <span className="jump-to-bottom-badge">{newMessagesBelow > 99 ? '99+' : newMessagesBelow}</span>
           )}
         </button>
+      )}
+      {compactTouchUi && mobileActionSheetMsg && (
+        <MessageMobileActionSheet
+          msg={mobileActionSheetMsg}
+          isOwn={String(mobileActionSheetMsg.sender_id) === String(currentUserId)}
+          currentUserId={currentUserId}
+          reactions={messageReactions[mobileActionSheetMsg.id] || EMPTY_REACTIONS}
+          messageSurface={messageSurfaceContext}
+          onClose={closeMobileActionSheet}
+          onReply={onReply}
+          onForward={handleForwardFromSheet}
+          onCopyText={handleCopy}
+          onMarkUnread={messageSurfaceContext ? handleMarkUnreadFromSheet : null}
+          onOpenEmojiPicker={onAddReaction ? mobileSheetOpenEmojiPicker : null}
+          onMessageUser={onOpenDmFromMessage || undefined}
+          onInsertMention={messageInputRef ? handleInsertMentionFromSheet : null}
+          onCopyMessageLink={messageSurfaceContext ? handleCopyMessageLink : null}
+          onCopyMessageId={handleCopyMessageIdSheet}
+          onReport={handleReport}
+          onEdit={handleStartEdit}
+          onDelete={
+            onDeleteForAll && (isDM || String(mobileActionSheetMsg.sender_id) === String(currentUserId))
+              ? (m) => onDeleteForAll(m, false)
+              : null
+          }
+          onPin={onPin}
+          onUnpin={onUnpin}
+          isPinned={pinnedIdsSet.has(mobileActionSheetMsg.id)}
+          onViewAllReactions={handleViewReactions}
+          onToggleReaction={handleToggleReaction}
+          t={t}
+        />
       )}
       {contextMenu && (
         <MessageMenu

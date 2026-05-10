@@ -1,18 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import AuthShell from '../components/AuthShell';
 import './Legal.css';
 
 export default function TermsOfService() {
   return (
-    <div className="legal-page">
-      <header className="legal-topbar">
-        <div className="legal-topbar-brand">
-          <span className="legal-topbar-title">Slide — Terms of Service</span>
-        </div>
-        <Link to="/" className="legal-back-link">Back to Home</Link>
-      </header>
-
-      <article className="legal-document">
+    <AuthShell
+      variant="legal"
+      legalTitle="Slide — Terms of Service"
+    >
+      <div className="legal-page legal-page--in-shell">
+        <article className="legal-document">
         <div className="legal-document-header">
           <h1>Terms of Service</h1>
           <p className="legal-updated">Last updated: February 25, 2025</p>
@@ -367,6 +365,7 @@ export default function TermsOfService() {
           <Link to="/" className="legal-back-link">Back to Home</Link>
         </footer>
       </article>
-    </div>
+      </div>
+    </AuthShell>
   );
 }

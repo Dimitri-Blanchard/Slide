@@ -155,12 +155,14 @@ const ContextMenu = memo(function ContextMenu({ x, y, items, onClose, onHoverFly
     };
 
     document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('pointerdown', handleClickOutside, { capture: true });
     document.addEventListener('keydown', handleEscape);
     document.addEventListener('scroll', onClose, true);
     window.addEventListener('resize', onClose);
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('pointerdown', handleClickOutside, { capture: true });
       document.removeEventListener('keydown', handleEscape);
       document.removeEventListener('scroll', onClose, true);
       window.removeEventListener('resize', onClose);

@@ -4,6 +4,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { auth } from '../api';
 import { validatePassword } from '../utils/security';
+import AuthShell from '../components/AuthShell';
 import './Auth.css';
 
 export default function ResetPassword() {
@@ -58,7 +59,7 @@ export default function ResetPassword() {
 
   if (success) {
     return (
-      <div className="auth-page">
+      <AuthShell>
         <div className="auth-card auth-card-success">
           <div className="auth-success-content">
             <div className="auth-success-icon" aria-hidden>
@@ -72,13 +73,13 @@ export default function ResetPassword() {
             <p className="auth-success-sub">{t('auth.redirectToApp')}</p>
           </div>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   if (!tokenFromUrl && !token) {
     return (
-      <div className="auth-page">
+      <AuthShell>
         <div className="auth-card">
           <div className="auth-brand">
             <img src="/logo.png" alt="Slide" className="auth-logo" />
@@ -94,12 +95,12 @@ export default function ResetPassword() {
             <Link to="/login">{t('auth.backToLogin')}</Link>
           </div>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="auth-page">
+    <AuthShell>
       <div className="auth-card">
         <div className="auth-brand">
           <img src="/logo.png" alt="Slide" className="auth-logo" />
@@ -148,6 +149,6 @@ export default function ResetPassword() {
           </div>
         </form>
       </div>
-    </div>
+    </AuthShell>
   );
 }

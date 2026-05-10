@@ -7,8 +7,10 @@ android {
         applicationId "com.slide.messenger"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // Bumped on every release/debug rebuild — Android refuses to "update"
+        // an installed APK if the new versionCode is <= the existing one.
+        versionCode 2
+        versionName "1.0.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -17,6 +19,13 @@ android {
         }
     }
     buildTypes {
+        debug {
+            // Side-by-side install with release builds: avoids "package conflicts
+            // with an existing package" when a release APK (signed with a different
+            // key) is already installed. Debug builds appear as "Slide (debug)".
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

@@ -1,18 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import AuthShell from '../components/AuthShell';
 import './Legal.css';
 
 export default function PrivacyPolicy() {
   return (
-    <div className="legal-page">
-      <header className="legal-topbar">
-        <div className="legal-topbar-brand">
-          <span className="legal-topbar-title">Slide — Privacy Policy</span>
-        </div>
-        <Link to="/" className="legal-back-link">Back to Home</Link>
-      </header>
-
-      <article className="legal-document">
+    <AuthShell
+      variant="legal"
+      legalTitle="Slide — Privacy Policy"
+    >
+      <div className="legal-page legal-page--in-shell">
+        <article className="legal-document">
         <div className="legal-document-header">
           <h1>Privacy Policy</h1>
           <p className="legal-updated">Last updated: February 27, 2026</p>
@@ -417,6 +415,7 @@ export default function PrivacyPolicy() {
           <Link to="/" className="legal-back-link">Back to Home</Link>
         </footer>
       </article>
-    </div>
+      </div>
+    </AuthShell>
   );
 }

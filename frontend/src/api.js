@@ -1,4 +1,4 @@
-const FIXED_BACKEND_ORIGIN = 'http://192.168.1.33:3000';
+const FIXED_BACKEND_ORIGIN = 'https://api.sl1de.xyz';
 const PUBLIC_BACKEND_ORIGIN = 'https://api.sl1de.xyz';
 const IS_ELECTRON = typeof window !== 'undefined' && !!window.electron?.isElectron;
 const IS_CAPACITOR = typeof window !== 'undefined' && !!window.Capacitor?.isNativePlatform?.();
@@ -10,10 +10,17 @@ const ELECTRON_BACKEND_ORIGIN = IS_ELECTRON
   ? (typeof window !== 'undefined' ? window.location.origin : 'https://api.sl1de.xyz')
   : 'https://api.sl1de.xyz';
 const ELECTRON_API_BASE = IS_ELECTRON ? '/api' : `${ELECTRON_BACKEND_ORIGIN}/api`;
-const WEB_BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_ORIGIN
+// Trim env values: GitHub Actions interpolates unset `vars.*` to "" — that
+// empty string was overriding .env.production via process.env, leaving the
+// browser to call sl1de.xyz/api/* (GitHub Pages, no backend → 405).
+const _WEB_BACKEND_ORIGIN_ENV = (import.meta.env.VITE_BACKEND_ORIGIN || '').trim();
+const _WEB_API_BASE_ENV = (import.meta.env.VITE_API_BASE_URL || '').trim();
+const WEB_BACKEND_ORIGIN = _WEB_BACKEND_ORIGIN_ENV
   || (typeof window !== 'undefined' ? window.location.origin : FIXED_BACKEND_ORIGIN);
-const WEB_API_BASE = import.meta.env.VITE_API_BASE_URL
-  || '/api';
+// Hard-coded absolute fallback so the web build can never accidentally point
+// at the static host (sl1de.xyz on GitHub Pages serves no backend).
+const WEB_API_BASE = _WEB_API_BASE_ENV
+  || `${PUBLIC_BACKEND_ORIGIN}/api`;
 const BACKEND_ORIGIN = IS_ELECTRON
   ? ELECTRON_BACKEND_ORIGIN
   : (IS_NATIVE_RUNTIME ? FIXED_BACKEND_ORIGIN : WEB_BACKEND_ORIGIN);
@@ -347,22 +354,17 @@ export async function api(endpoint, options = {}) {
         try {
           res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers, signal: controller.signal });
         } catch (fetchErr) {
-          if (fetchErr.name === 'AbortError') {
-            apiAuthLog('warn', `request timeout/aborted: ${endpoint}`, {
-              endpoint,
-              attempt: attempt + 1,
-              fixHint: 'Server not reachable or slow. Check API_BASE, CORS, network, backend health.',
-            });
-            const err = new Error('Impossible de joindre le serveur. Vérifiez votre connexion.');
-            err.isNetworkError = true;
-            throw err;
-          }
-          apiAuthLog('warn', `fetch error: ${endpoint}`, {
+          const isAbort = fetchErr?.name === 'AbortError';
+          apiAuthLog('warn', isAbort ? `request timeout/aborted: ${endpoint}` : `fetch error: ${endpoint}`, {
             endpoint,
+            attempt: attempt + 1,
+            apiBase: API_BASE,
             error: fetchErr?.message || String(fetchErr),
-            fixHint: 'Network error, CORS, or server down. Check browser console Network tab.',
+            fixHint: 'Network error, CORS, TLS, or server down. Check backend health and CORS for Capacitor origin.',
           });
-          throw fetchErr;
+          const err = new Error('Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.');
+          err.isNetworkError = true;
+          throw err;
         } finally {
           clearTimeout(timeoutId);
         }
@@ -591,6 +593,11 @@ export const teams = {
   // Mark a channel as read (for notification badges)
   markChannelRead: (teamId, channelId) =>
     api(`/teams/${teamId}/channels/${channelId}/read`, { method: 'POST' }),
+  markChannelUnread: (teamId, channelId, messageId) =>
+    api(`/teams/${teamId}/channels/${channelId}/mark-unread`, {
+      method: 'POST',
+      body: JSON.stringify({ messageId }),
+    }),
   // Get unread counts for a team
   getUnread: (teamId) => api(`/teams/${teamId}/unread`),
   // Delete a server (owner only)
@@ -862,6 +869,11 @@ export const direct = {
     api(`/direct/conversations/${conversationId}/read`, {
       method: 'POST',
       body: JSON.stringify({ lastMessageId }),
+    }),
+  markUnread: (conversationId, messageId) =>
+    api(`/direct/conversations/${conversationId}/mark-unread`, {
+      method: 'POST',
+      body: JSON.stringify({ messageId }),
     }),
   getReads: (conversationId) =>
     api(`/direct/conversations/${conversationId}/reads`),

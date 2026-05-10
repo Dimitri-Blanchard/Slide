@@ -504,7 +504,7 @@ export default function LandingPage() {
   useConversionTracking();
 
   return (
-    <div className="landing-page">
+    <div className="landing-page" data-theme="dark">
       <div className="noise-overlay" aria-hidden />
       <Header />
       <main>
