@@ -15,12 +15,13 @@ const ELECTRON_API_BASE = IS_ELECTRON ? '/api' : `${ELECTRON_BACKEND_ORIGIN}/api
 // browser to call sl1de.xyz/api/* (GitHub Pages, no backend → 405).
 const _WEB_BACKEND_ORIGIN_ENV = (import.meta.env.VITE_BACKEND_ORIGIN || '').trim();
 const _WEB_API_BASE_ENV = (import.meta.env.VITE_API_BASE_URL || '').trim();
-const WEB_BACKEND_ORIGIN = _WEB_BACKEND_ORIGIN_ENV
-  || (typeof window !== 'undefined' ? window.location.origin : FIXED_BACKEND_ORIGIN);
 // Hard-coded absolute fallback so the web build can never accidentally point
-// at the static host (sl1de.xyz on GitHub Pages serves no backend).
-const WEB_API_BASE = _WEB_API_BASE_ENV
-  || `${PUBLIC_BACKEND_ORIGIN}/api`;
+// at the static host (sl1de.xyz on GitHub Pages serves no backend, and there
+// is no reverse proxy to api.sl1de.xyz). window.location.origin is NOT a
+// safe fallback because GH Pages would then receive WebSocket / static asset
+// requests and return 404. Only honour an explicit env override.
+const WEB_BACKEND_ORIGIN = _WEB_BACKEND_ORIGIN_ENV || PUBLIC_BACKEND_ORIGIN;
+const WEB_API_BASE = _WEB_API_BASE_ENV || `${PUBLIC_BACKEND_ORIGIN}/api`;
 const BACKEND_ORIGIN = IS_ELECTRON
   ? ELECTRON_BACKEND_ORIGIN
   : (IS_NATIVE_RUNTIME ? FIXED_BACKEND_ORIGIN : WEB_BACKEND_ORIGIN);
