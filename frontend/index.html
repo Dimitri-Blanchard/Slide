@@ -2,6 +2,51 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
+    <!-- index.html cache hint (browsers honor this only when the server doesn't
+         set its own Cache-Control; GH Pages does, but it doesn't hurt). The
+         actual fix for stale-deploy 404s is the script just below. -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <!-- Stale-deploy guard ─────────────────────────────────────────────────
+         Hashed JS/CSS filenames change every build. If the browser is
+         serving an old index.html from disk cache, it will request asset
+         hashes that no longer exist on the server (→ 404). Detect that and
+         force a single hard reload (?_v=timestamp bypasses cache once),
+         then bail if the reload also fails (avoid infinite loops). -->
+    <script>
+      (function () {
+        var reloaded = sessionStorage.getItem('__slide_reloaded_after_404');
+        function isAssetUrl(url) {
+          return typeof url === 'string' && /\/assets\/[^/]+\.(js|css|mjs)(\?|$)/.test(url);
+        }
+        function tryReload() {
+          if (reloaded) return; // already retried this session, give up
+          sessionStorage.setItem('__slide_reloaded_after_404', '1');
+          var u = new URL(window.location.href);
+          u.searchParams.set('_v', Date.now().toString());
+          window.location.replace(u.toString());
+        }
+        // Catch <link rel="stylesheet"> / <script src="..."> 404s (capture phase)
+        window.addEventListener('error', function (e) {
+          var t = e.target;
+          if (!t || t === window) return;
+          var src = t.src || t.href;
+          if (isAssetUrl(src)) tryReload();
+        }, true);
+        // Catch fetch failures for JS chunks loaded via dynamic import
+        window.addEventListener('unhandledrejection', function (e) {
+          var msg = e.reason && (e.reason.message || String(e.reason));
+          if (msg && /Failed to fetch dynamically imported module|Loading chunk \S+ failed|Importing a module script failed/i.test(msg)) {
+            tryReload();
+          }
+        });
+        // Clear the retry flag once everything has actually loaded for ~5s
+        window.addEventListener('load', function () {
+          setTimeout(function () { sessionStorage.removeItem('__slide_reloaded_after_404'); }, 5000);
+        });
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#1a1a2e" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#4f6ef7" media="(prefers-color-scheme: light)" />
