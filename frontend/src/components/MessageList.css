@@ -5,10 +5,20 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  /* On mobile we disable overflow-anchor (see html.platform-mobile rule below)
+     to avoid the browser anchor-scrolling animation when the visual viewport
+     resizes (keyboard show/hide). Desktop keeps it for normal long-page reads. */
   overflow-anchor: auto;
   display: flex;
   flex-direction: column;
   padding-bottom: 8px;
+}
+
+/* Hide the list until the JS scroll-to-bottom has positioned it on first
+   mount or after switching conversations. Avoids the visible jump from
+   "messages at top" → "messages at bottom" that produced a flash. */
+.message-list:not([data-scroll-ready]) {
+  visibility: hidden;
 }
 
 

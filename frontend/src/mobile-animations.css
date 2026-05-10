@@ -292,7 +292,35 @@ html.platform-mobile [class*="bottom-sheet"] {
    ─────────────────────────────────────────────────────────────────────────── */
 
 /* ───────────────────────────────────────────────────────────────────────────
-   12. REDUCED MOTION — respect OS-level setting
+   12. KEYBOARD / VIRTUAL VIEWPORT — kill anchor-scroll lag on mobile
+   When the soft keyboard hides on Android, the WebView's visual viewport
+   grows back. With `overflow-anchor: auto` (default), Chromium tries to keep
+   a previously-visible message anchored, which produces a visible "scrolling
+   back down" animation that takes ~250ms and is what the user perceives as
+   the messages sluggishly returning to position. We disable anchoring on
+   mobile message lists so the scroll position changes are 1-frame, snappy.
+
+   Also kill any scroll-behavior:smooth that would compound with the resize.
+   ─────────────────────────────────────────────────────────────────────────── */
+html.platform-mobile .message-list,
+html.platform-mobile [class*="message-list"] {
+  overflow-anchor: none;
+  scroll-behavior: auto;
+  /* Tell the compositor this surface owns scroll — fewer paints during resize */
+  contain: layout paint;
+}
+
+/* When the keyboard is hiding (class set by main.jsx Keyboard listener),
+   freeze any layout transitions for one frame so the resize is one snap. */
+html.platform-mobile.kb-hiding *,
+html.platform-mobile.kb-hiding *::before,
+html.platform-mobile.kb-hiding *::after {
+  transition: none !important;
+  animation-duration: 0ms !important;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   13. REDUCED MOTION — respect OS-level setting
    ─────────────────────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   html.platform-mobile *,

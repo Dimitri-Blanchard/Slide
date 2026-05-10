@@ -2182,19 +2182,37 @@ const MessageList = memo(forwardRef(function MessageList({
     return scrollHeight - scrollTop - clientHeight < 50;
   }, []);
 
-  // Scroll to bottom on initial load and when switching conversations — instant, no animation
+  // Scroll to bottom on initial load and when switching conversations.
+  // Strategy: SYNC scroll in useLayoutEffect (runs before browser paint) so
+  // the first frame the user sees is already at the bottom — no flash.
+  // Then a deferred rAF pass corrects the virtualizer when DOM measurements
+  // were not yet final on first scroll. CSS hides the list while
+  // data-scroll-ready is absent, masking any residual position jump.
   useLayoutEffect(() => {
     if (isInitialMount.current && messages.length > 0) {
-      // Defer scroll to next frame so virtualizer/DOM layout is ready
+      const el = containerRef.current;
+      if (el) {
+        // Hide first (in case a previous render left it ready), sync-scroll, then
+        // a deferred pass + reveal once virtualizer has finalized layout.
+        delete el.dataset.scrollReady;
+        el.scrollTop = el.scrollHeight;
+      }
       const id = requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           scrollToBottom(true);
+          if (containerRef.current) {
+            containerRef.current.dataset.scrollReady = '1';
+          }
         });
       });
       isInitialMount.current = false;
       prevMessagesLengthRef.current = messages.length;
       lastMessageIdRef.current = messages[messages.length - 1]?.id;
       return () => cancelAnimationFrame(id);
+    }
+    // Already mounted (subsequent renders) or empty conv: ensure the list is visible.
+    if (containerRef.current && !containerRef.current.dataset.scrollReady) {
+      containerRef.current.dataset.scrollReady = '1';
     }
   }, [messages.length, firstMsgId, scrollToBottom]);
 

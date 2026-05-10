@@ -93,6 +93,27 @@ if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform()) {
   });
   import('@capacitor/keyboard').then(({ Keyboard }) => {
     Keyboard.setResizeMode?.({ mode: 'body' }).catch(() => {});
+    // Force a synchronous viewport metric pass on keyboard show/hide instead
+    // of waiting for the visualViewport rAF. Combined with the `kb-hiding`
+    // class (mobile-animations.css disables transitions while it's set),
+    // this collapses the lag between keyboard slide-down and the message
+    // list snapping back into position.
+    const root = document.documentElement;
+    Keyboard.addListener?.('keyboardWillHide', () => {
+      root.classList.add('kb-hiding');
+      updateViewportMetrics();
+    }).catch(() => {});
+    Keyboard.addListener?.('keyboardDidHide', () => {
+      updateViewportMetrics();
+      // Drop the freeze on the next frame so post-keyboard interactions can animate again
+      requestAnimationFrame(() => root.classList.remove('kb-hiding'));
+    }).catch(() => {});
+    Keyboard.addListener?.('keyboardWillShow', () => {
+      updateViewportMetrics();
+    }).catch(() => {});
+    Keyboard.addListener?.('keyboardDidShow', () => {
+      updateViewportMetrics();
+    }).catch(() => {});
   });
   import('@capacitor/app').then(({ App: CapApp }) => {
     CapApp.addListener('backButton', ({ canGoBack }) => {
