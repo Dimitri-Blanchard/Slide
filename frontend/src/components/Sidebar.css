@@ -234,6 +234,8 @@
   font-weight: 500;
   text-decoration: none;
   position: relative;
+  /* Smooth bg/color so the hover doesn't flash on touch */
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .dm-item:hover {

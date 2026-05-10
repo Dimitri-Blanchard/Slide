@@ -28,8 +28,19 @@
   max-width: 400px;
   border-radius: 10px;
   overflow: hidden;
+  /* Same left-stripe pattern as InviteLinkPreview so embedded blocks
+     read as one consistent design language across the chat surface.
+     Subtle by default; iframe-based embeds (Spotify/YouTube) override
+     border-left below to use their brand colour. */
   border: 1px solid var(--border-subtle);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
+  border-left: 4px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.link-embed:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-default);
 }
 
 /* Dismiss — plain cross, top-right outside the embed box; visible on message hover / selected */
@@ -86,22 +97,25 @@
   outline-offset: 1px;
 }
 
-/* Whitelist embeds (Spotify, YouTube, SoundCloud, Vimeo) */
+/* Whitelist embeds (Spotify, YouTube, SoundCloud, Vimeo) — brand-coloured stripes */
 .link-embed--spotify {
   background: #181818;
   border-color: rgba(255, 255, 255, 0.1);
+  border-left-color: #1db954; /* Spotify green */
 }
 
 .link-embed--youtube {
   max-width: none;
   width: 100%;
   background: #0f0f0f;
+  border-left-color: #ff0033; /* YouTube red */
 }
 
 .link-embed--image {
   max-width: none;
   width: 100%;
   background: #0b0d10;
+  /* Plain image previews keep the neutral accent stripe */
 }
 
 .link-embed__image {
@@ -153,13 +167,13 @@
 }
 
 .link-embed--soundcloud {
-  background: #f50;
-  border-color: #f50;
+  background: var(--bg-secondary);
+  border-left-color: #f50; /* SoundCloud orange — stripe only, body stays neutral */
 }
 
 .link-embed--vimeo {
-  background: #1ab7ea;
-  border-color: #1ab7ea;
+  background: var(--bg-secondary);
+  border-left-color: #1ab7ea; /* Vimeo cyan */
 }
 
 .link-embed iframe {
@@ -185,18 +199,19 @@
   color: var(--text-link);
 }
 
-/* Embed par défaut — carte générique */
+/* Generic default link card. The accent stripe lives on .link-embed itself
+   now (border-left), so we no longer need the fake gradient that drew a
+   stripe inside the padding — that always rendered slightly off from the
+   border, so the card looked "messy" on hover. */
 .link-embed--default {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--accent, #5865f2) 14%, transparent 86%) 0, transparent 9px),
-    var(--bg-secondary);
+  background: var(--bg-secondary);
   text-decoration: none;
   color: inherit;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .link-embed--default:hover {
