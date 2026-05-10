@@ -1,8 +1,6 @@
 # Slide
 
-A self-hostable team and community chat: servers, channels, DMs, and voice.
-
-The project is under active development. It is fine for small groups and friends; run larger deployments only after your own testing and hardening.
+The project is under active development. It works well for small groups and friends, although it is not yet able to support large servers.
 
 ## Quick start (development)
 
