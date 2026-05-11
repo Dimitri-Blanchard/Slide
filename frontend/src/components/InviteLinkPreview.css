@@ -215,24 +215,46 @@
   opacity: 0.9;
 }
 
-.invite-embed__dead-body {
+/* Ghost icon placeholder for invalid/expired embeds */
+.invite-embed__icon--ghost {
+  background: var(--bg-hover);
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px 14px;
+  justify-content: center;
+  color: var(--text-muted);
+  opacity: 0.7;
 }
 
-.invite-embed__dead-icon {
-  flex-shrink: 0;
-  color: var(--text-muted);
-  opacity: 0.6;
-  display: flex;
+/* Muted name for invalid/expired */
+.invite-embed__name--ghost {
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
-.invite-embed__dead-text {
+.invite-embed__name--ghost:hover {
+  text-decoration: none;
+  cursor: default;
+}
+
+/* Descriptive sub-text that can wrap */
+.invite-embed__meta-item--ghost {
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: 0.775rem;
+  white-space: normal;
   line-height: 1.4;
+}
+
+/* Disabled button for dead state */
+.invite-embed__btn--dead {
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.invite-embed__btn--dead:hover {
+  background: var(--bg-hover);
 }
 
 /* ─── Already Member Button ─── */

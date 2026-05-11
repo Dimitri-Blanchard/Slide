@@ -32,11 +32,11 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
   const [joining, setJoining] = useState(false);
   const [joined, setJoined] = useState(false);
   const [copied, setCopied] = useState(false);
-  
+
   const { user } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
-  
+
   const code = extractInviteCode(url);
 
   const [isExpired, setIsExpired] = useState(false);
@@ -79,7 +79,7 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
       })
       .finally(() => setLoading(false));
   }, [code]);
-  
+
   const handleJoin = useCallback(async (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -88,14 +88,14 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
       navigate(`/team/${inviteInfo.team.id}`);
       return;
     }
-    
+
     if (!user) {
       navigate(`/login?redirect=/invite/${code}`);
       return;
     }
-    
+
     if (!code || joining) return;
-    
+
     setJoining(true);
     try {
       const result = await servers.joinWithInvite(code);
@@ -104,9 +104,9 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
       if (inviteCache.has(code)) {
         inviteCache.set(code, { ...inviteCache.get(code), is_member: true });
       }
-      
+
       localStorage.removeItem('slide_teams_cache');
-      
+
       if (onJoined) {
         onJoined(result.team_id, inviteInfo?.team);
       } else {
@@ -138,9 +138,9 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return `${months[date.getMonth()]} ${date.getFullYear()}`;
   }, [inviteInfo?.team?.created_at]);
-  
+
   if (!code) return null;
-  
+
   if (loading) {
     return (
       <div className="invite-embed invite-embed--loading">
@@ -148,7 +148,7 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
       </div>
     );
   }
-  
+
   if (error) {
     const inviteUrl = url.startsWith('http') ? url : `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;
     return (
@@ -156,27 +156,41 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
         <div className="invite-embed__header invite-embed__header--dead">
           {isExpired ? 'Invitation expirée' : t('invite.invalid') || 'Invitation invalide'}
         </div>
-        <div className="invite-embed__dead-body">
-          <div className="invite-embed__dead-icon">
+
+        <div className="invite-embed__server">
+          <div className="invite-embed__icon invite-embed__icon--ghost">
             {isExpired ? (
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10"/>
                 <polyline points="12 6 12 12 16 14"/>
               </svg>
             ) : (
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10"/>
                 <line x1="15" y1="9" x2="9" y2="15"/>
                 <line x1="9" y1="9" x2="15" y2="15"/>
               </svg>
             )}
           </div>
-          <div className="invite-embed__dead-text">
-            {isExpired
-              ? 'Ce lien a expiré. Demande un nouveau lien.'
-              : 'Ce lien d\'invitation est invalide.'}
+
+          <div className="invite-embed__details">
+            <div className="invite-embed__name invite-embed__name--ghost">
+              {isExpired ? 'Ce lien a expiré' : 'Lien invalide'}
+            </div>
+            <div className="invite-embed__meta">
+              <span className="invite-embed__meta-item invite-embed__meta-item--ghost">
+                {isExpired
+                  ? 'Demande un nouveau lien à un membre du serveur.'
+                  : "Ce lien d'invitation n'existe pas ou a été révoqué."}
+              </span>
+            </div>
           </div>
+
+          <button className="invite-embed__btn invite-embed__btn--dead" disabled>
+            {isExpired ? 'Expiré' : 'Invalide'}
+          </button>
         </div>
+
         <div className="invite-embed__link-row">
           <span className="invite-embed__link-url">{inviteUrl}</span>
           <button className="invite-embed__link-copy" onClick={handleCopyLink}>
@@ -195,11 +209,11 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
       </div>
     );
   }
-  
+
   if (!inviteInfo) return null;
-  
+
   const team = inviteInfo.team;
-  
+
   const inviteUrl = url.startsWith('http') ? url : `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;
 
   return (
@@ -220,10 +234,10 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
             </span>
           )}
         </div>
-        
+
         <div className="invite-embed__details">
           <div className="invite-embed__name">{team.name}</div>
-          
+
           <div className="invite-embed__meta">
             <span className="invite-embed__meta-item">
               <span className="invite-embed__dot invite-embed__dot--online" />
@@ -243,7 +257,7 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
           )}
         </div>
 
-        <button 
+        <button
           className={`invite-embed__btn ${isMember ? 'invite-embed__btn--member' : ''}`}
           onClick={handleJoin}
           disabled={joining}
