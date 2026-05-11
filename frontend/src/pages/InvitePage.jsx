@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { XCircle } from 'lucide-react';
+import { XCircle, Clock } from 'lucide-react';
 import { AvatarImg } from '../components/Avatar';
 import { servers, invalidateCache } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import AuthShell from '../components/AuthShell';
 import './InvitePage.css';
 
 export default function InvitePage() {
@@ -16,29 +17,34 @@ export default function InvitePage() {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState('');
+  const [isExpired, setIsExpired] = useState(false);
 
   useEffect(() => {
     if (!code) return;
-    
+
     setLoading(true);
     setError('');
-    
+    setIsExpired(false);
+
     servers.getInviteInfo(code)
       .then(setInviteInfo)
-      .catch(err => setError(err.message || 'Invitation invalide ou expirée'))
+      .catch(err => {
+        const msg = err.message || '';
+        setIsExpired(/expir/i.test(msg));
+        setError(msg || t('invite.invalid'));
+      })
       .finally(() => setLoading(false));
-  }, [code]);
+  }, [code, t]);
 
   const handleJoin = async () => {
     if (!user) {
-      // Redirect to login with return URL
       navigate(`/login?redirect=/invite/${code}`);
       return;
     }
 
     setJoining(true);
     setError('');
-    
+
     try {
       const result = await servers.joinWithInvite(code);
       invalidateCache('/teams');
@@ -52,37 +58,44 @@ export default function InvitePage() {
 
   if (loading) {
     return (
-      <div className="invite-page">
-        <div className="invite-card loading">
-          <div className="loading-spinner" />
-          <p>Vérification de l'invitation...</p>
+      <AuthShell>
+        <div className="invite-card invite-card--loading">
+          <div className="invite-spinner" />
+          <p className="invite-loading-text">Vérification de l'invitation…</p>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   if (error) {
     return (
-      <div className="invite-page">
-        <div className="invite-card error">
-          <div className="error-icon"><XCircle size={48} strokeWidth={1.5} /></div>
-          <h2>Invitation invalide</h2>
-          <p>{error}</p>
-          <Link to="/" className="back-link">Retour à l'accueil</Link>
+      <AuthShell>
+        <div className="invite-card invite-card--error">
+          <div className="invite-error-icon">
+            {isExpired ? <Clock size={48} strokeWidth={1.5} /> : <XCircle size={48} strokeWidth={1.5} />}
+          </div>
+          <h2 className="invite-error-title">
+            {isExpired ? 'Ce lien a expiré' : 'Lien invalide'}
+          </h2>
+          <p className="invite-error-body">
+            {isExpired
+              ? 'Ce lien d\'invitation n\'est plus valide. Demande un nouveau lien à quelqu\'un du serveur.'
+              : error}
+          </p>
+          <Link to="/" className="invite-home-btn">Retour à l'accueil</Link>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="invite-page">
+    <AuthShell>
       <div className="invite-card">
-        <p className="invite-label">Vous avez été invité à rejoindre</p>
-        
+        <p className="invite-label">{t('invite.youAreInvited')}</p>
+
         <div className="server-preview">
-          {/* Banner */}
           {inviteInfo?.team?.banner_url && (
-            <div 
+            <div
               className="server-banner"
               style={{ backgroundImage: `url(${inviteInfo.team.banner_url})` }}
             />
@@ -97,12 +110,12 @@ export default function InvitePage() {
           <h1 className="server-name">{inviteInfo?.team?.name}</h1>
           <div className="server-stats">
             <span className="stat">
-              <span className="stat-dot online" />
-              {inviteInfo?.team?.online_count || 0} En ligne
+              <span className="stat-dot stat-dot--online" />
+              {inviteInfo?.team?.online_count || 0} {t('invite.online')}
             </span>
             <span className="stat">
               <span className="stat-dot" />
-              {inviteInfo?.team?.member_count || 0} Membre{(inviteInfo?.team?.member_count || 0) !== 1 ? 's' : ''}
+              {inviteInfo?.team?.member_count || 0} {t('invite.members')}
             </span>
           </div>
         </div>
@@ -113,25 +126,23 @@ export default function InvitePage() {
           </p>
         )}
 
-        <button 
+        {error && <div className="invite-inline-error">{error}</div>}
+
+        <button
           className="accept-btn"
           onClick={handleJoin}
           disabled={joining}
         >
-          {joining ? 'Connexion...' : user ? 'Accepter l\'invitation' : 'Se connecter pour accepter'}
+          {joining ? 'Connexion…' : user ? t('invite.join') : 'Se connecter pour accepter'}
         </button>
 
         {!user && (
           <p className="login-hint">
-            Pas encore de compte ? <Link to={`/register?redirect=/invite/${code}`}>S'inscrire</Link>
+            Pas encore de compte ?{' '}
+            <Link to={`/register?redirect=/invite/${code}`}>S'inscrire</Link>
           </p>
         )}
-        <div className="invite-footer-links">
-          <Link to="/privacy">{t('legal.privacyLink')}</Link>
-          <span className="invite-footer-sep">·</span>
-          <Link to="/terms">{t('legal.termsLink')}</Link>
-        </div>
       </div>
-    </div>
+    </AuthShell>
   );
 }
