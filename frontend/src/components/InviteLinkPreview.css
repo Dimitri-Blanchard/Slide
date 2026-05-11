@@ -204,23 +204,35 @@
   animation: invite-embed-spin 0.8s linear infinite;
 }
 
-/* ─── Error State ─── */
+/* ─── Expired / Invalid State ─── */
 
-.invite-embed--error {
+.invite-embed--dead {
+  opacity: 0.85;
+}
+
+.invite-embed__header--dead {
+  color: var(--error, #ed4245);
+  opacity: 0.9;
+}
+
+.invite-embed__dead-body {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 16px;
+  gap: 12px;
+  padding: 12px 16px 14px;
 }
 
-.invite-embed__error-icon {
-  color: var(--error);
+.invite-embed__dead-icon {
   flex-shrink: 0;
+  color: var(--text-muted);
+  opacity: 0.6;
+  display: flex;
 }
 
-.invite-embed__error-text {
+.invite-embed__dead-text {
   color: var(--text-muted);
   font-size: 0.875rem;
+  line-height: 1.4;
 }
 
 /* ─── Already Member Button ─── */

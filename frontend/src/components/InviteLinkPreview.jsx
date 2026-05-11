@@ -39,31 +39,43 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
   
   const code = extractInviteCode(url);
 
+  const [isExpired, setIsExpired] = useState(false);
   const isMember = inviteInfo?.is_member || joined;
-  
+
   useEffect(() => {
     if (!code) {
       setLoading(false);
       setError('Invalid invite');
       return;
     }
-    
+
     if (inviteCache.has(code)) {
-      setInviteInfo(inviteCache.get(code));
+      const cached = inviteCache.get(code);
+      if (cached?.__error) {
+        setIsExpired(cached.__expired || false);
+        setError(cached.__error);
+      } else {
+        setInviteInfo(cached);
+      }
       setLoading(false);
       return;
     }
-    
+
     setLoading(true);
     setError(null);
-    
+    setIsExpired(false);
+
     servers.getInviteInfo(code)
       .then(info => {
         inviteCache.set(code, info);
         setInviteInfo(info);
       })
       .catch(err => {
-        setError(err.message || 'Invalid invite');
+        const msg = err.message || 'Invalid invite';
+        const expired = /expir/i.test(msg);
+        setIsExpired(expired);
+        setError(msg);
+        inviteCache.set(code, { __error: msg, __expired: expired });
       })
       .finally(() => setLoading(false));
   }, [code]);
@@ -138,14 +150,48 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
   }
   
   if (error) {
+    const inviteUrl = url.startsWith('http') ? url : `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;
     return (
-      <div className="invite-embed invite-embed--error">
-        <svg className="invite-embed__error-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="15" y1="9" x2="9" y2="15"/>
-          <line x1="9" y1="9" x2="15" y2="15"/>
-        </svg>
-        <span className="invite-embed__error-text">{t('invite.invalid') || 'Invitation invalide ou expirée'}</span>
+      <div className="invite-embed invite-embed--dead" onClick={(e) => e.stopPropagation()}>
+        <div className="invite-embed__header invite-embed__header--dead">
+          {isExpired ? 'Invitation expirée' : t('invite.invalid') || 'Invitation invalide'}
+        </div>
+        <div className="invite-embed__dead-body">
+          <div className="invite-embed__dead-icon">
+            {isExpired ? (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+            ) : (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+            )}
+          </div>
+          <div className="invite-embed__dead-text">
+            {isExpired
+              ? 'Ce lien a expiré. Demande un nouveau lien.'
+              : 'Ce lien d\'invitation est invalide.'}
+          </div>
+        </div>
+        <div className="invite-embed__link-row">
+          <span className="invite-embed__link-url">{inviteUrl}</span>
+          <button className="invite-embed__link-copy" onClick={handleCopyLink}>
+            {copied ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+              </svg>
+            )}
+          </button>
+        </div>
       </div>
     );
   }
