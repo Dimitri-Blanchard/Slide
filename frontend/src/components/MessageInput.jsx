@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect, useMemo, memo, useCallback, forward
 import { Camera, Paperclip } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
 import { useLanguage } from '../context/LanguageContext';
-import { useSounds } from '../context/SoundContext';
 import VoiceRecorder from './VoiceRecorder';
 import MentionSuggestions from './MentionSuggestions';
 import CommandPalette from './CommandPalette';
@@ -67,7 +66,6 @@ const MessageInput = memo(forwardRef(function MessageInput({
   const draftTimeoutRef = useRef(null);
   const { notify } = useNotification();
   const { t } = useLanguage();
-  const { playMessageSent } = useSounds();
 
   // Expose insertText (emoji insertion), focus, and setSelectedFile for parent (e.g. drag-drop)
   useImperativeHandle(ref, () => ({
@@ -449,7 +447,6 @@ const MessageInput = memo(forwardRef(function MessageInput({
         clearDraft();
       }
       if (onCancelReply) onCancelReply();
-      playMessageSent();
       // Keep keyboard open: re-focus after send so it stays open until user closes it
       const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
       const focusInput = () => inputRef.current?.focus({ preventScroll: isMobile });
@@ -471,7 +468,7 @@ const MessageInput = memo(forwardRef(function MessageInput({
     } finally {
       setSending(false);
     }
-  }, [value, selectedFile, sending, spamCooldownSeconds, onSend, onUpload, notify, replyTo, onCancelReply, clearDraft, playMessageSent, t]);
+  }, [value, selectedFile, sending, spamCooldownSeconds, onSend, onUpload, notify, replyTo, onCancelReply, clearDraft, t]);
 
   const openFilePicker = useCallback(() => {
     fileInputRef.current?.click();
