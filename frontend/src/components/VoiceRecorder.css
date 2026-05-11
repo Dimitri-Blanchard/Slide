@@ -9,8 +9,10 @@
   padding: 0.85rem 1.25rem;
   background: var(--surface-2);
   border: 1px solid var(--border-subtle);
+  border-top-color: var(--border-subtle);
   border-radius: 26px;
-  animation: voiceRecorderSlideIn 0.28s cubic-bezier(0.05, 0.7, 0.1, 1) forwards;
+  animation: voiceRecorderSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  box-shadow: none;
   position: relative;
   overflow: hidden;
 }
@@ -19,16 +21,19 @@
   display: none;
 }
 
-/* GPU-only entrance — no filter:blur (expensive on phones, not needed
-   for the visual effect — a translateY+opacity reads identically). */
 @keyframes voiceRecorderSlideIn {
   0% {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(20px) scale(0.9);
+    filter: blur(5px);
+  }
+  60% {
+    transform: translateY(-3px) scale(1.02);
   }
   100% {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+    filter: blur(0);
   }
 }
 
@@ -109,14 +114,12 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: none;
+  border: 1px solid var(--border-subtle);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.15s ease,
-              transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1),
-              box-shadow 0.18s ease;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
   overflow: hidden;
 }
@@ -125,43 +128,39 @@
   display: none;
 }
 
-/* Subtle hover bump — 1.12 jumped too much on every press */
 .voice-btn:hover {
-  transform: scale(1.06);
+  transform: scale(1.12);
 }
 
 .voice-btn:active {
-  transform: scale(0.94);
-  transition: transform 0.08s ease;
+  transform: scale(0.92);
+  transition: all 0.1s ease;
 }
 
-/* Cancel: use the app's error token so it follows theme overrides */
 .voice-btn.cancel {
-  background: var(--error, #ef4444);
-  color: #fff;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--error, #ef4444) 28%, transparent);
+  background: #ef4444;
+  color: white;
+  box-shadow: none;
 }
 
 .voice-btn.cancel:hover {
-  background: color-mix(in srgb, var(--error, #ef4444) 90%, #000);
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--error, #ef4444) 40%, transparent);
+  background: #dc2626;
+  box-shadow: none;
 }
 
-/* Send: use the app accent so it brand-matches the rest of the app instead
-   of a random Tailwind green that screamed "stock template" */
 .voice-btn.send {
-  background: var(--accent);
-  color: var(--accent-text);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 32%, transparent);
+  background: #22c55e;
+  color: white;
+  box-shadow: none;
 }
 
 .voice-btn.send:hover {
-  background: var(--accent-hover);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 44%, transparent);
+  background: #16a34a;
+  box-shadow: none;
 }
 
 .voice-btn.send:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;

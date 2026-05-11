@@ -1,42 +1,26 @@
 /* ═══════════════════════════════════════════════════════════
-   Invite Embed — server-invite card embedded inside a chat message
-   Goal: feels like a *quoted block* native to Slide, not a Discord
-   clone floating in the message stream. Uses the app accent stripe
-   on the left, app colors throughout, and no hard min-width so it
-   sits comfortably even in narrow side panels.
+   Invite Embed — Discord-style server invite card
    ═══════════════════════════════════════════════════════════ */
 
 .invite-embed {
-  /* Shrink-to-fit on a generous max — no min-width that breaks narrow lanes */
-  max-width: 460px;
+  max-width: 490px;
   width: fit-content;
-  min-width: 0;
+  min-width: 400px;
   background: var(--bg-secondary);
-  /* Left accent stripe + thin border on the rest. The 4px stripe is what
-     reads as "this is an embedded block, not regular text". */
-  border: 1px solid var(--border-subtle);
-  border-left: 4px solid var(--accent);
-  border-radius: 10px;
-  margin: 4px 0;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  margin: 2px 0;
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow 0.18s ease, border-color 0.18s ease;
-}
-
-.invite-embed:hover {
-  box-shadow: var(--shadow-md);
-  border-color: var(--border-default);
-  border-left-color: var(--accent);
 }
 
 /* ─── Header ─── */
 
 .invite-embed__header {
-  padding: 11px 14px 0;
-  font-size: 0.7rem;
+  padding: 12px 16px 0;
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.02em;
   color: var(--text-muted);
   line-height: 1;
   user-select: none;
@@ -47,21 +31,19 @@
 .invite-embed__server {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 10px 14px 14px;
+  gap: 16px;
+  padding: 12px 16px 16px;
 }
 
 /* ─── Icon ─── */
 
 .invite-embed__icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+  width: 50px;
+  height: 50px;
+  border-radius: 15px;
   overflow: hidden;
   flex-shrink: 0;
   background: var(--bg-tertiary);
-  position: relative;
-  isolation: isolate;
 }
 
 .invite-embed__icon img {
@@ -78,111 +60,108 @@
   align-items: center;
   justify-content: center;
   color: var(--text-primary);
-  font-size: 1.2rem;
-  font-weight: 700;
-  background: var(--bg-tertiary);
+  font-size: 1.25rem;
+  font-weight: 600;
 }
 
 /* ─── Details ─── */
 
 .invite-embed__details {
   flex: 1;
-  min-width: 0;
+  min-width: 120px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 
 .invite-embed__name {
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.3;
-  cursor: pointer;
-  transition: color 0.15s ease;
 }
 
 .invite-embed__name:hover {
-  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .invite-embed__meta {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   white-space: nowrap;
 }
 
 .invite-embed__meta-sep {
-  display: none; /* gap on parent handles spacing */
+  display: inline-block;
+  width: 1px;
+  height: 1px;
 }
 
 .invite-embed__meta-item {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 0.78rem;
+  gap: 4px;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   white-space: nowrap;
   line-height: 1.3;
-  font-variant-numeric: tabular-nums;
 }
 
 .invite-embed__dot {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
 .invite-embed__dot--online {
   background: #23a55a;
-  box-shadow: 0 0 0 2px color-mix(in srgb, #23a55a 24%, transparent);
 }
 
 .invite-embed__dot--members {
-  background: var(--text-muted);
-  opacity: 0.7;
+  background: #80848e;
 }
 
 .invite-embed__established {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
   line-height: 1.3;
 }
 
-/* ─── Join Button — uses app accent, not Discord green ─── */
+/* ─── Join Button ─── */
 
 .invite-embed__btn {
   flex-shrink: 0;
   margin-left: auto;
-  padding: 0 18px;
-  height: 36px;
-  background: var(--accent);
+  padding: 0 20px;
+  height: 40px;
+  background: #248046;
   border: none;
-  border-radius: 8px;
-  color: var(--accent-text);
-  font-size: 0.85rem;
-  font-weight: 600;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   white-space: nowrap;
-  transition: background-color 0.15s ease, transform 0.12s ease;
+  transition: background-color 0.17s ease;
   line-height: 1;
 }
 
 .invite-embed__btn:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background: #1a6334;
 }
 
 .invite-embed__btn:active:not(:disabled) {
-  transform: scale(0.97);
+  background: #15562b;
 }
 
 .invite-embed__btn:disabled {
@@ -190,17 +169,17 @@
 }
 
 .invite-embed__btn--joined {
-  background: color-mix(in srgb, var(--accent) 50%, transparent);
-  color: var(--accent-text);
+  background: #248046;
+  opacity: 0.6;
 }
 
 .invite-embed__btn-spinner {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: #fff;
   border-radius: 50%;
-  animation: invite-embed-spin 0.7s linear infinite;
+  animation: invite-embed-spin 0.8s linear infinite;
 }
 
 @keyframes invite-embed-spin {
@@ -210,93 +189,81 @@
 /* ─── Loading State ─── */
 
 .invite-embed--loading {
-  padding: 28px 16px;
+  padding: 32px 16px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .invite-embed__spinner {
-  width: 22px;
-  height: 22px;
-  border: 2.5px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(255, 255, 255, 0.08);
   border-top-color: var(--accent);
   border-radius: 50%;
-  animation: invite-embed-spin 0.7s linear infinite;
+  animation: invite-embed-spin 0.8s linear infinite;
 }
 
-/* ─── Error State (e.g. expired invite shared in chat) ─── */
+/* ─── Error State ─── */
 
 .invite-embed--error {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  /* Red accent stripe instead of blue, signals "broken" at a glance */
-  border-left-color: var(--error, #ed4245);
-}
-
-.invite-embed--error:hover {
-  border-left-color: var(--error, #ed4245);
+  gap: 10px;
+  padding: 16px;
 }
 
 .invite-embed__error-icon {
-  color: var(--error, #ed4245);
+  color: var(--error);
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--error, #ed4245) 14%, transparent);
 }
 
 .invite-embed__error-text {
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  line-height: 1.4;
-  flex: 1;
-  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
 }
 
-/* ─── Already-Member button (subdued look) ─── */
+/* ─── Already Member Button ─── */
 
 .invite-embed__btn--member {
   background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
 }
 
 .invite-embed__btn--member:hover:not(:disabled) {
-  background: var(--bg-hover);
-  border-color: var(--border-default);
+  background: var(--surface-3);
 }
 
 .invite-embed__btn--member:active:not(:disabled) {
-  transform: scale(0.97);
+  background: var(--surface-2);
 }
 
-/* ─── Invite Link Row (the raw URL + copy button below) ─── */
+[data-theme="dark"] .invite-embed__btn--member {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .invite-embed__btn--member:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* ─── Invite Link Row ─── */
 
 .invite-embed__link-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 14px 12px;
-  border-top: 1px solid var(--border-subtle);
-  padding-top: 10px;
+  padding: 0 16px 12px;
 }
 
 .invite-embed__link-url {
   flex: 1;
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   user-select: all;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .invite-embed__link-copy {
@@ -306,82 +273,69 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  background: var(--bg-tertiary);
+  background: var(--surface-2);
   border: 1px solid var(--border-subtle);
-  border-radius: 7px;
+  border-radius: 6px;
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 .invite-embed__link-copy:hover {
   background: var(--bg-hover);
-  color: var(--accent);
-  border-color: var(--accent);
+  color: var(--text-primary);
+  border-color: var(--border-default);
 }
 
-.invite-embed__link-copy:active {
-  transform: scale(0.94);
+[data-theme="dark"] .invite-embed__link-copy {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .invite-embed__link-copy:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #fff;
 }
 
 /* ─── Mobile ─── */
 
 @media (max-width: 480px) {
   .invite-embed {
+    min-width: 0;
     max-width: 100%;
-    border-radius: 8px;
   }
 
   .invite-embed__server {
     flex-wrap: wrap;
-    padding: 10px 12px 12px;
-    gap: 12px;
-  }
-
-  .invite-embed__header {
-    padding: 10px 12px 0;
   }
 
   .invite-embed__btn {
     width: 100%;
     margin-left: 0;
     margin-top: 4px;
-    height: 40px;
-  }
-
-  .invite-embed__link-row {
-    padding: 8px 12px 10px;
+    height: 44px;
   }
 }
 
-/* ─── Compact display mode ─── */
+/* ─── Compact ─── */
 
 [data-display="compact"] .invite-embed {
-  max-width: 380px;
+  max-width: 400px;
 }
 
 [data-display="compact"] .invite-embed__icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
 }
 
 [data-display="compact"] .invite-embed__server {
-  padding: 8px 12px 12px;
+  padding: 10px 14px 14px;
   gap: 10px;
 }
 
 [data-display="compact"] .invite-embed__header {
-  padding: 9px 12px 0;
-  font-size: 0.66rem;
-}
-
-[data-display="compact"] .invite-embed__name {
-  font-size: 0.9rem;
-}
-
-[data-display="compact"] .invite-embed__btn {
-  height: 32px;
-  font-size: 0.8rem;
-  padding: 0 14px;
+  padding: 10px 14px 0;
 }

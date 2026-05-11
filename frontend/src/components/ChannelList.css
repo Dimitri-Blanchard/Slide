@@ -560,18 +560,12 @@
   color: var(--text-muted);
   cursor: pointer;
   border-radius: 6px;
-  /* Targeted transitions — `all 0.1s` was repainting unrelated props
-     (transform, etc.) on every state change and felt jerky */
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: all 0.1s;
 }
 
 .channel-action-btn:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
-}
-
-.channel-action-btn:active {
-  background: var(--bg-tertiary);
 }
 
 /* Unread dot */

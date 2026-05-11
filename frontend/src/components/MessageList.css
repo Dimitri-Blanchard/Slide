@@ -1123,24 +1123,19 @@
   width: min(720px, 100%);
   max-width: 720px;
   margin-top: 4px;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
-  /* Subtle elevation so the player reads as a media element, not a flat
-     embedded box. Matches image messages (which now share the 12px radius). */
-  box-shadow: var(--shadow-sm);
-  background: #000; /* fills any letterbox area cleanly */
 }
 
 .message-video {
   width: 100%;
   max-height: min(64vh, 520px);
   display: block;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #000;
-  /* Drop the visible 1px border — looked like a frame, fights the media */
-  border: none;
+  border: 1px solid var(--border-subtle);
   outline: none;
-  accent-color: var(--accent);
+  accent-color: var(--text-secondary);
 }
 
 .message-video-wrap.idle .message-video {
@@ -1153,45 +1148,30 @@
 
 .message-video-controls {
   position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: 10px;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
   z-index: 4;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
+  gap: 6px;
+  padding: 5px 6px;
   border-radius: 10px;
-  /* Dark glass that always reads on any video frame. The previous variant
-     used the app surface colour at low opacity which became invisible on
-     bright videos. */
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
-  backdrop-filter: blur(10px) saturate(1.2);
-  -webkit-backdrop-filter: blur(10px) saturate(1.2);
-  /* Auto-hide controls when not interacting (revealed below) */
-  opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 0.18s ease, transform 0.18s ease;
-}
-
-.message-video-wrap:hover .message-video-controls,
-.message-video-wrap:focus-within .message-video-controls,
-.message-video-wrap.controls-visible .message-video-controls {
-  opacity: 1;
-  transform: translateY(0);
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 85%, transparent);
+  background: color-mix(in srgb, var(--bg-secondary) 92%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .message-video-control-btn {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: 7px;
-  color: #fff;
+  border-radius: 6px;
+  color: var(--text-primary);
   background: transparent;
   cursor: pointer;
   flex-shrink: 0;
@@ -1199,11 +1179,7 @@
 }
 
 .message-video-control-btn:hover {
-  background: rgba(255, 255, 255, 0.14);
-}
-
-.message-video-control-btn:active {
-  background: rgba(255, 255, 255, 0.22);
+  background: var(--bg-hover);
 }
 
 .message-video-control-btn:focus-visible {
@@ -1215,19 +1191,16 @@
 .message-video-volume {
   -webkit-appearance: none;
   appearance: none;
-  height: 4px;
+  height: 3px;
   border-radius: 999px;
   border: none;
-  /* White-on-dark for visibility on the dark glass controls bar.
-     Filled portion uses the app accent so the player feels Slide-branded,
-     not generic. */
   background:
     linear-gradient(
       to right,
-      var(--accent) 0%,
-      var(--accent) var(--progress, 0%),
-      rgba(255, 255, 255, 0.25) var(--progress, 0%),
-      rgba(255, 255, 255, 0.25) 100%
+      var(--text-secondary) 0%,
+      var(--text-secondary) var(--progress, 0%),
+      color-mix(in srgb, var(--border-default) 70%, transparent) var(--progress, 0%),
+      color-mix(in srgb, var(--border-default) 70%, transparent) 100%
     );
   cursor: pointer;
 }
@@ -1245,32 +1218,28 @@
 .message-video-volume::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  border: 2px solid var(--accent);
-  background: #fff;
-  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--border-default) 75%, transparent);
+  background: var(--text-primary);
 }
 
 .message-video-progress::-moz-range-thumb,
 .message-video-volume::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  border: 2px solid var(--accent);
-  background: #fff;
-  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--border-default) 75%, transparent);
+  background: var(--text-primary);
 }
 
 .message-video-time {
-  font-size: 0.72rem;
-  color: #fff;
+  font-size: 0.68rem;
+  color: var(--text-primary);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  font-weight: 500;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .message-video-wrap:fullscreen {
@@ -1488,35 +1457,31 @@
    ═══════════════════════════════════════════════════════════ */
 .voice-message {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 12px 14px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle);
-  /* Pill-shaped to read as "audio" at a glance — closer to Telegram /
-     WhatsApp than the previous square card */
-  border-radius: 999px;
+  border-radius: 16px;
   min-width: 260px;
   max-width: 380px;
   margin-top: 4px;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
   user-select: none;
 }
 
 .voice-message:hover {
   border-color: var(--border-default);
-  background: var(--bg-tertiary);
 }
 
 .voice-message.playing {
-  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
-              0 4px 18px color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .voice-message-play {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   background: var(--accent);
   border: none;
@@ -1525,23 +1490,16 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: var(--accent-text);
-  /* Soft glow tying it to the playing-state shadow */
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 28%, transparent);
-  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1),
-              background 0.15s ease,
-              box-shadow 0.18s ease;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .voice-message-play:hover {
-  transform: scale(1.06);
-  background: var(--accent-hover);
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 38%, transparent);
+  transform: scale(1.08);
 }
 
 .voice-message-play:active {
-  transform: scale(0.95);
-  transition-duration: 0.08s;
+  transform: scale(0.94);
+  transition-duration: 0.1s;
 }
 
 .voice-message-body {
@@ -1549,7 +1507,8 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  padding-top: 2px;
 }
 
 .voice-message-waveform {
