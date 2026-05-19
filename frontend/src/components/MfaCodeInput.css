@@ -1,8 +1,37 @@
 /* ═══════════════════════════════════════════════════════════
    MFA Code Input - 6 digit boxes (used in Login, Settings)
+   Single hidden input for SMS autofill / paste (Capacitor, iOS, Android)
    ═══════════════════════════════════════════════════════════ */
 
 .mfa-code-input-wrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: text;
+}
+
+.mfa-code-autofill-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  z-index: 2;
+  cursor: text;
+  font-size: 16px; /* avoid iOS zoom on focus */
+  color: transparent;
+  caret-color: transparent;
+  background: transparent;
+  pointer-events: none;
+}
+
+.mfa-code-cells {
+  position: relative;
+  z-index: 3;
   display: flex;
   gap: 8px;
   justify-content: center;
@@ -10,77 +39,119 @@
 }
 
 .mfa-code-digit {
-  width: 48px;
-  height: 80px;
+  width: 46px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--bg-tertiary);
-  border: 2px solid var(--border-subtle, #4e5058);
+  border: 1.5px solid var(--border-default);
   border-radius: 10px;
-  color: var(--text-primary, #dbdee1);
-  font-size: 1.5rem;
+  color: var(--text-primary);
+  font-size: 1.35rem;
   font-weight: 600;
   text-align: center;
   font-family: "SF Mono", "Monaco", "Consolas", monospace;
   outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-  caret-color: var(--accent);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+  user-select: none;
+  cursor: text;
+  box-sizing: border-box;
 }
 
-.mfa-code-digit:hover:not(:disabled):not(:focus) {
+.mfa-code-input-wrap:not(.mfa-code-input-wrap--disabled) .mfa-code-digit:hover {
   border-color: var(--border-strong);
   background: var(--bg-hover);
 }
 
-.mfa-code-digit:focus {
+.mfa-code-input-wrap:focus-within .mfa-code-digit--active {
   border-color: var(--accent);
+  background: var(--bg-floating);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.14);
 }
 
-.mfa-code-digit::placeholder {
-  color: transparent;
+.mfa-code-digit--pop {
+  animation: mfa-digit-pop 0.28s cubic-bezier(0.34, 1.35, 0.64, 1) both;
+}
+
+@keyframes mfa-digit-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.07);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .mfa-code-input-wrap--error .mfa-code-digit {
   border-color: var(--danger, #da373c);
 }
 
-.mfa-code-input-wrap--error .mfa-code-digit:focus {
+.mfa-code-input-wrap--error:focus-within .mfa-code-digit--active {
   border-color: var(--danger, #da373c);
   box-shadow: 0 0 0 3px rgba(218, 55, 60, 0.2);
 }
 
-.mfa-code-input-wrap--disabled .mfa-code-digit {
+.mfa-code-input-wrap--disabled {
+  cursor: not-allowed;
   opacity: 0.6;
+}
+
+.mfa-code-input-wrap--disabled .mfa-code-digit {
   cursor: not-allowed;
 }
 
-/* Auth page context - consistent with light card */
+/* Auth card context — match login inputs */
+.auth-card .mfa-code-digit,
 .auth-page .mfa-code-digit {
-  background: var(--input-bg, #f0f2f7);
+  background: var(--input-bg);
   border-color: var(--border-default);
   color: var(--text-primary);
 }
 
-.auth-page .mfa-code-digit:hover:not(:disabled):not(:focus) {
+.auth-card .mfa-code-input-wrap:not(.mfa-code-input-wrap--disabled) .mfa-code-digit:hover,
+.auth-page .mfa-code-input-wrap:not(.mfa-code-input-wrap--disabled) .mfa-code-digit:hover {
   border-color: var(--border-strong);
   background: var(--bg-hover);
 }
 
+.auth-card .mfa-code-input-wrap:focus-within .mfa-code-digit--active,
+.auth-page .mfa-code-input-wrap:focus-within .mfa-code-digit--active {
+  border-color: var(--accent);
+  background: var(--bg-floating);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.14);
+}
+
+.auth-card .mfa-code-input-wrap--error .mfa-code-digit,
 .auth-page .mfa-code-input-wrap--error .mfa-code-digit {
-  border-color: var(--error, #dc2626);
+  border-color: var(--danger);
 }
 
-.auth-page .mfa-code-input-wrap--error .mfa-code-digit:focus {
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
+.auth-card .mfa-code-input-wrap--error:focus-within .mfa-code-digit--active,
+.auth-page .mfa-code-input-wrap--error:focus-within .mfa-code-digit--active {
+  box-shadow: 0 0 0 3px rgba(218, 55, 60, 0.2);
 }
 
-/* Responsive: smaller on narrow screens */
 @media (max-width: 480px) {
-  .mfa-code-input-wrap {
+  .mfa-code-cells {
     gap: 6px;
   }
 
   .mfa-code-digit {
-    width: 42px;
-    height: 68px;
-    font-size: 1.35rem;
+    width: 40px;
+    height: 48px;
+    font-size: 1.2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mfa-code-digit--pop {
+    animation: none;
   }
 }

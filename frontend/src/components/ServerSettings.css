@@ -332,7 +332,7 @@
 
 .ss-divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--border-subtle) 10%, var(--border-subtle) 90%, transparent);
+  background: var(--border-subtle);
   margin: 28px 0;
 }
 

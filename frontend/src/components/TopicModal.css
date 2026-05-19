@@ -183,7 +183,6 @@
 .topic-modal-btn:hover {
   background: var(--bg-active);
   color: var(--text-primary, #f2f3f5);
-  transform: translateY(-1px);
 }
 
 .topic-modal-btn:active {
@@ -191,12 +190,25 @@
 }
 
 .topic-modal-btn-primary {
-  background: var(--accent);
+  background: var(--accent-gradient);
   color: var(--accent-text);
+  border: none;
 }
 
 .topic-modal-btn-primary:hover {
-  background: var(--accent-hover);
+  filter: brightness(1.06);
   color: var(--accent-text);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .topic-modal-btn-primary {
+  background: var(--btn-primary-bg);
+  border: 1px solid var(--btn-primary-border);
+  color: rgba(255, 255, 255, 0.95);
+  filter: none;
+}
+
+[data-theme="dark"] .topic-modal-btn-primary:hover {
+  background: var(--btn-primary-hover);
+  border-color: var(--btn-primary-border-hover);
+  filter: none;
 }

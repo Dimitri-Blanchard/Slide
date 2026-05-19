@@ -36,7 +36,7 @@ const GroupAvatar = memo(function GroupAvatar({ participants, size = 'medium' })
 });
 
 const DMItem = memo(function DMItem({ conversation, isActive, currentConversationId }) {
-  const isGroup = conversation.is_group;
+  const isGroup = !!conversation.is_group;
   const other = conversation.participants?.[0];
   const name = isGroup
     ? (conversation.group_name || conversation.participants?.map(p => p.display_name).join(', ') || 'Group')

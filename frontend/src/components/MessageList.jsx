@@ -41,8 +41,11 @@ function buildMessagePermalink(surface, msg) {
   }
   return '';
 }
-const VIRTUALIZATION_THRESHOLD = 30;
+const VIRTUALIZATION_THRESHOLD_DESKTOP = 30;
+const VIRTUALIZATION_THRESHOLD_TOUCH = 12;
 const ESTIMATED_MESSAGE_HEIGHT = 56;
+const SCROLL_OVERSCAN_DESKTOP = 10;
+const SCROLL_OVERSCAN_TOUCH = 4;
 
 // ── Blocked message placeholder (Discord-style) ────────────
 const BlockedMessage = memo(function BlockedMessage({ onReveal, t }) {
@@ -99,7 +102,7 @@ function parseMessageContent(text, currentUserName, mentionUsers = [], onMention
     result.push(
       <div key="embeds" className="md-embeds">
         {imageUrls.map((url, idx) => (
-          <img key={idx} src={url} alt="" className="md-embed-image" />
+          <img key={idx} src={url} alt="" className="md-embed-image" loading="lazy" decoding="async" />
         ))}
       </div>
     );
@@ -133,7 +136,7 @@ const ClickableSenderName = memo(function ClickableSenderName({ user, t, serverR
         onMouseLeave={onMouseLeave}
       >
         {user?.display_name || t('chat.user')}
-        {user?.equipped_nameplate_id && (
+        {!!user?.equipped_nameplate_id && (
           <span className={`message-nameplate message-nameplate-${user.equipped_nameplate_id}`} title={user.equipped_nameplate_id === 5 ? 'Gold Badge' : user.equipped_nameplate_id === 9 ? 'Silver Badge' : ''}>
             {user.equipped_nameplate_id === 5 ? '★' : user.equipped_nameplate_id === 9 ? '◆' : ''}
           </span>
@@ -595,12 +598,135 @@ const ReplyQuote = memo(function ReplyQuote({ replyToMessage, onScrollToMessage,
   );
 });
 
-// Image lightbox component with zoom at cursor + drag to pan
+const LIGHTBOX_PAN_THRESHOLD = 6;
+
+function getLightboxDragFilename(src, alt) {
+  if (alt && alt !== 'Image' && alt !== 'GIF' && alt !== 'Sticker') {
+    return alt.includes('.') ? alt : `${alt.replace(/[^\w.-]+/g, '_')}.png`;
+  }
+  try {
+    const url = new URL(src, window.location.href);
+    const seg = url.pathname.split('/').filter(Boolean).pop() || '';
+    if (seg && /\.[a-z0-9]{2,5}$/i.test(seg)) return decodeURIComponent(seg);
+  } catch { /* ignore */ }
+  const lower = String(src).toLowerCase();
+  if (lower.includes('.gif')) return 'image.gif';
+  if (lower.includes('.webp')) return 'image.webp';
+  if (lower.includes('.png')) return 'image.png';
+  if (lower.includes('.jpg') || lower.includes('.jpeg')) return 'image.jpg';
+  return 'image.png';
+}
+
+async function fetchLightboxImageBlob(src) {
+  if (!src) return null;
+  if (src.startsWith('blob:') || src.startsWith('data:')) {
+    try {
+      const res = await fetch(src);
+      return res.ok ? res.blob() : null;
+    } catch {
+      return null;
+    }
+  }
+  for (const credentials of ['include', 'omit']) {
+    try {
+      const res = await fetch(src, { mode: 'cors', credentials });
+      if (res.ok) return res.blob();
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
+function blobFromLoadedImageElement(imgEl) {
+  if (!imgEl?.complete || !imgEl.naturalWidth) return null;
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = imgEl.naturalWidth;
+    canvas.height = imgEl.naturalHeight;
+    canvas.getContext('2d').drawImage(imgEl, 0, 0);
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => resolve(blob || null), 'image/png');
+    });
+  } catch {
+    return Promise.resolve(null);
+  }
+}
+
+function blobFromCrossOriginImageUrl(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      blobFromLoadedImageElement(img).then(resolve);
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+async function prepareLightboxDragAsset(src, alt, imgEl) {
+  const filename = getLightboxDragFilename(src, alt);
+  let blob = await fetchLightboxImageBlob(src);
+  if (!blob && imgEl) blob = await blobFromLoadedImageElement(imgEl);
+  if (!blob) blob = await blobFromCrossOriginImageUrl(src);
+
+  let path = null;
+  const electron = typeof window !== 'undefined' ? window.electron : null;
+  if (blob && electron?.prepareDragTempFile) {
+    try {
+      const buffer = await blob.arrayBuffer();
+      path = await electron.prepareDragTempFile(buffer, filename);
+    } catch { /* ignore */ }
+  }
+
+  return { blob, path, filename };
+}
+
+// Image lightbox component with zoom at cursor + drag to pan + drag-out to desktop
 const ImageLightbox = memo(function ImageLightbox({ src, alt, onClose }) {
   const [zoom, setZoom] = useState(1);
   const [transform, setTransform] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-  const dragRef = useRef({ active: false, didDrag: false, startX: 0, startY: 0, startTx: 0, startTy: 0 });
+  const [exportReady, setExportReady] = useState(false);
+  const dragRef = useRef({ active: false, pending: false, didDrag: false, startX: 0, startY: 0, startTx: 0, startTy: 0 });
+  const dragFileRef = useRef(null);
+  const dragPathRef = useRef(null);
+  const imgRef = useRef(null);
+  const isElectron = typeof window !== 'undefined' && !!window.electron?.isElectron;
+
+  const syncDragAsset = useCallback(async () => {
+    if (!src) {
+      dragFileRef.current = null;
+      dragPathRef.current = null;
+      setExportReady(false);
+      return;
+    }
+    const asset = await prepareLightboxDragAsset(src, alt, imgRef.current);
+    dragFileRef.current = asset.blob;
+    dragPathRef.current = asset.path;
+    const needsNativePath = typeof window !== 'undefined' && !!window.electron?.prepareDragTempFile;
+    setExportReady(needsNativePath ? !!asset.path : !!asset.blob);
+  }, [src, alt]);
+
+  useEffect(() => {
+    let cancelled = false;
+    dragFileRef.current = null;
+    dragPathRef.current = null;
+    setExportReady(false);
+    if (!src) return undefined;
+
+    syncDragAsset().then(() => {
+      if (cancelled) {
+        dragFileRef.current = null;
+        dragPathRef.current = null;
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      dragFileRef.current = null;
+      dragPathRef.current = null;
+    };
+  }, [src, syncDragAsset]);
 
   useEffect(() => {
     const handleEscape = (e) => {
@@ -620,17 +746,24 @@ const ImageLightbox = memo(function ImageLightbox({ src, alt, onClose }) {
   useEffect(() => {
     if (zoom <= 1) return;
     const onMove = (e) => {
-      if (!dragRef.current.active) return;
-      dragRef.current.didDrag = true;
-      setIsDragging(true);
-      const dx = e.clientX - dragRef.current.startX;
-      const dy = e.clientY - dragRef.current.startY;
+      const d = dragRef.current;
+      if (d.pending && !d.active) {
+        const dx = e.clientX - d.startX;
+        const dy = e.clientY - d.startY;
+        if (Math.hypot(dx, dy) >= LIGHTBOX_PAN_THRESHOLD) {
+          d.active = true;
+          d.didDrag = true;
+          setIsDragging(true);
+        }
+      }
+      if (!d.active) return;
       setTransform({
-        x: dragRef.current.startTx + dx,
-        y: dragRef.current.startTy + dy,
+        x: d.startTx + (e.clientX - d.startX),
+        y: d.startTy + (e.clientY - d.startY),
       });
     };
     const onUp = () => {
+      dragRef.current.pending = false;
       dragRef.current.active = false;
       setIsDragging(false);
     };
@@ -643,12 +776,51 @@ const ImageLightbox = memo(function ImageLightbox({ src, alt, onClose }) {
   }, [zoom]);
 
   const handleImageMouseDown = useCallback((e) => {
-    if (e.button !== 0) return;
-    if (zoom > 1) {
-      e.preventDefault();
-      dragRef.current = { active: true, didDrag: false, startX: e.clientX, startY: e.clientY, startTx: transform.x, startTy: transform.y };
-    }
+    if (e.button !== 0 || zoom <= 1) return;
+    dragRef.current = {
+      active: false,
+      pending: true,
+      didDrag: false,
+      startX: e.clientX,
+      startY: e.clientY,
+      startTx: transform.x,
+      startTy: transform.y,
+    };
   }, [zoom, transform]);
+
+  const handleImageLoad = useCallback(() => {
+    if (dragFileRef.current && (!isElectron || dragPathRef.current)) return;
+    syncDragAsset();
+  }, [syncDragAsset, isElectron]);
+
+  const handleImageDragStart = useCallback((e) => {
+    dragRef.current.pending = false;
+    dragRef.current.active = false;
+    dragRef.current.didDrag = true;
+    setIsDragging(false);
+
+    const path = dragPathRef.current;
+    if (isElectron && window.electron?.startNativeDrag && path) {
+      window.electron.startNativeDrag(path);
+      return;
+    }
+
+    const blob = dragFileRef.current;
+    if (!blob) {
+      e.preventDefault();
+      return;
+    }
+
+    const dt = e.dataTransfer;
+    if (!dt) return;
+    dt.effectAllowed = 'copy';
+    try {
+      const file = new File([blob], getLightboxDragFilename(src, alt), { type: blob.type || 'image/png' });
+      dt.items.add(file);
+    } catch {
+      e.preventDefault();
+    }
+  }, [src, alt, isElectron]);
 
   const handleImageClick = useCallback((e) => {
     e.stopPropagation();
@@ -695,7 +867,15 @@ const ImageLightbox = memo(function ImageLightbox({ src, alt, onClose }) {
             cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
           }}
         >
-          <img src={src} alt={alt} className="lightbox-image" draggable={false} />
+          <img
+            ref={imgRef}
+            src={src}
+            alt={alt}
+            className={`lightbox-image${exportReady ? ' lightbox-image--export-ready' : ''}`}
+            draggable={exportReady}
+            onLoad={handleImageLoad}
+            onDragStart={handleImageDragStart}
+          />
         </div>
         <button className="lightbox-close" onClick={onClose}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1125,7 +1305,7 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setLightboxOpen(true); } }}
             aria-label={t('chat.openImage') || 'Open image'}
           >
-            <img src={imageUrl} alt={msg.attachment?.file_name || 'Image'} className="message-image" />
+            <img src={imageUrl} alt={msg.attachment?.file_name || 'Image'} className="message-image" loading="lazy" decoding="async" />
           </div>
           {lightboxOpen && (
             <ImageLightbox src={imageUrl} alt={msg.attachment?.file_name || 'Image'} onClose={() => setLightboxOpen(false)} />
@@ -1157,6 +1337,8 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
             src={imageUrl} 
             alt={msg.attachment?.file_name || 'Image'} 
             className="message-image"
+            loading="lazy"
+            decoding="async"
           />
         </div>
         {lightboxOpen && (
@@ -1179,6 +1361,8 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
           src={stickerUrl} 
           alt="Sticker" 
           className="message-sticker"
+          loading="lazy"
+          decoding="async"
           onClick={() => onStickerClick && onStickerClick(stickerUrl)}
           style={{ cursor: 'pointer' }}
         />
@@ -1190,13 +1374,27 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
   if (msg.type === 'gif') {
     const gifUrl = getStaticUrl(msg.content);
     return (
-      <div className="message-gif-wrap">
-        <img 
-          src={gifUrl} 
-          alt="GIF" 
-          className="message-gif"
-        />
-      </div>
+      <>
+        <div
+          className="message-image-wrap"
+          role="button"
+          tabIndex={0}
+          onClick={() => setLightboxOpen(true)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setLightboxOpen(true); } }}
+          aria-label={t('chat.openImage') || 'Open image'}
+        >
+          <img
+            src={gifUrl}
+            alt="GIF"
+            className="message-gif"
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
+        {lightboxOpen && (
+          <ImageLightbox src={gifUrl} alt="GIF" onClose={() => setLightboxOpen(false)} />
+        )}
+      </>
     );
   }
   
@@ -1209,6 +1407,8 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
           src={emojiUrl} 
           alt="Emoji" 
           className="message-emoji"
+          loading="lazy"
+          decoding="async"
         />
       </div>
     );
@@ -1867,8 +2067,8 @@ const MessageItem = memo(function MessageItem({
     <div 
       className={`message-item ${isFirst ? 'first' : ''} ${isLast ? 'last' : ''} ${isSelected ? 'selected' : ''} ${isDeleting ? 'deleting' : ''} ${reduceMotion ? 'reduce-motion' : ''} ${isReplyToCurrentUser ? 'reply-to-me' : ''}`}
       onContextMenu={handleContextMenu}
-      onMouseEnter={() => setIsMessageHovered(true)}
-      onMouseLeave={() => setIsMessageHovered(false)}
+      onMouseEnter={compactTouchUi ? undefined : () => setIsMessageHovered(true)}
+      onMouseLeave={compactTouchUi ? undefined : () => setIsMessageHovered(false)}
       onPointerDown={onMessagePointerDown}
       onPointerMove={onMessagePointerMove}
       onPointerUp={onMessagePointerUp}
@@ -2066,6 +2266,10 @@ const MessageList = memo(forwardRef(function MessageList({
   const [mentionProfileUser, setMentionProfileUser] = useState(null);
   const [mentionProfilePos, setMentionProfilePos] = useState(null);
   const [mobileActionSheetMsg, setMobileActionSheetMsg] = useState(null);
+  const scrollRafRef = useRef(null);
+  const scrollEndTimerRef = useRef(null);
+  const selectedMessageIdRef = useRef(null);
+  const contextMenuRef = useRef(null);
 
   const { settings, isCompactMode, showAvatars, showEmbeds, animateEmoji } = useSettings();
   const { t } = useLanguage();
@@ -2076,6 +2280,21 @@ const MessageList = memo(forwardRef(function MessageList({
   const pinnedIdsSet = useMemo(() => new Set(pinnedMessageIds), [pinnedMessageIds]);
   const cachedRecentEmojis = useMemo(() => getRecentEmojis().slice(0, 3), []);
   const compactTouchUi = useCompactTouchUi();
+  const virtualizationThreshold = compactTouchUi ? VIRTUALIZATION_THRESHOLD_TOUCH : VIRTUALIZATION_THRESHOLD_DESKTOP;
+  const scrollOverscan = compactTouchUi ? SCROLL_OVERSCAN_TOUCH : SCROLL_OVERSCAN_DESKTOP;
+
+  useEffect(() => {
+    selectedMessageIdRef.current = selectedMessageId;
+  }, [selectedMessageId]);
+
+  useEffect(() => {
+    contextMenuRef.current = contextMenu;
+  }, [contextMenu]);
+
+  useEffect(() => () => {
+    if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
+    clearTimeout(scrollEndTimerRef.current);
+  }, []);
 
   const handleToggleMessageSelect = useCallback((id) => {
     setSelectedMessageId((prev) => (prev === id ? null : id));
@@ -2284,23 +2503,35 @@ const MessageList = memo(forwardRef(function MessageList({
   }, [messages, scrollToBottom, currentUserId]);
 
   const handleScroll = useCallback(() => {
-    if (containerRef.current) {
-      lastScrollTopRef.current = containerRef.current.scrollTop;
-    }
-    const atBottom = checkIfAtBottom();
-    const wasAtBottom = isAtBottomRef.current;
-    isAtBottomRef.current = atBottom;
-    if (atBottom !== wasAtBottom && onAtBottomChange) onAtBottomChange(atBottom);
-    if (atBottom) {
-      setShowJumpToBottom(false);
-      setNewMessagesBelow(0);
-      if (onMarkRead) onMarkRead();
-    }
-    if (containerRef.current && containerRef.current.scrollTop < 200 && onLoadMore && hasMore && !loadingMore) {
-      onLoadMore();
-    }
-    setContextMenu(prev => (prev ? null : prev));
-    setSelectedMessageId(null);
+    if (scrollRafRef.current) return;
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      const el = containerRef.current;
+      if (!el) return;
+
+      lastScrollTopRef.current = el.scrollTop;
+
+      const atBottom = checkIfAtBottom();
+      const wasAtBottom = isAtBottomRef.current;
+      isAtBottomRef.current = atBottom;
+      if (atBottom !== wasAtBottom && onAtBottomChange) onAtBottomChange(atBottom);
+      if (atBottom) {
+        setShowJumpToBottom((prev) => (prev ? false : prev));
+        setNewMessagesBelow((prev) => (prev ? 0 : prev));
+        if (onMarkRead) onMarkRead();
+      }
+      if (el.scrollTop < 200 && onLoadMore && hasMore && !loadingMore) {
+        onLoadMore();
+      }
+      if (contextMenuRef.current) setContextMenu(null);
+      if (selectedMessageIdRef.current) setSelectedMessageId(null);
+
+      el.classList.add('is-scrolling');
+      clearTimeout(scrollEndTimerRef.current);
+      scrollEndTimerRef.current = setTimeout(() => {
+        el.classList.remove('is-scrolling');
+      }, 120);
+    });
   }, [checkIfAtBottom, onMarkRead, onAtBottomChange, onLoadMore, hasMore, loadingMore]);
 
   // Context menu handlers — right-click selects message (hover effects stay on it only)
@@ -2730,7 +2961,7 @@ const MessageList = memo(forwardRef(function MessageList({
     return items;
   }, [processedMessages, topBanner]);
 
-  const useVirtualization = virtualItems.length >= VIRTUALIZATION_THRESHOLD;
+  const useVirtualization = virtualItems.length >= virtualizationThreshold;
 
   const rowVirtualizer = useVirtualizer({
     count: virtualItems.length,
@@ -2754,7 +2985,7 @@ const MessageList = memo(forwardRef(function MessageList({
       if (item.type === 'image' || item.type === 'file') est += 80;
       return est;
     },
-    overscan: 10,
+    overscan: scrollOverscan,
   });
 
   virtualizerRef.current = useVirtualization
@@ -2801,6 +3032,7 @@ const MessageList = memo(forwardRef(function MessageList({
         data-hide-embeds={!showEmbeds}
         data-animate-emoji={animateEmoji}
         data-has-selected={selectedMessageId ? '' : undefined}
+        data-virtualized={useVirtualization ? '' : undefined}
       >
         {!useVirtualization && topBanner}
         {loading ? (

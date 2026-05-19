@@ -308,6 +308,28 @@ html.platform-mobile [class*="message-list"] {
   scroll-behavior: auto;
   /* Tell the compositor this surface owns scroll — fewer paints during resize */
   contain: layout paint;
+  touch-action: pan-y;
+}
+
+/* While the user is actively scrolling, disable per-row transitions that
+   force style recalc on every frame (background fades, image scale, etc.). */
+html.platform-mobile .message-list.is-scrolling .message-item,
+html.platform-mobile .message-list.is-scrolling .message-image-wrap,
+html.platform-mobile .message-list.is-scrolling .message-gif,
+html.platform-mobile .message-list.is-scrolling .message-sticker,
+html.platform-mobile .message-list.is-scrolling .message-emoji {
+  transition: none !important;
+}
+
+/* Same for touch-first web (narrow / no-hover) without platform-mobile class */
+@media (max-width: 1024px), (hover: none) {
+  .message-list.is-scrolling .message-item,
+  .message-list.is-scrolling .message-image-wrap,
+  .message-list.is-scrolling .message-gif,
+  .message-list.is-scrolling .message-sticker,
+  .message-list.is-scrolling .message-emoji {
+    transition: none !important;
+  }
 }
 
 /* When the keyboard is hiding (class set by main.jsx Keyboard listener),

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { auth as authApi, setAuthErrorHandler, invalidateCache } from '../api';
 import { resetRateLimit } from '../utils/security';
 import { getToken, setToken as persistToken, clearToken as persistClearToken, getOrCreateDeviceId, getDeviceName, getAccounts, addAccount as storageAddAccount, removeAccount as storageRemoveAccount, getAccountToken, getRefreshToken, setRefreshToken, clearRefreshToken } from '../utils/tokenStorage';
+import { processPendingQrLoginIfAny } from '../utils/qrLoginFlow';
 
 const AuthContext = createContext(null);
 
@@ -116,6 +117,7 @@ export function AuthProvider({ children }) {
         setUser(normalized);
         emitAuthChanged(normalized);
         setAuthError(null);
+        processPendingQrLoginIfAny().catch(() => {});
       })
       .catch(async (err) => {
         authLog('warn', 'session restore — /me failed, trying refresh token', { error: err?.message });
@@ -136,6 +138,7 @@ export function AuthProvider({ children }) {
               setUser(normalized);
               emitAuthChanged(normalized);
               setAuthError(null);
+              processPendingQrLoginIfAny().catch(() => {});
               authLog('info', 'session restore — refresh token success', { userId: user?.id });
               return;
             }
@@ -180,6 +183,7 @@ export function AuthProvider({ children }) {
       emitAuthChanged(normalized);
       setAuthError(null);
       resetRateLimit('login');
+      processPendingQrLoginIfAny().catch(() => {});
       return user;
     }).catch((err) => {
       authLog('warn', 'login — failed', { error: err?.message, status: err?.status, fixHint: 'Check backend /auth/login, credentials, rate limit.' });
@@ -203,6 +207,7 @@ export function AuthProvider({ children }) {
       emitAuthChanged(normalized);
       setAuthError(null);
       resetRateLimit('login');
+      processPendingQrLoginIfAny().catch(() => {});
       return user;
     }).catch((err) => {
       authLog('warn', 'verify2FA — failed', { error: err?.message, fixHint: 'Invalid TOTP code or expired tempToken. Check backend /auth/2fa/verify.' });

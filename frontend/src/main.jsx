@@ -17,6 +17,7 @@ import { PrefetchProvider } from './context/PrefetchContext';
 import { SceneProvider } from './context/SceneContext';
 import { UndoToastContainer } from './components/UndoToast';
 import Notifications from './components/Notifications';
+import QrLoginBridge from './components/QrLoginBridge';
 import IncomingCallModal from './components/IncomingCallModal';
 import ScreenSharePicker from './components/ScreenSharePicker';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -121,28 +122,16 @@ if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform()) {
         window.history.back();
       }
     });
-    // Handle slide://login?token=xxx for QR login (scan with mobile to approve web login)
+    // Handle slide://login?token=xxx (and https /qr-login links) for QR web login approval
     const handleLoginUrl = async (url) => {
       if (!url || typeof url !== 'string') return;
-      try {
-        if (!url.startsWith('slide://login') && !url.startsWith('slide:///login')) return;
-        const tokenMatch = url.match(/[?&]token=([^&]+)/);
-        const token = tokenMatch ? decodeURIComponent(tokenMatch[1]) : null;
-        if (token) {
-            const { auth } = await import('./api');
-            const { getToken, getOrCreateDeviceId, getDeviceName } = await import('./utils/tokenStorage');
-            const authToken = getToken();
-            if (!authToken) {
-              console.warn('QR login: Not logged in on mobile. Please log in first.');
-              return;
-            }
-            const deviceName = await getDeviceName();
-            await auth.qrLogin.approve(token, getOrCreateDeviceId(), deviceName);
-            window.dispatchEvent(new CustomEvent('qr-login-approved'));
-          }
-      } catch (err) {
-        console.warn('QR login deep link error:', err);
-      }
+      const flow = await import('./utils/qrLoginFlow');
+      const { extractQrTokenFromUrl, isQrLoginDeepLink, navigateToQrLoginConfirm } = flow;
+      if (!isQrLoginDeepLink(url)) return;
+      const token = extractQrTokenFromUrl(url);
+      if (!token) return;
+      // Show animated confirm screen in-app instead of silent approve
+      navigateToQrLoginConfirm(token);
     };
     CapApp.addListener('appUrlOpen', ({ url }) => handleLoginUrl(url));
     CapApp.getLaunchUrl().then(({ url }) => handleLoginUrl(url)).catch(() => {});
@@ -169,6 +158,7 @@ const AppWithProviders = () => (
         <PlatformProvider>
           <NotificationProvider>
             <Notifications />
+            <QrLoginBridge />
             <AuthProvider>
               <SoundProvider>
                 <SocketProvider>
@@ -196,10 +186,16 @@ const AppWithProviders = () => (
 );
 
 // Restore token from native storage (Capacitor) before first render so auth works on relaunch
-restoreToken().then(() => {
+function mountApp() {
   ReactDOM.createRoot(document.getElementById('root')).render(
     <ErrorBoundary>
       <AppWithProviders />
     </ErrorBoundary>
   );
-});
+}
+
+restoreToken()
+  .catch((err) => {
+    console.warn('[Auth] restoreToken failed on startup — continuing without restored token', err);
+  })
+  .finally(mountApp);

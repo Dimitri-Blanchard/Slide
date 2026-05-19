@@ -368,7 +368,7 @@
 }
 
 .chat-header-placeholder {
-  height: 48px;
+  height: 63px;
 }
 
 .chat-header-skeleton-avatar {
@@ -648,8 +648,8 @@
 .chat-header.chat-header-dm {
   padding: 0 12px 0 16px;
   gap: 10px;
-  height: 48px;
-  min-height: 48px;
+  height: 63px;
+  min-height: 63px;
   background: var(--bg-primary);
   border-bottom: 1px solid var(--border-subtle);
   z-index: 2;
@@ -934,6 +934,11 @@
     min-height: 52px;
   }
 
+  .chat-header.chat-header-dm {
+    height: 63px;
+    min-height: 63px;
+  }
+
   .chat-header-title {
     font-size: 1rem;
   }
@@ -1209,26 +1214,7 @@
 }
 [data-theme="dark"] .chat-header {
   background: var(--bg-primary);
-  border-bottom: none;
-  position: relative;
-}
-
-[data-theme="dark"] .chat-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255,255,255,0.06) 15%,
-    rgba(255,255,255,0.10) 50%,
-    rgba(255,255,255,0.06) 85%,
-    transparent 100%
-  );
-  pointer-events: none;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 [data-theme="dark"] .chat-header-title,

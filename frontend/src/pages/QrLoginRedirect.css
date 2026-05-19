@@ -1,59 +1,274 @@
-.qr-redirect-page {
+.qr-confirm-page {
   min-height: 100vh;
+  min-height: var(--app-height, 100vh);
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: var(--bg-primary);
+  background: var(--bg-primary, #1e1f22);
   color: var(--text-primary, #f2f3f5);
+}
+
+.qr-confirm-card {
+  width: 100%;
+  max-width: 380px;
   text-align: center;
 }
 
-.qr-redirect-loading {
-  font-size: 18px;
-  color: var(--text-muted, #949ba4);
+.qr-confirm-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  animation: qr-confirm-enter 0.4s ease-out;
 }
 
-.qr-redirect-fallback {
-  max-width: 360px;
-}
-
-.qr-redirect-fallback h2 {
-  margin: 0 0 16px;
+.qr-confirm-state h1 {
+  margin: 0;
   font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
-.qr-redirect-fallback p {
-  margin: 0 0 12px;
-  color: var(--text-muted, #949ba4);
+.qr-confirm-state p {
+  margin: 0;
+  font-size: 1rem;
   line-height: 1.5;
+  color: var(--text-muted, #949ba4);
+  max-width: 320px;
 }
 
-.qr-redirect-desc {
-  margin-bottom: 24px;
+/* Loading spinner */
+.qr-confirm-ring {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 3px solid rgba(79, 110, 247, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
 }
 
-.qr-redirect-btn {
-  display: inline-block;
+.qr-confirm-ring-inner {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: var(--accent-primary, #4f6ef7);
+  border-right-color: var(--accent-primary, #4f6ef7);
+  animation: qr-confirm-spin 0.85s linear infinite;
+}
+
+/* Success checkmark draw */
+.qr-confirm-icon {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-confirm-icon--success .qr-confirm-check-svg {
+  width: 80px;
+  height: 80px;
+}
+
+.qr-confirm-check-circle {
+  stroke: #23a559;
+  stroke-width: 2;
+  stroke-dasharray: 166;
+  stroke-dashoffset: 166;
+  animation: qr-confirm-circle-draw 0.5s ease forwards;
+}
+
+.qr-confirm-check-mark {
+  stroke: #23a559;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: qr-confirm-check-draw 0.4s 0.35s ease forwards;
+}
+
+.qr-confirm-state--success h1 {
+  color: #23a559;
+  animation: qr-confirm-pop 0.45s 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.qr-confirm-state--success p {
+  animation: qr-confirm-fade-up 0.4s 0.65s ease both;
+}
+
+/* Error */
+.qr-confirm-icon--error {
+  color: #f23f43;
+  animation: qr-confirm-shake 0.5s ease;
+}
+
+.qr-confirm-icon--error svg {
+  width: 72px;
+  height: 72px;
+}
+
+.qr-confirm-state--error h1 {
+  color: #f23f43;
+}
+
+/* Warning / need login */
+.qr-confirm-icon--warn {
+  width: 64px;
+  height: 64px;
+  color: #f0b232;
+  animation: qr-confirm-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.qr-confirm-btn {
+  margin-top: 12px;
   background: var(--accent-primary, #4f6ef7);
-  color: var(--accent-text);
+  color: var(--accent-text, #fff);
   border: none;
   border-radius: 8px;
-  padding: 14px 32px;
+  padding: 14px 28px;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.15s;
 }
 
-.qr-redirect-btn:hover,
-.qr-redirect-btn:active {
-  background: var(--accent-hover);
+.qr-confirm-btn:active {
+  transform: scale(0.98);
 }
 
-.qr-redirect-hint {
-  margin-top: 24px;
-  font-size: 0.9rem;
-  opacity: 0.9;
+.qr-confirm-btn--secondary {
+  background: var(--bg-secondary, #2b2d31);
+  color: var(--text-primary, #f2f3f5);
+  border: 1px solid var(--border-default, #3f4147);
+}
+
+@keyframes qr-confirm-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes qr-confirm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes qr-confirm-circle-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes qr-confirm-check-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes qr-confirm-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes qr-confirm-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes qr-confirm-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(6px); }
+}
+
+/* Post-success app loading */
+.qr-confirm-state--loading-app {
+  gap: 20px;
+}
+
+.qr-app-load-logo-wrap {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  margin-bottom: 4px;
+}
+
+.qr-app-load-logo {
+  width: 64px;
+  height: 64px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 16px;
+  animation: qr-app-logo-pulse 1.2s ease-in-out infinite;
+}
+
+.qr-app-load-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid rgba(79, 110, 247, 0.15);
+  border-top-color: var(--accent-primary, #4f6ef7);
+  animation: qr-confirm-spin 0.9s linear infinite;
+}
+
+.qr-app-load-step {
+  min-height: 1.5em;
+  font-weight: 500;
+  color: var(--text-primary, #dbdee1) !important;
+  animation: qr-confirm-fade-up 0.35s ease;
+}
+
+.qr-app-load-bar {
+  width: 100%;
+  max-width: 240px;
+  height: 4px;
+  border-radius: 4px;
+  background: var(--bg-secondary, #2b2d31);
+  overflow: hidden;
+}
+
+.qr-app-load-bar-fill {
+  height: 100%;
+  width: 40%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent-primary, #4f6ef7), #23a559);
+  animation: qr-app-bar-slide 1.4s ease-in-out infinite;
+}
+
+@keyframes qr-app-logo-pulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  50% { transform: translate(-50%, -50%) scale(1.06); opacity: 0.85; }
+}
+
+@keyframes qr-app-bar-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
 }

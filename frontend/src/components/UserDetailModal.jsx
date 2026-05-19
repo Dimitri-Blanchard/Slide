@@ -174,7 +174,9 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
     <div className={`udm-overlay${enterInstant ? ' modal-enter-instant' : ''}`} role="dialog" aria-modal="true" aria-label={`Profil de ${displayName}`} ref={containerRef}>
       <div
           className="udm-backdrop"
-          onClick={() => {
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
             if (noteEditing) return;
             if (Date.now() - lastNoteTapRef.current < 400) return;
             onClose();

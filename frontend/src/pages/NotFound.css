@@ -80,19 +80,20 @@
 .nf-btn-primary {
   display: inline-flex;
   align-items: center;
-  background: var(--accent, #4f6ef7);
+  background: var(--accent-gradient);
   color: var(--accent-text);
   font-weight: 600;
   font-size: 0.95rem;
   padding: 12px 24px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg, 12px);
+  border: none;
   text-decoration: none;
-  transition: opacity 0.2s, transform 0.2s;
+  transition: filter 0.15s ease;
+  box-shadow: none;
 }
 
 .nf-btn-primary:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
+  filter: brightness(1.06);
 }
 
 .nf-btn-ghost {

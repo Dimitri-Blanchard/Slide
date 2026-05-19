@@ -1,101 +1,145 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 import './MfaCodeInput.css';
 
 const LENGTH = 6;
+const POP_MS = 280;
 
 export default function MfaCodeInput({
   value = '',
   onChange,
-  id,
+  labelId,
   autoFocus = false,
   disabled = false,
   hasError = false,
   'aria-invalid': ariaInvalid,
 }) {
-  const digits = (value.replace(/\D/g, '').slice(0, LENGTH) + ''.padEnd(LENGTH, ' ')).slice(0, LENGTH).split('');
-  const inputRefs = useRef([]);
+  const inputRef = useRef(null);
+  const hadErrorRef = useRef(false);
+  const prevCodeRef = useRef('');
+  const [popIndex, setPopIndex] = useState(-1);
+  const code = value.replace(/\D/g, '').slice(0, LENGTH);
+  const activeIndex = Math.min(code.length, LENGTH - 1);
 
-  const focusIndex = useCallback((idx) => {
-    inputRefs.current[idx]?.focus();
-  }, []);
+  const focusInput = useCallback(() => {
+    if (disabled) return;
+    const el = inputRef.current;
+    if (!el) return;
+    el.focus();
+    const end = code.length;
+    try {
+      el.setSelectionRange(end, end);
+    } catch {
+      /* iOS / some WebViews */
+    }
+  }, [disabled, code.length]);
 
-  const handleKeyDown = useCallback((e, idx) => {
-    if (e.key === 'ArrowLeft' && idx > 0) {
-      e.preventDefault();
-      focusIndex(idx - 1);
-    } else if (e.key === 'ArrowRight' && idx < LENGTH - 1) {
-      e.preventDefault();
-      focusIndex(idx + 1);
-    } else if (e.key === 'Backspace') {
-      const hasDigit = digits[idx] && digits[idx] !== ' ';
-      if (hasDigit) {
-        e.preventDefault();
-        const newDigits = [...digits];
-        newDigits[idx] = ' ';
-        onChange?.(newDigits.join('').replace(/\s/g, ''));
-      } else if (idx > 0) {
-        e.preventDefault();
-        const newVal = digits.slice(0, idx - 1).join('').replace(/\s/g, '');
-        onChange?.(newVal);
-        focusIndex(idx - 1);
-      }
-    }
-  }, [digits, onChange, focusIndex]);
+  const applyCode = useCallback((next) => {
+    const normalized = String(next ?? '').replace(/\D/g, '').slice(0, LENGTH);
+    onChange?.(normalized);
+    return normalized;
+  }, [onChange]);
 
-  const handleInput = useCallback((e, idx) => {
-    const raw = e.target.value.replace(/\D/g, '');
-    if (raw.length > 1) {
-      const pasted = (raw + digits.join('').replace(/\s/g, '')).slice(0, LENGTH);
-      onChange?.(pasted);
-      const next = Math.min(idx + pasted.length, LENGTH - 1);
-      setTimeout(() => focusIndex(next), 0);
-      return;
+  useEffect(() => {
+    const prev = prevCodeRef.current;
+    prevCodeRef.current = code;
+    if (code.length === prev.length + 1 && code.startsWith(prev)) {
+      setPopIndex(code.length - 1);
+      const t = window.setTimeout(() => setPopIndex(-1), POP_MS);
+      return () => window.clearTimeout(t);
     }
-    const digit = raw.slice(-1) || '';
-    const newDigits = [...digits];
-    newDigits[idx] = digit;
-    const newVal = newDigits.join('').replace(/\s/g, '');
-    onChange?.(newVal);
-    if (digit && idx < LENGTH - 1) {
-      setTimeout(() => focusIndex(idx + 1), 0);
+    setPopIndex(-1);
+  }, [code]);
+
+  const handleCellClick = useCallback((idx, e) => {
+    e.stopPropagation();
+    if (disabled) return;
+    const el = inputRef.current;
+    if (!el) return;
+    el.focus();
+    const pos = Math.min(idx, code.length);
+    try {
+      el.setSelectionRange(pos, pos);
+    } catch {
+      /* iOS / some WebViews */
     }
-  }, [digits, onChange, focusIndex]);
+  }, [disabled, code.length]);
+
+  useEffect(() => {
+    if (!autoFocus || disabled) return;
+    const id = requestAnimationFrame(() => focusInput());
+    return () => cancelAnimationFrame(id);
+  }, [autoFocus, disabled, focusInput]);
+
+  useEffect(() => {
+    if (disabled || code.length > 0) return;
+    const id = requestAnimationFrame(() => focusInput());
+    return () => cancelAnimationFrame(id);
+  }, [code, disabled, focusInput]);
+
+  useEffect(() => {
+    if (hasError && !hadErrorRef.current && !disabled) {
+      const id = requestAnimationFrame(() => focusInput());
+      hadErrorRef.current = true;
+      return () => cancelAnimationFrame(id);
+    }
+    if (!hasError) hadErrorRef.current = false;
+  }, [hasError, disabled, focusInput]);
+
+  const handleChange = useCallback((e) => {
+    applyCode(e.target.value);
+  }, [applyCode]);
 
   const handlePaste = useCallback((e) => {
+    const pasted = e.clipboardData?.getData('text') ?? '';
+    if (!pasted.replace(/\D/g, '')) return;
     e.preventDefault();
-    const pasted = e.clipboardData?.getData('text')?.replace(/\D/g, '').slice(0, LENGTH) ?? '';
-    if (!pasted) return;
-    onChange?.(pasted);
-    focusIndex(Math.min(pasted.length, LENGTH) - 1);
-  }, [onChange, focusIndex]);
+    applyCode(pasted);
+    requestAnimationFrame(() => focusInput());
+  }, [applyCode, focusInput]);
 
   return (
     <div
       className={`mfa-code-input-wrap ${hasError ? 'mfa-code-input-wrap--error' : ''} ${disabled ? 'mfa-code-input-wrap--disabled' : ''}`}
       role="group"
-      aria-label="Verification code"
+      {...(labelId ? { 'aria-labelledby': labelId } : { 'aria-label': 'Verification code' })}
+      onClick={focusInput}
     >
-      {digits.map((d, idx) => (
-        <input
-          key={idx}
-          ref={(el) => { inputRefs.current[idx] = el; }}
-          type="text"
-          inputMode="numeric"
-          autoComplete={idx === 0 ? 'one-time-code' : 'off'}
-          maxLength={idx === 0 ? 6 : 1}
-          value={d === ' ' ? '' : d}
-          onChange={(e) => handleInput(e, idx)}
-          onKeyDown={(e) => handleKeyDown(e, idx)}
-          onPaste={handlePaste}
-          disabled={disabled}
-          autoFocus={autoFocus && idx === 0}
-          className="mfa-code-digit"
-          aria-invalid={ariaInvalid ?? hasError}
-          aria-label={`Digit ${idx + 1}`}
-          data-digit-index={idx}
-          id={idx === 0 ? id : undefined}
-        />
-      ))}
+      <input
+        ref={inputRef}
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        autoComplete="one-time-code"
+        enterKeyHint="done"
+        maxLength={LENGTH}
+        value={code}
+        onChange={handleChange}
+        onPaste={handlePaste}
+        disabled={disabled}
+        className="mfa-code-autofill-input"
+        aria-invalid={ariaInvalid ?? hasError}
+        aria-label="Verification code"
+      />
+      <div className="mfa-code-cells" aria-hidden>
+        {Array.from({ length: LENGTH }, (_, idx) => {
+          const char = code[idx] ?? '';
+          const isActive = idx === activeIndex;
+          return (
+            <div
+              key={idx}
+              className={[
+                'mfa-code-digit',
+                char ? 'mfa-code-digit--filled' : '',
+                isActive ? 'mfa-code-digit--active' : '',
+                popIndex === idx ? 'mfa-code-digit--pop' : '',
+              ].filter(Boolean).join(' ')}
+              onClick={(e) => handleCellClick(idx, e)}
+            >
+              {char}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

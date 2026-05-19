@@ -183,25 +183,23 @@ const ProfileCard = memo(function ProfileCard({
     }
   }, [isOpen, anchorEl, clickPos, position]);
 
-  // Close on outside click / Escape (don't close when clicking expanded UserDetailModal)
+  const handleBackdropPointerDown = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onClose();
+  }, [onClose]);
+
+  const handleCardPointerDown = useCallback((e) => {
+    e.stopPropagation();
+  }, []);
+
+  // Escape to close (backdrop layer handles outside clicks)
   useEffect(() => {
     if (!isOpen) return;
-    const onDown = (e) => {
-      const inCard = cardRef.current?.contains(e.target);
-      const inDetailModal = detailOpen && detailModalRef.current?.contains(e.target);
-      if (!inCard && !inDetailModal) onClose();
-    };
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    const t = setTimeout(() => {
-      document.addEventListener('mousedown', onDown);
-      document.addEventListener('keydown', onKey);
-    }, 50);
-    return () => {
-      clearTimeout(t);
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [isOpen, onClose, detailOpen]);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
 
   // Close menu on outside click
   useEffect(() => {
@@ -653,20 +651,38 @@ const ProfileCard = memo(function ProfileCard({
   );
 
   const content = isMobile ? null : hasPositionData || !isCardVariant ? (
-    <div
-      className={popupClasses}
-      ref={cardRef}
-      style={{ top: cardPos.top, left: cardPos.left, ...(cardStyle || {}) }}
-      role="dialog"
-      aria-label={`${finalDisplayName} profile`}
-    >
-      {cardContent}
+    <div className="profile-card-popup-layer">
+      <div
+        className="profile-card-popup-backdrop"
+        aria-hidden="true"
+        onMouseDown={handleBackdropPointerDown}
+      />
+      <div
+        className={popupClasses}
+        ref={cardRef}
+        style={{ top: cardPos.top, left: cardPos.left, ...(cardStyle || {}) }}
+        role="dialog"
+        aria-label={`${finalDisplayName} profile`}
+        onMouseDown={handleCardPointerDown}
+      >
+        {cardContent}
+      </div>
     </div>
   ) : (
     /* Fallback: centered overlay when no position data */
     <div className="profile-card-overlay">
-      <div className="profile-card-backdrop" onClick={onClose} aria-hidden="true" />
-      <div className={`${popupClasses} profile-card-popup--card`} ref={cardRef} role="dialog" style={cardStyle || undefined}>
+      <div
+        className="profile-card-backdrop"
+        aria-hidden="true"
+        onMouseDown={handleBackdropPointerDown}
+      />
+      <div
+        className={`${popupClasses} profile-card-popup--card`}
+        ref={cardRef}
+        role="dialog"
+        style={cardStyle || undefined}
+        onMouseDown={handleCardPointerDown}
+      >
         {cardContent}
       </div>
     </div>

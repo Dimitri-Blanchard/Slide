@@ -4,7 +4,7 @@ import { useLanguage } from '../context/LanguageContext';
 import './AuthShell.css';
 
 /**
- * Shared chrome for auth and legal surfaces (logo header, footer links, optional video).
+ * Shared chrome for auth and legal surfaces (logo header, footer links, optional backdrop).
  */
 export default function AuthShell({
   children,
@@ -37,7 +37,7 @@ export default function AuthShell({
   }
 
   return (
-    <div className={`auth-shell${backgroundMedia ? ' auth-shell--has-media' : ''}`}>
+    <div className={`auth-shell${backgroundMedia ? ' auth-shell--backdrop' : ''}`}>
       {backgroundMedia}
       <header className="auth-shell-header">
         <Link to="/" className="auth-shell-brand">
@@ -45,7 +45,7 @@ export default function AuthShell({
           <span className="auth-shell-brand-text">Slide</span>
         </Link>
       </header>
-      <main className="auth-shell-main">{children}</main>
+      <main className={`auth-shell-main${backgroundMedia ? ' auth-shell-main--backdrop' : ''}`}>{children}</main>
       <footer className="auth-shell-footer" aria-label="Legal links">
         <Link to="/privacy">{t('legal.privacyLink')}</Link>
         <span className="auth-shell-footer-sep" aria-hidden>·</span>

@@ -683,10 +683,26 @@ async function createMainWindow() {
   win.on('focus', () => safeSend(win, 'window-focus-change', true));
   win.on('blur', () => safeSend(win, 'window-focus-change', false));
 
-  // DevTools toggle
-  win.webContents.on('before-input-event', (_, input) => {
-    if (input.control && input.shift && input.key.toLowerCase() === 'i') {
+  // Keyboard shortcuts (no application menu)
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return;
+
+    const mod = input.control || input.meta;
+
+    if (mod && input.shift && input.key.toLowerCase() === 'i') {
       win.webContents.toggleDevTools();
+      return;
+    }
+
+    if (mod && !input.shift && input.key.toLowerCase() === 'r') {
+      event.preventDefault();
+      win.webContents.reload();
+      return;
+    }
+
+    if (mod && input.key === 'F5') {
+      event.preventDefault();
+      win.webContents.reloadIgnoringCache();
     }
   });
 
@@ -948,6 +964,26 @@ ipcMain.handle('save-file-dialog', async (_, opts = {}) => {
     title: opts.title || 'Enregistrer le fichier',
   });
   return result.canceled ? null : result.filePath;
+});
+
+// ─── IPC: Native drag image to desktop (Explorer, Finder, etc.) ───────────────
+const DRAG_TEMP_DIR = () => path.join(app.getPath('temp'), 'slide-drag');
+
+ipcMain.handle('prepare-drag-temp-file', (_, { buffer, filename }) => {
+  if (!buffer?.byteLength) return null;
+  const dir = DRAG_TEMP_DIR();
+  fs.mkdirSync(dir, { recursive: true });
+  const safeName = path.basename(String(filename || 'image.png')).replace(/[^\w.\-()+ ]/g, '_') || 'image.png';
+  const filePath = path.join(dir, `${Date.now()}-${safeName}`);
+  fs.writeFileSync(filePath, Buffer.from(buffer));
+  return filePath;
+});
+
+ipcMain.on('start-native-drag', (event, filePath) => {
+  if (!filePath || typeof filePath !== 'string' || !fs.existsSync(filePath)) return;
+  let icon = nativeImage.createFromPath(filePath);
+  if (icon.isEmpty()) icon = nativeImage.createEmpty();
+  event.sender.startDrag({ file: filePath, icon });
 });
 
 // ─── IPC: Desktop sources (screen share picker) ───────────────────────────────

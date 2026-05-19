@@ -65,7 +65,6 @@ function StatusIcon({ status, size = 10, borderColor = '#202225' }) {
     );
   }
 
-  // Online - solid green circle
   return (
     <svg width={size} height={size} viewBox="0 0 16 16">
       <circle cx="8" cy="8" r="8" fill={opt.color} />
@@ -91,9 +90,10 @@ export default function UserPanel() {
   const statusTriggerRef = useRef(null);
   const customStatusModalRef = useRef(null);
   const accountFlyoutRef = useRef(null);
+  const anotherAccountRef = useRef(null);
   const flyoutTimeoutRef = useRef(null);
-  const [pickerPos, setPickerPos] = useState({ bottom: 0, left: 0 });
   const [showAccountFlyout, setShowAccountFlyout] = useState(false);
+  const [drawerMounted, setDrawerMounted] = useState(false);
 
   useEffect(() => {
     setOnlineStatus(getStoredOnlineStatus(user?.id));
@@ -108,7 +108,6 @@ export default function UserPanel() {
     setStoredCustomStatus(user?.id, customStatus);
   }, [user?.id, customStatus]);
 
-  // Refetch user when we have id but display name is missing (fixes "?" placeholder until refresh)
   const hasRefetchedForMissingName = useRef(false);
   useEffect(() => {
     if (!user?.id) return;
@@ -123,15 +122,67 @@ export default function UserPanel() {
     authApi.me().then((data) => updateUser(data)).catch(() => {});
   }, [user?.id, user?.display_name, user?.username, updateUser]);
 
-  // Close flyout when status menu closes
   useEffect(() => {
     if (!showStatusMenu) setShowAccountFlyout(false);
   }, [showStatusMenu]);
 
-  // Close status menu on outside click (including outside flyout)
+  useEffect(() => {
+    if (showStatusMenu) {
+      setDrawerMounted(true);
+      return undefined;
+    }
+    const host = document.querySelector('.usas-status-drawer-host');
+    if (!host) {
+      setDrawerMounted(false);
+      return undefined;
+    }
+    const onEnd = (e) => {
+      if (e.target === host && e.propertyName === 'max-height') {
+        setDrawerMounted(false);
+      }
+    };
+    host.addEventListener('transitionend', onEnd);
+    const fallback = setTimeout(() => setDrawerMounted(false), 450);
+    return () => {
+      host.removeEventListener('transitionend', onEnd);
+      clearTimeout(fallback);
+    };
+  }, [showStatusMenu]);
+
+  useEffect(() => {
+    const host = document.querySelector('.usas-status-drawer-host');
+    const island = document.querySelector('.user-status-and-settings');
+    host?.classList.toggle('is-open', showStatusMenu);
+    island?.classList.toggle('usas-status-menu-open', showStatusMenu);
+    return () => {
+      host?.classList.remove('is-open');
+      island?.classList.remove('usas-status-menu-open');
+    };
+  }, [showStatusMenu]);
+
+  useEffect(() => {
+    const island = document.querySelector('.user-status-and-settings');
+    island?.classList.toggle('usas-accounts-open', showAccountFlyout);
+    return () => island?.classList.remove('usas-accounts-open');
+  }, [showAccountFlyout]);
+
+  const accountWingCount = user
+    ? 1 + accounts.filter((a) => String(a.userId) !== String(user.id)).length
+    : 0;
+
+  useEffect(() => {
+    const host = document.querySelector('.usas-account-wing-host');
+    if (!host) return;
+    host.classList.remove('usas-account-wing--s', 'usas-account-wing--m', 'usas-account-wing--l');
+    if (accountWingCount <= 2) host.classList.add('usas-account-wing--s');
+    else if (accountWingCount === 3) host.classList.add('usas-account-wing--m');
+    else host.classList.add('usas-account-wing--l');
+    return () => host.classList.remove('usas-account-wing--s', 'usas-account-wing--m', 'usas-account-wing--l');
+  }, [accountWingCount, showStatusMenu]);
+
   useEffect(() => {
     if (!showStatusMenu) return;
-    const handler = (e) => {
+    const onMouseDown = (e) => {
       const inTrigger = statusTriggerRef.current?.contains(e.target);
       const inPicker = statusMenuRef.current?.contains(e.target);
       const inFlyout = accountFlyoutRef.current?.contains(e.target);
@@ -139,11 +190,17 @@ export default function UserPanel() {
         setShowStatusMenu(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setShowStatusMenu(false);
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
   }, [showStatusMenu]);
 
-  // Close custom status modal on outside click
   useEffect(() => {
     if (!showCustomStatusModal) return;
     const handler = (e) => {
@@ -223,22 +280,18 @@ export default function UserPanel() {
   const displayName = normalizeDisplayName(user.display_name, user.username) || '?';
   const otherAccounts = accounts.filter((a) => String(a.userId) !== String(user?.id));
 
+  const drawerHost = drawerMounted ? document.querySelector('.usas-status-drawer-host') : null;
+  const accountWingHost = showStatusMenu ? document.querySelector('.usas-account-wing-host') : null;
+
   return (
     <>
       <div className="user-panel">
         <div
-          className="user-panel-identity"
+          className={`user-panel-identity${showStatusMenu ? ' is-open' : ''}`}
           ref={statusTriggerRef}
-          onClick={() => {
-            if (!showStatusMenu && statusTriggerRef.current) {
-              const rect = statusTriggerRef.current.getBoundingClientRect();
-              setPickerPos({
-                bottom: window.innerHeight - rect.bottom + 8,
-                left: rect.left,
-              });
-            }
-            setShowStatusMenu(!showStatusMenu);
-          }}
+          onClick={() => setShowStatusMenu((open) => !open)}
+          aria-expanded={showStatusMenu}
+          aria-haspopup="true"
         >
           <div className="user-panel-avatar">
             {user.avatar_url ? (
@@ -274,102 +327,75 @@ export default function UserPanel() {
             </svg>
           </button>
         </div>
-
       </div>
 
-      {/* Status picker + account flyout - portaled to body to escape sidebar stacking context */}
-      {showStatusMenu && createPortal(
-        <>
-        <div
-          className="status-picker"
-          ref={statusMenuRef}
-          style={{ bottom: pickerPos.bottom, left: pickerPos.left }}
-        >
-          <div className="status-picker-header">
-            <div className="status-picker-user">
-              <div className="status-picker-avatar">
-                {user.avatar_url ? (
-                  <AvatarImg
-                    src={user.avatar_url}
-                    alt={displayName}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="%236366f1"/><text x="32" y="42" font-size="24" fill="white" text-anchor="middle" font-family="sans-serif">${displayName.charAt(0).toUpperCase()}</text></svg>`)}`;
-                    }}
-                  />
+      {drawerHost && createPortal(
+        <div className="usas-status-drawer" ref={statusMenuRef} role="menu">
+          <div className="status-picker-body">
+            <button type="button" className="status-picker-item" onClick={handleOpenCustomStatus}>
+              <svg className="status-picker-emoji" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                {customStatus ? (
+                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                 ) : (
-                  <span>{displayName.charAt(0).toUpperCase()}</span>
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5-6c.78 2.34 2.72 4 5 4s4.22-1.66 5-4H7z"/>
                 )}
-              </div>
-              <div className="status-picker-user-info">
-                <span className="status-picker-name">{displayName}</span>
-                {user.username && <span className="status-picker-username">@{user.username}</span>}
-              </div>
-            </div>
-          </div>
-
-          <div className="status-picker-separator" />
-
-          <button className="status-picker-item custom-status-btn" onClick={handleOpenCustomStatus}>
-            <svg className="status-picker-emoji" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              {customStatus ? (
-                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-              ) : (
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5-6c.78 2.34 2.72 4 5 4s4.22-1.66 5-4H7z"/>
-              )}
-            </svg>
-            <span>{customStatus ? 'Edit Custom Status' : 'Set Custom Status'}</span>
-          </button>
-
-          <div className="status-picker-separator" />
-
-          <div className="status-picker-section-label">Online Status</div>
-          {STATUS_OPTIONS.map(opt => (
-            <button
-              key={opt.id}
-              className={`status-picker-item${onlineStatus === opt.id ? ' selected' : ''}`}
-              onClick={() => handleStatusChange(opt.id)}
-            >
-              <div className="status-picker-dot">
-                <StatusIcon status={opt.id} size={12} borderColor="var(--bg-floating)" />
-              </div>
-              <span>{opt.label}</span>
-              {onlineStatus === opt.id && (
-                <svg className="status-picker-check" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
-                </svg>
-              )}
+              </svg>
+              <span>{customStatus ? 'Edit custom status' : 'Set custom status'}</span>
             </button>
-          ))}
 
-          <div className="status-picker-separator" />
+            <div className="status-picker-separator" />
 
-          <div className="status-picker-section-label">Account</div>
-          <button
-            className="status-picker-item status-picker-another-account"
-            onMouseEnter={handleAnotherAccountEnter}
-            onMouseLeave={handleAnotherAccountLeave}
-            onClick={() => setShowAccountFlyout((v) => !v)}
-          >
-            <span>Another account</span>
-            <svg className="status-picker-arrow" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-            </svg>
-          </button>
-        </div>
-        {showAccountFlyout && (
+            {STATUS_OPTIONS.map((opt, i) => (
+              <button
+                key={opt.id}
+                type="button"
+                className={`status-picker-item${onlineStatus === opt.id ? ' selected' : ''}`}
+                onClick={() => handleStatusChange(opt.id)}
+              >
+                <div className="status-picker-dot">
+                  <StatusIcon status={opt.id} size={12} borderColor="var(--bg-secondary)" />
+                </div>
+                <span>{opt.label}</span>
+                {onlineStatus === opt.id && (
+                  <svg className="status-picker-check" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                  </svg>
+                )}
+              </button>
+            ))}
+
+            <div className="status-picker-separator" />
+
+            <button
+              ref={anotherAccountRef}
+              type="button"
+              className={`status-picker-item status-picker-another-account${showAccountFlyout ? ' is-active' : ''}`}
+              onMouseEnter={handleAnotherAccountEnter}
+              onMouseLeave={handleAnotherAccountLeave}
+              onClick={() => setShowAccountFlyout((v) => !v)}
+            >
+              <span>Another account</span>
+              <svg className="status-picker-arrow" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+              </svg>
+            </button>
+          </div>
+        </div>,
+        drawerHost
+      )}
+
+      {accountWingHost && createPortal(
         <div
           ref={accountFlyoutRef}
-          className="account-flyout"
-          style={{
-            left: pickerPos.left + 320 + 8,
-            bottom: pickerPos.bottom,
-          }}
+          className="usas-account-wing-panel"
+          role="menu"
+          aria-label="Switch account"
           onMouseEnter={handleFlyoutEnter}
           onMouseLeave={handleFlyoutLeave}
         >
-          <div className="account-flyout-item account-flyout-current">
-            <div className="account-flyout-avatar">
+          <div className="status-picker-body account-wing-body">
+              <div className="status-picker-item selected" aria-current="true">
+              <div className="user-panel-avatar account-wing-avatar">
               {user.avatar_url ? (
                 <AvatarImg
                   src={user.avatar_url}
@@ -382,69 +408,83 @@ export default function UserPanel() {
               ) : (
                 <span>{displayName.charAt(0).toUpperCase()}</span>
               )}
+              </div>
+              <div className="user-panel-info account-wing-info">
+                <span className="user-panel-name">{displayName}</span>
+                {user.username && <span className="user-panel-status">@{user.username}</span>}
+              </div>
+              <svg className="status-picker-check" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+              </svg>
             </div>
-            <div className="account-flyout-info">
-              <span className="account-flyout-name">{displayName}</span>
-              {user.username && <span className="account-flyout-username">@{user.username}</span>}
-            </div>
-            <span className="account-flyout-badge">Current</span>
-          </div>
-          {otherAccounts.map((acc) => {
+            {otherAccounts.length > 0 && (
+              <>
+                <div className="status-picker-separator" />
+                {otherAccounts.map((acc) => {
             const accountDisplayName = normalizeDisplayName(acc.displayName, acc.username) || '?';
             const accountId = acc.userId ?? acc.user_id ?? acc.id;
             return (
+              <button
+                key={String(accountId)}
+                type="button"
+                className="status-picker-item"
+                role="menuitem"
+                onClick={async () => {
+                  setShowStatusMenu(false);
+                  setShowAccountFlyout(false);
+                  try {
+                    await switchAccount(accountId);
+                  } catch {
+                    // Token expired - account was removed
+                  }
+                }}
+              >
+                <div className="user-panel-avatar account-wing-avatar">
+                  {acc.avatar_url ? (
+                    <AvatarImg
+                      src={acc.avatar_url}
+                      alt={accountDisplayName}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="%236366f1"/><text x="32" y="42" font-size="24" fill="white" text-anchor="middle" font-family="sans-serif">${accountDisplayName.charAt(0).toUpperCase()}</text></svg>`)}`;
+                      }}
+                    />
+                  ) : (
+                    <span>{accountDisplayName.charAt(0).toUpperCase()}</span>
+                  )}
+                </div>
+                <div className="user-panel-info account-wing-info">
+                  <span className="user-panel-name">{accountDisplayName}</span>
+                  {acc.username && <span className="user-panel-status">@{acc.username}</span>}
+                </div>
+              </button>
+            );
+                })}
+              </>
+            )}
+            <div className="status-picker-separator" />
             <button
-              key={String(accountId)}
-              className="account-flyout-item account-flyout-account-btn"
-              onClick={async () => {
+              type="button"
+              className="status-picker-item status-picker-add-account"
+              role="menuitem"
+              onClick={() => {
                 setShowStatusMenu(false);
-                try {
-                  await switchAccount(accountId);
-                } catch {
-                  // Token expired - account was removed
-                }
+                setShowAccountFlyout(false);
+                navigate('/login?add=1');
               }}
             >
-              <div className="account-flyout-avatar">
-                {acc.avatar_url ? (
-                  <AvatarImg
-                    src={acc.avatar_url}
-                    alt={accountDisplayName}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="%236366f1"/><text x="32" y="42" font-size="24" fill="white" text-anchor="middle" font-family="sans-serif">${accountDisplayName.charAt(0).toUpperCase()}</text></svg>`)}`;
-                    }}
-                  />
-                ) : (
-                  <span>{accountDisplayName.charAt(0).toUpperCase()}</span>
-                )}
-              </div>
-              <div className="account-flyout-info">
-                <span className="account-flyout-name">{accountDisplayName}</span>
-                {acc.username && <span className="account-flyout-username">@{acc.username}</span>}
-              </div>
+              <span className="status-picker-add-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+              </span>
+              <span>Add an account</span>
             </button>
-            );
-          })}
-          <button
-            className="account-flyout-item account-flyout-add"
-            onClick={() => {
-              setShowStatusMenu(false);
-              navigate('/login?add=1');
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-            </svg>
-            <span>Add account</span>
-          </button>
-        </div>
-        )}
-        </>,
-        document.body
+          </div>
+        </div>,
+        accountWingHost
       )}
 
-      {/* Custom Status Modal */}
       {showCustomStatusModal && (
         <div className="custom-status-overlay">
           <div className="custom-status-modal" ref={customStatusModalRef}>

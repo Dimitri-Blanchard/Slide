@@ -777,7 +777,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
     return () => socket.off('message_read', onMessageRead);
   }, [socket, conversationId]);
 
-  const isGroup = conversation?.is_group;
+  const isGroup = !!conversation?.is_group;
   const other = isGroup ? null : conversation?.participants?.[0];
   const otherUsers = useMemo(() => conversation?.participants || [], [conversation?.participants]);
 

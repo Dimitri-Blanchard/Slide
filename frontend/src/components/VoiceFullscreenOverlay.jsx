@@ -29,7 +29,7 @@ const VoiceFullscreenOverlay = memo(function VoiceFullscreenOverlay({ isMobile, 
 
   const conversation = conversations?.find(c => c.conversation_id === voiceConversationId);
   const otherUser = conversation?.participants?.find(p => p.id !== user?.id);
-  const isGroup = conversation?.is_group;
+  const isGroup = !!conversation?.is_group;
   const otherUserName = isGroup ? (conversation?.group_name || 'Group') : (otherUser?.display_name || 'Someone');
 
   if (!isMobile || !isInVoice || expandedLiveView) return null;

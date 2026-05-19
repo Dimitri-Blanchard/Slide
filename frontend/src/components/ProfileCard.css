@@ -2,10 +2,27 @@
    PROFILE CARD — Discord-accurate popup v2
    ═══════════════════════════════════════════════════════════ */
 
+/* ── Full-screen capture layer (blocks clicks/cursor bleed-through) ── */
+.profile-card-popup-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.profile-card-popup-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  cursor: default;
+  background: transparent;
+}
+
 /* ── Main popup container ───────────────────────────────── */
 .profile-card-popup {
   position: fixed;
-  z-index: 10000;
+  z-index: 10001;
+  pointer-events: auto;
   width: 320px;
   background: var(--glass-panel-bg);
   border: 1px solid var(--border-default);
@@ -24,7 +41,8 @@
   position: absolute;
   inset: 0;
   border-radius: 8px;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: default;
   z-index: 0;
 }
 
@@ -172,6 +190,8 @@
 
 /* ── Scrollable area ─────────────────────────────────────── */
 .profile-card-scroll {
+  position: relative;
+  z-index: 1;
   overflow-y: auto;
   overflow-x: hidden;
   flex: 1;
@@ -797,7 +817,7 @@
     padding: 0;
     border: none;
     background: rgba(0, 0, 0, 0.46);
-    cursor: pointer;
+    cursor: default;
     transition: opacity 0.18s linear;
   }
 
@@ -891,7 +911,7 @@
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  cursor: pointer;
+  cursor: default;
 }
 .profile-card-popup--card {
   position: relative !important;

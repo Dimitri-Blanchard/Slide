@@ -85,6 +85,11 @@ contextBridge.exposeInMainWorld('electron', {
   // Returns: file path string, or null if cancelled
   saveFileDialog: (opts) => ipcRenderer.invoke('save-file-dialog', opts),
 
+  // ── Drag image to OS desktop / folder ───────────────────────────────────────
+  prepareDragTempFile: (buffer, filename) =>
+    ipcRenderer.invoke('prepare-drag-temp-file', { buffer, filename }),
+  startNativeDrag: (filePath) => ipcRenderer.sendSync('start-native-drag', filePath),
+
   // ── Screen share picker ──────────────────────────────────────────────────────
   // Returns array of { id, name, thumbnail (dataURL), appIcon, display_id }
   getDesktopSources: () => ipcRenderer.invoke('get-desktop-sources'),

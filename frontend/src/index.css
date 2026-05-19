@@ -866,3 +866,33 @@ button:focus-visible:not(:disabled),
   color: rgba(255, 255, 255, 0.8);
   letter-spacing: 0.04em;
 }
+
+/* Message list scrollbar — no arrow buttons (Windows WebKit / Electron).
+   Loaded last so it wins over global [data-theme="dark"] ::-webkit-scrollbar. */
+.message-list::-webkit-scrollbar-button,
+.message-list::-webkit-scrollbar-button:single-button,
+.message-list::-webkit-scrollbar-button:double-button,
+.message-list::-webkit-scrollbar-button:vertical:decrement,
+.message-list::-webkit-scrollbar-button:vertical:increment,
+.message-list::-webkit-scrollbar-button:vertical:start:decrement,
+.message-list::-webkit-scrollbar-button:vertical:start:increment,
+.message-list::-webkit-scrollbar-button:vertical:end:decrement,
+.message-list::-webkit-scrollbar-button:vertical:end:increment,
+[data-theme="dark"] .message-list::-webkit-scrollbar-button,
+[data-theme="dark"] .message-list::-webkit-scrollbar-button:vertical:decrement,
+[data-theme="dark"] .message-list::-webkit-scrollbar-button:vertical:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  background: transparent !important;
+  background-size: 0 !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+[data-theme="dark"] .message-list::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}

@@ -22,7 +22,7 @@
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.72);
-  cursor: pointer;
+  cursor: default;
 }
 
 .udm-modal {
@@ -226,13 +226,24 @@
   transform: scale(1.04);
 }
 .udm-action-btn--primary {
-  background: var(--accent);
+  background: var(--accent-gradient);
   border-color: transparent;
   color: var(--accent-text);
 }
 .udm-action-btn--primary:hover {
-  background: var(--accent-hover);
+  filter: brightness(1.06);
   color: var(--accent-text);
+}
+[data-theme="dark"] .udm-action-btn--primary {
+  background: var(--btn-primary-bg);
+  border: 1px solid var(--btn-primary-border);
+  color: rgba(255, 255, 255, 0.95);
+  filter: none;
+}
+[data-theme="dark"] .udm-action-btn--primary:hover {
+  background: var(--btn-primary-hover);
+  border-color: var(--btn-primary-border-hover);
+  filter: none;
 }
 
 /* ── Scrollable body ── */

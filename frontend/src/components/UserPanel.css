@@ -142,125 +142,51 @@
 
 
 /* ═══════════════════════════════════════════════════════════
-   STATUS PICKER POPUP
+   STATUS DRAWER — grows upward from usas-bottom-bar
    ═══════════════════════════════════════════════════════════ */
-.status-picker {
-  position: fixed;
-  width: 320px;
-  background: var(--glass-float-bg);
-  border-radius: var(--radius-lg, 12px);
-  border: 1px solid var(--border-default);
-  box-shadow:
-    var(--shadow-elevated),
-    0 0 0 1px rgba(0, 0, 0, 0.03),
-    0 12px 34px -18px var(--cosmic-glow-strong);
-  z-index: 1100000;
+.usas-status-drawer {
   overflow: hidden;
-  animation: statusPickerIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+  background: var(--bg-secondary);
 }
 
-@keyframes statusPickerIn {
-  from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.status-picker-body {
+  padding: 6px 8px 8px;
 }
 
-.status-picker-header {
-  padding: 16px;
+.usas-bottom-bar .user-panel-identity.is-open {
+  background: var(--bg-hover);
 }
 
-.status-picker-user {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.usas-bottom-bar .user-panel-identity {
+  transition: background 0.15s ease;
 }
 
-.status-picker-avatar {
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.status-picker-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.status-picker-avatar span {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
-  color: var(--accent-text);
-  font-weight: 600;
-  font-size: 1.1rem;
-}
-
-.status-picker-user-info {
-  min-width: 0;
-}
-
-.status-picker-name {
-  display: block;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  letter-spacing: -0.01em;
-}
-
-.status-picker-username {
-  display: block;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  margin-top: 2px;
+.status-picker-another-account.is-active {
+  background: var(--bg-active);
 }
 
 .status-picker-separator {
   height: 1px;
-  margin: 0 14px;
+  margin: 4px 0;
   background: var(--border-subtle);
-}
-
-.status-picker-section-label {
-  padding: 12px 14px 6px;
-  font-size: 0.65rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-  opacity: 0.9;
 }
 
 .status-picker-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  width: calc(100% - 16px);
-  padding: 10px 14px;
-  margin: 0 8px 4px;
-  background: none;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  margin: 0;
+  background: transparent;
   border: none;
-  border-radius: var(--radius-sm, 6px);
+  border-radius: 8px;
   color: var(--text-primary);
-  font-size: 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.12s ease, color 0.12s ease;
   text-align: left;
   box-sizing: border-box;
 }
@@ -282,12 +208,19 @@
   flex-shrink: 0;
 }
 
+.status-picker-icon,
 .status-picker-emoji {
   width: 18px;
   height: 18px;
-  text-align: center;
   flex-shrink: 0;
-  opacity: 0.9;
+  opacity: 0.75;
+  color: var(--text-muted);
+}
+
+.status-picker-item:hover .status-picker-icon,
+.status-picker-item:hover .status-picker-emoji {
+  opacity: 1;
+  color: var(--text-primary);
 }
 
 .status-picker-check {
@@ -296,141 +229,38 @@
   flex-shrink: 0;
 }
 
-.custom-status-btn {
-  margin: 4px 0;
-}
-
-/* Another account button with arrow */
 .status-picker-another-account {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
 }
 
 .status-picker-arrow {
   margin-left: auto;
   flex-shrink: 0;
-  opacity: 0.7;
+  opacity: 0.55;
 }
 
 /* ═══════════════════════════════════════════════════════════
-   ACCOUNT FLYOUT - opens on hover of "Another account"
+   ACCOUNT WING — reuses status-picker rows inside usas-bar-stack
    ═══════════════════════════════════════════════════════════ */
-.account-flyout {
-  position: fixed;
-  width: 280px;
-  padding: 8px 8px 12px;
-  background: var(--glass-float-bg);
-  border-radius: var(--radius-lg, 12px);
-  border: 1px solid var(--border-default);
-  box-shadow:
-    var(--shadow-elevated),
-    0 0 0 1px rgba(0, 0, 0, 0.03),
-    0 10px 30px -18px var(--cosmic-glow-strong);
-  z-index: 1100001;
-  animation: statusPickerIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+.status-picker-add-account {
+  color: var(--accent);
 }
 
-.account-flyout-item {
+.status-picker-add-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 10px 12px;
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm, 6px);
-  color: var(--text-primary);
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: background 0.15s ease;
-  text-align: left;
-}
-
-.account-flyout-item:hover {
-  background: var(--bg-hover);
-}
-
-.account-flyout-avatar {
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
+  justify-content: center;
   border-radius: 50%;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  background: var(--accent-muted);
+  color: var(--accent);
 }
 
-.account-flyout-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.account-flyout-avatar span {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+.status-picker-add-account:hover .status-picker-add-icon {
+  background: var(--accent);
   color: var(--accent-text);
-  font-weight: 600;
-  font-size: 0.85rem;
-}
-
-.account-flyout-info {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.account-flyout-name {
-  display: block;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.account-flyout-username {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-top: 1px;
-}
-
-.account-flyout-badge {
-  margin-left: auto;
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--accent);
-  flex-shrink: 0;
-  padding: 2px 8px;
-  background: var(--accent-muted);
-  border-radius: 4px;
-}
-
-.account-flyout-add {
-  color: var(--accent);
-  font-weight: 500;
-  border: 1px dashed var(--border-default);
-  margin-top: 4px;
-}
-
-.account-flyout-add:hover {
-  background: var(--accent-muted);
-  color: var(--accent);
-  border-color: var(--accent);
 }
 
 

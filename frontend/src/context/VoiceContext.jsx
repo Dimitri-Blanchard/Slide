@@ -4,6 +4,7 @@ import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
 import { useSettings } from './SettingsContext';
 import { useNotification } from './NotificationContext';
+import { randomUuidV4 } from '../utils/randomUuid';
 
 const VoiceContext = createContext(null);
 
@@ -170,7 +171,7 @@ export function getRemoteStreamForUser(remoteVideoStreams, userId) {
 
 /** New id per browser tab session — avoids reusing a stale id after reload while the server dropped the old socket. */
 function createVoiceClientId() {
-  return crypto.randomUUID();
+  return randomUuidV4();
 }
 
 /** Dedupe server endpoint rows for sidebar (one row per user). */
@@ -339,7 +340,7 @@ export function VoiceProvider({ children }) {
   const voiceTeamIdRef = useRef(null);
   const myVoiceClientIdRef = useRef(createVoiceClientId());
   const rotateVoiceClientId = useCallback(() => {
-    const next = crypto.randomUUID();
+    const next = randomUuidV4();
     try { sessionStorage.setItem(VOICE_CLIENT_STORAGE_KEY, next); } catch (_) {}
     myVoiceClientIdRef.current = next;
   }, []);

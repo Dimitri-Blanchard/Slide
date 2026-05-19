@@ -68,6 +68,7 @@ export default function UserStatusAndSettings({ sidebarWidth }) {
 
   return createPortal(
     <div className={`user-status-and-settings${isInVoice ? ' usas-in-voice' : ''}`} style={panelWidth ? { width: panelWidth } : undefined}>
+      <div className="usas-island-main">
       {isInVoice && (
         <div className="usas-voice-zone">
           <VoiceStatusBar />
@@ -101,7 +102,9 @@ export default function UserStatusAndSettings({ sidebarWidth }) {
         </div>
       )}
 
-      <div className="usas-bottom-bar">
+      <div className="usas-bar-stack">
+        <div className="usas-status-drawer-host" />
+        <div className="usas-bottom-bar">
         <UserPanel />
         <div className="usas-controls" ref={dropdownRef}>
           <div ref={micGroupRef} className="usas-ctrl-group">
@@ -168,7 +171,10 @@ export default function UserStatusAndSettings({ sidebarWidth }) {
             <Settings size={20} />
           </button>
         </div>
+        </div>
       </div>
+      </div>
+      <div className="usas-account-wing-host" />
     </div>,
     document.body
   );

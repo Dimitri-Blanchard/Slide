@@ -68,7 +68,7 @@ const GroupAvatar = memo(function GroupAvatar({ participants, size = 'medium', o
 });
 
 const DMItem = memo(function DMItem({ conversation, isActive, onContextMenu, onClose, unreadCount = 0, onPinConversation, isPinned, canPin = true }) {
-  const isGroup = conversation.is_group;
+  const isGroup = !!conversation.is_group;
   const other = conversation.participants?.[0];
   const { onMouseEnter, onMouseLeave } = usePrefetchOnHover();
   const name = isGroup
@@ -300,7 +300,7 @@ const Sidebar = memo(function Sidebar({
   }, [contextMenu.conversation, handleCloseConversation, closeContextMenu]);
 
   const conv = contextMenu.conversation;
-  const isGroup = conv?.is_group;
+  const isGroup = !!conv?.is_group;
   const otherUser = conv?.participants?.[0];
   const convId = conv?.conversation_id;
   const dmCallUsers = convId ? (voiceUsers[`dm_${convId}`] || []) : [];

@@ -50,24 +50,6 @@
   position: relative;
 }
 
-.sticker-panel-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.06) 10%,
-    rgba(var(--accent-rgb), 0.2) 50%,
-    rgba(255, 255, 255, 0.06) 90%,
-    transparent 100%
-  );
-  pointer-events: none;
-}
-
 .sticker-panel-tabs {
   display: flex;
   flex: 1;
@@ -739,7 +721,6 @@
 }
 
 .gif-category-tile:hover {
-  transform: scale(1.03);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
@@ -907,13 +888,8 @@
 }
 
 .gif-item:hover {
-  transform: scale(1.02);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
   z-index: 1;
-}
-
-.gif-item:active {
-  transform: scale(0.98);
 }
 
 .gif-item img {
@@ -1544,7 +1520,6 @@
 }
 
 .gif-category-tile:hover {
-  transform: scale(1.03);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
@@ -1712,13 +1687,8 @@
 }
 
 .gif-item:hover {
-  transform: scale(1.02);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
   z-index: 1;
-}
-
-.gif-item:active {
-  transform: scale(0.98);
 }
 
 .gif-item img {

@@ -1,13 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { isPublicConsentRoute } from '../utils/publicConsentRoutes';
 import './DevelopmentBanner.css';
 
 const LOCAL_KEY = 'slide_dev_banner_accepted';
 
 export default function DevelopmentBanner() {
+  const { pathname } = useLocation();
+  const { user, loading } = useAuth();
   const [visible, setVisible] = useState(false);
+  const onAllowedRoute = isPublicConsentRoute(pathname, user, loading);
 
   useEffect(() => {
+    if (!onAllowedRoute) {
+      setVisible(false);
+      return;
+    }
+
     // Quick local check first — if already dismissed locally, skip API call
     if (localStorage.getItem(LOCAL_KEY)) return;
 
@@ -25,7 +35,7 @@ export default function DevelopmentBanner() {
         // Server unreachable — fallback to showing banner
         setVisible(true);
       });
-  }, []);
+  }, [onAllowedRoute]);
 
   const handleAccept = () => {
     localStorage.setItem(LOCAL_KEY, 'accepted');
@@ -34,7 +44,7 @@ export default function DevelopmentBanner() {
     fetch('/api/banner/dismiss', { method: 'POST' }).catch(() => {});
   };
 
-  if (!visible) return null;
+  if (!onAllowedRoute || !visible) return null;
 
   return (
     <div className="dev-banner" role="status" aria-live="polite">

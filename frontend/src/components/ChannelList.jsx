@@ -561,14 +561,14 @@ const VoiceUserItem = memo(function VoiceUserItem({ voiceUser, isSpeaking, isScr
           LIVE
         </span>
       )}
-      {voiceUser.muted && (
+      {!!voiceUser.muted && (
         <svg className="voice-sidebar-status muted" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
           <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
           <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
         </svg>
       )}
-      {voiceUser.deafened && (
+      {!!voiceUser.deafened && (
         <svg className="voice-sidebar-status deafened" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z"/>
           <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>

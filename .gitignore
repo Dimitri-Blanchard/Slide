@@ -48,6 +48,10 @@ backend/public/uploads/
 npm-debug.log*
 yarn-debug.log*
 
+# ─── Claude / local tooling ───────────────────────────────────────────────────
+.claude/
+**/.claude/
+
 # ─── OS / Editor ──────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db

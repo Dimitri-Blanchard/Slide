@@ -140,12 +140,12 @@ export default function ForgotPassword() {
           ) : (
             <div className="mfa-step-container">
               <div className="auth-field">
-                <label className={error ? 'label-error' : ''} htmlFor="forgot-mfa-code">
+                <label id="forgot-mfa-code-label" className={error ? 'label-error' : ''}>
                   {t('auth.mfaCodeLabel')}
                   {error && <span className="label-required"> *</span>}
                 </label>
                 <MfaCodeInput
-                  id="forgot-mfa-code"
+                  labelId="forgot-mfa-code-label"
                   value={mfaCode}
                   onChange={setMfaCode}
                   autoFocus

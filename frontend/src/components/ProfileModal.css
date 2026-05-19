@@ -25,7 +25,7 @@
   background: var(--modal-overlay-bg);
   backdrop-filter: blur(var(--modal-overlay-blur));
   -webkit-backdrop-filter: blur(var(--modal-overlay-blur));
-  cursor: pointer;
+  cursor: default;
   pointer-events: all;
 }
 

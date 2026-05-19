@@ -1,13 +1,16 @@
-/* Full-screen fatal error — matches app theme (NotFound / auth quality) */
+/* Full-screen error — scrollable on small viewports / long stack traces */
 .eb-root {
+  box-sizing: border-box;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: 2rem 1.25rem;
-  text-align: center;
+  justify-content: flex-start;
+  padding: max(1.25rem, env(safe-area-inset-top, 0px)) 1rem max(1.5rem, env(safe-area-inset-bottom, 0px));
   font-family: var(--font-sans, system-ui, sans-serif);
   background:
     radial-gradient(900px 520px at 15% -20%, var(--cosmic-bg-orb-1, rgba(79, 110, 247, 0.12)), transparent 70%),
@@ -26,8 +29,10 @@
 
 .eb-card {
   width: 100%;
-  max-width: 420px;
-  padding: 2rem 1.75rem;
+  max-width: 520px;
+  flex-shrink: 0;
+  margin: auto 0;
+  padding: 1.75rem 1.5rem 1.5rem;
   border-radius: var(--modal-panel-radius, 18px);
   background: var(--modal-panel-bg, rgba(255, 255, 255, 0.96));
   border: 1px solid var(--modal-panel-border, rgba(0, 0, 0, 0.07));
@@ -39,11 +44,30 @@
   border-color: var(--border-default);
 }
 
-.eb-icon {
-  font-size: 2.5rem;
-  line-height: 1;
+.eb-header {
+  text-align: center;
+}
+
+.eb-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
   margin-bottom: 0.75rem;
-  user-select: none;
+  border-radius: 50%;
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--error, #dc2626);
+}
+
+[data-theme="dark"] .eb-mark {
+  background: rgba(248, 113, 113, 0.16);
+  color: var(--error, #f87171);
+}
+
+.eb-mark-svg {
+  width: 1.5rem;
+  height: 1.5rem;
 }
 
 .eb-title {
@@ -56,38 +80,114 @@
 
 .eb-desc {
   font-size: 0.95rem;
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--text-secondary);
-  margin: 0 0 1.25rem;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.eb-details {
+  margin-top: 1.35rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.eb-details-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.eb-details-label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.eb-copy {
+  flex-shrink: 0;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-2, #eff1f5);
+  color: var(--text-primary);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.eb-copy:hover {
+  background: var(--surface-3, #e4e7ed);
+}
+
+[data-theme="dark"] .eb-copy {
+  background: var(--surface-2);
+  border-color: var(--border-default);
+}
+
+[data-theme="dark"] .eb-copy:hover {
+  background: var(--bg-hover);
+}
+
+/* Scroll long errors without losing buttons below */
+.eb-scroll {
+  max-height: min(52vh, 420px);
+  overflow-x: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius, 10px);
+  background: var(--surface-2, #eff1f5);
+  border: 1px solid var(--border-subtle);
+  text-align: left;
+}
+
+[data-theme="dark"] .eb-scroll {
+  background: var(--surface-2, #1c1c20);
+  border-color: var(--border-default);
 }
 
 .eb-pre {
-  text-align: left;
+  margin: 0;
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace;
   font-size: 0.72rem;
-  line-height: 1.45;
-  max-width: 100%;
-  overflow: auto;
-  padding: 0.65rem 0.75rem;
-  margin: 0 0 0.5rem;
-  border-radius: var(--radius, 8px);
-  background: var(--surface-2, #eff1f5);
-  color: var(--error, #dc2626);
-  border: 1px solid var(--border-subtle);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
   user-select: text;
   -webkit-user-select: text;
 }
 
-[data-theme="dark"] .eb-pre {
-  background: var(--surface-2, #1c1c20);
+.eb-pre + .eb-pre {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.eb-pre--message {
+  color: var(--error, #dc2626);
+  font-weight: 500;
+}
+
+[data-theme="dark"] .eb-pre--message {
   color: var(--error, #f87171);
+}
+
+.eb-pre--stacktrace {
+  color: var(--text-secondary);
+  font-size: 0.68rem;
 }
 
 .eb-pre--stack {
   color: var(--text-muted);
   font-size: 0.65rem;
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin-bottom: 1.25rem;
 }
 
 .eb-actions {
@@ -95,6 +195,7 @@
   flex-wrap: wrap;
   gap: 0.75rem;
   justify-content: center;
+  margin-top: 1.35rem;
 }
 
 .eb-btn {

@@ -125,6 +125,13 @@ function getCacheKey(endpoint, options) {
   return `${getAuthCacheTag()}:${method}:${endpoint}`;
 }
 
+function shouldBypassRequestCache(endpoint, options = {}) {
+  if (options._noCache) return true;
+  // QR login polling must always hit the server — stale cache caused ~10s delays.
+  if (endpoint.includes('/qr-login/')) return true;
+  return false;
+}
+
 function getCacheTtl(endpoint) {
   if (endpoint.includes('/messages/channel') || (endpoint.includes('/direct/conversations/') && endpoint.includes('/messages'))) return 30000;
   if (endpoint === '/teams' || endpoint === '/direct/conversations' || endpoint.startsWith('/friends') || endpoint.includes('/channels/team/')) return 30000;
@@ -324,8 +331,10 @@ export async function api(endpoint, options = {}) {
   const method = options.method || 'GET';
   const cacheKey = getCacheKey(endpoint, options);
   
-  // Only cache GET requests
-  if (method === 'GET' && !options._background) {
+  const bypassCache = shouldBypassRequestCache(endpoint, options);
+
+  // Only cache GET requests (never QR login — status must be real-time)
+  if (method === 'GET' && !options._background && !bypassCache) {
     const cached = requestCache.get(cacheKey);
     const ttl = getCacheTtl(endpoint);
     const age = cached ? Date.now() - cached.timestamp : Infinity;
@@ -340,8 +349,10 @@ export async function api(endpoint, options = {}) {
       }).catch(() => {});
       return cached.data;
     }
+  }
 
-    if (pendingRequests.has(cacheKey)) return pendingRequests.get(cacheKey);
+  if (method === 'GET' && !options._background && pendingRequests.has(cacheKey)) {
+    return pendingRequests.get(cacheKey);
   }
   
   const requestPromise = (async () => {
@@ -445,8 +456,8 @@ export async function api(endpoint, options = {}) {
       throw err;
     }
     
-    // Cache successful GET responses
-    if (method === 'GET') {
+    // Cache successful GET responses (never QR login polling)
+    if (method === 'GET' && !shouldBypassRequestCache(endpoint, options)) {
       requestCache.set(cacheKey, { data, timestamp: Date.now() });
     }
     
@@ -569,7 +580,11 @@ export const auth = {
   },
   qrLogin: {
     start: () => api('/auth/qr-login/start', { method: 'POST' }),
-    check: (token) => api(`/auth/qr-login/check/${token}`),
+    check: (token) =>
+      api(`/auth/qr-login/check/${encodeURIComponent(token)}`, {
+        _noCache: true,
+        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+      }),
     approve: (token, deviceId, deviceName) =>
       api('/auth/qr-login/approve', {
         method: 'POST',

@@ -13,6 +13,7 @@
     "electron:dev": "concurrently \"vite\" \"wait-on https://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "electron:clean": "node -e \"const fs=require('fs');const p='release';if(fs.existsSync(p)){try{fs.rmSync(p,{recursive:true,maxRetries:3});console.log('Cleaned release/')}catch(e){console.warn('Close any running Slide/installer, then retry')}}\"",
     "electron:build": "npm run electron:clean 2>nul; node scripts/build-icon.cjs && npm run build:electron && electron-builder",
+    "electron:build:linux": "npm run electron:clean 2>nul; node scripts/build-icon.cjs && npm run build:electron && electron-builder --linux",
     "electron:start": "npm run build:electron && electron .",
     "build:android": "node scripts/build-android-icons.cjs && npx @capacitor/assets generate --android --iconBackgroundColor #1a1a2e --assetPath assets && cross-env VITE_CAPACITOR=1 vite build --mode capacitor && npx cap sync android",
     "android:open": "npx cap open android",

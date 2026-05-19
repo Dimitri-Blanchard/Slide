@@ -5,7 +5,7 @@ import { getToken } from './utils/tokenStorage';
 import AppLayout from './layouts/AppLayout';
 import ElectronTitleBar from './components/ElectronTitleBar';
 import DevelopmentBanner from './components/DevelopmentBanner';
-import CookieBanner from './components/CookieBanner';
+import { lazyRoute } from './utils/lazyRoute';
 
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
@@ -13,8 +13,8 @@ const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const InvitePage = lazy(() => import('./pages/InvitePage'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
-const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
-const TermsOfService = lazy(() => import('./pages/TermsOfService'));
+const PrivacyPolicy = lazyRoute(() => import('./pages/PrivacyPolicy.jsx'));
+const TermsOfService = lazyRoute(() => import('./pages/TermsOfService.jsx'));
 const QrLoginRedirect = lazy(() => import('./pages/QrLoginRedirect'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -136,7 +136,6 @@ export default function App() {
           </Routes>
         </Suspense>
       </div>
-      <CookieBanner />
     </div>
   );
 }

@@ -433,10 +433,9 @@ function Principles() {
       <motion.div className="principles-inner" initial={{ opacity: 0, y: 24 }} animate={isInView ? { opacity: 1, y: 0 } : {}}>
         <h2 className="principles-title">Independent by design</h2>
         <p className="principles-text">
-          We believe communication should be free from mandated access. No backdoors, no authority over your conversations.
+          We believe communication should be free from mandated access. No authority over your conversations.
         </p>
         <div className="principles-badges">
-          <span className="principles-badge">No backdoors</span>
           <span className="principles-badge">No mandated access</span>
           <span className="principles-badge">User-first</span>
         </div>

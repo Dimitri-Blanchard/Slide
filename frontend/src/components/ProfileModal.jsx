@@ -129,14 +129,15 @@ const ProfileModal = memo(function ProfileModal({ userId, onClose }) {
     };
   }, [onClose]);
 
-  // Close on backdrop click
-  useEffect(() => {
-    const onDown = (e) => {
-      if (modalRef.current && !modalRef.current.contains(e.target)) onClose();
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [onClose]);
+  const handleBackdropPointerDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onClose();
+  };
+
+  const handleModalPointerDown = (e) => {
+    e.stopPropagation();
+  };
 
   // Close 3-dot menu on outside click
   useEffect(() => {
@@ -225,8 +226,19 @@ const ProfileModal = memo(function ProfileModal({ userId, onClose }) {
 
   return createPortal(
     <div className={`profile-modal-overlay${enterInstant ? ' modal-enter-instant' : ''}`}>
-      <div className="profile-modal-backdrop" aria-hidden="true" />
-      <div className={`profile-modal${hasDualBanner ? ' profile-modal--dual-banner' : ''}${isHighContrast && !noOverlayBand ? ' profile-modal--high-contrast-gradient' : ''}${isLight ? ' profile-modal--light-gradient' : ''}${noOverlayBand ? ' profile-modal--no-overlay-band' : ''}`} ref={modalRef} role="dialog" aria-label={finalDisplayName ? `${finalDisplayName} profile` : 'Profile'} style={modalStyle}>
+      <div
+        className="profile-modal-backdrop"
+        aria-hidden="true"
+        onMouseDown={handleBackdropPointerDown}
+      />
+      <div
+        className={`profile-modal${hasDualBanner ? ' profile-modal--dual-banner' : ''}${isHighContrast && !noOverlayBand ? ' profile-modal--high-contrast-gradient' : ''}${isLight ? ' profile-modal--light-gradient' : ''}${noOverlayBand ? ' profile-modal--no-overlay-band' : ''}`}
+        ref={modalRef}
+        role="dialog"
+        aria-label={finalDisplayName ? `${finalDisplayName} profile` : 'Profile'}
+        style={modalStyle}
+        onMouseDown={handleModalPointerDown}
+      >
 
         {/* ── Loading ───────────────────────────────── */}
         {loading && (

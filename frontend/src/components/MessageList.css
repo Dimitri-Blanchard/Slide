@@ -5,6 +5,7 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-arrow-color: transparent;
   /* On mobile we disable overflow-anchor (see html.platform-mobile rule below)
      to avoid the browser anchor-scrolling animation when the visual viewport
      resizes (keyboard show/hide). Desktop keeps it for normal long-page reads. */
@@ -12,6 +13,9 @@
   display: flex;
   flex-direction: column;
   padding-bottom: 8px;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 /* Hide the list until the JS scroll-to-bottom has positioned it on first
@@ -22,24 +26,112 @@
 }
 
 
-.message-list::-webkit-scrollbar {
-  width: 8px;
+/* Windows WebKit draws arrow buttons unless every variant is zeroed (global rules too). */
+.message-list::-webkit-scrollbar-button,
+.message-list::-webkit-scrollbar-button:single-button,
+.message-list::-webkit-scrollbar-button:double-button,
+.message-list::-webkit-scrollbar-button:vertical:decrement,
+.message-list::-webkit-scrollbar-button:vertical:increment,
+.message-list::-webkit-scrollbar-button:horizontal:decrement,
+.message-list::-webkit-scrollbar-button:horizontal:increment,
+.message-list::-webkit-scrollbar-button:vertical:start:decrement,
+.message-list::-webkit-scrollbar-button:vertical:start:increment,
+.message-list::-webkit-scrollbar-button:vertical:end:decrement,
+.message-list::-webkit-scrollbar-button:vertical:end:increment,
+.message-list::-webkit-scrollbar-button:horizontal:start:decrement,
+.message-list::-webkit-scrollbar-button:horizontal:start:increment,
+.message-list::-webkit-scrollbar-button:horizontal:end:decrement,
+.message-list::-webkit-scrollbar-button:horizontal:end:increment,
+.message-list::-webkit-scrollbar-button:single-button:vertical:decrement,
+.message-list::-webkit-scrollbar-button:single-button:vertical:increment,
+.message-list::-webkit-scrollbar-button:double-button:vertical:decrement,
+.message-list::-webkit-scrollbar-button:double-button:vertical:increment,
+[data-theme="dark"] .message-list::-webkit-scrollbar-button,
+[data-theme="dark"] .message-list::-webkit-scrollbar-button:vertical:decrement,
+[data-theme="dark"] .message-list::-webkit-scrollbar-button:vertical:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 0 !important;
+  max-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  background-size: 0 !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
 }
 
-.message-list::-webkit-scrollbar-track {
-  background: transparent;
+/* Scrollbar: hidden until the pointer is over the message list (desktop / mouse). */
+@media (hover: hover) and (pointer: fine) {
+  .message-list {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  .message-list:hover {
+    scrollbar-color: rgba(110, 115, 125, 0.55) transparent;
+  }
+
+  [data-theme="dark"] .message-list {
+    scrollbar-color: transparent transparent;
+  }
+
+  [data-theme="dark"] .message-list:hover {
+    scrollbar-color: rgba(155, 160, 170, 0.5) transparent;
+  }
+
+  .message-list::-webkit-scrollbar,
+  [data-theme="dark"] .message-list::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .message-list::-webkit-scrollbar-track,
+  [data-theme="dark"] .message-list::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .message-list::-webkit-scrollbar-thumb,
+  [data-theme="dark"] .message-list::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    min-height: 40px;
+  }
+
+  .message-list:hover::-webkit-scrollbar-thumb {
+    background: rgba(110, 115, 125, 0.55);
+  }
+
+  .message-list:hover::-webkit-scrollbar-thumb:hover {
+    background: rgba(90, 95, 105, 0.65);
+  }
+
+  [data-theme="dark"] .message-list:hover::-webkit-scrollbar-thumb {
+    background: rgba(155, 160, 170, 0.5);
+  }
+
+  [data-theme="dark"] .message-list:hover::-webkit-scrollbar-thumb:hover {
+    background: rgba(175, 180, 190, 0.62);
+  }
 }
 
-.message-list::-webkit-scrollbar-thumb {
-  background: rgba(15, 17, 23, 0.15);
-  border-radius: 4px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-  min-height: 40px;
-}
+/* Touch / coarse pointer: thin overlay scrollbar, no persistent gutter */
+@media (hover: none), (pointer: coarse) {
+  .message-list {
+    scrollbar-width: none;
+  }
 
-.message-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(15, 17, 23, 0.25);
+  .message-list::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Message send status (pending / failed + retry) */
@@ -960,7 +1052,7 @@
   cursor: pointer;
   background: transparent;
   margin-top: 4px;
-  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  transition: box-shadow 0.15s ease, opacity 0.15s ease;
   /* No box-shadow at rest — the previous shadow looked like a colored border
      halo on small images. Apply on hover/focus only for the press affordance. */
   box-shadow: none;
@@ -970,14 +1062,12 @@
 
 .message-image-wrap:hover {
   opacity: 0.94;
-  transform: scale(1.005);
   box-shadow: var(--shadow-md);
 }
 
 /* Focus ring: box-shadow respects border-radius (unlike outline) */
 .message-image-wrap:focus-visible {
   opacity: 0.94;
-  transform: scale(1.005);
   box-shadow: var(--shadow-md), 0 0 0 2px var(--accent);
 }
 
@@ -1425,8 +1515,19 @@
   object-fit: contain;
   border-radius: 4px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-  pointer-events: none;
+  pointer-events: auto;
+  -webkit-user-drag: none;
   user-select: none;
+  cursor: wait;
+}
+
+.lightbox-image--export-ready {
+  -webkit-user-drag: element;
+  cursor: grab;
+}
+
+.lightbox-image--export-ready:active {
+  cursor: grabbing;
 }
 
 .lightbox-close {
@@ -1898,12 +1999,7 @@
   height: auto !important;
   object-fit: contain !important;
   border-radius: 8px !important;
-  transition: transform 0.15s ease;
   outline: none;
-}
-
-.message-gif:hover {
-  transform: scale(1.01);
 }
 
 /* Standalone emoji message (only 1 emoji) - way bigger */
@@ -2193,6 +2289,14 @@
 }
 
 /* ── Mobile ── */
+/* Non-virtualized lists: skip layout/paint for off-screen rows (virtualized uses TanStack). */
+@media (max-width: 1024px), (hover: none) {
+  .message-list:not([data-virtualized]) .message-item {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 56px;
+  }
+}
+
 @media (max-width: 768px) {
   .message-item {
     padding: 2px 12px 2px 56px;

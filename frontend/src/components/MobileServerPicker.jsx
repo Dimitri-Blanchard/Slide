@@ -41,7 +41,7 @@ export default function MobileServerPicker({ teams, onCreateServer }) {
 
               <div className="msp-info">
                 <span className="msp-name">{team.name}</span>
-                {team.has_unread && !team.mention_count && (
+                {!!team.has_unread && !team.mention_count && (
                   <span className="msp-sub">Nouveaux messages</span>
                 )}
               </div>

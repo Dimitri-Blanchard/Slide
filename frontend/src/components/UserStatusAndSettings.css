@@ -13,8 +13,166 @@
   border-radius: 12px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle);
-  overflow: visible;
+  overflow: hidden;
   pointer-events: auto;
+}
+
+/* Let account wing paint outside without clipping the main island width */
+.user-status-and-settings.usas-accounts-open {
+  overflow: visible;
+  box-shadow: var(--shadow-md);
+}
+
+.usas-island-main {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+/* Account wing — GPU transform slide (avoid width animation jank) */
+.usas-account-wing-host {
+  --account-wing-w: 224px;
+  position: absolute;
+  left: 100%;
+  top: auto;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  width: var(--account-wing-w);
+  height: auto;
+  max-height: 70vh;
+  overflow: hidden;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-left: none;
+  border-radius: 0 12px 12px 0;
+  box-shadow: var(--shadow-md);
+  contain: layout style paint;
+  transform: translate3d(-10px, 0, 0) scaleX(0.94);
+  transform-origin: left bottom;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.18s ease,
+    visibility 0.22s;
+  will-change: transform, opacity;
+}
+
+.usas-account-wing-host.usas-account-wing--m {
+  --account-wing-w: 236px;
+}
+
+.usas-account-wing-host.usas-account-wing--l {
+  --account-wing-w: 248px;
+}
+
+.usas-account-wing-host::before {
+  content: '';
+  position: absolute;
+  right: 100%;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+}
+
+.user-status-and-settings.usas-accounts-open .usas-account-wing-host {
+  transform: translate3d(0, 0, 0) scaleX(1);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .usas-account-wing-host {
+    transition: none;
+  }
+}
+
+.usas-account-wing-panel {
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Match status-picker density; slightly smaller than the old 280px wing */
+.usas-account-wing-panel .account-wing-body {
+  padding: 6px 8px 8px;
+}
+
+.usas-account-wing-panel .status-picker-item {
+  padding: 8px 10px;
+  gap: 10px;
+  font-size: 0.875rem;
+  border-radius: 8px;
+}
+
+.usas-account-wing-panel .status-picker-separator {
+  margin: 4px 0;
+}
+
+.usas-account-wing-panel .account-wing-avatar {
+  width: 30px !important;
+  height: 30px !important;
+}
+
+.usas-account-wing-panel .account-wing-avatar > span {
+  font-size: 0.8rem;
+}
+
+.usas-account-wing-panel .account-wing-info .user-panel-name {
+  font-size: 0.875rem;
+  line-height: 1.2;
+}
+
+.usas-account-wing-panel .account-wing-info .user-panel-status {
+  font-size: 0.7rem;
+  line-height: 1.25;
+}
+
+.usas-account-wing-panel .status-picker-add-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* Drawer + bottom bar share one rounded shell (island clips corners) */
+.usas-bar-stack {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.usas-status-drawer-host {
+  flex-shrink: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.38s var(--transition-spring, cubic-bezier(0.22, 1, 0.36, 1));
+  pointer-events: none;
+}
+
+.usas-status-drawer-host.is-open {
+  max-height: 320px;
+  pointer-events: auto;
+}
+
+.user-status-and-settings.usas-status-menu-open {
+  box-shadow: var(--shadow-md);
+}
+
+.user-status-and-settings.usas-status-menu-open .usas-bottom-bar {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.usas-bottom-bar {
+  flex-shrink: 0;
+  min-height: 52px;
+  background: var(--bg-secondary);
+  contain: layout style;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -25,7 +183,7 @@
   flex-direction: column;
   overflow: hidden;
   border-bottom: 1px solid var(--border-subtle);
-  border-radius: 12px 12px 0 0;
+  flex-shrink: 0;
   animation: usas-expand 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
@@ -286,9 +444,7 @@
 }
 
 .usas-ctrl-btn svg {
-  transition:
-    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity 0.15s ease;
+  transition: opacity 0.15s ease;
 }
 
 .usas-ctrl-btn:hover {
@@ -296,12 +452,9 @@
   color: var(--text-primary);
 }
 
-.usas-ctrl-btn:hover svg {
-  transform: scale(1.12);
-}
-
-.usas-ctrl-btn:active svg {
-  transform: scale(0.9);
+.usas-bottom-bar .usas-ctrl-btn:hover svg,
+.usas-bottom-bar .usas-settings-btn:hover svg {
+  transform: none;
 }
 
 /* Active state — muted / deafened */
@@ -314,65 +467,79 @@
   color: #ed4245;
 }
 
-/* Settings button — spin on hover */
-.usas-settings-btn:hover svg {
-  transform: rotate(45deg) scale(1.1);
-}
-
-.usas-settings-btn:active svg {
-  transform: rotate(90deg) scale(0.9);
-}
-
 /* ═══════════════════════════════════════════════════════════
-   DEVICE SELECTION ARROW + POPOVER
+   DEVICE SELECTION — icon + chevron as one control
    ═══════════════════════════════════════════════════════════ */
 .usas-ctrl-group {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   position: relative;
-}
-
-.usas-ctrl-arrow {
-  width: 16px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  border-radius: 4px;
+  height: 34px;
+  border-radius: 8px;
   color: var(--text-muted);
-  cursor: pointer;
-  padding: 0;
-  margin-left: -4px;
-  opacity: 0;
-  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.usas-ctrl-group:hover .usas-ctrl-arrow,
-.usas-ctrl-arrow.open {
-  opacity: 1;
-}
-
-.usas-ctrl-arrow:hover {
-  color: var(--text-primary);
+.usas-ctrl-group:hover {
   background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
-.usas-ctrl-arrow.open {
-  color: var(--accent, #5865f2);
-}
-
-.usas-ctrl-arrow.active {
+.usas-ctrl-group:has(.usas-ctrl-btn.active) {
   color: #ed4245;
 }
 
-.usas-ctrl-arrow.active:hover {
-  color: #fff;
-  background: rgba(237, 66, 69, 0.2);
+.usas-ctrl-group:has(.usas-ctrl-btn.active):hover {
+  background: rgba(237, 66, 69, 0.12);
 }
 
-.usas-ctrl-arrow.active.open {
+.usas-ctrl-group .usas-ctrl-btn {
+  width: 28px;
+  height: 100%;
+  flex-shrink: 0;
+  border-radius: 8px 0 0 8px;
+}
+
+.usas-ctrl-group .usas-ctrl-btn:hover,
+.usas-ctrl-group .usas-ctrl-btn.active:hover {
+  background: transparent;
+  color: inherit;
+}
+
+.usas-ctrl-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 100%;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  border-radius: 0 8px 8px 0;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 4px 0 0;
+  margin: 0;
+  opacity: 0.55;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+.usas-ctrl-group:hover .usas-ctrl-arrow {
+  opacity: 0.85;
+}
+
+.usas-ctrl-arrow:hover {
+  background: transparent;
+  opacity: 1;
+}
+
+.usas-ctrl-arrow.open {
+  opacity: 1;
+  color: var(--accent, #5865f2);
+}
+
+.usas-ctrl-group:has(.usas-ctrl-btn.active) .usas-ctrl-arrow.open {
   color: #ed4245;
 }
 

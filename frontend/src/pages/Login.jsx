@@ -4,26 +4,53 @@ import QRCode from 'qrcode';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { auth } from '../api';
-import { checkRateLimit, isValidEmail } from '../utils/security';
+import { checkRateLimit } from '../utils/security';
 import MfaCodeInput from '../components/MfaCodeInput';
 import AuthShell from '../components/AuthShell';
+import { buildQrLoginScanUrl } from '../utils/qrLoginFlow';
 import './Auth.css';
 
-const QR_POLL_INTERVAL = 2000;
+const QR_POLL_INTERVAL = 600;
+const QR_POLL_INTERVAL_FAST = 350;
+const QR_ROTATE_MS = 105 * 1000; // refresh ~15s before 2min server TTL
 
 export default function Login() {
-  const [email, setEmail] = useState(''); // holds email or username
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-const [error, setError] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [remainingAttempts, setRemainingAttempts] = useState(15);
   const [mfaStep, setMfaStep] = useState(null);
   const [mfaCode, setMfaCode] = useState('');
   const [qrToken, setQrToken] = useState(null);
   const [qrDataUrl, setQrDataUrl] = useState(null);
-  const [qrExpired, setQrExpired] = useState(false);
+  const [qrOffline, setQrOffline] = useState(false);
   const [qrError, setQrError] = useState(null);
+  const [qrPhase, setQrPhase] = useState('waiting'); // waiting | success
   const pollRef = useRef(null);
+  const rotateRef = useRef(null);
+  const rotatingRef = useRef(false);
+  const qrSettledRef = useRef(false);
+  const pollInFlightRef = useRef(false);
+  const qrDataUrlRef = useRef(null);
+  const qrTokenRef = useRef(null);
+  const lastRotateAtRef = useRef(0);
+
+  useEffect(() => {
+    qrTokenRef.current = qrToken;
+  }, [qrToken]);
+
+  const stopQrLoops = useCallback(() => {
+    qrSettledRef.current = true;
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    if (rotateRef.current) {
+      clearInterval(rotateRef.current);
+      rotateRef.current = null;
+    }
+  }, []);
   const { user, login, verify2FA, completeQrLogin, authError, clearAuthError } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -38,7 +65,6 @@ const [error, setError] = useState('');
     }
   }, [authError, clearAuthError]);
 
-  // Auto-submit when 6 digits entered for 2FA
   useEffect(() => {
     if (!mfaStep || loading) return;
     const code = mfaCode.replace(/\D/g, '');
@@ -59,77 +85,179 @@ const [error, setError] = useState('');
     runVerify();
   }, [mfaCode, mfaStep, loading, verify2FA, navigate, t]);
 
-  // QR login: start session and generate QR code
-  const startQrSession = useCallback(async () => {
+  const rotateQrSession = useCallback(async (reason = 'manual') => {
+    if (qrSettledRef.current || rotatingRef.current) return null;
+    const now = Date.now();
+    // Prevent rapid refresh loops (poll + effect races)
+    if (reason !== 'initial' && now - lastRotateAtRef.current < 3000) return null;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setQrOffline(true);
+      setQrError('Pas de connexion réseau.');
+      if (!qrDataUrlRef.current) {
+        setQrDataUrl(null);
+        setQrToken(null);
+      }
+      return null;
+    }
+    rotatingRef.current = true;
+    setQrOffline(false);
     setQrError(null);
     try {
       const { token } = await auth.qrLogin.start();
-      setQrToken(token);
-      setQrExpired(false);
-      // URL pour le QR : HTTPS si possible (ouvre en navigateur puis redirige), sinon slide://
-      let url;
-      if (typeof window !== 'undefined') {
-        const origin = window.location.origin || '';
-        const isHttp = origin.startsWith('http://') || origin.startsWith('https://');
-        if (isHttp) {
-          const path = window.Capacitor?.isNativePlatform?.() ? '#/qr-login' : '/qr-login';
-          url = `${origin}${path}?token=${encodeURIComponent(token)}`;
-        } else {
-          url = `slide://login?token=${encodeURIComponent(token)}`;
-        }
-      } else {
-        url = `slide://login?token=${encodeURIComponent(token)}`;
-      }
+      const url = buildQrLoginScanUrl(token);
       const dataUrl = await QRCode.toDataURL(url, { width: 200, margin: 1 });
+      lastRotateAtRef.current = Date.now();
+      qrDataUrlRef.current = dataUrl;
+      setQrToken(token);
       setQrDataUrl(dataUrl);
+      setQrPhase('waiting');
       return token;
     } catch (err) {
-      setQrDataUrl(null);
-      setQrToken(null);
-      setQrError(err.message || 'Failed to load QR code');
+      const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+      setQrOffline(offline);
+      setQrError(offline ? 'Pas de connexion réseau.' : (err.message || 'Impossible de charger le QR code.'));
+      if (!qrDataUrlRef.current) {
+        setQrDataUrl(null);
+        setQrToken(null);
+      }
       return null;
+    } finally {
+      rotatingRef.current = false;
     }
   }, []);
 
-  // QR login: poll for approval
+  const finishQrLogin = useCallback(
+    async (data) => {
+      if (qrSettledRef.current || !data?.user || !data?.token) return;
+      stopQrLoops();
+      setQrPhase('success');
+      try {
+        await completeQrLogin(data.user, data.token);
+        navigate('/channels/@me', { replace: true });
+      } catch {
+        setQrError('Connexion confirmée mais impossible d’ouvrir la session. Réessayez.');
+        qrSettledRef.current = false;
+        setQrPhase('waiting');
+      }
+    },
+    [completeQrLogin, navigate, stopQrLoops],
+  );
+
   useEffect(() => {
     if (showMfaStep || !qrToken) return;
+
     const poll = async () => {
+      if (qrSettledRef.current || pollInFlightRef.current) return;
+      const activeToken = qrTokenRef.current;
+      if (!activeToken) return;
+      pollInFlightRef.current = true;
       try {
-        const data = await auth.qrLogin.check(qrToken);
+        const data = await auth.qrLogin.check(activeToken);
+        if (qrSettledRef.current) return;
+
+        if (data?.status === 'approved') {
+          if (data.user && data.token) {
+            await finishQrLogin(data);
+            return;
+          }
+          // Approved on server but payload incomplete — retry once
+          await new Promise((r) => setTimeout(r, 300));
+          const retry = await auth.qrLogin.check(activeToken);
+          if (retry?.user && retry?.token) {
+            await finishQrLogin(retry);
+          }
+          return;
+        }
+
         if (data?.status === 'expired') {
-          setQrExpired(true);
-          setQrToken(null);
-          setQrDataUrl(null);
-          if (pollRef.current) clearInterval(pollRef.current);
-          return;
+          // Brief wait: avoids rotating when a parallel check just consumed approval
+          await new Promise((r) => setTimeout(r, 250));
+          if (qrSettledRef.current) return;
+          const retry = await auth.qrLogin.check(activeToken);
+          if (retry?.status === 'approved' && retry?.user && retry?.token) {
+            await finishQrLogin(retry);
+            return;
+          }
+          if (retry?.status === 'expired') {
+            await rotateQrSession('expired');
+          }
         }
-        if (data?.status === 'approved' && data.user && data.token) {
-          if (pollRef.current) clearInterval(pollRef.current);
-          await completeQrLogin(data.user, data.token);
-          navigate('/channels/@me');
-          return;
+      } catch (err) {
+        if (qrSettledRef.current) return;
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          setQrOffline(true);
+          setQrError('Pas de connexion réseau.');
+        } else if (err?.status === 429 && pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = setInterval(poll, 2500);
         }
-      } catch {
-        // ignore network errors, keep polling
+      } finally {
+        pollInFlightRef.current = false;
       }
     };
-    poll();
-    pollRef.current = setInterval(poll, QR_POLL_INTERVAL);
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [qrToken, showMfaStep, completeQrLogin, navigate]);
 
-  // Start QR session when login form is shown (no MFA step)
+    const interval = document.visibilityState === 'visible'
+      ? QR_POLL_INTERVAL_FAST
+      : QR_POLL_INTERVAL;
+
+    poll();
+    pollRef.current = setInterval(poll, interval);
+
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || qrSettledRef.current) return;
+      poll();
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(poll, QR_POLL_INTERVAL_FAST);
+    };
+
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = null;
+    };
+  }, [qrToken, showMfaStep, finishQrLogin, rotateQrSession, stopQrLoops]);
+
+  // Start QR only when login form is shown — not when rotateQrSession identity changes
   useEffect(() => {
-    if (!showMfaStep) {
-      startQrSession();
+    if (showMfaStep) {
+      stopQrLoops();
+      return;
     }
+    qrSettledRef.current = false;
+    pollInFlightRef.current = false;
+    lastRotateAtRef.current = 0;
+    rotateQrSession('initial');
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = null;
     };
-  }, [showMfaStep]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [showMfaStep, rotateQrSession, stopQrLoops]);
+
+  useEffect(() => {
+    if (showMfaStep || !qrToken) return;
+    rotateRef.current = setInterval(() => rotateQrSession('scheduled'), QR_ROTATE_MS);
+    return () => {
+      if (rotateRef.current) clearInterval(rotateRef.current);
+    };
+  }, [qrToken, showMfaStep, rotateQrSession]);
+
+  useEffect(() => {
+    const onOnline = () => {
+      setQrOffline(false);
+      if (!showMfaStep) rotateQrSession('online');
+    };
+    const onOffline = () => {
+      setQrOffline(true);
+      setQrError('Pas de connexion réseau.');
+    };
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, [showMfaStep, rotateQrSession]); // rotateQrSession is stable ([])
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -150,9 +278,9 @@ const [error, setError] = useState('');
       return;
     }
 
-    const rateCheck = checkRateLimit('login', 15, 120000); // 15 tentatives / 2 min (aligné backend)
+    const rateCheck = checkRateLimit('login', 15, 120000);
     setRemainingAttempts(rateCheck.remainingAttempts);
-    
+
     if (!rateCheck.allowed) {
       setError(t('errors.tooManyRequests'));
       return;
@@ -180,32 +308,39 @@ const [error, setError] = useState('');
     }
   };
 
+  const mfaUserLabel =
+    mfaStep?.user?.email ||
+    mfaStep?.user?.username ||
+    (email.trim() || null);
+
   return (
-    <AuthShell
-      backgroundMedia={(
-        <video
-          className="auth-bg-video"
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          aria-hidden="true"
-        >
-          <source src="/bg.mp4" type="video/mp4" />
-        </video>
-      )}
-    >
-      <div className="auth-card login-card">
+    <AuthShell>
+      <div className={`auth-card login-card${showMfaStep ? ' login-card--mfa' : ''}`}>
         <div className="login-left">
           <div className="auth-brand">
             <img src="/logo.png" alt="Slide" className="auth-logo" />
-            <h2>{showMfaStep ? t('auth.mfaTitle') : isAddAccount ? 'Add account' : t('auth.loginTitle')}</h2>
-            <p>{showMfaStep ? t('auth.mfaSubtitle') : isAddAccount ? 'Log in with another account to switch between them.' : t('auth.loginSubtitle')}</p>
+            <h2>
+              {showMfaStep
+                ? t('auth.mfaTitle')
+                : isAddAccount
+                  ? 'Add account'
+                  : t('auth.loginTitle')}
+            </h2>
+            <p>
+              {showMfaStep
+                ? t('auth.mfaSubtitle')
+                : isAddAccount
+                  ? 'Log in with another account to switch between them.'
+                  : t('auth.loginSubtitle')}
+            </p>
           </div>
-          
+
+          {showMfaStep && mfaUserLabel && (
+            <p className="mfa-account-label">{mfaUserLabel}</p>
+          )}
+
           <form onSubmit={handleSubmit} className="auth-form">
-            {!showMfaStep && (
+            {!showMfaStep ? (
               <>
                 <div className="auth-field">
                   <label className={error ? 'label-error' : ''} htmlFor="login-email">
@@ -222,7 +357,6 @@ const [error, setError] = useState('');
                     autoComplete="username"
                   />
                 </div>
-                
                 <div className="auth-field">
                   <label className={error ? 'label-error' : ''} htmlFor="login-password">
                     {t('auth.password')}
@@ -241,114 +375,116 @@ const [error, setError] = useState('');
                     {t('auth.forgotPassword')}
                   </Link>
                 </div>
+
+                {error && <div className="auth-error">{error}</div>}
+
+                <button type="submit" className="auth-submit" disabled={loading}>
+                  {loading ? t('common.loading') : t('auth.loginButton')}
+                </button>
+
+                {remainingAttempts <= 3 && remainingAttempts > 0 && (
+                  <small className="attempts-warning">
+                    {remainingAttempts} {t('errors.attemptsRemaining')}
+                  </small>
+                )}
+
+                {isAddAccount && user && (
+                  <div className="auth-switch">
+                    <Link to="/channels/@me">Back to app</Link>
+                  </div>
+                )}
+
+                <div className="auth-switch">
+                  <span>{t('auth.noAccount')}</span>{' '}
+                  <Link to="/register">{t('auth.registerButton')}</Link>
+                </div>
               </>
-            )}
-            {showMfaStep && (
+            ) : (
               <div className="mfa-step-container">
                 <div className="auth-field">
-                  <label className={error ? 'label-error' : ''} htmlFor="mfa-code">
+                  <label id="mfa-code-label" className={error ? 'label-error' : ''}>
                     {t('auth.mfaCodeLabel')}
-                    {error && <span className="label-required"> *</span>}
                   </label>
                   <MfaCodeInput
-                    id="mfa-code"
+                    labelId="mfa-code-label"
                     value={mfaCode}
                     onChange={setMfaCode}
                     autoFocus
+                    disabled={loading}
                     hasError={!!error}
                   />
                   <p className="mfa-hint">{t('auth.mfaHint')}</p>
                 </div>
+
+                {error && <div className="auth-error">{error}</div>}
+
+                <button
+                  type="submit"
+                  className="auth-submit"
+                  disabled={loading || mfaCode.replace(/\D/g, '').length < 6}
+                >
+                  {loading ? t('common.loading') : t('auth.verify2FA')}
+                </button>
+
                 <button
                   type="button"
                   className="mfa-back-link"
-                  onClick={() => { setMfaStep(null); setMfaCode(''); setError(''); }}
+                  disabled={loading}
+                  onClick={() => {
+                    setMfaStep(null);
+                    setMfaCode('');
+                    setError('');
+                  }}
                 >
                   {t('auth.mfaBack')}
                 </button>
               </div>
             )}
-
-            {error && <div className="auth-error">{error}</div>}
-
-            <button type="submit" className="auth-submit" disabled={loading}>
-              {loading ? t('common.loading') : t('auth.loginButton')}
-            </button>
-
-            {remainingAttempts <= 3 && remainingAttempts > 0 && (
-              <small className="attempts-warning">
-                {remainingAttempts} {t('errors.attemptsRemaining')}
-              </small>
-            )}
-
-            {isAddAccount && user && (
-              <div className="auth-switch">
-                <Link to="/channels/@me">Back to app</Link>
-              </div>
-            )}
-            <div className="auth-switch">
-              <span>{t('auth.noAccount')}</span>{' '}
-              <Link to="/register">{t('auth.registerButton')}</Link>
-            </div>
           </form>
         </div>
 
+        {!showMfaStep && (
+          <>
         <div className="login-separator" />
 
-        <div className="login-right">
-          {showMfaStep ? (
-            <div className="mfa-right-content">
-              <div className="mfa-right-visual">
-                <div className="mfa-right-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                    <path d="M9 12l2 2 4-4"/>
-                  </svg>
+            <div className="login-right">
+              <div className="qr-visual">
+                <div className={`qr-box${qrPhase === 'success' ? ' qr-box--success' : ''}`}>
+                  {qrPhase === 'success' ? (
+                    <div className="qr-success-state" aria-live="polite">
+                      <div className="qr-success-check" aria-hidden>
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      </div>
+                      <span className="qr-success-label">Code confirmé</span>
+                    </div>
+                  ) : qrDataUrl ? (
+                    <img src={qrDataUrl} alt="QR code for login" className="qr-code-img" width="200" height="200" />
+                  ) : qrError ? (
+                    <div className="qr-expired">
+                      <span>{qrError}</span>
+                    </div>
+                  ) : (
+                    <div className="qr-loading" aria-label="Loading QR code">
+                      <span className="qr-loading-dots">...</span>
+                    </div>
+                  )}
                 </div>
-                <div className="mfa-right-pattern" aria-hidden="true" />
               </div>
-              <p className="mfa-right-message">{t('auth.mfaRightMessage')}</p>
+              <h3 className="qr-title">Log in with QR Code</h3>
+              <p className={`qr-description${qrPhase === 'success' ? ' qr-description--success' : ''}`}>
+                {qrPhase === 'success'
+                  ? 'Connexion en cours… Vous allez être redirigé.'
+                  : qrDataUrl
+                    ? 'Scannez ce code avec l\'app Slide (connecté avec votre compte) pour vous connecter sur cet appareil.'
+                    : qrError
+                      ? qrError
+                      : 'Chargement du QR code…'}
+              </p>
             </div>
-          ) : (
-          <>
-          <div className="qr-visual">
-            <div className="qr-box">
-              {qrDataUrl ? (
-                <img src={qrDataUrl} alt="QR code for login" className="qr-code-img" width="200" height="200" />
-              ) : qrExpired ? (
-                <div className="qr-expired">
-                  <span>Expired</span>
-                  <button type="button" className="qr-refresh-btn" onClick={startQrSession}>
-                    Refresh
-                  </button>
-                </div>
-              ) : qrError ? (
-                <div className="qr-expired">
-                  <span>{qrError}</span>
-                  <button type="button" className="qr-refresh-btn" onClick={startQrSession}>
-                    Retry
-                  </button>
-                </div>
-              ) : (
-                <div className="qr-loading" aria-label="Loading QR code">
-                  <span className="qr-loading-dots">...</span>
-                </div>
-              )}
-            </div>
-          </div>
-          <h3 className="qr-title">Log in with QR Code</h3>
-          <p className="qr-description">
-            {qrDataUrl
-              ? 'Scan this with the Slide mobile app to log in instantly.'
-              : qrExpired
-                ? 'The QR code has expired. Click Refresh to get a new one.'
-                : qrError
-                  ? 'Could not load QR code. Click Retry.'
-                  : 'Loading QR code...'}
-          </p>
           </>
-          )}
-        </div>
+        )}
       </div>
     </AuthShell>
   );

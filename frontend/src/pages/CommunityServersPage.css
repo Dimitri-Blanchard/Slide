@@ -228,9 +228,15 @@
 }
 
 .community-empty-icon {
-  font-size: 4rem;
+  display: flex;
+  justify-content: center;
   margin-bottom: 16px;
+  color: var(--text-muted);
   opacity: 0.5;
+}
+
+.community-empty-icon svg {
+  display: block;
 }
 
 .community-empty h2 {
