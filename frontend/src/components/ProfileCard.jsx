@@ -535,7 +535,7 @@ const ProfileCard = memo(function ProfileCard({
 
                 {/* Custom status */}
                 {statusMessage && (
-                  <div className="profile-card-status-msg">{statusMessage}</motion>
+                  <div className="profile-card-status-msg">{statusMessage}</div>
                 )}
 
                 {/* Divider */}

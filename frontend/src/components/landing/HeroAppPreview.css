@@ -3,13 +3,12 @@
 .slide-app-preview {
   position: relative;
   width: 100%;
-  max-width: 520px;
-  margin: 0 auto;
+  max-width: none;
 }
 
 .slide-app-preview__shell {
   display: flex;
-  min-height: 320px;
+  min-height: clamp(360px, 42vh, 480px);
   background: var(--bg-void, #060608);
   border-radius: 12px;
   overflow: hidden;
@@ -86,7 +85,7 @@
 
 /* ── Channel sidebar ── */
 .slide-app-preview__channel-sidebar {
-  width: 168px;
+  width: 200px;
   flex-shrink: 0;
   background: var(--bg-secondary, #0b0b0e);
   border-right: 1px solid var(--border-subtle);
@@ -300,9 +299,16 @@
   color: var(--status-online, #3ba55d);
 }
 
+@media (max-width: 1100px) {
+  .slide-app-preview {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+}
+
 @media (max-width: 900px) {
   .slide-app-preview__channel-sidebar {
-    width: 108px;
+    width: 168px;
   }
 
   .slide-preview-userbar {
