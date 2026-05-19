@@ -473,6 +473,137 @@
   50% { opacity: 0.62; }
 }
 
+/* ═══ Login backdrop — same family as register, calmer presence ═══ */
+.auth-shell--backdrop-login {
+  background:
+    linear-gradient(145deg, #e8eeff 0%, #dce6ff 48%, #d0ddff 100%);
+}
+
+.auth-shell--backdrop-login::before {
+  background:
+    radial-gradient(ellipse 90% 72% at 50% 50%, transparent 28%, rgba(15, 23, 42, 0.035) 100%),
+    radial-gradient(ellipse 75% 48% at 72% 18%, rgba(59, 130, 246, 0.07), transparent 58%);
+}
+
+[data-theme="dark"] .auth-shell--backdrop-login:not(.auth-shell--legal) {
+  background:
+    radial-gradient(ellipse 80% 50% at 86% 6%, rgba(59, 130, 246, 0.16), transparent 58%),
+    radial-gradient(ellipse 65% 42% at 10% 92%, rgba(37, 99, 235, 0.08), transparent 52%),
+    linear-gradient(145deg, #060810 0%, #0a1020 38%, #0e1834 72%, #122040 100%);
+}
+
+[data-theme="dark"] .auth-shell--backdrop-login::before {
+  background:
+    radial-gradient(ellipse 92% 78% at 50% 48%, transparent 8%, rgba(0, 0, 0, 0.42) 100%),
+    radial-gradient(ellipse 65% 45% at 78% 14%, rgba(96, 165, 250, 0.07), transparent 58%);
+}
+
+.auth-backdrop--login .auth-backdrop__beam {
+  opacity: 0.45;
+  background: linear-gradient(
+    118deg,
+    transparent 0%,
+    transparent 42%,
+    rgba(59, 130, 246, 0.05) 50%,
+    rgba(129, 140, 248, 0.035) 54%,
+    transparent 64%
+  );
+}
+
+[data-theme="dark"] .auth-backdrop--login .auth-backdrop__beam {
+  opacity: 0.5;
+  background: linear-gradient(
+    118deg,
+    transparent 38%,
+    rgba(96, 165, 250, 0.08) 50%,
+    rgba(129, 140, 248, 0.06) 55%,
+    transparent 66%
+  );
+}
+
+.auth-backdrop--login .auth-backdrop__glow--deep {
+  opacity: 0.32;
+  filter: blur(110px);
+  animation-duration: 40s;
+}
+
+.auth-backdrop--login .auth-backdrop__glow--lift {
+  opacity: 0.28;
+  width: min(72vw, 480px);
+  height: min(72vw, 480px);
+  filter: blur(100px);
+  animation-duration: 36s;
+}
+
+[data-theme="dark"] .auth-backdrop--login .auth-backdrop__glow--deep {
+  opacity: 0.42;
+}
+
+[data-theme="dark"] .auth-backdrop--login .auth-backdrop__glow--lift {
+  opacity: 0.36;
+}
+
+.auth-backdrop--login .auth-backdrop__float--a {
+  opacity: 0.22;
+  width: 180px;
+  height: 220px;
+  filter: blur(48px);
+  animation-duration: 44s;
+}
+
+.auth-backdrop--login .auth-backdrop__float--b {
+  opacity: 0.16;
+  width: 260px;
+  height: 96px;
+  top: 22%;
+  right: -4%;
+  filter: blur(52px);
+  animation-duration: 40s;
+}
+
+[data-theme="dark"] .auth-backdrop--login .auth-backdrop__float--a {
+  opacity: 0.2;
+}
+
+[data-theme="dark"] .auth-backdrop--login .auth-backdrop__float--b {
+  opacity: 0.18;
+}
+
+[data-theme="light"] .auth-backdrop--login .auth-backdrop__float--a {
+  opacity: 0.18;
+}
+
+[data-theme="light"] .auth-backdrop--login .auth-backdrop__float--b {
+  opacity: 0.12;
+}
+
+.auth-backdrop--login .auth-backdrop__pixels--fine {
+  opacity: 0.28;
+  animation-duration: 14s;
+}
+
+[data-theme="light"] .auth-backdrop--login .auth-backdrop__pixels--fine {
+  opacity: 0.2;
+  box-shadow:
+    4vw 7vh 0 0 rgba(30, 64, 175, 0.14),
+    14vw 18vh 0 0 rgba(30, 58, 138, 0.12),
+    22vw 11vh 0 0 rgba(29, 78, 216, 0.16),
+    38vw 22vh 0 0 rgba(67, 56, 202, 0.1),
+    56vw 16vh 0 0 rgba(30, 58, 138, 0.12),
+    73vw 21vh 0 0 rgba(29, 78, 216, 0.11),
+    44vw 55vh 0 0 rgba(37, 99, 235, 0.12),
+    62vw 58vh 0 0 rgba(30, 64, 175, 0.1),
+    28vw 72vh 0 0 rgba(30, 58, 138, 0.11),
+    84vw 74vh 0 0 rgba(79, 70, 229, 0.08);
+}
+
+.auth-shell-main--backdrop .login-card {
+  border-color: rgba(37, 99, 235, 0.1);
+  box-shadow:
+    0 20px 64px rgba(15, 23, 42, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.55) inset;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .auth-backdrop__glow,
   .auth-backdrop__float,
@@ -491,6 +622,14 @@
 
   [data-theme="light"] .auth-backdrop__pixels--fine {
     opacity: 0.28;
+  }
+
+  .auth-backdrop--login .auth-backdrop__pixels--fine {
+    opacity: 0.22;
+  }
+
+  [data-theme="light"] .auth-backdrop--login .auth-backdrop__pixels--fine {
+    opacity: 0.16;
   }
 }
 

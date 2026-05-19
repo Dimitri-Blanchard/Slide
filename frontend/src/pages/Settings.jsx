@@ -1748,7 +1748,7 @@ export default function Settings() {
   const confirmLogout = () => {
     setShowLogoutConfirm(false);
     logout();
-    navigate('/login');
+    navigate('/');
   };
   
   const handleDeleteAccount = () => {
@@ -1767,7 +1767,7 @@ export default function Settings() {
       setShowDeleteConfirm(false);
       notify.success(t('success.accountDeleted') || 'Compte supprimé');
       logout();
-      navigate('/login');
+      navigate('/');
     } catch (err) {
       notify.error(err.message || t('errors.generic'));
     } finally {

@@ -7,6 +7,37 @@ import { getToken, getOrCreateDeviceId, getDeviceName } from './tokenStorage';
 const PENDING_QR_TOKEN_KEY = 'slide_pending_qr_login_token';
 const PUBLIC_SITE = (import.meta.env.VITE_PUBLIC_SITE_URL || 'https://sl1de.xyz').replace(/\/$/, '');
 
+/** Deep link / intent URL to open the native app for QR approval (mobile browser). */
+export function buildOpenSlideAppUrl(token, fallbackPageUrl) {
+  if (!token) return null;
+  const slideUrl = `slide://login?token=${encodeURIComponent(token)}`;
+  const fallback =
+    fallbackPageUrl ||
+    (typeof window !== 'undefined'
+      ? `${window.location.origin}/qr-login?token=${encodeURIComponent(token)}`
+      : `${PUBLIC_SITE}/qr-login?token=${encodeURIComponent(token)}`);
+
+  const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
+  if (!isAndroid) return slideUrl;
+
+  // Do not set package= — debug builds use com.slide.messenger.debug and a missing
+  // package makes Chrome open the Play Store for sideloaded apps not on Google Play.
+  const encodedFallback = encodeURIComponent(fallback);
+  return (
+    `intent://login?token=${encodeURIComponent(token)}` +
+    '#Intent;scheme=slide;action=android.intent.action.VIEW;' +
+    'category=android.intent.category.BROWSABLE;' +
+    `S.browser_fallback_url=${encodedFallback};end`
+  );
+}
+
+/** Try to open the installed Slide app; stays on fallbackPageUrl if unavailable. */
+export function openSlideApp(token, fallbackPageUrl) {
+  const url = buildOpenSlideAppUrl(token, fallbackPageUrl);
+  if (!url || typeof window === 'undefined') return;
+  window.location.href = url;
+}
+
 export function buildQrLoginScanUrl(token) {
   if (!token) return '';
   const encoded = encodeURIComponent(token);

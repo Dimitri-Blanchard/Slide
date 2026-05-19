@@ -9,6 +9,7 @@ import './AuthShell.css';
 export default function AuthShell({
   children,
   backgroundMedia = null,
+  backdropVariant = 'register',
   variant = 'auth',
   legalTitle = '',
   legalBackTo = '/',
@@ -37,7 +38,11 @@ export default function AuthShell({
   }
 
   return (
-    <div className={`auth-shell${backgroundMedia ? ' auth-shell--backdrop' : ''}`}>
+    <div
+      className={`auth-shell${backgroundMedia ? ' auth-shell--backdrop' : ''}${
+        backgroundMedia && backdropVariant === 'login' ? ' auth-shell--backdrop-login' : ''
+      }`}
+    >
       {backgroundMedia}
       <header className="auth-shell-header">
         <Link to="/" className="auth-shell-brand">

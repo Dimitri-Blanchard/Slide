@@ -31,7 +31,7 @@ function RouteLoadingFallback() {
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   const hasToken = !!getToken();
-  if (!loading && !user) return <Navigate to="/login" replace />;
+  if (!loading && !user) return <Navigate to="/" replace />;
   if (loading && !hasToken) return <RouteLoadingFallback />;
   return children;
 }
@@ -75,8 +75,6 @@ function SplashScreen({ onDone, quick }) {
 export default function App() {
   const isElectron = typeof window !== 'undefined' && !!window.electron?.isElectron;
   const isCapacitor = typeof window !== 'undefined' && !!window.Capacitor?.isNativePlatform?.();
-  const isNativeApp = isElectron || isCapacitor;
-  const rootRedirect = getToken() ? '/channels/@me' : '/login';
   const [showSplash, setShowSplash] = useState(isElectron || isCapacitor);
   const dismissSplash = useCallback(() => {
     setShowSplash(false);
@@ -107,11 +105,11 @@ export default function App() {
           <Routes>
             <Route
               path="/"
-              element={
-                isNativeApp
-                  ? <Navigate to={rootRedirect} replace />
-                  : <PublicRoute><LandingPage /></PublicRoute>
-              }
+              element={(
+                <PublicRoute>
+                  <LandingPage />
+                </PublicRoute>
+              )}
             />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />

@@ -7,6 +7,7 @@ import { auth } from '../api';
 import { checkRateLimit } from '../utils/security';
 import MfaCodeInput from '../components/MfaCodeInput';
 import AuthShell from '../components/AuthShell';
+import AuthBackdrop from '../components/AuthBackdrop';
 import { buildQrLoginScanUrl } from '../utils/qrLoginFlow';
 import './Auth.css';
 
@@ -314,7 +315,7 @@ export default function Login() {
     (email.trim() || null);
 
   return (
-    <AuthShell>
+    <AuthShell backgroundMedia={<AuthBackdrop variant="login" />} backdropVariant="login">
       <div className={`auth-card login-card${showMfaStep ? ' login-card--mfa' : ''}`}>
         <div className="login-left">
           <div className="auth-brand">

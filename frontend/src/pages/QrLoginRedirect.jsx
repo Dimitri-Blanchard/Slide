@@ -2,30 +2,24 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   approveQrLoginSession,
+  buildOpenSlideAppUrl,
   extractQrTokenFromUrl,
+  openSlideApp,
   prefetchSlideAppData,
   savePendingQrLoginToken,
 } from '../utils/qrLoginFlow';
 import { getToken } from '../utils/tokenStorage';
 import './QrLoginRedirect.css';
 
-const SLIDE_PACKAGE = 'com.slide.messenger';
-
-function getOpenAppUrl(token) {
-  if (!token) return null;
-  const slideUrl = `slide://login?token=${encodeURIComponent(token)}`;
-  const isAndroid = /Android/i.test(navigator.userAgent);
-  if (isAndroid) {
-    return `intent://login?token=${encodeURIComponent(token)}#Intent;scheme=slide;package=${SLIDE_PACKAGE};end`;
-  }
-  return slideUrl;
-}
-
 export default function QrLoginRedirect() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get('token') || extractQrTokenFromUrl(window.location.href);
-  const openUrl = getOpenAppUrl(token);
+  const fallbackPageUrl =
+    typeof window !== 'undefined' && token
+      ? `${window.location.origin}/qr-login?token=${encodeURIComponent(token)}`
+      : null;
+  const openUrl = buildOpenSlideAppUrl(token, fallbackPageUrl);
   const isNative = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
   const [status, setStatus] = useState(() => {
     if (!token) return 'invalid';
@@ -75,10 +69,10 @@ export default function QrLoginRedirect() {
       return;
     }
     const timer = setTimeout(() => {
-      if (openUrl) window.location.href = openUrl;
-    }, 1500);
+      openSlideApp(token, fallbackPageUrl);
+    }, 1200);
     return () => clearTimeout(timer);
-  }, [token, openUrl, isNative, runApprove]);
+  }, [token, fallbackPageUrl, isNative, runApprove]);
 
   useEffect(() => {
     if (status !== 'success' || !isNative) return;
@@ -107,7 +101,7 @@ export default function QrLoginRedirect() {
   };
 
   const handleOpenApp = () => {
-    if (openUrl) window.location.href = openUrl;
+    openSlideApp(token, fallbackPageUrl);
   };
 
   return (
@@ -212,8 +206,11 @@ export default function QrLoginRedirect() {
             <div className="qr-confirm-ring" aria-hidden>
               <div className="qr-confirm-ring-inner" />
             </div>
-            <h1>Ouverture de Slide</h1>
-            <p>Redirection vers l&apos;application…</p>
+            <h1>Ouvrir Slide</h1>
+            <p>
+              Confirmez la connexion dans l&apos;application Slide installée sur votre téléphone.
+              Si rien ne s&apos;ouvre, appuyez sur le bouton ci-dessous.
+            </p>
             {openUrl && (
               <button type="button" className="qr-confirm-btn qr-confirm-btn--secondary" onClick={handleOpenApp}>
                 Ouvrir Slide
