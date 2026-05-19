@@ -49,6 +49,24 @@
   max-width: 784px;
   display: flex;
   align-items: stretch;
+  position: relative;
+}
+
+.login-card--qr-loading .login-left,
+.login-card--qr-loading .login-separator,
+.login-card--qr-loading .login-right {
+  visibility: hidden;
+}
+
+.login-qr-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary, #1e1f22);
+  border-radius: inherit;
 }
 
 .auth-logo {

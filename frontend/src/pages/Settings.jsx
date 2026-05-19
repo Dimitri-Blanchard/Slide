@@ -2823,10 +2823,13 @@ export default function Settings() {
         const handleDisconnect = async (provider) => {
           try {
             await settingsApi.disconnect(provider);
-            setConnections(prev => prev.filter(c => c.provider !== provider));
-            notify.success(t('connections.disconnect'));
+            invalidateCache('/settings/connections');
+            const list = await settingsApi.getConnections();
+            setConnections(Array.isArray(list) ? list : []);
+            if (user?.id) invalidateProfile(user.id);
+            notify.success(t('connections.disconnected') || 'Connection removed');
           } catch (err) {
-            notify.error(err.message);
+            notify.error(err.message || t('connections.disconnectFailed') || 'Failed to disconnect');
           }
         };
         const hasSpotify = connections.some(c => c.provider === 'spotify');

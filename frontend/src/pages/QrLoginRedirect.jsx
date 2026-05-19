@@ -5,7 +5,6 @@ import {
   buildOpenSlideAppUrl,
   extractQrTokenFromUrl,
   openSlideApp,
-  prefetchSlideAppData,
   savePendingQrLoginToken,
 } from '../utils/qrLoginFlow';
 import { getToken } from '../utils/tokenStorage';
@@ -27,17 +26,6 @@ export default function QrLoginRedirect() {
     return 'redirect';
   });
   const [errorMessage, setErrorMessage] = useState('');
-  const [loadStep, setLoadStep] = useState('Préparation…');
-
-  const runLoadingAndEnter = useCallback(async () => {
-    setStatus('loading-app');
-    try {
-      await prefetchSlideAppData(setLoadStep);
-    } catch {
-      /* still navigate */
-    }
-    navigate('/channels/@me', { replace: true });
-  }, [navigate]);
 
   const runApprove = useCallback(async () => {
     if (!token) return;
@@ -77,18 +65,14 @@ export default function QrLoginRedirect() {
   useEffect(() => {
     if (status !== 'success' || !isNative) return;
     const timer = setTimeout(() => {
-      runLoadingAndEnter();
-    }, 1600);
+      navigate('/channels/@me', { replace: true });
+    }, 1400);
     return () => clearTimeout(timer);
-  }, [status, isNative, runLoadingAndEnter]);
+  }, [status, isNative, navigate]);
 
   const handleContinue = () => {
     if (status === 'success') {
-      if (isNative) {
-        runLoadingAndEnter();
-      } else {
-        navigate('/channels/@me', { replace: true });
-      }
+      navigate('/channels/@me', { replace: true });
       return;
     }
     if (status === 'need-login') {
@@ -126,26 +110,14 @@ export default function QrLoginRedirect() {
               </svg>
             </div>
             <h1>Ça a marché !</h1>
-            <p>Votre ordinateur est connecté. Chargement de Slide dans un instant…</p>
-            {isNative && (
+            <p>Votre ordinateur est connecté.</p>
+            {isNative ? (
+              <p className="qr-confirm-hint">Retour à Slide…</p>
+            ) : (
               <button type="button" className="qr-confirm-btn" onClick={handleContinue}>
                 Continuer
               </button>
             )}
-          </div>
-        )}
-
-        {status === 'loading-app' && (
-          <div className="qr-confirm-state qr-confirm-state--loading-app" key="loading-app">
-            <div className="qr-app-load-logo-wrap" aria-hidden>
-              <img src="/logo.png" alt="" className="qr-app-load-logo" />
-              <div className="qr-app-load-ring" />
-            </div>
-            <h1>Chargement de Slide</h1>
-            <p className="qr-app-load-step">{loadStep}</p>
-            <div className="qr-app-load-bar" aria-hidden>
-              <div className="qr-app-load-bar-fill" />
-            </div>
           </div>
         )}
 

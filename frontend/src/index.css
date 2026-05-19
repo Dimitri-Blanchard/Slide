@@ -572,7 +572,7 @@ textarea:-webkit-autofill:active {
 [data-theme="dark"] .profile-modal {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  background: var(--glass-float-bg) !important;
+  background: var(--bg-floating) !important;
   border-color: var(--border-default) !important;
 }
 

@@ -31,7 +31,9 @@
   width: min(980px, 100%);
   height: min(92vh, 860px);
   max-height: min(92vh, 860px);
-  background: var(--glass-panel-bg, #111);
+  background: var(--bg-floating, #111);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border: 1px solid var(--border-default);
   border-radius: 10px;
   overflow: hidden;

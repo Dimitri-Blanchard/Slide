@@ -142,6 +142,12 @@
   transform: scale(0.98);
 }
 
+.qr-confirm-hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted, #949ba4);
+}
+
 .qr-confirm-btn--secondary {
   background: var(--bg-secondary, #2b2d31);
   color: var(--text-primary, #f2f3f5);

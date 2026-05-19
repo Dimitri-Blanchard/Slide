@@ -414,6 +414,8 @@
     "connected": "Connected Accounts",
     "addConnection": "Add a connection",
     "disconnect": "Disconnect",
+    "disconnected": "Connection removed",
+    "disconnectFailed": "Could not disconnect",
     "comingSoon": "This feature will be available soon",
     "spotify": "Spotify",
     "spotifyDesc": "Connect your account to show your music on your profile.",

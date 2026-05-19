@@ -8,7 +8,8 @@ import { checkRateLimit } from '../utils/security';
 import MfaCodeInput from '../components/MfaCodeInput';
 import AuthShell from '../components/AuthShell';
 import AuthBackdrop from '../components/AuthBackdrop';
-import { buildQrLoginScanUrl, normalizeQrLoginCheckResponse } from '../utils/qrLoginFlow';
+import QrLoginAppLoading from '../components/QrLoginAppLoading';
+import { buildQrLoginScanUrl, normalizeQrLoginCheckResponse, prefetchSlideAppData } from '../utils/qrLoginFlow';
 import './Auth.css';
 
 const QR_POLL_INTERVAL = 600;
@@ -30,7 +31,8 @@ export default function Login() {
   const [qrDataUrl, setQrDataUrl] = useState(null);
   const [qrOffline, setQrOffline] = useState(false);
   const [qrError, setQrError] = useState(null);
-  const [qrPhase, setQrPhase] = useState('waiting'); // waiting | success
+  const [qrPhase, setQrPhase] = useState('waiting'); // waiting | success | loading-app
+  const [qrLoadStep, setQrLoadStep] = useState('Préparation…');
   const pollRef = useRef(null);
   const rotateRef = useRef(null);
   const rotatingRef = useRef(false);
@@ -134,9 +136,11 @@ export default function Login() {
     async (user, token) => {
       if (qrSettledRef.current || !user || !token) return;
       stopQrLoops();
-      setQrPhase('success');
+      setQrPhase('loading-app');
+      setQrLoadStep('Connexion au compte…');
       try {
         await completeQrLogin(user, token);
+        await prefetchSlideAppData(setQrLoadStep);
         navigate('/channels/@me', { replace: true });
       } catch {
         setQrError('Connexion confirmée mais impossible d’ouvrir la session. Réessayez.');
@@ -336,7 +340,7 @@ export default function Login() {
 
   return (
     <AuthShell backgroundMedia={<AuthBackdrop variant="login" />} backdropVariant="login">
-      <div className={`auth-card login-card${showMfaStep ? ' login-card--mfa' : ''}`}>
+      <div className={`auth-card login-card${showMfaStep ? ' login-card--mfa' : ''}${qrPhase === 'loading-app' ? ' login-card--qr-loading' : ''}`}>
         <div className="login-left">
           <div className="auth-brand">
             <img src="/logo.png" alt="Slide" className="auth-logo" />
@@ -505,6 +509,12 @@ export default function Login() {
               </p>
             </div>
           </>
+        )}
+
+        {qrPhase === 'loading-app' && (
+          <div className="login-qr-loading-overlay">
+            <QrLoginAppLoading step={qrLoadStep} />
+          </div>
         )}
       </div>
     </AuthShell>

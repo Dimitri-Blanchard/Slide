@@ -476,6 +476,9 @@ export async function api(endpoint, options = {}) {
         clearCache('/quests');
         clearCache('/shop');
       }
+      if (endpoint.includes('/settings/connections')) {
+        clearCache('/settings/connections');
+      }
       try {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('slide:data-mutated', {
@@ -1035,11 +1038,16 @@ export const settings = {
     api('/settings/email', { method: 'PATCH', body: JSON.stringify({ newEmail, password, ...(mfaCode && { mfaCode }) }) }),
   
   // Connections
-  getConnections: () => api('/settings/connections'),
+  getConnections: () => api('/settings/connections', { _noCache: true }),
   disconnect: (provider) => api(`/settings/connections/${provider}`, { method: 'DELETE' }),
 
   // Spotify (OAuth - returns URL to redirect to; then window.location = url)
-  connectSpotify: () => api('/settings/spotify/connect-init', { method: 'POST', body: JSON.stringify({}) }).then(d => d.url),
+  connectSpotify: () => api('/settings/spotify/connect-init', {
+    method: 'POST',
+    body: JSON.stringify({
+      frontendOrigin: typeof window !== 'undefined' ? window.location.origin : undefined,
+    }),
+  }).then(d => d.url),
   
   // Activity log
   getActivity: () => api('/settings/activity'),

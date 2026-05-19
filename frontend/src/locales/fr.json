@@ -414,6 +414,8 @@
     "connected": "Comptes connectés",
     "addConnection": "Ajouter une connexion",
     "disconnect": "Déconnecter",
+    "disconnected": "Connexion supprimée",
+    "disconnectFailed": "Impossible de déconnecter",
     "comingSoon": "Cette fonctionnalité sera disponible prochainement",
     "spotify": "Spotify",
     "spotifyDesc": "Connectez votre compte pour afficher votre musique sur votre profil.",

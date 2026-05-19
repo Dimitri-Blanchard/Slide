@@ -146,13 +146,27 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
-.slide-preview-channel--voice {
-  color: var(--status-online, #3ba55d);
+.slide-preview-channel-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
 }
 
-.slide-preview-channel--voice svg {
-  flex-shrink: 0;
-  opacity: 0.9;
+.slide-preview-channel-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slide-preview-channel--voice {
+  color: var(--text-muted);
+}
+
+.slide-preview-channel--voice .slide-preview-channel-icon svg {
+  display: block;
 }
 
 /* ── Chat ── */

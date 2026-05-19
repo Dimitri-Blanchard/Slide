@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, memo, useCallback } from 'react';
 
 function useIsMobile(breakpoint = 768) {
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= breakpoint);
@@ -85,6 +85,62 @@ function isGifUrl(url) {
   return /\.gif(?:$|[?#])/i.test(url) || /format=gif/i.test(url);
 }
 
+const PROFILE_CARD_WIDTH = 320;
+const VIEWPORT_PAD = 12;
+
+/** Clamp popup position using measured card size so it stays on screen. */
+function computeProfileCardPosition({ cardW, cardH, clickPos, anchorEl, position = 'right', padding = VIEWPORT_PAD }) {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  let top;
+  let left;
+
+  if (clickPos) {
+    top = clickPos.y;
+    left = clickPos.x + padding;
+    if (left + cardW > vw - padding) {
+      left = clickPos.x - cardW - padding;
+    }
+  } else if (anchorEl) {
+    const r = anchorEl.getBoundingClientRect();
+    top = r.top;
+    if (position === 'left') {
+      left = r.left - cardW - padding;
+    } else if (position === 'bottom') {
+      top = r.bottom + padding;
+      left = r.left + r.width / 2 - cardW / 2;
+    } else {
+      left = r.right + padding;
+    }
+    if (position !== 'bottom' && left + cardW > vw - padding) {
+      left = r.left - cardW - padding;
+    }
+  } else {
+    return {
+      top: Math.max(padding, Math.round((vh - cardH) / 2)),
+      left: Math.max(padding, Math.round((vw - cardW) / 2)),
+    };
+  }
+
+  if (left < padding) left = padding;
+  if (left + cardW > vw - padding) left = vw - cardW - padding;
+
+  if (top + cardH > vh - padding) {
+    if (clickPos) {
+      top = clickPos.y - cardH - padding;
+    } else if (anchorEl) {
+      const r = anchorEl.getBoundingClientRect();
+      top = position === 'bottom' ? r.top - cardH - padding : vh - cardH - padding;
+    } else {
+      top = vh - cardH - padding;
+    }
+  }
+  if (top < padding) top = padding;
+
+  return { top: Math.round(top), left: Math.round(left) };
+}
+
 const SPOTIFY_ICON_PATH =
   'M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z';
 
@@ -160,7 +216,8 @@ const ProfileCard = memo(function ProfileCard({
   const [menuOpen, setMenuOpen]     = useState(false);
   const [copied, setCopied]         = useState(false);
   const [copiedUsername, setCopiedUsername] = useState(false);
-  const [cardPos, setCardPos]       = useState({ top: -9999, left: -9999 });
+  const [cardPos, setCardPos]             = useState({ top: -9999, left: -9999 });
+  const [isCardPositioned, setIsCardPositioned] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
 
   const cardRef  = useRef(null);
@@ -202,43 +259,65 @@ const ProfileCard = memo(function ProfileCard({
     setUser((u) => (u?.spotify_now_playing ? { ...u, spotify_now_playing: undefined } : u));
   }, [isOwnProfile, appSettings.show_spotify_listening]);
 
-  // Position card near click / anchor element
-  useEffect(() => {
-    if (!isOpen) return;
+  const placeCard = useCallback(() => {
+    const el = cardRef.current;
+    if (!el || (!clickPos && !anchorEl)) return;
+
+    const rect = el.getBoundingClientRect();
+    const cardW = rect.width > 0 ? rect.width : PROFILE_CARD_WIDTH;
+    const cardH = rect.height > 0 ? rect.height : Math.min(500, window.innerHeight - VIEWPORT_PAD * 2);
+
+    setCardPos(computeProfileCardPosition({
+      cardW,
+      cardH,
+      clickPos,
+      anchorEl,
+      position,
+    }));
+    setIsCardPositioned(true);
+  }, [clickPos, anchorEl, position]);
+
+  // Measure real card size, then position before showing (avoids off-screen flash)
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      setIsCardPositioned(false);
+      setCardPos({ top: -9999, left: -9999 });
+      return;
+    }
     if (!clickPos && !anchorEl) return;
 
-    const place = () => {
-      const W = 320, H = 500, P = 12;
-      let top, left, ax;
+    setIsCardPositioned(false);
 
-      if (clickPos) {
-        top = clickPos.y; left = clickPos.x + P; ax = clickPos.x;
-      } else {
-        const r = anchorEl.getBoundingClientRect();
-        ax = r.left; top = r.top;
-        if (position === 'left')        left = r.left - W - P;
-        else if (position === 'bottom') { top = r.bottom + P; left = r.left + r.width / 2 - W / 2; }
-        else                            left = r.right + P;
-      }
-
-      if (left + W > window.innerWidth  - P) left = ax - W - P;
-      if (left < P)                          left = P;
-      if (top  + H > window.innerHeight - P) top  = window.innerHeight - H - P;
-      if (top  < P)                          top  = P;
-
-      setCardPos({ top, left });
+    const schedulePlace = () => {
+      requestAnimationFrame(() => placeCard());
     };
 
-    place();
-    if (!clickPos) {
-      window.addEventListener('resize', place);
-      window.addEventListener('scroll', place, true);
-      return () => {
-        window.removeEventListener('resize', place);
-        window.removeEventListener('scroll', place, true);
-      };
-    }
-  }, [isOpen, anchorEl, clickPos, position]);
+    schedulePlace();
+
+    const el = cardRef.current;
+    const ro = el ? new ResizeObserver(schedulePlace) : null;
+    ro?.observe(el);
+
+    window.addEventListener('resize', schedulePlace);
+    window.addEventListener('scroll', schedulePlace, true);
+
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', schedulePlace);
+      window.removeEventListener('scroll', schedulePlace, true);
+    };
+  }, [
+    isOpen,
+    clickPos,
+    anchorEl,
+    placeCard,
+    loading,
+    user,
+    showSpotifyOnCard,
+    note,
+    noteEditing,
+    isOwnProfile,
+  ]);
 
   const handleBackdropPointerDown = useCallback((e) => {
     e.preventDefault();
@@ -680,7 +759,12 @@ const ProfileCard = memo(function ProfileCard({
       <div
         className={popupClasses}
         ref={cardRef}
-        style={{ top: cardPos.top, left: cardPos.left, ...(cardStyle || {}) }}
+        style={{
+          top: cardPos.top,
+          left: cardPos.left,
+          visibility: isCardPositioned ? 'visible' : 'hidden',
+          ...(cardStyle || {}),
+        }}
         role="dialog"
         aria-label={`${finalDisplayName} profile`}
         onMouseDown={handleCardPointerDown}

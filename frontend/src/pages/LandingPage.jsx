@@ -1,6 +1,7 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { motion, useInView } from 'framer-motion';
+import { AnimatePresence, motion, useInView } from 'framer-motion';
 import LandingBackdrop from '../components/landing/LandingBackdrop';
 import SwitzerlandFlag from '../components/landing/SwitzerlandFlag';
 import HeroAppPreview from '../components/landing/HeroAppPreview';
@@ -177,9 +178,18 @@ function GlobeIcon() {
   );
 }
 
+const NAV_ITEMS = [
+  { id: 'features', label: 'Features' },
+  { id: 'how', label: 'How it works' },
+  { id: 'download', label: 'Download' },
+  { id: 'faq', label: 'FAQ' },
+];
+
 function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const closeMenu = () => setMenuOpen(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -188,27 +198,37 @@ function Header() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const nav = (id, label) => (
-    <a
-      href={`#${id}`}
-      onClick={(e) => {
-        e.preventDefault();
-        setMenuOpen(false);
-        scrollToId(id);
-      }}
-    >
-      {label}
-    </a>
-  );
+  useEffect(() => {
+    document.body.classList.toggle('landing-nav-open', menuOpen);
+    return () => document.body.classList.remove('landing-nav-open');
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') closeMenu();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [menuOpen]);
+
+  const goTo = (id) => (e) => {
+    e.preventDefault();
+    closeMenu();
+    scrollToId(id);
+  };
 
   return (
-    <header className={`header${scrolled ? ' header--scrolled' : ''}`}>
-      <nav className="nav">
+    <header
+      className={`header${scrolled ? ' header--scrolled' : ''}${menuOpen ? ' header--menu-open' : ''}`}
+    >
+      <nav className="nav" aria-label="Main">
         <a
           href="#"
           className="logo"
           onClick={(e) => {
             e.preventDefault();
+            closeMenu();
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         >
@@ -216,11 +236,14 @@ function Header() {
           <span className="logo-text">Slide</span>
         </a>
 
-        <ul className={`nav-links${menuOpen ? ' nav-links--open' : ''}`}>
-          <li>{nav('features', 'Features')}</li>
-          <li>{nav('how', 'How it works')}</li>
-          <li>{nav('download', 'Download')}</li>
-          <li>{nav('faq', 'FAQ')}</li>
+        <ul className="nav-links nav-links--desktop">
+          {NAV_ITEMS.map(({ id, label }) => (
+            <li key={id}>
+              <a href={`#${id}`} onClick={goTo(id)}>
+                {label}
+              </a>
+            </li>
+          ))}
         </ul>
 
         <div className="nav-actions">
@@ -228,29 +251,146 @@ function Header() {
             <GlobeIcon />
             <span className="nav-web-label">Open in Web</span>
           </Link>
-          <a
-            href="#download"
-            className="btn btn-primary nav-cta"
-            onClick={(e) => {
-              e.preventDefault();
-              scrollToId('download');
-            }}
-          >
+          <a href="#download" className="btn btn-primary nav-cta" onClick={goTo('download')}>
             Get Slide
           </a>
           <button
             type="button"
-            className="nav-burger"
+            className={`nav-burger${menuOpen ? ' nav-burger--open' : ''}`}
             aria-expanded={menuOpen}
+            aria-controls="landing-mobile-nav"
             aria-label={menuOpen ? 'Close menu' : 'Open menu'}
             onClick={() => setMenuOpen((o) => !o)}
           >
-            <span />
-            <span />
-            <span />
+            <span className="nav-burger-line" />
+            <span className="nav-burger-line" />
+            <span className="nav-burger-line" />
           </button>
         </div>
       </nav>
+
+      {typeof document !== 'undefined'
+        && createPortal(
+          <AnimatePresence>
+            {menuOpen && (
+              <motion.div
+                className="nav-mobile-root"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <motion.button
+                  type="button"
+                  className="nav-mobile-backdrop"
+                  aria-label="Close menu"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  onClick={closeMenu}
+                />
+                <motion.div
+                  id="landing-mobile-nav"
+                  className="nav-mobile-panel"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Menu"
+                  initial={{ x: '100%' }}
+                  animate={{ x: 0 }}
+                  exit={{ x: '100%' }}
+                  transition={{ type: 'spring', damping: 34, stiffness: 320 }}
+                >
+                  <motion.div
+                    className="nav-mobile-panel-glow"
+                    aria-hidden
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.4 }}
+                  />
+
+                  <motion.div
+                    className="nav-mobile-panel-head"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.05, duration: 0.3 }}
+                  >
+                    <a
+                      href="#"
+                      className="nav-mobile-brand"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        closeMenu();
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                    >
+                      <img src="/logo.png" alt="" width={36} height={36} className="nav-mobile-brand-logo" />
+                      <span className="nav-mobile-brand-text">
+                        <span className="nav-mobile-brand-name">Slide</span>
+                        <span className="nav-mobile-brand-tag">Privacy-first messaging</span>
+                      </span>
+                    </a>
+                    <button
+                      type="button"
+                      className="nav-mobile-close"
+                      aria-label="Close menu"
+                      onClick={closeMenu}
+                    >
+                      <span className="nav-burger-line" />
+                      <span className="nav-burger-line" />
+                    </button>
+                  </motion.div>
+
+                  <motion.p
+                    className="nav-mobile-eyebrow"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.08, duration: 0.25 }}
+                  >
+                    Explore
+                  </motion.p>
+
+                  <ul className="nav-mobile-links">
+                    {NAV_ITEMS.map(({ id, label }, i) => (
+                      <motion.li
+                        key={id}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.1 + i * 0.05, duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+                      >
+                        <a href={`#${id}`} className="nav-mobile-link" onClick={goTo(id)}>
+                          <span className="nav-mobile-link-label">{label}</span>
+                          <span className="nav-mobile-link-arrow" aria-hidden>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M5 12h14M13 6l6 6-6 6" />
+                            </svg>
+                          </span>
+                        </a>
+                      </motion.li>
+                    ))}
+                  </ul>
+
+                  <motion.div
+                    className="nav-mobile-actions"
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.28, duration: 0.32 }}
+                  >
+                    <p className="nav-mobile-actions-label">Get started</p>
+                    <a href="#download" className="btn btn-primary btn-lg nav-mobile-btn" onClick={goTo('download')}>
+                      Get Slide
+                    </a>
+                    <Link to="/login" className="btn btn-secondary btn-lg nav-mobile-btn" onClick={closeMenu}>
+                      <GlobeIcon />
+                      Open in Web
+                    </Link>
+                  </motion.div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
+        )}
     </header>
   );
 }
@@ -260,14 +400,6 @@ function Hero({ downloadLinks }) {
     <section className="hero landing-section">
       <div className="hero-inner">
         <div className="hero-content">
-          <motion.div
-            className="hero-badge"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45 }}
-          >
-            Privacy-first · Gaming · Communities · Everyone
-          </motion.div>
           <h1 className="hero-title">
             <motion.span
               className="hero-title-line"
