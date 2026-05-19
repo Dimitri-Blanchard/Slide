@@ -2876,10 +2876,13 @@ export default function Settings() {
                     label={t('connections.showSpotifyToOthers')}
                     description={t('connections.showSpotifyToOthersDesc')}
                   >
-                    <ToggleSwitch
-                      checked={allSettings.show_spotify_listening !== false}
-                      onChange={(v) => updateSetting('show_spotify_listening', v)}
-                    />
+                      <ToggleSwitch
+                        checked={allSettings.show_spotify_listening !== false}
+                        onChange={(v) => {
+                          updateSetting('show_spotify_listening', v);
+                          if (user?.id) invalidateProfile(user.id);
+                        }}
+                      />
                   </SettingsRow>
                 )}
               </>

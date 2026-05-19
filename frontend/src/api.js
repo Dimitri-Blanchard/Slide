@@ -586,7 +586,6 @@ export const auth = {
         _noCache: true,
         _noAuth: true,
         _noDedupe: true,
-        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
       }),
     approve: (token, deviceId, deviceName) =>
       api('/auth/qr-login/approve', {

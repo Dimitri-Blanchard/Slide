@@ -1,0 +1,322 @@
+/* Static Slide app miniature — uses production dark tokens when data-theme="dark" on root */
+
+.slide-app-preview {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.slide-app-preview__shell {
+  display: flex;
+  min-height: 320px;
+  background: var(--bg-void, #060608);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+}
+
+/* ── Server bar (76px) ── */
+.slide-app-preview__server-bar {
+  width: 76px;
+  min-width: 76px;
+  flex-shrink: 0;
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-tertiary, #191a1e);
+  border-right: 1px solid var(--border-default);
+}
+
+.slide-preview-server {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.slide-preview-server--home img {
+  border-radius: 10px;
+  object-fit: contain;
+}
+
+.slide-preview-server--active {
+  border-radius: 10px;
+}
+
+.slide-preview-server-indicator {
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 20px;
+  border-radius: 0 4px 4px 0;
+  background: var(--text-primary);
+}
+
+.slide-preview-server-sep {
+  width: 32px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--border-default);
+}
+
+.slide-preview-server--add {
+  background: transparent;
+  border: 1px dashed var(--border-default);
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  font-weight: 400;
+}
+
+.slide-preview-server-letter {
+  font-size: 0.8125rem;
+}
+
+/* ── Channel sidebar ── */
+.slide-app-preview__channel-sidebar {
+  width: 168px;
+  flex-shrink: 0;
+  background: var(--bg-secondary, #0b0b0e);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 8px;
+}
+
+.slide-preview-server-header {
+  height: 52px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.slide-preview-server-header-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slide-preview-category {
+  padding: 14px 12px 4px;
+}
+
+.slide-preview-category-name {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.slide-preview-channel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 1px 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.slide-preview-channel-hash {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.slide-preview-channel--active {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.slide-preview-channel--voice {
+  color: var(--status-online, #3ba55d);
+}
+
+.slide-preview-channel--voice svg {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+/* ── Chat ── */
+.slide-app-preview__chat {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary, #111114);
+}
+
+.slide-preview-ch-header {
+  height: 44px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.slide-preview-ch-hash {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.slide-preview-ch-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.slide-preview-messages {
+  flex: 1;
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.slide-preview-message {
+  display: flex;
+  gap: 12px;
+  padding: 4px 16px 4px 12px;
+}
+
+.slide-preview-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.slide-preview-avatar--violet {
+  background: linear-gradient(135deg, #7c6cf0, #a78bfa);
+}
+
+.slide-preview-avatar--accent {
+  background: linear-gradient(135deg, var(--accent), #4f5fd9);
+}
+
+.slide-preview-message-body {
+  min-width: 0;
+}
+
+.slide-preview-message-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.slide-preview-sender {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.slide-preview-message-meta time {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.slide-preview-message-body p {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+  color: var(--text-secondary);
+}
+
+.slide-preview-composer {
+  margin: 8px 12px 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--input-bg, #1a1a1f);
+  border: 1px solid var(--border-subtle);
+}
+
+.slide-preview-composer-placeholder {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* ── User bar (bottom-left) ── */
+.slide-preview-userbar {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  width: 180px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 2;
+}
+
+.slide-preview-userbar-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.slide-preview-userbar-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.slide-preview-userbar-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.slide-preview-userbar-status {
+  font-size: 0.6875rem;
+  color: var(--status-online, #3ba55d);
+}
+
+@media (max-width: 900px) {
+  .slide-app-preview__channel-sidebar {
+    width: 108px;
+  }
+
+  .slide-preview-userbar {
+    width: 150px;
+  }
+}
+
+@media (max-width: 480px) {
+  .slide-app-preview__channel-sidebar {
+    display: none;
+  }
+
+  .slide-app-preview__server-bar {
+    width: 64px;
+    min-width: 64px;
+  }
+}

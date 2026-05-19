@@ -1,7 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useInView } from 'framer-motion';
 import LandingBackdrop from '../components/landing/LandingBackdrop';
+import SwitzerlandFlag from '../components/landing/SwitzerlandFlag';
+import HeroAppPreview from '../components/landing/HeroAppPreview';
 import SmartDownloadButton from '../components/landing/SmartDownloadButton';
 import { AndroidIcon, LinuxIcon, WindowsIcon } from '../components/landing/PlatformIcons';
 import useDownloadLinks from '../hooks/useDownloadLinks';
@@ -24,7 +26,7 @@ const FAQ_SCHEMA = {
       name: 'What is Slide?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Slide is a team messaging app that brings everything together: real-time chat, voice channels, organized servers, direct messages, and presence indicators. Privacy-first.',
+        text: 'Slide is a privacy-first messaging app for everyone — gaming squads, communities, friends, and work. Real-time chat, voice channels, servers, DMs, and presence. Get in while access is still open.',
       },
     },
     {
@@ -66,7 +68,7 @@ const features = [
   },
   {
     title: 'Servers & channels',
-    desc: 'Organize teams into servers. Text and voice channels, public or private — your rules.',
+    desc: 'Squads, clans, or communities — text and voice channels, public or private, your rules.',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -110,7 +112,7 @@ const features = [
   },
   {
     title: 'Privacy first',
-    desc: 'No ad profiling. No data resale. Your conversations belong to you and your team.',
+    desc: 'No ad profiling. No data resale. Your conversations stay yours — not a product to sell.',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -128,24 +130,24 @@ const steps = [
   {
     n: '02',
     title: 'Create your space',
-    desc: 'Spin up a server, invite your team, and set up channels in minutes.',
+    desc: 'Create a server, invite your squad or community, and set up channels in minutes.',
   },
   {
     n: '03',
     title: 'Talk & build',
-    desc: 'Chat, voice, and collaborate in real time — from daily standups to late-night sessions.',
+    desc: 'Chat and voice in real time — ranked nights, study groups, or late-night hangs.',
   },
 ];
 
 const pillars = [
-  { title: 'Built for teams', desc: 'Servers, roles, and channels that scale from a friend group to a full org.' },
+  { title: 'For everyone', desc: 'Gaming, communities, friends, or work — servers and channels that fit how you actually talk.' },
   { title: 'Privacy by default', desc: 'No tracking for ads. No selling your data. Transparent controls.' },
   { title: 'Always in sync', desc: 'Real-time messaging powered by a modern stack — fast on desktop and mobile.' },
 ];
 
 const faqs = [
   { q: 'Is Slide free?', a: 'Yes. Core features are free. Optional upgrades when you need more — no credit card to start.' },
-  { q: 'What is Slide?', a: 'A team messaging app: real-time chat, voice channels, servers, DMs, and presence — in one place.' },
+  { q: 'What is Slide?', a: 'A privacy-first messaging app for everyone: chat, voice, servers, DMs, and presence — in one place.' },
   { q: 'What makes Slide different?', a: "Full-featured collaboration without compromising privacy. We don't profile you for ads." },
   { q: 'Is my data private?', a: 'Yes. Strong defaults, clear policies, and no selling of conversation data.' },
   { q: 'What platforms does Slide support?', a: 'Windows 10/11, Android APK, Web, and Linux (coming soon).' },
@@ -253,77 +255,6 @@ function Header() {
   );
 }
 
-function HeroAppPreview() {
-  return (
-    <div className="app-preview">
-      <div className="app-preview-glow" aria-hidden />
-      <motion.div
-        className="app-preview-window"
-        initial={{ opacity: 0, y: 28 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <div className="app-preview-sidebar" aria-hidden>
-          <div className="server-pip server-pip--accent" />
-          <div className="server-pip" />
-          <div className="server-pip" />
-          <div className="server-pip server-pip--add">+</div>
-        </div>
-        <div className="app-preview-channels" aria-hidden>
-          <div className="channel channel--active"># general</div>
-          <div className="channel"># announcements</div>
-          <div className="channel channel--voice">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden>
-              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-            </svg>
-            Voice Lounge
-          </div>
-          <div className="channel"># dev</div>
-        </div>
-        <div className="app-preview-main">
-          <div className="mockup-header">
-            <span className="mockup-header-icon" aria-hidden>#</span>
-            <span className="mockup-title">general</span>
-            <span className="mockup-live">
-              <span className="mockup-live-dot" aria-hidden />
-              12 online
-            </span>
-          </div>
-          <div className="mockup-chat">
-            <div className="mockup-msg mockup-msg-them">
-              <div className="mockup-avatar mockup-avatar--a" />
-              <div className="mockup-body">
-                <div className="mockup-header-row">
-                  <span className="mockup-sender">Alex</span>
-                  <time className="mockup-time">2:34 PM</time>
-                </div>
-                <div className="mockup-content">Sprint review in 10 — everyone ready?</div>
-              </div>
-            </div>
-            <div className="mockup-msg mockup-msg-you">
-              <div className="mockup-avatar mockup-avatar--you" />
-              <div className="mockup-body">
-                <div className="mockup-header-row">
-                  <span className="mockup-sender">You</span>
-                  <time className="mockup-time">2:35 PM</time>
-                </div>
-                <div className="mockup-content mockup-content--bubble">On it — pushing the last commit now</div>
-              </div>
-            </div>
-            <div className="mockup-reaction" aria-hidden>👍 3</div>
-            <div className="mockup-typing">
-              <span className="typing-dot" />
-              <span className="typing-dot" />
-              <span className="typing-dot" />
-              <span className="typing-text">Taylor is typing…</span>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
 function Hero({ downloadLinks }) {
   return (
     <section className="hero landing-section">
@@ -335,8 +266,7 @@ function Hero({ downloadLinks }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45 }}
           >
-            <span className="hero-badge-dot" aria-hidden />
-            Free forever · Privacy-first · Cross-platform
+            Privacy-first · Gaming · Communities · Everyone
           </motion.div>
           <h1 className="hero-title">
             <motion.span
@@ -345,7 +275,7 @@ function Hero({ downloadLinks }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.08 }}
             >
-              Your team.
+              Secure messaging
             </motion.span>
             <motion.span
               className="hero-title-line"
@@ -353,7 +283,7 @@ function Hero({ downloadLinks }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.14 }}
             >
-              One place.
+              for everyone.
             </motion.span>
             <motion.span
               className="hero-title-line accent"
@@ -361,7 +291,7 @@ function Hero({ downloadLinks }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              Zero noise.
+              Get in early.
             </motion.span>
           </h1>
           <motion.p
@@ -370,8 +300,8 @@ function Hero({ downloadLinks }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.26 }}
           >
-            Chat, voice, and organized servers — built for how modern teams actually work.
-            Fast, private, and free to start.
+            Squads, gaming nights, friend groups, or work — chat and voice in one place, with privacy
+            that won&apos;t stay this accessible forever. Join now while it&apos;s still open.
           </motion.p>
           <motion.div
             className="hero-cta"
@@ -446,9 +376,9 @@ function Features() {
     <section id="features" className="features landing-section">
       <div className="section-header">
         <span className="section-eyebrow">Features</span>
-        <h2 className="section-title">Everything your team needs</h2>
+        <h2 className="section-title">Built for how you actually talk</h2>
         <p className="section-subtitle">
-          Not a stripped-down chat app — a full collaboration hub with the tools you use every day.
+          Whether you raid, grind ranked, or run a community — real-time tools without selling your data.
         </p>
       </div>
       <motion.div
@@ -526,8 +456,8 @@ function Download({ downloadLinks }) {
   };
 
   return (
-    <section id="download" className="download landing-section">
-      <div className="download-bg" aria-hidden />
+    <section id="download" className="download">
+      <div className="download-inner landing-section">
       <div className="section-header">
         <span className="section-eyebrow download-badge">Latest alpha</span>
         <h2 className="section-title">Download Slide</h2>
@@ -584,6 +514,7 @@ function Download({ downloadLinks }) {
       <p className="download-web-hint">
         Prefer the browser? <Link to="/login">Open Slide in Web</Link> — no install needed.
       </p>
+      </div>
     </section>
   );
 }
@@ -605,8 +536,16 @@ function About() {
           <span className="section-eyebrow">About Slide</span>
           <h2 className="section-title about-title">Built for connection,<br />not surveillance</h2>
           <p className="about-text">
-            Slide is a modern messaging app for teams and communities. We believe great communication
-            software should respect you — your time, your data, and your attention.
+            Slide is messaging built for real life — gaming nights, communities, friends, and work.
+            We believe great communication software should respect you — your time, your data, and your attention.
+          </p>
+          <p className="about-location">
+            <SwitzerlandFlag className="about-location-flag" size={20} />
+            Based in Switzerland
+          </p>
+          <p className="about-legal-note">
+            No company registration or formal legal filings are in place yet — Slide is an independent
+            project in active development.
           </p>
           <div className="about-meta">
             <span>Slide v1.0.0</span>
@@ -679,9 +618,9 @@ function Principles() {
   const isInView = useInView(ref, { once: true, margin: '-80px' });
 
   return (
-    <section className="principles landing-section" ref={ref}>
+    <section className="principles" ref={ref}>
       <motion.div
-        className="principles-inner"
+        className="principles-inner landing-section"
         initial={{ opacity: 0, y: 24 }}
         animate={isInView ? { opacity: 1, y: 0 } : {}}
       >
@@ -713,35 +652,16 @@ function FinalCTA({ downloadLinks }) {
         animate={isInView ? { opacity: 1, y: 0 } : {}}
         transition={{ duration: 0.5 }}
       >
-        <h2 className="final-cta-title">Ready to bring your team together?</h2>
-        <p className="final-cta-sub">Join thousands already using Slide. Free, fast, and private.</p>
+        <h2 className="final-cta-title">Ready to get in early?</h2>
+        <p className="final-cta-sub">
+          The window for open, private messaging won&apos;t last. Claim your spot before access gets scarce.
+        </p>
         <div className="final-cta-actions">
           <SmartDownloadButton downloadLinks={downloadLinks} className="btn btn-primary btn-lg hero-download-btn" />
           <Link to="/register" className="btn btn-secondary btn-lg">Sign up free</Link>
         </div>
       </motion.div>
     </section>
-  );
-}
-
-function StickyCTA({ downloadLinks }) {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => setVisible(window.scrollY > 480);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  return (
-    <div className={`sticky-cta${visible ? ' visible' : ''}`} aria-hidden={!visible}>
-      <span className="sticky-cta-text">Ready to get started?</span>
-      <SmartDownloadButton
-        downloadLinks={downloadLinks}
-        className="btn btn-primary sticky-cta-btn"
-        showComingSoonHint={false}
-      />
-    </div>
   );
 }
 
@@ -767,6 +687,10 @@ function Footer() {
             <span className="logo-text">Slide</span>
           </Link>
           <p className="footer-tagline">Messaging reimagined.</p>
+          <p className="footer-location">
+            <SwitzerlandFlag className="footer-location-flag" size={16} />
+            Based in Switzerland
+          </p>
         </div>
         <div className="footer-col">
           <span className="footer-col-title">Product</span>
@@ -785,7 +709,11 @@ function Footer() {
           <Link to="/register">Register</Link>
         </div>
       </div>
-      <p className="footer-copy">© {new Date().getFullYear()} Slide. All rights reserved.</p>
+      <p className="footer-legal-note">
+        No legal entity or commercial registration has been filed yet. Policies and disclosures will be
+        updated as the project matures.
+      </p>
+      <p className="footer-copy">Â© {new Date().getFullYear()} Slide. All rights reserved.</p>
     </footer>
   );
 }
@@ -801,7 +729,6 @@ function useConversionTracking() {
     };
     track('.hero-download-btn', 'cta_click', { cta_location: 'hero_download' });
     track('.nav-cta', 'cta_click', { cta_location: 'nav' });
-    track('.sticky-cta-btn', 'cta_click', { cta_location: 'sticky_bar' });
     track('.hero-register-btn', 'cta_click', { cta_location: 'hero_register' });
   }, []);
 }
@@ -826,7 +753,6 @@ export default function LandingPage() {
         <Principles />
         <FinalCTA downloadLinks={downloadLinks} />
       </main>
-      <StickyCTA downloadLinks={downloadLinks} />
       <Footer />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_SCHEMA) }} />
     </div>

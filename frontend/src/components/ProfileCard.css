@@ -98,8 +98,10 @@
   display: flex;
   align-items: stretch;
   gap: 12px;
-  margin: 0 16px 12px;
+  margin: 0 0 10px;
   padding: 8px;
+  width: 100%;
+  box-sizing: border-box;
   background: #111214;
   border-radius: 8px;
   flex-shrink: 0;

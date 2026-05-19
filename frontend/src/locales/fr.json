@@ -421,8 +421,8 @@
     "spotifyNotConfigured": "Spotify n'est pas configuré. Ajoutez SPOTIFY_CLIENT_ID et SPOTIFY_CLIENT_SECRET dans le fichier .env du backend, puis redémarrez le serveur.",
     "spotifyConnected": "Spotify connecté !",
     "showOnProfile": "Afficher l'activité d'écoute sur le profil",
-    "showSpotifyToOthers": "Visible par les autres",
-    "showSpotifyToOthersDesc": "Les autres utilisateurs verront ce que vous écoutez sur votre carte de profil. Vous le verrez toujours sur le vôtre."
+    "showSpotifyToOthers": "Afficher sur le profil",
+    "showSpotifyToOthersDesc": "Affiche ou masque ce que vous écoutez sur votre carte de profil (pour vous et les autres)."
   },
   "appearance": {
     "title": "Apparence",

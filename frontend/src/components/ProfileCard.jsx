@@ -149,7 +149,7 @@ const ProfileCard = memo(function ProfileCard({
   const { user: currentUser } = useAuth();
   const { t }      = useLanguage();
   const { isUserOnline } = useOnlineUsers();
-  const { developerMode } = useSettings();
+  const { developerMode, settings: appSettings } = useSettings();
 
   const resolvedId = userId || providedUser?.id;
   const cached = resolvedId ? getCachedProfile(resolvedId) : null;
@@ -168,6 +168,9 @@ const ProfileCard = memo(function ProfileCard({
   const detailModalRef = useRef(null);
   const isMobile = useIsMobile();
   const isOwnProfile = currentUser?.id === resolvedId || currentUser?.id === providedUser?.id;
+  const showSpotifyOnCard =
+    !!user?.spotify_now_playing &&
+    (!isOwnProfile || appSettings.show_spotify_listening !== false);
 
   // Load note
   useEffect(() => {
@@ -193,6 +196,11 @@ const ProfileCard = memo(function ProfileCard({
       setLoading(false);
     }
   }, [userId, providedUser, isOpen]);
+
+  useEffect(() => {
+    if (!isOwnProfile || appSettings.show_spotify_listening !== false) return;
+    setUser((u) => (u?.spotify_now_playing ? { ...u, spotify_now_playing: undefined } : u));
+  }, [isOwnProfile, appSettings.show_spotify_listening]);
 
   // Position card near click / anchor element
   useEffect(() => {
@@ -521,13 +529,13 @@ const ProfileCard = memo(function ProfileCard({
                   )}
                 </div>
 
-                {/* Custom status */}
-                {statusMessage && (
-                  <div className="profile-card-status-msg">{statusMessage}</div>
+                {showSpotifyOnCard && (
+                  <ProfileSpotifyActivity track={user.spotify_now_playing} t={t} />
                 )}
 
-                {user.spotify_now_playing && (
-                  <ProfileSpotifyActivity track={user.spotify_now_playing} t={t} />
+                {/* Custom status */}
+                {statusMessage && (
+                  <div className="profile-card-status-msg">{statusMessage}</motion>
                 )}
 
                 {/* Divider */}

@@ -420,8 +420,8 @@
     "connectSpotify": "Connect Spotify",
     "spotifyConnected": "Spotify connected!",
     "spotifyNotConfigured": "Spotify is not configured. Add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET to the backend .env file, then restart the server.",
-    "showSpotifyToOthers": "Visible to others",
-    "showSpotifyToOthersDesc": "Other users can see what you're listening to on your profile card. You'll still see it on your own.",
+    "showSpotifyToOthers": "Show on profile",
+    "showSpotifyToOthersDesc": "Show or hide what you're listening to on your profile card (for you and everyone else).",
     "showOnProfile": "Show listening activity on profile"
   },
   "appearance": {
