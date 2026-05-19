@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { auth as authApi, setAuthErrorHandler, invalidateCache } from '../api';
 import { resetRateLimit } from '../utils/security';
 import { getToken, setToken as persistToken, clearToken as persistClearToken, getOrCreateDeviceId, getDeviceName, getAccounts, addAccount as storageAddAccount, removeAccount as storageRemoveAccount, getAccountToken, getRefreshToken, setRefreshToken, clearRefreshToken } from '../utils/tokenStorage';
-import { processPendingQrLoginIfAny } from '../utils/qrLoginFlow';
+import { normalizeQrLoginCheckResponse, processPendingQrLoginIfAny } from '../utils/qrLoginFlow';
 
 const AuthContext = createContext(null);
 
@@ -217,8 +217,8 @@ export function AuthProvider({ children }) {
 
   const loginWithQrToken = useCallback(async (qrToken) => {
     authLog('info', 'loginWithQrToken — check', { hasToken: !!qrToken, fixHint: 'AuthContext.jsx loginWithQrToken() -> authApi.qrLogin.check()' });
-    const data = await authApi.qrLogin.check(qrToken);
-    if (data?.status === 'approved' && data.user && data.token) {
+    const data = normalizeQrLoginCheckResponse(await authApi.qrLogin.check(qrToken));
+    if (data.status === 'approved' && data.user && data.token) {
       authLog('info', 'loginWithQrToken — approved', { userId: data.user?.id, fixHint: 'QR login from mobile app approved.' });
       const normalized = normalizeAuthUser(data.user);
       storageAddAccount(normalized, data.token);
@@ -231,7 +231,7 @@ export function AuthProvider({ children }) {
       resetRateLimit('login');
       return data.user;
     }
-    authLog('info', 'loginWithQrToken — not approved', { status: data?.status, fixHint: 'QR code expired or not yet scanned. Check qr-login flow.' });
+    authLog('info', 'loginWithQrToken — not approved', { status: data.status, fixHint: 'QR code expired or not yet scanned. Check qr-login flow.' });
     return null;
   }, []);
 

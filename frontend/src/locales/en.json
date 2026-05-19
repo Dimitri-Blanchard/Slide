@@ -318,7 +318,7 @@
     "viewFullBio": "View Full Bio",
     "statusPromptPlaceholder": "Best emoji to describe your day?",
     "listeningTo": "Listening to",
-    "connectSpotifyHint": "Connect Spotify to show what you're listening to",
+    "listeningToSpotify": "Listening to Spotify",
     "noHandleSet": "No handle set"
   },
   "privacyMonetization": {
@@ -416,10 +416,12 @@
     "disconnect": "Disconnect",
     "comingSoon": "This feature will be available soon",
     "spotify": "Spotify",
-    "spotifyDesc": "Display what you're listening to on your profile card.",
+    "spotifyDesc": "Connect your account to show your music on your profile.",
     "connectSpotify": "Connect Spotify",
     "spotifyConnected": "Spotify connected!",
     "spotifyNotConfigured": "Spotify is not configured. Add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET to the backend .env file, then restart the server.",
+    "showSpotifyToOthers": "Visible to others",
+    "showSpotifyToOthersDesc": "Other users can see what you're listening to on your profile card. You'll still see it on your own.",
     "showOnProfile": "Show listening activity on profile"
   },
   "appearance": {

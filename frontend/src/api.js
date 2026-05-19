@@ -319,7 +319,7 @@ function sanitizeLegacyNicknamePayloadInPlace(payload) {
 }
 
 export async function api(endpoint, options = {}) {
-  const token = getToken();
+  const token = options._noAuth ? null : getToken();
   const socketId = typeof window !== 'undefined' ? window.__SLIDE_SOCKET_ID : null;
   const headers = {
     'Content-Type': 'application/json',
@@ -332,6 +332,7 @@ export async function api(endpoint, options = {}) {
   const cacheKey = getCacheKey(endpoint, options);
   
   const bypassCache = shouldBypassRequestCache(endpoint, options);
+  const skipPendingDedupe = bypassCache || options._noDedupe;
 
   // Only cache GET requests (never QR login — status must be real-time)
   if (method === 'GET' && !options._background && !bypassCache) {
@@ -351,7 +352,7 @@ export async function api(endpoint, options = {}) {
     }
   }
 
-  if (method === 'GET' && !options._background && pendingRequests.has(cacheKey)) {
+  if (method === 'GET' && !options._background && !skipPendingDedupe && pendingRequests.has(cacheKey)) {
     return pendingRequests.get(cacheKey);
   }
   
@@ -579,10 +580,12 @@ export const auth = {
       api('/auth/2fa/backup-codes/regenerate', { method: 'POST', body: JSON.stringify({ code }) }),
   },
   qrLogin: {
-    start: () => api('/auth/qr-login/start', { method: 'POST' }),
+    start: () => api('/auth/qr-login/start', { method: 'POST', _noAuth: true }),
     check: (token) =>
-      api(`/auth/qr-login/check/${encodeURIComponent(token)}`, {
+      api(`/auth/qr-login/check/${encodeURIComponent(token)}?_=${Date.now()}`, {
         _noCache: true,
+        _noAuth: true,
+        _noDedupe: true,
         headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
       }),
     approve: (token, deviceId, deviceName) =>

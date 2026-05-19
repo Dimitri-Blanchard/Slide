@@ -8,11 +8,14 @@ import { checkRateLimit } from '../utils/security';
 import MfaCodeInput from '../components/MfaCodeInput';
 import AuthShell from '../components/AuthShell';
 import AuthBackdrop from '../components/AuthBackdrop';
-import { buildQrLoginScanUrl } from '../utils/qrLoginFlow';
+import { buildQrLoginScanUrl, normalizeQrLoginCheckResponse } from '../utils/qrLoginFlow';
 import './Auth.css';
 
 const QR_POLL_INTERVAL = 600;
-const QR_POLL_INTERVAL_FAST = 350;
+const QR_POLL_INTERVAL_FAST = 300;
+const QR_APPROVED_RETRY_MS = 200;
+const QR_APPROVED_RETRY_COUNT = 10;
+const QR_EXPIRED_RETRY_COUNT = 6;
 const QR_ROTATE_MS = 105 * 1000; // refresh ~15s before 2min server TTL
 
 export default function Login() {
@@ -128,12 +131,12 @@ export default function Login() {
   }, []);
 
   const finishQrLogin = useCallback(
-    async (data) => {
-      if (qrSettledRef.current || !data?.user || !data?.token) return;
+    async (user, token) => {
+      if (qrSettledRef.current || !user || !token) return;
       stopQrLoops();
       setQrPhase('success');
       try {
-        await completeQrLogin(data.user, data.token);
+        await completeQrLogin(user, token);
         navigate('/channels/@me', { replace: true });
       } catch {
         setQrError('Connexion confirmée mais impossible d’ouvrir la session. Réessayez.');
@@ -142,6 +145,23 @@ export default function Login() {
       }
     },
     [completeQrLogin, navigate, stopQrLoops],
+  );
+
+  const tryFinishFromCheck = useCallback(
+    async (activeToken, attempt = 0) => {
+      const data = normalizeQrLoginCheckResponse(await auth.qrLogin.check(activeToken));
+      if (data.status === 'approved' && data.user && data.token) {
+        await finishQrLogin(data.user, data.token);
+        return true;
+      }
+      if (data.status === 'approved' && attempt < QR_APPROVED_RETRY_COUNT) {
+        await new Promise((r) => setTimeout(r, QR_APPROVED_RETRY_MS));
+        if (qrSettledRef.current) return true;
+        return tryFinishFromCheck(activeToken, attempt + 1);
+      }
+      return false;
+    },
+    [finishQrLogin],
   );
 
   useEffect(() => {
@@ -153,33 +173,33 @@ export default function Login() {
       if (!activeToken) return;
       pollInFlightRef.current = true;
       try {
-        const data = await auth.qrLogin.check(activeToken);
+        const data = normalizeQrLoginCheckResponse(await auth.qrLogin.check(activeToken));
         if (qrSettledRef.current) return;
 
-        if (data?.status === 'approved') {
+        if (data.status === 'approved') {
           if (data.user && data.token) {
-            await finishQrLogin(data);
+            await finishQrLogin(data.user, data.token);
             return;
           }
-          // Approved on server but payload incomplete — retry once
-          await new Promise((r) => setTimeout(r, 300));
-          const retry = await auth.qrLogin.check(activeToken);
-          if (retry?.user && retry?.token) {
-            await finishQrLogin(retry);
-          }
+          await tryFinishFromCheck(activeToken, 1);
           return;
         }
 
-        if (data?.status === 'expired') {
-          // Brief wait: avoids rotating when a parallel check just consumed approval
-          await new Promise((r) => setTimeout(r, 250));
-          if (qrSettledRef.current) return;
-          const retry = await auth.qrLogin.check(activeToken);
-          if (retry?.status === 'approved' && retry?.user && retry?.token) {
-            await finishQrLogin(retry);
-            return;
+        if (data.status === 'expired') {
+          // Approval may have just landed — retry before rotating the QR (one-time session).
+          for (let i = 0; i < QR_EXPIRED_RETRY_COUNT; i++) {
+            await new Promise((r) => setTimeout(r, 200 + i * 120));
+            if (qrSettledRef.current) return;
+            const retry = normalizeQrLoginCheckResponse(await auth.qrLogin.check(activeToken));
+            if (retry.status === 'approved' && retry.user && retry.token) {
+              await finishQrLogin(retry.user, retry.token);
+              return;
+            }
+            if (retry.status !== 'expired') break;
           }
-          if (retry?.status === 'expired') {
+          if (qrSettledRef.current) return;
+          const last = normalizeQrLoginCheckResponse(await auth.qrLogin.check(activeToken));
+          if (last.status === 'expired') {
             await rotateQrSession('expired');
           }
         }
@@ -217,7 +237,7 @@ export default function Login() {
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
     };
-  }, [qrToken, showMfaStep, finishQrLogin, rotateQrSession, stopQrLoops]);
+  }, [qrToken, showMfaStep, finishQrLogin, tryFinishFromCheck, rotateQrSession, stopQrLoops]);
 
   // Start QR only when login form is shown — not when rotateQrSession identity changes
   useEffect(() => {

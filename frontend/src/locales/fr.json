@@ -318,7 +318,7 @@
     "viewFullBio": "Voir la bio complète",
     "statusPromptPlaceholder": "Quel emoji décrit le mieux votre journée ?",
     "listeningTo": "Écoute",
-    "connectSpotifyHint": "Connectez Spotify pour afficher ce que vous écoutez",
+    "listeningToSpotify": "Écoute sur Spotify",
     "noHandleSet": "Aucun identifiant défini"
   },
   "privacyMonetization": {
@@ -416,11 +416,13 @@
     "disconnect": "Déconnecter",
     "comingSoon": "Cette fonctionnalité sera disponible prochainement",
     "spotify": "Spotify",
-    "spotifyDesc": "Afficher ce que vous écoutez sur votre carte de profil.",
+    "spotifyDesc": "Connectez votre compte pour afficher votre musique sur votre profil.",
     "connectSpotify": "Connecter Spotify",
     "spotifyNotConfigured": "Spotify n'est pas configuré. Ajoutez SPOTIFY_CLIENT_ID et SPOTIFY_CLIENT_SECRET dans le fichier .env du backend, puis redémarrez le serveur.",
     "spotifyConnected": "Spotify connecté !",
-    "showOnProfile": "Afficher l'activité d'écoute sur le profil"
+    "showOnProfile": "Afficher l'activité d'écoute sur le profil",
+    "showSpotifyToOthers": "Visible par les autres",
+    "showSpotifyToOthersDesc": "Les autres utilisateurs verront ce que vous écoutez sur votre carte de profil. Vous le verrez toujours sur le vôtre."
   },
   "appearance": {
     "title": "Apparence",

@@ -2872,18 +2872,15 @@ export default function Settings() {
                   )}
                 </div>
                 {hasSpotify && (
-                  <>
-                    <SettingsDivider title={t('privacy.serverPrivacy')} />
-                    <SettingsRow
-                      label={t('connections.showOnProfile')}
-                      description={t('connections.spotifyDesc')}
-                    >
-                      <ToggleSwitch
-                        checked={allSettings.show_spotify_listening !== false}
-                        onChange={(v) => updateSetting('show_spotify_listening', v)}
-                      />
-                    </SettingsRow>
-                  </>
+                  <SettingsRow
+                    label={t('connections.showSpotifyToOthers')}
+                    description={t('connections.showSpotifyToOthersDesc')}
+                  >
+                    <ToggleSwitch
+                      checked={allSettings.show_spotify_listening !== false}
+                      onChange={(v) => updateSetting('show_spotify_listening', v)}
+                    />
+                  </SettingsRow>
                 )}
               </>
             )}

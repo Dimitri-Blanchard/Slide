@@ -85,6 +85,55 @@ function isGifUrl(url) {
   return /\.gif(?:$|[?#])/i.test(url) || /format=gif/i.test(url);
 }
 
+const SPOTIFY_ICON_PATH =
+  'M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z';
+
+function ProfileSpotifyActivity({ track, t }) {
+  const progressPct =
+    track.duration_ms > 0 && track.progress_ms != null
+      ? Math.min(100, (track.progress_ms / track.duration_ms) * 100)
+      : null;
+  const href = track.external_url || '#';
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="profile-card-spotify"
+      title={track.name}
+      onClick={!track.external_url ? (e) => e.preventDefault() : undefined}
+    >
+      <div className="profile-card-spotify-art-wrap">
+        {track.album_art ? (
+          <img src={track.album_art} alt="" className="profile-card-spotify-art" />
+        ) : (
+          <div className="profile-card-spotify-art-fallback" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d={SPOTIFY_ICON_PATH} />
+            </svg>
+          </div>
+        )}
+      </div>
+      <div className="profile-card-spotify-info">
+        <div className="profile-card-spotify-header">
+          <svg className="profile-card-spotify-logo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d={SPOTIFY_ICON_PATH} />
+          </svg>
+          <span>{t('profile.listeningToSpotify') || 'Listening to Spotify'}</span>
+        </div>
+        <span className="profile-card-spotify-song">{track.name}</span>
+        {track.artists && <span className="profile-card-spotify-artist">{track.artists}</span>}
+        {progressPct != null && (
+          <div className="profile-card-spotify-progress" aria-hidden="true">
+            <div className="profile-card-spotify-progress-fill" style={{ width: `${progressPct}%` }} />
+          </div>
+        )}
+      </div>
+    </a>
+  );
+}
+
 const ProfileCard = memo(function ProfileCard({
   userId,
   user: providedUser,
@@ -477,45 +526,8 @@ const ProfileCard = memo(function ProfileCard({
                   <div className="profile-card-status-msg">{statusMessage}</div>
                 )}
 
-                {/* Spotify now playing */}
                 {user.spotify_now_playing && (
-                  <div className="profile-card-spotify">
-                    <div className="profile-card-spotify-icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-                    </div>
-                    <div className="profile-card-spotify-content">
-                      <span className="profile-card-spotify-label">{t('profile.listeningTo') || 'Listening to'}</span>
-                      <a
-                        href={user.spotify_now_playing.external_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="profile-card-spotify-track"
-                        title={user.spotify_now_playing.name}
-                      >
-                        {user.spotify_now_playing.name}
-                        {user.spotify_now_playing.artists && ` — ${user.spotify_now_playing.artists}`}
-                      </a>
-                    </div>
-                    {user.spotify_now_playing.album_art && (
-                      <img src={user.spotify_now_playing.album_art} alt="" className="profile-card-spotify-art" />
-                    )}
-                  </div>
-                )}
-
-                {/* Connect Spotify hint (own profile, not connected) */}
-                {isOwnProfile && !user.spotify_connected && (
-                  <div className="profile-card-spotify-hint">
-                    <div className="profile-card-spotify-icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-                    </div>
-                    <button
-                      type="button"
-                      className="profile-card-spotify-connect-btn"
-                      onClick={() => { onClose(); navigate('/settings?section=connections'); }}
-                    >
-                      {t('profile.connectSpotifyHint') || 'Connect Spotify to show what you\'re listening to'}
-                    </button>
-                  </div>
+                  <ProfileSpotifyActivity track={user.spotify_now_playing} t={t} />
                 )}
 
                 {/* Divider */}

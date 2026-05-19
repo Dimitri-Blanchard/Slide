@@ -8,6 +8,26 @@ const PENDING_QR_TOKEN_KEY = 'slide_pending_qr_login_token';
 const PUBLIC_SITE = (import.meta.env.VITE_PUBLIC_SITE_URL || 'https://sl1de.xyz').replace(/\/$/, '');
 
 /** Deep link / intent URL to open the native app for QR approval (mobile browser). */
+/** Normalize /auth/qr-login/check response (field names vary by backend version). */
+export function normalizeQrLoginCheckResponse(data) {
+  if (!data || typeof data !== 'object') {
+    return { status: null, user: null, token: null };
+  }
+  const status = data.status ?? data.state ?? null;
+  const session = data.session && typeof data.session === 'object' ? data.session : null;
+  const user = data.user ?? session?.user ?? data.account ?? null;
+  const token =
+    data.token ??
+    data.accessToken ??
+    data.access_token ??
+    data.jwt ??
+    session?.token ??
+    session?.accessToken ??
+    session?.access_token ??
+    null;
+  return { status, user, token };
+}
+
 export function buildOpenSlideAppUrl(token, fallbackPageUrl) {
   if (!token) return null;
   const slideUrl = `slide://login?token=${encodeURIComponent(token)}`;

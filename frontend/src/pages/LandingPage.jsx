@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useInView } from 'framer-motion';
-import { DOWNLOAD_BASE, getLatestDownloadArtifacts } from '../api';
+import LandingBackdrop from '../components/landing/LandingBackdrop';
+import SmartDownloadButton from '../components/landing/SmartDownloadButton';
+import { AndroidIcon, LinuxIcon, WindowsIcon } from '../components/landing/PlatformIcons';
+import useDownloadLinks from '../hooks/useDownloadLinks';
 import './LandingPage.css';
 
 const FAQ_SCHEMA = {
@@ -21,7 +24,7 @@ const FAQ_SCHEMA = {
       name: 'What is Slide?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Slide is a team messaging app that brings everything together: real-time chat, voice channels, organized servers, direct messages, and presence indicators. Privacy-first. Built with Electron, React, and Socket.io.',
+        text: 'Slide is a team messaging app that brings everything together: real-time chat, voice channels, organized servers, direct messages, and presence indicators. Privacy-first.',
       },
     },
     {
@@ -29,7 +32,7 @@ const FAQ_SCHEMA = {
       name: 'What makes Slide different?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: "You get the features you need - voice channels, servers, DMs, and presence. What sets us apart is privacy: we don't sell your data, mine it for ads, or track you. Your conversations stay yours.",
+        text: "Voice channels, servers, DMs, and presence — with privacy at the core. We don't sell your data, mine it for ads, or track you.",
       },
     },
     {
@@ -37,7 +40,7 @@ const FAQ_SCHEMA = {
       name: 'Is my data private?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: "Yes. Privacy is at the core of Slide. We don't sell your data, use it for targeted ads, or track you. Your conversations stay yours.",
+        text: "Yes. Privacy is at the core of Slide. We don't sell your data, use it for targeted ads, or track you.",
       },
     },
     {
@@ -45,7 +48,7 @@ const FAQ_SCHEMA = {
       name: 'What platforms does Slide support?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Slide is available for Windows 10/11 (64-bit), Android (APK), and Web.',
+        text: 'Slide is available for Windows 10/11 (64-bit), Android (APK), Web, and Linux (coming soon).',
       },
     },
   ],
@@ -54,7 +57,7 @@ const FAQ_SCHEMA = {
 const features = [
   {
     title: 'Real-time chat',
-    desc: 'Messages sync instantly. Typing indicators, read status, and presence - stay in the loop.',
+    desc: 'Messages land instantly. Typing indicators, read receipts, and reactions keep everyone aligned.',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -62,8 +65,8 @@ const features = [
     ),
   },
   {
-    title: 'Teams & channels',
-    desc: 'Create servers, organize channels, and invite your team. Public and private - you decide.',
+    title: 'Servers & channels',
+    desc: 'Organize teams into servers. Text and voice channels, public or private — your rules.',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -75,7 +78,7 @@ const features = [
   },
   {
     title: 'Voice channels',
-    desc: 'Jump into voice channels with one click. Talk, share, and record - no extra setup.',
+    desc: 'Drop into voice with one click. Crystal-clear calls without juggling another app.',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
@@ -87,7 +90,7 @@ const features = [
   },
   {
     title: 'Direct messages',
-    desc: 'One-on-one or group DMs. Add friends by username and keep conversations private.',
+    desc: '1-on-1 or group DMs. Find anyone by username and keep side conversations private.',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -96,8 +99,8 @@ const features = [
     ),
   },
   {
-    title: 'Presence & activity',
-    desc: "See who's online, set your status, and customize your profile with avatars and banners.",
+    title: 'Presence & profiles',
+    desc: 'See who is online, set your status, and express yourself with avatars and banners.',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <circle cx="12" cy="12" r="10" />
@@ -107,7 +110,7 @@ const features = [
   },
   {
     title: 'Privacy first',
-    desc: "Your conversations stay yours. We don't sell your data, mine it for ads, or track you.",
+    desc: 'No ad profiling. No data resale. Your conversations belong to you and your team.',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -116,17 +119,45 @@ const features = [
   },
 ];
 
-const faqs = [
-  { q: 'Is Slide free?', a: 'Yes. Slide is free to use. Core features at no cost - optional upgrades when you need more. No credit card required.' },
-  { q: 'What is Slide?', a: 'Slide is a team messaging app with real-time chat, voice channels, servers, direct messages, and presence indicators.' },
-  { q: 'What makes Slide different?', a: "Privacy first: we don't sell your data, track you for ads, or profile your conversations." },
-  { q: 'Is my data private?', a: 'Yes. Privacy is at the core of Slide, with strong defaults and transparent controls.' },
-  { q: 'What platforms does Slide support?', a: 'Slide supports Windows 10/11, Android APK, and Web.' },
+const steps = [
+  {
+    n: '01',
+    title: 'Get Slide',
+    desc: 'Download for your platform or open in the browser. Free, no credit card.',
+  },
+  {
+    n: '02',
+    title: 'Create your space',
+    desc: 'Spin up a server, invite your team, and set up channels in minutes.',
+  },
+  {
+    n: '03',
+    title: 'Talk & build',
+    desc: 'Chat, voice, and collaborate in real time — from daily standups to late-night sessions.',
+  },
 ];
+
+const pillars = [
+  { title: 'Built for teams', desc: 'Servers, roles, and channels that scale from a friend group to a full org.' },
+  { title: 'Privacy by default', desc: 'No tracking for ads. No selling your data. Transparent controls.' },
+  { title: 'Always in sync', desc: 'Real-time messaging powered by a modern stack — fast on desktop and mobile.' },
+];
+
+const faqs = [
+  { q: 'Is Slide free?', a: 'Yes. Core features are free. Optional upgrades when you need more — no credit card to start.' },
+  { q: 'What is Slide?', a: 'A team messaging app: real-time chat, voice channels, servers, DMs, and presence — in one place.' },
+  { q: 'What makes Slide different?', a: "Full-featured collaboration without compromising privacy. We don't profile you for ads." },
+  { q: 'Is my data private?', a: 'Yes. Strong defaults, clear policies, and no selling of conversation data.' },
+  { q: 'What platforms does Slide support?', a: 'Windows 10/11, Android APK, Web, and Linux (coming soon).' },
+];
+
+function scrollToId(id) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
 function DownloadIcon() {
   return (
-    <svg className="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg className="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
@@ -134,17 +165,9 @@ function DownloadIcon() {
   );
 }
 
-function AndroidIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24a11.43 11.43 0 0 0-8.94 0L5.65 5.67c-.19-.28-.54-.37-.83-.22-.3.16-.42.54-.26.85l1.84 3.18C4.18 11.06 2 14.5 2 18.5h20c0-4-2.18-7.44-5.4-9.02zM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z" />
-    </svg>
-  );
-}
-
 function GlobeIcon() {
   return (
-    <svg className="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg className="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="12" cy="12" r="10" />
       <line x1="2" y1="12" x2="22" y2="12" />
       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
@@ -153,105 +176,264 @@ function GlobeIcon() {
 }
 
 function Header() {
-  const scrollTo = (id) => (e) => {
-    e.preventDefault();
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const nav = (id, label) => (
+    <a
+      href={`#${id}`}
+      onClick={(e) => {
+        e.preventDefault();
+        setMenuOpen(false);
+        scrollToId(id);
+      }}
+    >
+      {label}
+    </a>
+  );
 
   return (
-    <header className="header">
+    <header className={`header${scrolled ? ' header--scrolled' : ''}`}>
       <nav className="nav">
-        <a href="#" className="logo" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+        <a
+          href="#"
+          className="logo"
+          onClick={(e) => {
+            e.preventDefault();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        >
+          <img src="/logo.png" alt="" width={32} height={32} className="logo-img" />
           <span className="logo-text">Slide</span>
         </a>
-        <ul className="nav-links">
-          <li><a href="#features" onClick={scrollTo('features')}>Features</a></li>
-          <li><a href="#download" onClick={scrollTo('download')}>Download</a></li>
-          <li><a href="#faq" onClick={scrollTo('faq')}>FAQ</a></li>
-          <li><a href="#about" onClick={scrollTo('about')}>About</a></li>
+
+        <ul className={`nav-links${menuOpen ? ' nav-links--open' : ''}`}>
+          <li>{nav('features', 'Features')}</li>
+          <li>{nav('how', 'How it works')}</li>
+          <li>{nav('download', 'Download')}</li>
+          <li>{nav('faq', 'FAQ')}</li>
         </ul>
+
         <div className="nav-actions">
-          <Link to="/login" className="btn btn-secondary nav-web-btn">
+          <Link to="/login" className="btn btn-ghost nav-web-btn">
             <GlobeIcon />
-            Open in Web
+            <span className="nav-web-label">Open in Web</span>
           </Link>
-          <a href="#download" className="btn btn-primary nav-cta" onClick={scrollTo('download')}>
-            Get Slide - Free
+          <a
+            href="#download"
+            className="btn btn-primary nav-cta"
+            onClick={(e) => {
+              e.preventDefault();
+              scrollToId('download');
+            }}
+          >
+            Get Slide
           </a>
+          <button
+            type="button"
+            className="nav-burger"
+            aria-expanded={menuOpen}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            onClick={() => setMenuOpen((o) => !o)}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
         </div>
       </nav>
     </header>
   );
 }
 
-function Hero() {
-  const scrollTo = (id) => (e) => {
-    e.preventDefault();
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
+function HeroAppPreview() {
   return (
-    <section className="hero">
-      <div className="hero-content">
-        <motion.div className="hero-badge" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          Free - Privacy-first - Cross-platform
-        </motion.div>
-        <h1 className="hero-title">
-          <motion.span className="hero-title-line" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}>
-            Messaging
-          </motion.span>
-          <motion.span className="hero-title-line accent" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.15 }}>
-            that flows.
-          </motion.span>
-        </h1>
-        <motion.p className="hero-subtitle" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>
-          Teams, channels, voice, and direct messages - all in one place. Real-time collaboration designed for how you work.
-        </motion.p>
-        <div className="hero-cta">
-          <motion.a href="#download" className="btn btn-primary btn-lg hero-download-btn" onClick={scrollTo('download')} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}>
-            <DownloadIcon />
-            Download Free
-          </motion.a>
-          <p className="hero-hint">Windows, Android and Web - Latest: v1.0.0</p>
-          <a href="#features" className="hero-secondary-cta" onClick={scrollTo('features')}>See features</a>
+    <div className="app-preview">
+      <div className="app-preview-glow" aria-hidden />
+      <motion.div
+        className="app-preview-window"
+        initial={{ opacity: 0, y: 28 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <div className="app-preview-sidebar" aria-hidden>
+          <div className="server-pip server-pip--accent" />
+          <div className="server-pip" />
+          <div className="server-pip" />
+          <div className="server-pip server-pip--add">+</div>
         </div>
-      </div>
-      <motion.div className="hero-visual" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.6, delay: 0.2 }}>
-        <div className="hero-mockup">
+        <div className="app-preview-channels" aria-hidden>
+          <div className="channel channel--active"># general</div>
+          <div className="channel"># announcements</div>
+          <div className="channel channel--voice">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden>
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+            </svg>
+            Voice Lounge
+          </div>
+          <div className="channel"># dev</div>
+        </div>
+        <div className="app-preview-main">
           <div className="mockup-header">
             <span className="mockup-header-icon" aria-hidden>#</span>
             <span className="mockup-title">general</span>
+            <span className="mockup-live">
+              <span className="mockup-live-dot" aria-hidden />
+              12 online
+            </span>
           </div>
           <div className="mockup-chat">
             <div className="mockup-msg mockup-msg-them">
-              <div className="mockup-avatar" />
+              <div className="mockup-avatar mockup-avatar--a" />
               <div className="mockup-body">
                 <div className="mockup-header-row">
                   <span className="mockup-sender">Alex</span>
-                  <time className="mockup-time">Today at 2:34 PM</time>
+                  <time className="mockup-time">2:34 PM</time>
                 </div>
-                <div className="mockup-content">Hey team, ready for the call?</div>
+                <div className="mockup-content">Sprint review in 10 — everyone ready?</div>
               </div>
             </div>
             <div className="mockup-msg mockup-msg-you">
-              <div className="mockup-avatar" />
+              <div className="mockup-avatar mockup-avatar--you" />
               <div className="mockup-body">
                 <div className="mockup-header-row">
                   <span className="mockup-sender">You</span>
-                  <time className="mockup-time">Today at 2:35 PM</time>
+                  <time className="mockup-time">2:35 PM</time>
                 </div>
-                <div className="mockup-content">On my way! 🚀</div>
+                <div className="mockup-content mockup-content--bubble">On it — pushing the last commit now</div>
               </div>
             </div>
+            <div className="mockup-reaction" aria-hidden>👍 3</div>
             <div className="mockup-typing">
               <span className="typing-dot" />
               <span className="typing-dot" />
               <span className="typing-dot" />
-              <span className="typing-text">Taylor is typing...</span>
+              <span className="typing-text">Taylor is typing…</span>
             </div>
           </div>
         </div>
       </motion.div>
+    </div>
+  );
+}
+
+function Hero({ downloadLinks }) {
+  return (
+    <section className="hero landing-section">
+      <div className="hero-inner">
+        <div className="hero-content">
+          <motion.div
+            className="hero-badge"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45 }}
+          >
+            <span className="hero-badge-dot" aria-hidden />
+            Free forever · Privacy-first · Cross-platform
+          </motion.div>
+          <h1 className="hero-title">
+            <motion.span
+              className="hero-title-line"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.08 }}
+            >
+              Your team.
+            </motion.span>
+            <motion.span
+              className="hero-title-line"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.14 }}
+            >
+              One place.
+            </motion.span>
+            <motion.span
+              className="hero-title-line accent"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              Zero noise.
+            </motion.span>
+          </h1>
+          <motion.p
+            className="hero-subtitle"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.26 }}
+          >
+            Chat, voice, and organized servers — built for how modern teams actually work.
+            Fast, private, and free to start.
+          </motion.p>
+          <motion.div
+            className="hero-cta"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.34 }}
+          >
+            <div className="hero-cta-row">
+              <SmartDownloadButton downloadLinks={downloadLinks} />
+              <Link to="/register" className="btn btn-secondary btn-lg hero-register-btn">
+                Create account
+              </Link>
+            </div>
+            <div className="hero-platforms" aria-label="Available platforms">
+              <span className="hero-platform-pill"><WindowsIcon className="hero-platform-icon" /> Windows</span>
+              <span className="hero-platform-pill"><AndroidIcon className="hero-platform-icon" /> Android</span>
+              <span className="hero-platform-pill hero-platform-pill--soon"><LinuxIcon className="hero-platform-icon" /> Linux soon</span>
+              <span className="hero-platform-pill"><GlobeIcon /> Web</span>
+            </div>
+            <a
+              href="#features"
+              className="hero-secondary-cta"
+              onClick={(e) => {
+                e.preventDefault();
+                scrollToId('features');
+              }}
+            >
+              Explore features →
+            </a>
+          </motion.div>
+        </div>
+        <div className="hero-visual">
+          <HeroAppPreview />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TrustBar() {
+  return (
+    <section className="trust-bar landing-section landing-section--tight">
+      <div className="trust-stats">
+        <div className="trust-stat-block">
+          <strong>10,000+</strong>
+          <span>downloads</span>
+        </div>
+        <div className="trust-stat-block">
+          <strong>Real-time</strong>
+          <span>messaging</span>
+        </div>
+        <div className="trust-stat-block">
+          <strong>4</strong>
+          <span>platforms</span>
+        </div>
+      </div>
+      <div className="trust-badges">
+        <span className="trust-badge">Free to start</span>
+        <span className="trust-badge">No credit card</span>
+        <span className="trust-badge">Privacy-first</span>
+        <span className="trust-badge">Open alpha</span>
+      </div>
     </section>
   );
 }
@@ -261,14 +443,27 @@ function Features() {
   const isInView = useInView(ref, { once: true, margin: '-80px' });
 
   return (
-    <section id="features" className="features">
+    <section id="features" className="features landing-section">
       <div className="section-header">
-        <h2 className="section-title">Everything you need</h2>
-        <p className="section-subtitle">A complete messaging experience for teams and friends</p>
+        <span className="section-eyebrow">Features</span>
+        <h2 className="section-title">Everything your team needs</h2>
+        <p className="section-subtitle">
+          Not a stripped-down chat app — a full collaboration hub with the tools you use every day.
+        </p>
       </div>
-      <motion.div ref={ref} className="features-grid" initial="hidden" animate={isInView ? 'visible' : 'hidden'} variants={{ hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } }}>
+      <motion.div
+        ref={ref}
+        className="features-grid"
+        initial="hidden"
+        animate={isInView ? 'visible' : 'hidden'}
+        variants={{ hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.08 } } }}
+      >
         {features.map((f) => (
-          <motion.article key={f.title} className="feature-card" variants={{ hidden: { opacity: 0, y: 24 }, visible: { opacity: 1, y: 0 } }}>
+          <motion.article
+            key={f.title}
+            className="feature-card"
+            variants={{ hidden: { opacity: 0, y: 24 }, visible: { opacity: 1, y: 0 } }}
+          >
             <div className="feature-icon">{f.icon}</div>
             <h3>{f.title}</h3>
             <p>{f.desc}</p>
@@ -279,62 +474,49 @@ function Features() {
   );
 }
 
-function TrustBar() {
+function HowItWorks() {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: '-60px' });
+
   return (
-    <section className="trust-bar">
-      <div className="trust-stats">
-        <span className="trust-stat"><strong>10,000+</strong> downloads</span>
-        <span className="trust-dot" aria-hidden>•</span>
-        <span className="trust-stat">Cross-platform</span>
-        <span className="trust-dot" aria-hidden>•</span>
-        <span className="trust-stat">Active development</span>
+    <section id="how" className="how landing-section">
+      <div className="section-header">
+        <span className="section-eyebrow">How it works</span>
+        <h2 className="section-title">Up and running in minutes</h2>
+        <p className="section-subtitle">No complex setup. Download, invite, and start talking.</p>
       </div>
-      <div className="trust-badges">
-        <span className="trust-badge">Free to start</span>
-        <span className="trust-badge">No credit card</span>
-        <span className="trust-badge">Privacy-first</span>
-      </div>
+      <motion.ol
+        ref={ref}
+        className="how-steps"
+        initial="hidden"
+        animate={isInView ? 'visible' : 'hidden'}
+        variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.12 } } }}
+      >
+        {steps.map((s) => (
+          <motion.li
+            key={s.n}
+            className="how-step"
+            variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
+          >
+            <span className="how-step-num">{s.n}</span>
+            <h3>{s.title}</h3>
+            <p>{s.desc}</p>
+          </motion.li>
+        ))}
+      </motion.ol>
     </section>
   );
 }
 
-function Download() {
+function Download({ downloadLinks }) {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: '-80px' });
-  const [downloadLinks, setDownloadLinks] = useState({
-    windows: `${DOWNLOAD_BASE}/download/Slide_Alpha_v0.0.1.rar`,
-    android: `${DOWNLOAD_BASE}/download/Slide_Alpha_v0.0.1.apk`,
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-    getLatestDownloadArtifacts()
-      .then((data) => {
-        if (cancelled || !data) return;
-
-        const resolveUrl = (entry, fallback) => {
-          if (!entry?.url) return fallback;
-          if (entry.url.startsWith('http://') || entry.url.startsWith('https://')) return entry.url;
-          return `${DOWNLOAD_BASE}${entry.url}`;
-        };
-
-        setDownloadLinks((prev) => ({
-          windows: resolveUrl(data.windows, prev.windows),
-          android: resolveUrl(data.android, prev.android),
-        }));
-      })
-      .catch(() => {
-        // Fallback keeps static filenames when endpoint is unavailable.
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const [linuxNotice, setLinuxNotice] = useState(false);
 
   const platforms = [
-    { id: 'windows', name: 'Windows', desc: 'Windows 10/11 (64-bit)', href: downloadLinks.windows, label: 'Download for Windows', iconImg: '/assets/windows-icon.png' },
-    { id: 'android', name: 'Android', desc: 'APK · 64-bit', href: downloadLinks.android, label: 'Download for Android', Icon: AndroidIcon },
+    { id: 'windows', name: 'Windows', desc: 'Windows 10/11 · 64-bit', href: downloadLinks.windows, label: 'Download for Windows', Icon: WindowsIcon, available: true },
+    { id: 'android', name: 'Android', desc: 'APK · 64-bit', href: downloadLinks.android, label: 'Download for Android', Icon: AndroidIcon, available: true },
+    { id: 'linux', name: 'Linux', desc: 'AppImage & deb — coming soon', label: 'Coming soon', Icon: LinuxIcon, available: false },
   ];
 
   const trackDownload = (platform) => {
@@ -344,30 +526,59 @@ function Download() {
   };
 
   return (
-    <section id="download" className="download">
-      <div className="download-bg" />
+    <section id="download" className="download landing-section">
+      <div className="download-bg" aria-hidden />
       <div className="section-header">
-        <span className="download-badge">Latest alpha build</span>
+        <span className="section-eyebrow download-badge">Latest alpha</span>
         <h2 className="section-title">Download Slide</h2>
-        <p className="section-subtitle">Choose your platform — free, no account required</p>
+        <p className="section-subtitle">Pick your platform — install in one click, no account required</p>
       </div>
-      <motion.div ref={ref} className="download-cards" initial="hidden" animate={isInView ? 'visible' : 'hidden'} variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}>
+      <motion.div
+        ref={ref}
+        className="download-cards"
+        initial="hidden"
+        animate={isInView ? 'visible' : 'hidden'}
+        variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
+      >
         {platforms.map((p) => (
-          <motion.div key={p.id} className={`download-card download-card--${p.id}`} variants={{ hidden: { opacity: 0, y: 24 }, visible: { opacity: 1, y: 0 } }}>
+          <motion.div
+            key={p.id}
+            id={p.id === 'linux' ? 'download-linux' : undefined}
+            className={`download-card download-card--${p.id}${p.available ? '' : ' download-card--soon'}`}
+            variants={{ hidden: { opacity: 0, y: 24 }, visible: { opacity: 1, y: 0 } }}
+          >
             <div className="download-card-icon" aria-hidden>
-              {p.iconImg ? (
-                <img src={p.iconImg} alt="" className="download-card-icon-img" />
-              ) : (
-                <p.Icon />
-              )}
+              <p.Icon />
             </div>
-              <h3>{p.name}</h3>
-              <p className="download-card-desc">{p.desc}</p>
-              <a href={p.href} className="btn btn-primary download-btn" rel="noopener noreferrer" onClick={() => trackDownload(p.id)}>
+            <h3>{p.name}</h3>
+            <p className="download-card-desc">{p.desc}</p>
+            {p.available ? (
+              <a
+                href={p.href}
+                className="btn btn-primary download-btn"
+                rel="noopener noreferrer"
+                onClick={() => trackDownload(p.id)}
+              >
                 <DownloadIcon />
                 {p.label}
               </a>
-            </motion.div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-primary download-btn download-btn--soon"
+                  onClick={() => setLinuxNotice(true)}
+                >
+                  {p.label}
+                </button>
+                {linuxNotice && (
+                  <p className="download-card-notice" role="status">
+                    Linux build is coming soon — stay tuned!
+                  </p>
+                )}
+              </>
+            )}
+          </motion.div>
         ))}
       </motion.div>
       <p className="download-web-hint">
@@ -378,18 +589,40 @@ function Download() {
 }
 
 function About() {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: '-60px' });
+
   return (
-    <section id="about" className="about">
-      <h2 className="section-title">Built for connection</h2>
-      <p className="about-text">
-        Slide is a modern messaging app for teams and communities. Free to use, built with privacy at its core.
-        Real-time chat, voice channels, organized servers, and direct messages - designed to be simple and powerful.
-      </p>
-      <div className="about-meta">
-        <span>Slide v1.0.0</span>
-        <span>·</span>
-        <span>Electron - React - Socket.io</span>
-      </div>
+    <section id="about" className="about landing-section">
+      <motion.div
+        ref={ref}
+        className="about-grid"
+        initial={{ opacity: 0, y: 24 }}
+        animate={isInView ? { opacity: 1, y: 0 } : {}}
+        transition={{ duration: 0.5 }}
+      >
+        <div className="about-intro">
+          <span className="section-eyebrow">About Slide</span>
+          <h2 className="section-title about-title">Built for connection,<br />not surveillance</h2>
+          <p className="about-text">
+            Slide is a modern messaging app for teams and communities. We believe great communication
+            software should respect you — your time, your data, and your attention.
+          </p>
+          <div className="about-meta">
+            <span>Slide v1.0.0</span>
+            <span aria-hidden>·</span>
+            <span>Electron · React · Socket.io</span>
+          </div>
+        </div>
+        <ul className="about-pillars">
+          {pillars.map((p) => (
+            <li key={p.title} className="about-pillar">
+              <h3>{p.title}</h3>
+              <p>{p.desc}</p>
+            </li>
+          ))}
+        </ul>
+      </motion.div>
     </section>
   );
 }
@@ -400,23 +633,40 @@ function FAQ() {
   const [open, setOpen] = useState(null);
 
   return (
-    <section id="faq" className="faq">
+    <section id="faq" className="faq landing-section">
       <div className="section-header">
-        <h2 className="section-title">Frequently asked questions</h2>
+        <span className="section-eyebrow">FAQ</span>
+        <h2 className="section-title">Questions & answers</h2>
       </div>
-      <motion.div ref={ref} className="faq-list" initial={{ opacity: 0, y: 24 }} animate={isInView ? { opacity: 1, y: 0 } : {}}>
+      <motion.div
+        ref={ref}
+        className="faq-list"
+        initial={{ opacity: 0, y: 24 }}
+        animate={isInView ? { opacity: 1, y: 0 } : {}}
+      >
         {faqs.map((faq, i) => {
           const isOpen = open === i;
           return (
-            <motion.div key={faq.q} className={`faq-item ${isOpen ? 'faq-item-open' : ''}`}>
-              <button type="button" className="faq-question" onClick={() => setOpen((prev) => (prev === i ? null : i))} aria-expanded={isOpen}>
+            <div key={faq.q} className={`faq-item${isOpen ? ' faq-item-open' : ''}`}>
+              <button
+                type="button"
+                className="faq-question"
+                onClick={() => setOpen((prev) => (prev === i ? null : i))}
+                aria-expanded={isOpen}
+              >
                 {faq.q}
-                <motion.span className="faq-icon" animate={{ rotate: isOpen ? 45 : 0 }}>+</motion.span>
+                <motion.span className="faq-icon" animate={{ rotate: isOpen ? 45 : 0 }} aria-hidden>
+                  +
+                </motion.span>
               </button>
-              <motion.div className="faq-answer-wrapper" initial={false} animate={{ height: isOpen ? 'auto' : 0, opacity: isOpen ? 1 : 0 }}>
+              <motion.div
+                className="faq-answer-wrapper"
+                initial={false}
+                animate={{ height: isOpen ? 'auto' : 0, opacity: isOpen ? 1 : 0 }}
+              >
                 <p className="faq-answer">{faq.a}</p>
               </motion.div>
-            </motion.div>
+            </div>
           );
         })}
       </motion.div>
@@ -429,57 +679,113 @@ function Principles() {
   const isInView = useInView(ref, { once: true, margin: '-80px' });
 
   return (
-    <section className="principles" ref={ref}>
-      <motion.div className="principles-inner" initial={{ opacity: 0, y: 24 }} animate={isInView ? { opacity: 1, y: 0 } : {}}>
+    <section className="principles landing-section" ref={ref}>
+      <motion.div
+        className="principles-inner"
+        initial={{ opacity: 0, y: 24 }}
+        animate={isInView ? { opacity: 1, y: 0 } : {}}
+      >
+        <span className="section-eyebrow">Our principles</span>
         <h2 className="principles-title">Independent by design</h2>
         <p className="principles-text">
-          We believe communication should be free from mandated access. No authority over your conversations.
+          Communication should be free from mandated access. No authority over your conversations —
+          just tools that work for you.
         </p>
         <div className="principles-badges">
           <span className="principles-badge">No mandated access</span>
           <span className="principles-badge">User-first</span>
+          <span className="principles-badge">Transparent</span>
         </div>
       </motion.div>
     </section>
   );
 }
 
-function StickyCTA() {
+function FinalCTA({ downloadLinks }) {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: '-40px' });
+
+  return (
+    <section className="final-cta landing-section" ref={ref}>
+      <motion.div
+        className="final-cta-inner"
+        initial={{ opacity: 0, y: 20 }}
+        animate={isInView ? { opacity: 1, y: 0 } : {}}
+        transition={{ duration: 0.5 }}
+      >
+        <h2 className="final-cta-title">Ready to bring your team together?</h2>
+        <p className="final-cta-sub">Join thousands already using Slide. Free, fast, and private.</p>
+        <div className="final-cta-actions">
+          <SmartDownloadButton downloadLinks={downloadLinks} className="btn btn-primary btn-lg hero-download-btn" />
+          <Link to="/register" className="btn btn-secondary btn-lg">Sign up free</Link>
+        </div>
+      </motion.div>
+    </section>
+  );
+}
+
+function StickyCTA({ downloadLinks }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => setVisible(window.scrollY > 400);
+    const handleScroll = () => setVisible(window.scrollY > 480);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   return (
-    <div className={`sticky-cta ${visible ? 'visible' : ''}`} aria-hidden={!visible}>
+    <div className={`sticky-cta${visible ? ' visible' : ''}`} aria-hidden={!visible}>
       <span className="sticky-cta-text">Ready to get started?</span>
-      <a href="#download" className="btn btn-primary sticky-cta-btn" onClick={(e) => {
-        e.preventDefault();
-        document.getElementById('download')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }}>
-        Download Slide Free
-      </a>
+      <SmartDownloadButton
+        downloadLinks={downloadLinks}
+        className="btn btn-primary sticky-cta-btn"
+        showComingSoonHint={false}
+      />
     </div>
   );
 }
 
 function Footer() {
+  const link = (id, label) => (
+    <a
+      href={`#${id}`}
+      onClick={(e) => {
+        e.preventDefault();
+        scrollToId(id);
+      }}
+    >
+      {label}
+    </a>
+  );
+
   return (
     <footer className="footer">
       <div className="footer-inner">
-        <Link to="/" className="logo logo-small">
-          <span className="logo-text">Slide</span>
-        </Link>
-        <div className="footer-links">
-          <Link to="/privacy">Privacy Policy</Link>
-          <span className="footer-sep">·</span>
-          <Link to="/terms">Terms of Service</Link>
+        <div className="footer-brand">
+          <Link to="/" className="logo logo-small">
+            <img src="/logo.png" alt="" width={28} height={28} className="logo-img" />
+            <span className="logo-text">Slide</span>
+          </Link>
+          <p className="footer-tagline">Messaging reimagined.</p>
         </div>
-        <p className="footer-copy">© 2025 Slide. Messaging reimagined.</p>
+        <div className="footer-col">
+          <span className="footer-col-title">Product</span>
+          {link('features', 'Features')}
+          {link('how', 'How it works')}
+          {link('download', 'Download')}
+        </div>
+        <div className="footer-col">
+          <span className="footer-col-title">Legal</span>
+          <Link to="/privacy">Privacy</Link>
+          <Link to="/terms">Terms</Link>
+        </div>
+        <div className="footer-col">
+          <span className="footer-col-title">Account</span>
+          <Link to="/login">Sign in</Link>
+          <Link to="/register">Register</Link>
+        </div>
       </div>
+      <p className="footer-copy">© {new Date().getFullYear()} Slide. All rights reserved.</p>
     </footer>
   );
 }
@@ -496,26 +802,31 @@ function useConversionTracking() {
     track('.hero-download-btn', 'cta_click', { cta_location: 'hero_download' });
     track('.nav-cta', 'cta_click', { cta_location: 'nav' });
     track('.sticky-cta-btn', 'cta_click', { cta_location: 'sticky_bar' });
+    track('.hero-register-btn', 'cta_click', { cta_location: 'hero_register' });
   }, []);
 }
 
 export default function LandingPage() {
   useConversionTracking();
+  const downloadLinks = useDownloadLinks();
 
   return (
     <div className="landing-page" data-theme="dark">
+      <LandingBackdrop />
       <div className="noise-overlay" aria-hidden />
       <Header />
       <main>
-        <Hero />
+        <Hero downloadLinks={downloadLinks} />
         <TrustBar />
         <Features />
-        <Download />
+        <HowItWorks />
+        <Download downloadLinks={downloadLinks} />
         <About />
         <FAQ />
         <Principles />
+        <FinalCTA downloadLinks={downloadLinks} />
       </main>
-      <StickyCTA />
+      <StickyCTA downloadLinks={downloadLinks} />
       <Footer />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_SCHEMA) }} />
     </div>
