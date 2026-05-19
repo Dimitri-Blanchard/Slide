@@ -1,3 +1,6 @@
+# ─── Backend (private — not published on GitHub) ─────────────────────────────
+backend/
+
 # ─── Environment / Secrets ────────────────────────────────────────────────────
 .env
 .env.local
