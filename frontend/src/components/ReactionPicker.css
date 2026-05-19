@@ -214,6 +214,7 @@
   gap: 6px;
   margin-top: 4px;
   align-items: center;
+  overflow: visible;
 }
 
 .message-item.own .message-reactions {
@@ -284,41 +285,91 @@
   border-color: rgba(var(--accent-rgb, 88, 101, 242), 0.5);
 }
 
-/* ── Reaction custom tooltip ── */
+/* ── Reaction hover tooltip (Discord-style) ── */
 .message-reaction {
   position: relative;
   overflow: visible;
 }
 
-.reaction-tooltip {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: #1a1b1e;
-  color: var(--text-primary, #f2f3f5);
-  font-size: 0.78rem;
-  padding: 8px 12px;
-  border-radius: 6px;
-  white-space: nowrap;
-  min-width: 120px;
-  max-width: 280px;
-  text-align: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-  pointer-events: none;
+.reaction-tooltip--positioned {
+  position: fixed;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  background: #111214;
+  color: #dbdee1;
+  border-radius: 8px;
+  white-space: normal;
+  width: max-content;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.28);
+  z-index: 500;
+  overflow: hidden;
+  pointer-events: auto;
   opacity: 0;
-  transition: opacity 0.15s ease 0.4s;
-  z-index: 100;
+  transition: opacity 0.12s ease;
 }
 
-.message-reaction:hover .reaction-tooltip {
+.reaction-tooltip--positioned.reaction-tooltip--visible {
   opacity: 1;
 }
 
-.reaction-tooltip .reaction-tooltip-emoji {
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  vertical-align: middle;
-  margin-left: 4px;
+.reaction-tooltip-emoji-wrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px;
+}
+
+.reaction-tooltip-emoji-lg {
+  width: 32px;
+  height: 32px;
+  font-size: 32px;
+  line-height: 1;
+  display: block;
+}
+
+.reaction-tooltip-emoji-lg img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.reaction-tooltip-content {
+  padding: 8px 12px 8px 0;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.reaction-tooltip-shortcode {
+  color: #b5bac1;
+}
+
+.reaction-tooltip-label,
+.reaction-tooltip-names {
+  color: #dbdee1;
+}
+
+.reaction-tooltip-others {
+  display: inline;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: #00a8fc;
+  cursor: pointer;
+}
+
+.reaction-tooltip-others:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.reaction-tooltip-others:disabled {
+  cursor: default;
+  text-decoration: none;
 }

@@ -1,10 +1,15 @@
-import React, { memo, useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import React, { memo, useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { getRecentEmojis, saveRecentEmoji } from './StickerPicker';
 import { emojiToShortcode, shortcodeToEmoji } from '../utils/emojiShortcodes';
 import { emojiToAranjaUrl } from '../utils/emojiAranja';
 import { searchEmojis } from '../utils/emojiSearch';
+import { useLanguage } from '../context/LanguageContext';
+import { getReactionTooltipBoundary, measureReactionTooltip } from '../utils/reactionTooltipPosition';
 import './ReactionPicker.css';
+
+const TOOLTIP_SHOW_DELAY_MS = 350;
+const TOOLTIP_HIDE_DELAY_MS = 80;
 
 const EMOJI_CATEGORIES = [
   {
@@ -220,50 +225,245 @@ const ReactionPicker = memo(function ReactionPicker({ x, y, onSelect, onClose })
   );
 });
 
-// Format reaction tooltip text (without emoji - emoji rendered separately as img)
-function formatReactionTooltipText(r) {
-  const users = r?.users || [];
-  if (!users.length) return 'Réaction';
-  const maxShown = 3;
-  if (users.length <= maxShown) {
-    return `${users.join(', ')} ont réagi avec`;
+const MAX_TOOLTIP_NAMES = 3;
+
+function joinDisplayNames(names, language) {
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0];
+  if (names.length === 2) {
+    return language === 'fr' ? `${names[0]} et ${names[1]}` : `${names[0]} and ${names[1]}`;
   }
-  const shown = users.slice(0, maxShown).join(', ');
-  const others = users.length - maxShown;
-  return `${shown} et ${others} autre${others > 1 ? 's' : ''} ont réagi avec`;
+  const last = names[names.length - 1];
+  const rest = names.slice(0, -1).join(', ');
+  return language === 'fr' ? `${rest} et ${last}` : `${rest}, and ${last}`;
 }
+
+const ReactionHoverTooltip = memo(function ReactionHoverTooltip({
+  anchorRef,
+  open,
+  emojiShortcode,
+  emojiChar,
+  aranjaUrl,
+  users,
+  totalCount,
+  onViewOthers,
+  onPointerEnter,
+  onPointerLeave,
+}) {
+  const { t, language } = useLanguage();
+  const tooltipRef = useRef(null);
+  const [coords, setCoords] = useState(null);
+
+  const names = (users || []).filter(Boolean);
+  const total = Math.max(totalCount ?? names.length, names.length);
+  const namesToShow = names.slice(0, MAX_TOOLTIP_NAMES);
+  const othersCount = Math.max(0, total - namesToShow.length);
+  const displayShortcode = emojiShortcode?.startsWith(':') ? emojiShortcode : `:${emojiShortcode || 'emoji'}:`;
+
+  const updatePosition = useCallback(() => {
+    const anchor = anchorRef.current;
+    const tooltip = tooltipRef.current;
+    if (!anchor || !tooltip) return;
+    setCoords(measureReactionTooltip(anchor, tooltip));
+  }, [anchorRef]);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setCoords(null);
+      return;
+    }
+    updatePosition();
+  }, [open, updatePosition, emojiShortcode, users, totalCount, language]);
+
+  useEffect(() => {
+    if (!open) return;
+    const anchor = anchorRef.current;
+    const boundary = getReactionTooltipBoundary(anchor);
+    const scrollRoot = boundary?.classList?.contains('message-list')
+      ? boundary
+      : anchor?.closest('.message-list') || boundary;
+
+    const onReflow = () => requestAnimationFrame(updatePosition);
+    window.addEventListener('resize', onReflow);
+    scrollRoot?.addEventListener('scroll', onReflow, { passive: true });
+    window.addEventListener('scroll', onReflow, { passive: true, capture: true });
+
+    return () => {
+      window.removeEventListener('resize', onReflow);
+      scrollRoot?.removeEventListener('scroll', onReflow);
+      window.removeEventListener('scroll', onReflow, { capture: true });
+    };
+  }, [open, anchorRef, updatePosition]);
+
+  const handleOthersClick = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onViewOthers?.();
+  }, [onViewOthers]);
+
+  if (!open) return null;
+
+  return createPortal(
+    <div
+      ref={tooltipRef}
+      className={`reaction-tooltip reaction-tooltip--positioned${coords ? ' reaction-tooltip--visible' : ''}`}
+      role="tooltip"
+      style={{
+        top: coords?.top ?? -9999,
+        left: coords?.left ?? -9999,
+        maxWidth: coords?.maxWidth,
+      }}
+      onMouseEnter={onPointerEnter}
+      onMouseLeave={onPointerLeave}
+    >
+      <div className="reaction-tooltip-emoji-wrap" aria-hidden="true">
+        {aranjaUrl ? (
+          <img src={aranjaUrl} alt="" className="reaction-tooltip-emoji-lg" />
+        ) : (
+          <span className="reaction-tooltip-emoji-lg">{emojiChar}</span>
+        )}
+      </div>
+      <div className="reaction-tooltip-content">
+        <span className="reaction-tooltip-shortcode">{displayShortcode}</span>{' '}
+        <span className="reaction-tooltip-label">{t('chat.reactionTooltipReactedBy')}</span>{' '}
+        {namesToShow.length > 0 ? (
+          <>
+            <span className="reaction-tooltip-names">{joinDisplayNames(namesToShow, language)}</span>
+            {othersCount > 0 && (
+              <>
+                {', '}
+                <button
+                  type="button"
+                  className="reaction-tooltip-others"
+                  onClick={handleOthersClick}
+                  disabled={!onViewOthers}
+                >
+                  {othersCount === 1
+                    ? t('chat.reactionTooltipAndOneOther')
+                    : t('chat.reactionTooltipAndOthers', { count: othersCount })}
+                </button>
+              </>
+            )}
+          </>
+        ) : othersCount > 0 ? (
+          <button
+            type="button"
+            className="reaction-tooltip-others"
+            onClick={handleOthersClick}
+            disabled={!onViewOthers}
+          >
+            {othersCount === 1
+              ? t('chat.reactionTooltipAndOneOther')
+              : t('chat.reactionTooltipAndOthers', { count: othersCount })}
+          </button>
+        ) : (
+          <span className="reaction-tooltip-names">—</span>
+        )}
+      </div>
+    </div>,
+    document.body,
+  );
+});
+
+const MessageReactionButton = memo(function MessageReactionButton({
+  reaction,
+  hasReacted,
+  onToggleReaction,
+  onViewAllReactions,
+}) {
+  const btnRef = useRef(null);
+  const showTimerRef = useRef(null);
+  const hideTimerRef = useRef(null);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+
+  const emojiChar = shortcodeToEmoji(reaction.emoji);
+  const emojiShortcode = emojiToShortcode(reaction.emoji);
+  const aranjaUrl = emojiToAranjaUrl(emojiChar);
+
+  const clearShowTimer = useCallback(() => {
+    if (showTimerRef.current) {
+      clearTimeout(showTimerRef.current);
+      showTimerRef.current = null;
+    }
+  }, []);
+
+  const clearHideTimer = useCallback(() => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleShow = useCallback(() => {
+    clearHideTimer();
+    clearShowTimer();
+    showTimerRef.current = setTimeout(() => setTooltipOpen(true), TOOLTIP_SHOW_DELAY_MS);
+  }, [clearHideTimer, clearShowTimer]);
+
+  const scheduleHide = useCallback(() => {
+    clearShowTimer();
+    clearHideTimer();
+    hideTimerRef.current = setTimeout(() => setTooltipOpen(false), TOOLTIP_HIDE_DELAY_MS);
+  }, [clearShowTimer, clearHideTimer]);
+
+  useEffect(() => () => {
+    clearShowTimer();
+    clearHideTimer();
+  }, [clearShowTimer, clearHideTimer]);
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        className={`message-reaction ${hasReacted ? 'reacted' : ''}`}
+        onClick={() => onToggleReaction(reaction.emoji, hasReacted)}
+        onMouseEnter={scheduleShow}
+        onMouseLeave={scheduleHide}
+        onFocus={scheduleShow}
+        onBlur={scheduleHide}
+      >
+        <span className="reaction-emoji">
+          {aranjaUrl ? <img src={aranjaUrl} alt={emojiChar} /> : emojiChar}
+        </span>
+        <span className="reaction-count">{reaction.count}</span>
+      </button>
+      <ReactionHoverTooltip
+        anchorRef={btnRef}
+        open={tooltipOpen}
+        emojiShortcode={emojiShortcode}
+        emojiChar={emojiChar}
+        aranjaUrl={aranjaUrl}
+        users={reaction.users}
+        totalCount={reaction.count}
+        onViewOthers={onViewAllReactions}
+        onPointerEnter={scheduleShow}
+        onPointerLeave={scheduleHide}
+      />
+    </>
+  );
+});
 
 export const MessageReactions = memo(function MessageReactions({
   reactions = [],
   currentUserId,
-  onToggleReaction
+  onToggleReaction,
+  onViewAllReactions,
 }) {
   const list = Array.isArray(reactions) ? reactions : [];
   if (list.length === 0) return null;
 
   return (
     <div className="message-reactions">
-      {list.filter(Boolean).map((r) => {
-        const hasReacted = r?.userIds?.includes(currentUserId);
-        const emojiChar = shortcodeToEmoji(r.emoji);
-        const aranjaUrl = emojiToAranjaUrl(emojiChar);
-        return (
-          <button
-            key={r.emoji}
-            className={`message-reaction ${hasReacted ? 'reacted' : ''}`}
-            onClick={() => onToggleReaction(r.emoji, hasReacted)}
-          >
-            <span className="reaction-emoji">
-              {aranjaUrl ? <img src={aranjaUrl} alt={emojiChar} /> : emojiChar}
-            </span>
-            <span className="reaction-count">{r.count}</span>
-            <span className="reaction-tooltip">
-              {formatReactionTooltipText(r)}{' '}
-              {aranjaUrl ? <img src={aranjaUrl} alt={emojiChar} className="reaction-tooltip-emoji" /> : emojiChar}
-            </span>
-          </button>
-        );
-      })}
+      {list.filter(Boolean).map((r) => (
+        <MessageReactionButton
+          key={r.emoji}
+          reaction={r}
+          hasReacted={r?.userIds?.includes(currentUserId)}
+          onToggleReaction={onToggleReaction}
+          onViewAllReactions={onViewAllReactions}
+        />
+      ))}
     </div>
   );
 });

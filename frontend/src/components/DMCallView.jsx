@@ -47,10 +47,14 @@ const VideoTile = memo(function VideoTile({ stream, muted = true, label, isSelf,
 });
 
 const CallAvatar = memo(function CallAvatar({ voiceUser, isSpeaking, state, size = 'normal', showName = true, isSelf }) {
-  const name = isSelf ? 'You' : (voiceUser.display_name || (voiceUser.id === 'placeholder' ? null : 'Someone'));
+  const { t } = useTranslation();
+  const name = isSelf
+    ? t('dmCall.you')
+    : (voiceUser.display_name || (voiceUser.id === 'placeholder' ? null : t('dmCall.someone')));
   return (
-    <div className={`dm-call-avatar-card ${size}`}>
+    <div className={`dm-call-avatar-card ${size} ${isSelf ? 'dm-call-avatar-card--self' : ''}`}>
       <div className={`dm-call-avatar-wrapper ${isSpeaking ? 'speaking' : ''} state-${state} size-${size}`}>
+        {state === 'ringing' && <span className="dm-call-ring-waves" aria-hidden />}
         {state === 'connecting' && <span className="dm-call-spinner" />}
         {isSpeaking && <span className="dm-call-speak-glow" />}
         <div className="dm-call-avatar-circle">
@@ -85,6 +89,7 @@ function useCallTimer(isConnected) {
 const MIN_PANEL_HEIGHT = 220;
 const MAX_PANEL_HEIGHT = 800;
 const DEFAULT_PANEL_HEIGHT = 280;
+const DEFAULT_EMBEDDED_HEIGHT = 300;
 const COMPACT_DEFAULT_HEIGHT = 200;
 const COMPACT_MIN_HEIGHT = 176;
 const COMPACT_MAX_HEIGHT = 420;
@@ -96,6 +101,7 @@ export default function DMCallView({
   groupMembers = [],
   compact = false,
   hideResize = false,
+  embedded = false,
 }) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -136,7 +142,7 @@ export default function DMCallView({
   const dropdownRef = useRef(null);
 
   const [panelHeight, setPanelHeight] = useState(() =>
-    compact ? COMPACT_DEFAULT_HEIGHT : DEFAULT_PANEL_HEIGHT
+    compact ? COMPACT_DEFAULT_HEIGHT : (embedded ? DEFAULT_EMBEDDED_HEIGHT : DEFAULT_PANEL_HEIGHT)
   );
   const minH = compact ? COMPACT_MIN_HEIGHT : MIN_PANEL_HEIGHT;
   const maxH = compact ? COMPACT_MAX_HEIGHT : MAX_PANEL_HEIGHT;
@@ -264,48 +270,77 @@ export default function DMCallView({
     return entries;
   }, [remoteVideoStreams, ownCameraStream, ownScreenStream, callUsers, speakingUsers, user?.id]);
 
-  let statusIcon, statusText, statusClass;
+  const headerTitle = isGroup
+    ? (voiceConversationName || t('dmCall.groupCall'))
+    : displayName;
+
+  let statusIcon, statusLabel, statusSubtext, statusClass;
+  const statusSpinner = (
+    <svg className="dm-call-status-icon spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round"/>
+    </svg>
+  );
+  const statusRingIcon = (
+    <svg className="dm-call-status-icon ring" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/>
+    </svg>
+  );
+
   if (isConnecting) {
     statusClass = 'connecting';
-    statusText = 'Connecting...';
-    statusIcon = (
-      <svg className="dm-call-status-icon spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round"/>
-      </svg>
-    );
+    statusLabel = t('dmCall.connecting');
+    statusSubtext = null;
+    statusIcon = statusSpinner;
   } else if (establishingVoice) {
     statusClass = 'connecting';
-    statusText = 'Establishing voice connection…';
-    statusIcon = (
-      <svg className="dm-call-status-icon spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round"/>
-      </svg>
-    );
+    statusLabel = t('dmCall.establishingVoice');
+    statusSubtext = null;
+    statusIcon = statusSpinner;
   } else if (isWaiting) {
     statusClass = 'ringing';
-    statusText = isGroup ? 'Waiting for others...' : `Calling ${displayName}...`;
-    statusIcon = (
-      <svg className="dm-call-status-icon ring" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/>
-      </svg>
-    );
+    statusLabel = isGroup
+      ? t('dmCall.waitingGroup')
+      : (embedded ? t('dmCall.outgoingCall') : t('dmCall.callingUser', { name: displayName }));
+    statusSubtext = t('dmCall.ringingHint');
+    statusIcon = statusRingIcon;
   } else if (isAloneInCall) {
     statusClass = 'connected';
-    statusText = `${callTime} · ${isGroup ? t('dmCall.aloneInCallGroup') : t('dmCall.aloneInCallDm')}`;
+    statusLabel = callTime;
+    statusSubtext = isGroup ? t('dmCall.aloneInCallGroup') : t('dmCall.aloneInCallDm');
     statusIcon = <span className="dm-call-status-dot-live" />;
   } else {
     statusClass = 'connected';
-    statusText = `${callTime} · ${callUsers.length} in call · Voice connected`;
+    statusLabel = callTime;
+    statusSubtext = t('dmCall.inCallMeta', { count: callUsers.length });
     statusIcon = <span className="dm-call-status-dot-live" />;
   }
+
+  const avatarStageClass = isGroup
+    ? 'dm-call-avatars group-call'
+    : isWaiting
+      ? 'dm-call-avatars dm-call-avatars--solo dm-call-avatars--waiting'
+      : 'dm-call-avatars dm-call-avatars--duo';
 
   return (
     <div
       ref={panelRef}
-      className={`dm-call-panel ${hasAnyVideo ? 'has-video' : ''} ${compact ? 'dm-call-panel--compact' : ''}`}
+      className={`dm-call-panel ${hasAnyVideo ? 'has-video' : ''} ${compact ? 'dm-call-panel--compact' : ''} ${embedded ? 'dm-call-panel--embedded' : ''}`}
       style={{ height: panelHeight }}
     >
-      {/* Video Grid / Spotlight */}
+      <div className="dm-call-panel-bg" aria-hidden />
+
+      <header className="dm-call-header">
+        <div className="dm-call-header-text">
+          {!embedded && <h2 className="dm-call-title">{headerTitle}</h2>}
+          <div className={`dm-call-status-pill ${statusClass}`}>
+            {statusIcon}
+            <span className="dm-call-status-pill-label">{statusLabel}</span>
+          </div>
+          {statusSubtext && <p className="dm-call-subtitle">{statusSubtext}</p>}
+        </div>
+      </header>
+
+      <div className="dm-call-stage">
       {hasAnyVideo && (
         <div className={`dm-call-video-container layout-${videoLayout}`}>
           {videoLayout === 'grid' ? (
@@ -373,7 +408,7 @@ export default function DMCallView({
               title={videoLayout === 'grid' ? 'Switch to spotlight view' : 'Switch to grid view'}
             >
               <LayoutGrid size={18} strokeWidth={2} />
-              <span>{videoLayout === 'grid' ? 'Spotlight' : 'Grid'}</span>
+              <span>{videoLayout === 'grid' ? t('dmCall.layoutSpotlight') : t('dmCall.layoutGrid')}</span>
             </button>
           )}
         </div>
@@ -381,7 +416,7 @@ export default function DMCallView({
 
       {/* Avatars (shown when no video) */}
       {!hasAnyVideo && (
-        <div className={`dm-call-avatars ${isGroup ? 'group-call' : ''}`}>
+        <div className={avatarStageClass}>
           {otherCallUsers.length > 0 ? (
             otherCallUsers.map(u => (
               <CallAvatar
@@ -440,15 +475,13 @@ export default function DMCallView({
         </div>
       )}
 
-      <div className={`dm-call-status ${statusClass}`}>
-        {statusIcon}
-        <span className="dm-call-status-text">{statusText}</span>
       </div>
 
+      <footer className="dm-call-footer">
       {isWaiting && (
-        <button className="dm-call-ring-again" onClick={ringVoiceDM} title="Ring again">
+        <button type="button" className="dm-call-ring-again" onClick={ringVoiceDM} title={t('dmCall.ringAgain')}>
           <Phone size={14} strokeWidth={2.5} />
-          <span>Ring Again</span>
+          <span>{t('dmCall.ringAgain')}</span>
         </button>
       )}
 
@@ -504,16 +537,16 @@ export default function DMCallView({
 
         {callUsers.length > 1 && (
           <div className="dm-call-ctrl-group dm-call-ctrl-group-wrap">
-            <button className={`dm-call-ctrl ${showParticipants ? 'active' : ''}`} onClick={() => setShowParticipants(s => !s)} title="Participants">
+            <button className={`dm-call-ctrl ${showParticipants ? 'active' : ''}`} onClick={() => setShowParticipants(s => !s)} title={t('dmCall.participants')}>
               <UserCircle2 size={20} strokeWidth={2} />
             </button>
             {showParticipants && (
               <div className="dm-call-device-popover dm-call-participants-popover">
-                <div className="dm-call-participants-header">Participants</div>
+                <div className="dm-call-participants-header">{t('dmCall.participants')}</div>
                 {callUsers.map((u) => (
                   <div key={u.id} className="dm-call-participant-row">
                     <span className="dm-call-participant-dot" data-speaking={u.id != null && speakingUsers.has(String(u.id))} />
-                    <span>{u.id === user?.id ? 'You' : (u.display_name || 'User')}</span>
+                    <span>{u.id === user?.id ? t('dmCall.you') : (u.display_name || t('dmCall.someone'))}</span>
                   </div>
                 ))}
               </div>
@@ -542,10 +575,12 @@ export default function DMCallView({
           )}
         </div>
 
-        <button className="dm-call-ctrl leave" onClick={leaveVoiceDM} title="Leave Call">
+        <button type="button" className="dm-call-ctrl leave" onClick={leaveVoiceDM} title={t('dmCall.leaveCall')}>
           <PhoneOff size={20} strokeWidth={2.5} />
+          {!compact && <span>{t('dmCall.leaveCall')}</span>}
         </button>
       </div>
+      </footer>
 
       {!hideResize && (
         <div className="dm-call-resize-handle" onMouseDown={handleResizeStart}>

@@ -1977,7 +1977,7 @@ const MessageItem = memo(function MessageItem({
   onContextMenu,
   isEditing, editContent, setEditContent, onSaveEdit, onCancelEdit,
   readByUsers, onUserClick, replyToMessage, onScrollToMessage,
-  reactions, currentUserId, currentUserName, onToggleReaction, isPinned, onStickerClick,
+  reactions, currentUserId, currentUserName, onToggleReaction, onViewAllReactions, isPinned, onStickerClick,
   onReply, onReact, onEdit,
   isShiftHeld, onDeleteForMe, onDeleteForAll, isDM, t,
   recentEmojis,
@@ -2186,6 +2186,7 @@ const MessageItem = memo(function MessageItem({
               reactions={reactions} 
               currentUserId={currentUserId}
               onToggleReaction={(emoji, hasReacted) => onToggleReaction(msg.id, emoji, hasReacted)}
+              onViewAllReactions={onViewAllReactions ? () => onViewAllReactions(msg) : undefined}
             />
             {msg.edited_at && <span className="message-edited">({t('chat.edited')})</span>}
             {isOwn && msg._failed && (
@@ -3174,6 +3175,7 @@ const MessageList = memo(forwardRef(function MessageList({
                         currentUserId={currentUserId}
                         currentUserName={currentUserName}
                         onToggleReaction={handleToggleReaction}
+                        onViewAllReactions={handleViewReactions}
                         isPinned={pinnedIdsSet.has(msg.id)}
                         onStickerClick={handleStickerClick}
                         onReply={onReply}
@@ -3254,6 +3256,7 @@ const MessageList = memo(forwardRef(function MessageList({
                         currentUserId={currentUserId}
                         currentUserName={currentUserName}
                         onToggleReaction={handleToggleReaction}
+                        onViewAllReactions={handleViewReactions}
                         isPinned={pinnedIdsSet.has(msg.id)}
                         onStickerClick={handleStickerClick}
                         onReply={onReply}

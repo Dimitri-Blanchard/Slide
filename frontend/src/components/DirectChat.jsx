@@ -1174,7 +1174,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
       </header>
 
       {!showPlaceholderHeader && isInCall && !isMobile && (
-        <DMCallView otherUserName={title} otherUser={other} isGroup={isGroup} groupMembers={otherUsers} />
+        <DMCallView embedded otherUserName={title} otherUser={other} isGroup={isGroup} groupMembers={otherUsers} />
       )}
 
       {showPinnedPanel && (

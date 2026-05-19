@@ -740,6 +740,9 @@
     "channel": "a channel",
     "preview": "Preview",
     "viewAllReactions": "View all reactions",
+    "reactionTooltipReactedBy": "reacted by",
+    "reactionTooltipAndOneOther": "and 1 other",
+    "reactionTooltipAndOthers": "and {count} others",
     "noReactions": "No reactions",
     "removeReaction": "Remove reaction",
     "cannotRemoveOwnReactionHere": "Action unavailable"

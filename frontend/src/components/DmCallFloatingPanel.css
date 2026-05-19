@@ -3,15 +3,15 @@
 .dm-call-floating-root {
   position: fixed;
   z-index: 10040;
-  width: min(300px, calc(100vw - 32px));
-  max-height: min(440px, calc(100vh - 32px));
+  width: min(340px, calc(100vw - 32px));
+  max-height: min(480px, calc(100vh - 32px));
   display: flex;
   flex-direction: column;
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
   box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.06);
+    0 16px 48px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
   animation: dmCallFloatIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
   touch-action: none;
 }
