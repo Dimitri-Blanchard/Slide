@@ -1071,22 +1071,21 @@
    ═══════════════════════════════════════════════════════════ */
 .message-image-wrap {
   position: relative;
-  /* No min-height + transparent background: shrink-wrap to the image so a
-     200×100 photo doesn't get a 400-wide colored block around it.
-     Inline-block avoids the wrapper stretching to flex-row width. */
-  display: inline-block;
-  max-width: 400px;
+  /* Flex column parents stretch children to full width by default — pin media
+     to the image's intrinsic size so we don't get a wide empty frame. */
+  align-self: flex-start;
+  width: fit-content;
+  max-width: min(400px, 100%);
+  display: block;
   border-radius: 12px;
   overflow: hidden;
   cursor: pointer;
   background: transparent;
   margin-top: 4px;
   transition: box-shadow 0.15s ease, opacity 0.15s ease;
-  /* No box-shadow at rest — the previous shadow looked like a colored border
-     halo on small images. Apply on hover/focus only for the press affordance. */
   box-shadow: none;
   outline: none;
-  line-height: 0; /* kill the inline-image baseline gap below the <img> */
+  line-height: 0;
 }
 
 .message-image-wrap:hover {
@@ -1102,13 +1101,14 @@
 
 .message-image {
   display: block;
-  max-width: 100%;
+  width: auto;
+  height: auto;
+  max-width: min(400px, 100%);
   max-height: 400px;
-  /* Match wrapper radius — having two different radii (12 vs 8) made the
-     wrapper bleed visible as a "frame". */
   border-radius: 12px;
   outline: none;
   background: transparent;
+  vertical-align: top;
 }
 
 .message-image-overlay {
@@ -1140,6 +1140,7 @@
 .message-file-wrap {
   display: flex;
   align-items: center;
+  align-self: flex-start;
   gap: 12px;
   padding: 12px 14px;
   background: var(--bg-secondary);
@@ -1147,8 +1148,9 @@
   border-radius: 12px;
   text-decoration: none;
   color: var(--text-primary);
+  width: fit-content;
   min-width: 200px;
-  max-width: 400px;
+  max-width: min(400px, 100%);
   margin-top: 4px;
   transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
   user-select: text;
@@ -1239,6 +1241,7 @@
 .message-video-wrap {
   position: relative;
   display: block;
+  align-self: flex-start;
   width: min(720px, 100%);
   max-width: 720px;
   margin-top: 4px;
@@ -1588,13 +1591,15 @@
 .voice-message {
   display: flex;
   align-items: flex-start;
+  align-self: flex-start;
   gap: 12px;
   padding: 12px 14px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle);
   border-radius: 16px;
+  width: fit-content;
   min-width: 260px;
-  max-width: 380px;
+  max-width: min(380px, 100%);
   margin-top: 4px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   user-select: none;
@@ -1993,24 +1998,25 @@
 .message-sticker-wrap,
 .message-gif-wrap,
 .message-emoji-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  display: block;
   padding: 4px 0;
+  line-height: 0;
 }
 
 .message-sticker {
-  max-width: 120px;
-  max-height: 120px;
-  min-width: 60px;
-  min-height: 60px;
-  width: auto !important;
-  background: var(--bg-tertiary);
-  height: auto !important;
-  object-fit: contain !important;
-  border-radius: 4px !important;
+  display: block;
+  max-width: 160px;
+  max-height: 160px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 4px;
   transition: transform 0.15s ease;
   outline: none;
+  background: transparent;
 }
 
 .message-sticker:hover {
@@ -2019,16 +2025,15 @@
 }
 
 .message-gif {
-  max-width: 400px;
-  max-height: 250px;
-  min-width: 100px;
-  min-height: 80px;
-  width: auto !important;
-  background: var(--bg-tertiary);
-  height: auto !important;
-  object-fit: contain !important;
-  border-radius: 8px !important;
+  display: block;
+  max-width: min(400px, 100%);
+  max-height: 300px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
   outline: none;
+  background: transparent;
 }
 
 /* Standalone emoji message (only 1 emoji) - way bigger */
@@ -2351,8 +2356,13 @@
     min-width: 200px;
   }
 
-  .message-image img {
-    max-width: 260px;
+  .message-image-wrap {
+    max-width: min(260px, 100%);
+  }
+
+  .message-image,
+  .message-gif {
+    max-width: min(260px, 100%);
   }
 
   .message-video-wrap {
@@ -2654,20 +2664,21 @@
 .md-embeds {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 4px;
   margin-top: 4px;
+  max-width: 100%;
 }
 
 .md-embed-image {
-  max-width: 400px;
-  max-height: 300px;
-  min-height: 60px;
+  display: block;
   width: auto;
   height: auto;
+  max-width: min(400px, 100%);
+  max-height: 300px;
   object-fit: contain;
-  background: var(--bg-tertiary);
-  border-radius: 4px;
-  display: block;
+  background: transparent;
+  border-radius: 8px;
   cursor: zoom-in;
   outline: none;
 }

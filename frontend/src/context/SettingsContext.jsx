@@ -350,12 +350,18 @@ export function SettingsProvider({ children }) {
   }, [settings.reduce_motion, settings.motion_signature, settings.high_contrast, settings.saturation, settings.link_underline, settings.role_colors]);
   
   // ═══════════════════════════════════════════════════════════
-  // REQUEST NOTIFICATION PERMISSION
+  // REQUEST NOTIFICATION PERMISSION (logged-in app only)
   // ═══════════════════════════════════════════════════════════
   useEffect(() => {
+    if (!getToken()) {
+      if ('Notification' in window) {
+        setNotificationPermission(Notification.permission);
+      }
+      return;
+    }
     if (settings.desktop_notifications && 'Notification' in window) {
       setNotificationPermission(Notification.permission);
-      
+
       if (Notification.permission === 'default') {
         Notification.requestPermission().then(permission => {
           setNotificationPermission(permission);

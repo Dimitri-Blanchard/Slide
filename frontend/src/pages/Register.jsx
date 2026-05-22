@@ -8,6 +8,7 @@ import { validatePassword, validateDisplayName, isValidEmail, checkRateLimit } f
 import { API_BASE, auth as authApi } from '../api';
 import AuthShell from '../components/AuthShell';
 import AuthBackdrop from '../components/AuthBackdrop';
+import { isClientApp } from '../utils/clientApp';
 import './Auth.css';
 
 function fireRegisterConfetti() {
@@ -187,7 +188,7 @@ export default function Register() {
   };
 
   return (
-    <AuthShell backgroundMedia={<AuthBackdrop />}>
+    <AuthShell backgroundMedia={isClientApp() ? null : <AuthBackdrop />}>
       <div className={`auth-card register-card${celebrating ? ' register-card--celebrating' : ''}`}>
         {celebrating ? (
           <div className="register-celebration" role="status" aria-live="polite">

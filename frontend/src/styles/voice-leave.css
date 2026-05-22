@@ -1,0 +1,241 @@
+/* ═══════════════════════════════════════════════════════════
+   Voice / call leave transitions
+   ═══════════════════════════════════════════════════════════ */
+
+@keyframes voiceLeaveBarOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    max-height: 120px;
+  }
+  40% {
+    opacity: 0.85;
+    transform: translateY(4px) scale(0.99);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(22px) scale(0.96);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    border-top-width: 0;
+  }
+}
+
+@keyframes voiceLeaveSignalFade {
+  0% {
+    box-shadow: 0 0 0 0 rgba(35, 165, 90, 0.55);
+    transform: scale(1);
+  }
+  100% {
+    box-shadow: 0 0 0 10px rgba(35, 165, 90, 0);
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+
+@keyframes voiceLeaveDmPanel {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+    max-height: 720px;
+  }
+  35% {
+    opacity: 0.92;
+    transform: translateY(-6px) scale(1.01);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-28px) scale(0.97);
+    filter: blur(6px);
+    max-height: 0;
+    min-height: 0 !important;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-bottom-width: 0;
+  }
+}
+
+@keyframes voiceLeaveDmBg {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes voiceLeaveFloatPanel {
+  0% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.88) translateY(16px);
+  }
+}
+
+@keyframes voiceLeaveSidebarUser {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+    max-height: 48px;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-12px);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin: 0;
+  }
+}
+
+@keyframes voiceLeaveChannelGlow {
+  0% {
+    box-shadow: inset 3px 0 0 var(--success, #23a55a);
+    background: var(--accent-muted);
+  }
+  100% {
+    box-shadow: inset 3px 0 0 transparent;
+    background: transparent;
+  }
+}
+
+@keyframes voiceLeaveStageFade {
+  0% {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(8px);
+    transform: scale(0.98);
+  }
+}
+
+@keyframes voiceLeaveShimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+/* ─── Voice status bar ─── */
+.voice-status-bar--exiting {
+  animation: voiceLeaveBarOut 0.52s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.voice-status-bar--exiting .vsb-signal {
+  animation: voiceLeaveSignalFade 0.45s ease-out forwards;
+  background: var(--text-muted, #949ba4) !important;
+}
+
+.voice-status-bar--exiting .vsb-label,
+.voice-status-bar--exiting .vsb-details-label {
+  color: var(--text-muted, #949ba4) !important;
+}
+
+.voice-status-bar--exiting .vsb-channel {
+  opacity: 0.6;
+}
+
+.voice-status-bar--exiting .vsb-btn.disconnect {
+  opacity: 0.35;
+}
+
+.vsb-signal.leaving {
+  background: var(--text-muted, #949ba4);
+  animation: voiceLeaveSignalFade 0.45s ease-out forwards;
+}
+
+/* ─── DM call panel (embedded + floating) ─── */
+.dm-call-panel--exiting {
+  animation: voiceLeaveDmPanel 0.52s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.dm-call-panel--exiting .dm-call-panel-bg {
+  animation: voiceLeaveDmBg 0.4s ease-out forwards;
+}
+
+.dm-call-panel--exiting .dm-call-controls {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.dm-call-floating-root--exiting {
+  animation: voiceLeaveFloatPanel 0.48s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  pointer-events: none;
+}
+
+/* ─── Direct chat layout ─── */
+.chat-container.dm-chat.leaving-call .dm-call-panel--embedded {
+  animation: voiceLeaveDmPanel 0.52s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.chat-container.dm-chat.leaving-call .chat-main-content {
+  transition: gap 0.52s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── Sidebar ─── */
+.channel-item.voice-connected--leaving {
+  animation: voiceLeaveChannelGlow 0.52s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.voice-sidebar-user--exiting {
+  animation: voiceLeaveSidebarUser 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* ─── Full voice channel view ─── */
+.voice-channel-view--exiting .vc-stage,
+.voice-channel-view--exiting .vc-participants {
+  animation: voiceLeaveStageFade 0.48s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.voice-channel-view--exiting::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(35, 165, 90, 0.06) 45%,
+    rgba(255, 255, 255, 0.04) 50%,
+    transparent 55%
+  );
+  background-size: 200% 100%;
+  animation: voiceLeaveShimmer 0.7s ease-out forwards;
+  opacity: 0.7;
+}
+
+.voice-fullscreen-overlay--exiting {
+  animation: voiceLeaveFloatPanel 0.48s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-status-bar--exiting,
+  .dm-call-panel--exiting,
+  .dm-call-floating-root--exiting,
+  .voice-sidebar-user--exiting,
+  .channel-item.voice-connected--leaving,
+  .voice-channel-view--exiting .vc-stage,
+  .voice-channel-view--exiting .vc-participants {
+    animation-duration: 0.12s !important;
+  }
+}

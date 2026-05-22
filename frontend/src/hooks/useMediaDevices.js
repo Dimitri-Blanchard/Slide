@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { getToken } from '../utils/tokenStorage';
 
 /**
  * Enumerate audio/video devices for call device selection.
  * Returns inputs (mics), outputs (speakers/headphones), and videoInputs (cameras).
  *
  * Browsers require getUserMedia permission before enumerateDevices returns
- * real device labels/IDs. This hook automatically requests a brief permission
- * grant when the initial enumeration returns unlabeled devices.
+ * real device labels/IDs. When `autoRequestPermission` is true, requests a brief
+ * permission grant when the initial enumeration returns unlabeled devices.
  */
-export function useMediaDevices() {
+export function useMediaDevices({ autoRequestPermission = true } = {}) {
   const [inputs, setInputs] = useState([]);
   const [outputs, setOutputs] = useState([]);
   const [videoInputs, setVideoInputs] = useState([]);
@@ -22,7 +23,13 @@ export function useMediaDevices() {
       // If we get devices back but none have labels, the browser hasn't
       // granted permission yet. Request a quick getUserMedia to unlock labels.
       const hasLabels = devices.some(d => d.label);
-      if (!hasLabels && devices.length > 0 && !permissionRequested.current) {
+      if (
+        autoRequestPermission &&
+        getToken() &&
+        !hasLabels &&
+        devices.length > 0 &&
+        !permissionRequested.current
+      ) {
         permissionRequested.current = true;
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -40,7 +47,7 @@ export function useMediaDevices() {
     } catch (err) {
       console.error('Error enumerating devices:', err);
     }
-  }, []);
+  }, [autoRequestPermission]);
 
   function applyDevices(devices) {
     const fallbackLabel = (kind, deviceId, i) => {

@@ -1,0 +1,73 @@
+/* ═══════════════════════════════════════════════════════════
+   MOBILE GESTURES — swipe-back surfaces, touch-action, page motion
+   Loaded after mobile-shell.css (index.css import order).
+   ═══════════════════════════════════════════════════════════ */
+
+html.platform-mobile {
+  /* Allow horizontal pans on gesture hosts; avoid blocking swipe at document level */
+  touch-action: manipulation;
+}
+
+html.platform-mobile body {
+  touch-action: manipulation;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Host that moves with the finger (--swipe-x set by useSwipeBack) */
+html.platform-mobile .mobile-swipe-host {
+  --swipe-x: 0px;
+  --swipe-progress: 0;
+  transform: translate3d(var(--swipe-x), 0, 0);
+  transition: transform var(--m-dur-medium, 280ms) var(--m-ease-emphasized-decel, cubic-bezier(0.05, 0.7, 0.1, 1));
+  will-change: transform;
+  touch-action: pan-y;
+}
+
+html.platform-mobile .mobile-swipe-host.is-swipe-dragging {
+  transition: none;
+  touch-action: none;
+  /* Don't fight the finger with enter animations */
+  animation: none !important;
+}
+
+/* Reveal previous screen edge while dragging (iOS-style) */
+html.platform-mobile .mobile-swipe-host.is-swipe-dragging::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(28vw, 120px);
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.35) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+  opacity: calc(var(--swipe-progress, 0) * 0.85);
+}
+
+html.platform-mobile .mobile-swipe-host .swipe-back-indicator {
+  opacity: min(1, calc(var(--swipe-progress, 0) * 1.25));
+  transform: translateY(-50%) translateX(calc(var(--swipe-progress, 0) * 16px));
+}
+
+/* Page enter uses opacity only — transform is reserved for --swipe-x */
+html.platform-mobile .mobile-app-layout .mobile-swipe-host.direct-chat,
+html.platform-mobile .mobile-app-layout .mobile-swipe-host.team-view {
+  animation: m-page-fade-in var(--m-dur-medium, 280ms) var(--m-ease-emphasized-decel, cubic-bezier(0.05, 0.7, 0.1, 1)) forwards;
+}
+
+@keyframes m-page-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Desktop-style slide-in is disabled on native — mobile-gestures owns motion */
+html.platform-mobile .mobile-app-layout .direct-chat,
+html.platform-mobile .mobile-app-layout .team-chat,
+html.platform-mobile .mobile-app-layout .team-view {
+  animation: none;
+}
+
+html.platform-mobile .app-main > .content-phase-in {
+  animation: m-content-rise var(--m-dur-short, 200ms) var(--m-ease-emphasized-decel, cubic-bezier(0.05, 0.7, 0.1, 1)) forwards;
+  filter: none;
+}

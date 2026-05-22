@@ -4,6 +4,7 @@ import { XCircle, Clock } from 'lucide-react';
 import { AvatarImg } from '../components/Avatar';
 import { servers, invalidateCache } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useAppHomePath } from '../hooks/useAppHomePath';
 import { useLanguage } from '../context/LanguageContext';
 import AuthShell from '../components/AuthShell';
 import './InvitePage.css';
@@ -13,6 +14,7 @@ export default function InvitePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { t } = useLanguage();
+  const appHome = useAppHomePath();
   const [inviteInfo, setInviteInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
@@ -82,7 +84,7 @@ export default function InvitePage() {
               ? 'Ce lien d\'invitation n\'est plus valide. Demande un nouveau lien à quelqu\'un du serveur.'
               : error}
           </p>
-          <Link to="/" className="invite-home-btn">Retour à l'accueil</Link>
+          <Link to={appHome} className="invite-home-btn">Retour à l'accueil</Link>
         </div>
       </AuthShell>
     );

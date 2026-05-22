@@ -23,6 +23,7 @@ import ScreenSharePicker from './components/ScreenSharePicker';
 import ErrorBoundary from './components/ErrorBoundary';
 import { startDevToolsWarning } from './utils/security';
 import './index.css';
+import './styles/voice-leave.css';
 
 // ─────────────────────────────────────────────────────────────
 // VIEWPORT METRICS — runs before React renders.
@@ -86,6 +87,18 @@ if (typeof window !== 'undefined') {
   }
 }
 
+// Capacitor: never boot on marketing `/` — go straight to login or messages
+if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform()) {
+  const hash = window.location.hash || '';
+  const path = (hash.slice(1).split('?')[0] || '/').replace(/\/+$/, '') || '/';
+  if (path === '/' || path === '') {
+    import('./utils/tokenStorage').then(({ getToken }) => {
+      const target = getToken() ? '#/channels/@me' : '#/login';
+      if (hash !== target) window.location.replace(target);
+    });
+  }
+}
+
 // Capacitor: initialize native plugins
 if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform()) {
   import('@capacitor/status-bar').then(({ StatusBar, Style }) => {
@@ -117,10 +130,35 @@ if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform()) {
     }).catch(() => {});
   });
   import('@capacitor/app').then(({ App: CapApp }) => {
-    CapApp.addListener('backButton', ({ canGoBack }) => {
-      if (canGoBack) {
-        window.history.back();
+    const hashPath = () => {
+      const raw = (window.location.hash.slice(1).split('?')[0] || '/').replace(/\/+$/, '') || '/';
+      return raw;
+    };
+
+    CapApp.addListener('backButton', () => {
+      const path = hashPath();
+
+      if (path === '/' || path === '') {
+        import('./utils/tokenStorage').then(({ getToken }) => {
+          window.location.replace(getToken() ? '#/channels/@me' : '#/login');
+        });
+        return;
       }
+
+      const exitRoutes = ['/login', '/register', '/forgot-password'];
+      if (exitRoutes.includes(path)) {
+        CapApp.exitApp?.().catch(() => {});
+        return;
+      }
+
+      if (window.history.length > 1) {
+        window.history.back();
+        return;
+      }
+
+      import('./utils/tokenStorage').then(({ getToken }) => {
+        window.location.replace(getToken() ? '#/channels/@me' : '#/login');
+      });
     });
     // Handle slide://login?token=xxx (and https /qr-login links) for QR web login approval
     const handleLoginUrl = async (url) => {

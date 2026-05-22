@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { DOWNLOAD_BASE, getLatestDownloadArtifacts } from '../api';
 
 const FALLBACK_LINKS = {
-  windows: `${DOWNLOAD_BASE}/download/Slide_Alpha_v0.0.1.rar`,
-  android: `${DOWNLOAD_BASE}/download/Slide_Alpha_v0.0.1.apk`,
+  windows: `${DOWNLOAD_BASE}/download/Slide_Alpha_v0.0.4.rar`,
+  android: `${DOWNLOAD_BASE}/download/Slide_Alpha_v0.0.4.apk`,
+  linux: `${DOWNLOAD_BASE}/download/Slide_Alpha_v0.0.1.AppImage`,
 };
 
 export default function useDownloadLinks() {
@@ -25,6 +26,7 @@ export default function useDownloadLinks() {
         setDownloadLinks((prev) => ({
           windows: resolveUrl(data.windows, prev.windows),
           android: resolveUrl(data.android, prev.android),
+          linux: resolveUrl(data.linux, prev.linux),
         }));
       })
       .catch(() => {

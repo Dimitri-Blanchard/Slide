@@ -29,8 +29,17 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId, className, de
     remoteVideoStreams,
     ownScreenStream, ownCameraStream,
     joinVoice,
+    shouldAutoJoinChannel,
+    clearSuppressAutoJoin,
+    voiceLeaveAnim,
     getListenVolume01,
   } = useVoice();
+
+  // Navigating to this channel again (fresh mount) clears the post-disconnect guard
+  useEffect(() => {
+    const cid = coercePositiveInt(channel?.id);
+    if (cid != null) clearSuppressAutoJoin(cid);
+  }, [channel?.id, clearSuppressAutoJoin]);
   const { user } = useAuth();
 
   const [focusedId, setFocusedId] = useState(null);
@@ -43,6 +52,10 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId, className, de
   const channelNumId = coercePositiveInt(channel?.id);
   const voiceChId = coercePositiveInt(voiceChannelId);
   const isConnected = channelNumId != null && voiceChId === channelNumId;
+  const isLeavingChannel =
+    voiceLeaveAnim?.kind === 'channel' &&
+    channelNumId != null &&
+    Number(voiceLeaveAnim.channelId) === channelNumId;
   const channelUsers =
     (channelNumId != null && voiceUsers[channelNumId]) ||
     (channel?.id != null && voiceUsers[channel.id]) ||
@@ -157,13 +170,14 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId, className, de
     return list;
   }, [channelUsers, user?.id, effectiveFocusedId, remoteVideoStreams, ownScreenStream, ownCameraStream, speakingUsers]);
 
-  // Auto-join when the voice channel view is rendered
+  // Auto-join when opening a voice channel (not after explicit disconnect on this channel)
   useEffect(() => {
     const cid = coercePositiveInt(channel?.id);
     const tid = coercePositiveInt(teamId);
     if (cid == null || isConnected) return;
+    if (!shouldAutoJoinChannel(cid)) return;
     joinVoice(cid, tid ?? 0, channel.name);
-  }, [channel?.id, channel?.name, teamId, isConnected, joinVoice]);
+  }, [channel?.id, channel?.name, teamId, isConnected, joinVoice, shouldAutoJoinChannel]);
 
   const hasFocusedStream = !!focusedData?.stream;
   const showLivestreamChrome = hasFocusedStream;
@@ -198,7 +212,7 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId, className, de
   return (
     <div
       ref={containerRef}
-      className={`voice-channel-view ${isFullscreen ? 'is-fullscreen' : ''}${className ? ` ${className}` : ''}`}
+      className={`voice-channel-view ${isFullscreen ? 'is-fullscreen' : ''}${isLeavingChannel ? ' voice-channel-view--exiting' : ''}${className ? ` ${className}` : ''}`}
       onMouseMove={showOverlay}
       onMouseLeave={scheduleHide}
     >

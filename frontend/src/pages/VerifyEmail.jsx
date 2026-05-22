@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useAppHomePath } from '../hooks/useAppHomePath';
 import { useLanguage } from '../context/LanguageContext';
 import { auth } from '../api';
 import AuthShell from '../components/AuthShell';
@@ -10,6 +11,7 @@ export default function VerifyEmail() {
   const [status, setStatus] = useState('loading'); // 'loading' | 'success' | 'error'
   const [errorMsg, setErrorMsg] = useState('');
   const { t } = useLanguage();
+  const appHome = useAppHomePath();
 
   useEffect(() => {
     const token = searchParams.get('token');
@@ -55,7 +57,7 @@ export default function VerifyEmail() {
         </div>
 
         <div className="auth-switch" style={{ marginTop: '1.5rem', textAlign: 'center' }}>
-          <Link to="/">{t('auth.backToApp')}</Link>
+          <Link to={appHome}>{t('auth.backToApp')}</Link>
         </div>
       </div>
     </AuthShell>

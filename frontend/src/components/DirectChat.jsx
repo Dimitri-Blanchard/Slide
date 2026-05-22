@@ -137,7 +137,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
   const socket = useSocket();
   const { isUserOnline } = useOnlineUsers();
   const { isOnline, addToQueue: addToOfflineQueue } = useOffline();
-  const { voiceConversationId, voiceUsers, joinVoiceDM, leaveVoiceDM } = useVoice();
+  const { voiceConversationId, voiceLeaveAnim, voiceUsers, joinVoiceDM, leaveVoiceDM } = useVoice();
   const { user } = useAuth();
   const { notify } = useNotification();
   const { sendNotification, shouldNotify } = useSettings();
@@ -1031,7 +1031,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
     }
   }, [isGroup, other?.id]);
 
-  const swipeBack = useSwipeBack(
+  const swipe = useSwipeBack(
     isMobile ? () => navigate('/channels/@me') : undefined
   );
 
@@ -1048,7 +1048,15 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
   
   const hasMessages = messages.length > 0;
 
-  const isInCall = voiceConversationId === parseInt(conversationId, 10);
+  const isInCall =
+    voiceConversationId != null &&
+    conversationId != null &&
+    Number(voiceConversationId) === Number(conversationId);
+  const isLeavingCall =
+    voiceLeaveAnim?.kind === 'dm' &&
+    conversationId != null &&
+    Number(voiceLeaveAnim.conversationId) === Number(conversationId);
+  const showCallPanel = isInCall || isLeavingCall;
   const dmCallKey = `dm_${conversationId}`;
   const dmCallUsers = voiceUsers[dmCallKey] || [];
   const othersInCall = dmCallUsers.filter(u => !sameUserId(u.id, user?.id));
@@ -1057,30 +1065,13 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
 
   const showPlaceholderHeader = !conversation;
 
-  const swipeHandlers = isMobile
-    ? {
-        onTouchStart: swipeBack.onTouchStart,
-        onTouchMove: swipeBack.onTouchMove,
-        onTouchEnd: swipeBack.onTouchEnd,
-        onTouchCancel: swipeBack.onTouchCancel,
-      }
-    : {};
-
   return (
     <div
-      className={`direct-chat chat-container dm-chat ${showStickerPanel ? 'sticker-panel-open' : ''} ${isInCall ? 'in-call' : ''}`}
-      style={{
-        transform: isMobile ? `translateX(${swipeBack.dragOffsetX}px)` : undefined,
-        transition: isMobile && !swipeBack.isDragging ? 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
-      }}
-      {...swipeHandlers}
+      ref={isMobile ? swipe.hostRef : undefined}
+      className={`direct-chat chat-container dm-chat mobile-swipe-host ${showStickerPanel ? 'sticker-panel-open' : ''} ${showCallPanel ? 'in-call' : ''} ${isLeavingCall ? 'leaving-call' : ''} ${isMobile && swipe.isDragging ? 'is-swipe-dragging' : ''}`}
     >
-      {swipeBack.swipeProgress > 0 && (
-        <div
-          className="swipe-back-indicator"
-          style={{ opacity: Math.min(1, swipeBack.swipeProgress * 1.2), transform: `translateY(-50%) translateX(${swipeBack.swipeProgress * 12}px)` }}
-          aria-hidden
-        >
+      {isMobile && (
+        <div className="swipe-back-indicator" aria-hidden>
           <div className="swipe-back-chevron" />
         </div>
       )}
@@ -1173,7 +1164,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
         )}
       </header>
 
-      {!showPlaceholderHeader && isInCall && !isMobile && (
+      {!showPlaceholderHeader && showCallPanel && !isMobile && (
         <DMCallView embedded otherUserName={title} otherUser={other} isGroup={isGroup} groupMembers={otherUsers} />
       )}
 

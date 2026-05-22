@@ -109,6 +109,7 @@ export default function DMCallView({
   const {
     voiceConversationId,
     voiceConversationName,
+    voiceLeaveAnim,
     voiceUsers,
     speakingUsers,
     connectionState,
@@ -211,7 +212,13 @@ export default function DMCallView({
     hadPeerInRosterRef.current = false;
   }, [voiceConversationId]);
 
-  const isConnecting = connectionState === 'connecting';
+  const isLeaving = connectionState === 'leaving';
+  const isExitingPanel =
+    isLeaving ||
+    (voiceLeaveAnim?.kind === 'dm' &&
+      voiceConversationId != null &&
+      Number(voiceLeaveAnim.conversationId) === Number(voiceConversationId));
+  const isConnecting = connectionState === 'connecting' && !isLeaving;
   const peerJoinedRoster = otherCallUsers.length > 0;
   useEffect(() => {
     if (otherCallUsers.length > 0) hadPeerInRosterRef.current = true;
@@ -286,7 +293,12 @@ export default function DMCallView({
     </svg>
   );
 
-  if (isConnecting) {
+  if (isLeaving) {
+    statusClass = 'connecting';
+    statusLabel = t('dmCall.leaving', 'Leaving call...');
+    statusSubtext = null;
+    statusIcon = statusSpinner;
+  } else if (isConnecting) {
     statusClass = 'connecting';
     statusLabel = t('dmCall.connecting');
     statusSubtext = null;
@@ -324,7 +336,7 @@ export default function DMCallView({
   return (
     <div
       ref={panelRef}
-      className={`dm-call-panel ${hasAnyVideo ? 'has-video' : ''} ${compact ? 'dm-call-panel--compact' : ''} ${embedded ? 'dm-call-panel--embedded' : ''}`}
+      className={`dm-call-panel ${hasAnyVideo ? 'has-video' : ''} ${compact ? 'dm-call-panel--compact' : ''} ${embedded ? 'dm-call-panel--embedded' : ''} ${isExitingPanel ? 'dm-call-panel--exiting' : ''}`}
       style={{ height: panelHeight }}
     >
       <div className="dm-call-panel-bg" aria-hidden />

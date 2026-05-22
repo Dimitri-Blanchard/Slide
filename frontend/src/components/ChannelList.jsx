@@ -504,7 +504,7 @@ const LiveStreamHoverPreview = memo(function LiveStreamHoverPreview({ stream, di
 // ═══════════════════════════════════════════════════════════
 // VOICE USER in sidebar (shown under voice channels)
 // ═══════════════════════════════════════════════════════════
-const VoiceUserItem = memo(function VoiceUserItem({ voiceUser, isSpeaking, isScreenSharing, stream, onLiveClick, channelId, teamId }) {
+const VoiceUserItem = memo(function VoiceUserItem({ voiceUser, isSpeaking, isScreenSharing, stream, onLiveClick, channelId, teamId, isExiting }) {
   const [showHoverPreview, setShowHoverPreview] = React.useState(false);
   const hoverTimeoutRef = React.useRef(null);
   const hideTimeoutRef = React.useRef(null);
@@ -538,7 +538,7 @@ const VoiceUserItem = memo(function VoiceUserItem({ voiceUser, isSpeaking, isScr
   return (
     <div
       ref={itemRef}
-      className={`voice-sidebar-user ${isSpeaking ? 'speaking' : ''} ${isScreenSharing ? 'has-live' : ''}`}
+      className={`voice-sidebar-user ${isSpeaking ? 'speaking' : ''} ${isScreenSharing ? 'has-live' : ''} ${isExiting ? 'voice-sidebar-user--exiting' : ''}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -637,13 +637,17 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
 
   const onChannelRowPointerUp = useCallback(() => clearChannelLongPress(), [clearChannelLongPress]);
 
-  const { voiceUsers, speakingUsers, voiceChannelId, remoteVideoStreams, screenSharingUserIds, isScreenSharing, ownScreenStream, setExpandedLiveView } = useVoice();
+  const { voiceUsers, speakingUsers, voiceChannelId, voiceLeaveAnim, remoteVideoStreams, screenSharingUserIds, isScreenSharing, ownScreenStream, setExpandedLiveView } = useVoice();
   const navigate = useNavigate();
 
   const channelVoiceUsers = isVoice
     ? (voiceUsers[channel.id] || voiceUsers[coercePositiveInt(channel.id)] || [])
     : [];
-  const isConnected = isVoice && voiceChannelId === channel.id;
+  const isConnected = isVoice && voiceChannelId != null && String(voiceChannelId) === String(channel.id);
+  const isLeavingChannel =
+    isVoice &&
+    voiceLeaveAnim?.kind === 'channel' &&
+    String(voiceLeaveAnim.channelId) === String(channel.id);
 
   const handleContextMenu = (e) => {
     e.preventDefault();
@@ -738,7 +742,7 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
 
   return (
     <li
-      className={`channel-item ${isActive ? 'active' : ''} ${showUnread ? 'unread' : ''} ${isVoice ? 'voice-channel' : ''} ${isConnected ? 'voice-connected' : ''} ${canManage ? 'channel-item-draggable' : ''} ${isDragOverCategory && dropIndicatorPosition != null && position >= dropIndicatorPosition ? 'channel-item-shift-down' : ''}`}
+      className={`channel-item ${isActive ? 'active' : ''} ${showUnread ? 'unread' : ''} ${isVoice ? 'voice-channel' : ''} ${isConnected || isLeavingChannel ? 'voice-connected' : ''} ${isLeavingChannel ? 'voice-connected--leaving' : ''} ${canManage ? 'channel-item-draggable' : ''} ${isDragOverCategory && dropIndicatorPosition != null && position >= dropIndicatorPosition ? 'channel-item-shift-down' : ''}`}
       draggable={canManage && !!onChannelMove}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
@@ -803,7 +807,12 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
       )}
       {isVoice && channelVoiceUsers.length > 0 && (
         <div className="voice-sidebar-users">
-          {channelVoiceUsers.map(u => (
+          {channelVoiceUsers.map(u => {
+            const exitingSelf =
+              isLeavingChannel &&
+              voiceLeaveAnim?.userId != null &&
+              sameUserId(u.id, voiceLeaveAnim.userId);
+            return (
             <VoiceUserItem
               key={u.id}
               voiceUser={u}
@@ -813,8 +822,10 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
               onLiveClick={() => setExpandedLiveView({ userId: u.id, displayName: u.display_name })}
               channelId={channel.id}
               teamId={teamId}
+              isExiting={exitingSelf}
             />
-          ))}
+            );
+          })}
         </div>
       )}
       {ctxMenu && (
@@ -1124,7 +1135,7 @@ const HeadphoneIcon = ({ deafened }) =>
   deafened ? <HeadphoneOff size={18} strokeWidth={2} /> : <Headphones size={18} strokeWidth={2} />;
 
 export const VoiceStatusBar = memo(function VoiceStatusBar() {
-  const { voiceChannelId, voiceChannelName, voiceConversationId, voiceConversationName, connectionState, isMuted, isDeafened, isScreenSharing, toggleMute, toggleDeafen, startScreenShare, stopScreenShare, leaveVoice, leaveVoiceDM, switchAudioInput, switchAudioOutput } = useVoice();
+  const { voiceChannelId, voiceChannelName, voiceConversationId, voiceConversationName, voiceLeaveAnim, connectionState, isMuted, isDeafened, isScreenSharing, toggleMute, toggleDeafen, startScreenShare, stopScreenShare, leaveVoice, leaveVoiceDM, switchAudioInput, switchAudioOutput } = useVoice();
   const { settings } = useSettings();
   const { inputs, outputs } = useMediaDevices();
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -1139,8 +1150,17 @@ export const VoiceStatusBar = memo(function VoiceStatusBar() {
   const micGroupRef = useRef(null);
   const outputGroupRef = useRef(null);
 
-  const isInVoice = voiceChannelId || voiceConversationId;
-  const displayName = voiceChannelId ? (voiceChannelName || 'Voice Channel') : (voiceConversationName || 'DM Call');
+  const isLeavingChannel = voiceLeaveAnim?.kind === 'channel';
+  const isLeavingDm = voiceLeaveAnim?.kind === 'dm';
+  const isInVoice = voiceChannelId || voiceConversationId || voiceLeaveAnim;
+  const displayName = isLeavingChannel
+    ? (voiceLeaveAnim.channelName || 'Voice Channel')
+    : isLeavingDm
+      ? (voiceLeaveAnim.conversationName || 'DM Call')
+      : voiceChannelId
+        ? (voiceChannelName || 'Voice Channel')
+        : (voiceConversationName || 'DM Call');
+  const isExitingBar = !!voiceLeaveAnim;
 
   useLayoutEffect(() => {
     if (!openDropdown) {
@@ -1239,23 +1259,27 @@ export const VoiceStatusBar = memo(function VoiceStatusBar() {
   if (!isInVoice) return null;
 
   const handleDisconnect = () => {
-    if (voiceChannelId) {
+    if (isExitingBar) return;
+    if (voiceChannelId || isLeavingChannel) {
       leaveVoice();
-      window.dispatchEvent(new CustomEvent('slide:voice-channel-disconnect'));
     } else {
       leaveVoiceDM();
     }
   };
 
   return (
-    <div className="voice-status-bar">
+    <div className={`voice-status-bar${isExitingBar ? ' voice-status-bar--exiting' : ''}`}>
       <div className="vsb-info">
-        <div className={`vsb-status${showVoiceDetails ? ' vsb-status--active' : ''}`} ref={voiceDetailsTriggerRef} onClick={() => setShowVoiceDetails(v => !v)} title={connectionState === 'connected' ? 'Secure connection — Voice is encrypted (DTLS-SRTP)' : connectionState === 'connecting' ? 'Establishing secure connection...' : 'Connection interrupted'}>
+        <div className={`vsb-status${showVoiceDetails ? ' vsb-status--active' : ''}`} ref={voiceDetailsTriggerRef} onClick={() => setShowVoiceDetails(v => !v)} title={connectionState === 'connected' ? 'Secure connection — Voice is encrypted (DTLS-SRTP)' : connectionState === 'connecting' ? 'Establishing secure connection...' : connectionState === 'leaving' ? 'Leaving voice...' : 'Connection interrupted'}>
           <div className="vsb-status-cube">
             <div className="vsb-status-face vsb-status-face--front">
               <div className={`vsb-signal ${connectionState}`} />
               <span className="vsb-label">
-                {connectionState === 'connecting' ? 'Connecting...' : 'Connected'}
+                {connectionState === 'leaving'
+                  ? 'Leaving...'
+                  : connectionState === 'connecting'
+                    ? 'Connecting...'
+                    : 'Connected'}
               </span>
             </div>
             <div className="vsb-status-face vsb-status-face--top">

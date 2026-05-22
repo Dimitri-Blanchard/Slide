@@ -51,7 +51,7 @@ const FAQ_SCHEMA = {
       name: 'What platforms does Slide support?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Slide is available for Windows 10/11 (64-bit), Android (APK), Web, and Linux (coming soon).',
+        text: 'Slide is available for Windows 10/11 (64-bit), Android (APK), Linux (AppImage), and Web.',
       },
     },
   ],
@@ -151,7 +151,7 @@ const faqs = [
   { q: 'What is Slide?', a: 'A privacy-first messaging app for everyone: chat, voice, servers, DMs, and presence — in one place.' },
   { q: 'What makes Slide different?', a: "Full-featured collaboration without compromising privacy. We don't profile you for ads." },
   { q: 'Is my data private?', a: 'Yes. Strong defaults, clear policies, and no selling of conversation data.' },
-  { q: 'What platforms does Slide support?', a: 'Windows 10/11, Android APK, Web, and Linux (coming soon).' },
+  { q: 'What platforms does Slide support?', a: 'Windows 10/11, Android APK, Linux AppImage, and Web.' },
 ];
 
 function scrollToId(id) {
@@ -247,7 +247,7 @@ function Header() {
         </ul>
 
         <div className="nav-actions">
-          <Link to="/login" className="btn btn-ghost nav-web-btn">
+          <Link to="/app" className="btn btn-ghost nav-web-btn">
             <GlobeIcon />
             <span className="nav-web-label">Open in Web</span>
           </Link>
@@ -380,7 +380,7 @@ function Header() {
                     <a href="#download" className="btn btn-primary btn-lg nav-mobile-btn" onClick={goTo('download')}>
                       Get Slide
                     </a>
-                    <Link to="/login" className="btn btn-secondary btn-lg nav-mobile-btn" onClick={closeMenu}>
+                    <Link to="/app" className="btn btn-secondary btn-lg nav-mobile-btn" onClick={closeMenu}>
                       <GlobeIcon />
                       Open in Web
                     </Link>
@@ -450,7 +450,7 @@ function Hero({ downloadLinks }) {
             <div className="hero-platforms" aria-label="Available platforms">
               <span className="hero-platform-pill"><WindowsIcon className="hero-platform-icon" /> Windows</span>
               <span className="hero-platform-pill"><AndroidIcon className="hero-platform-icon" /> Android</span>
-              <span className="hero-platform-pill hero-platform-pill--soon"><LinuxIcon className="hero-platform-icon" /> Linux soon</span>
+              <span className="hero-platform-pill"><LinuxIcon className="hero-platform-icon" /> Linux</span>
               <span className="hero-platform-pill"><GlobeIcon /> Web</span>
             </div>
             <a
@@ -573,12 +573,11 @@ function HowItWorks() {
 function Download({ downloadLinks }) {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: '-80px' });
-  const [linuxNotice, setLinuxNotice] = useState(false);
 
   const platforms = [
     { id: 'windows', name: 'Windows', desc: 'Windows 10/11 · 64-bit', href: downloadLinks.windows, label: 'Download for Windows', Icon: WindowsIcon, available: true },
     { id: 'android', name: 'Android', desc: 'APK · 64-bit', href: downloadLinks.android, label: 'Download for Android', Icon: AndroidIcon, available: true },
-    { id: 'linux', name: 'Linux', desc: 'AppImage & deb — coming soon', label: 'Coming soon', Icon: LinuxIcon, available: false },
+    { id: 'linux', name: 'Linux', desc: 'AppImage · 64-bit', href: downloadLinks.linux, label: 'Download for Linux', Icon: LinuxIcon, available: Boolean(downloadLinks.linux) },
   ];
 
   const trackDownload = (platform) => {
@@ -625,26 +624,15 @@ function Download({ downloadLinks }) {
                 {p.label}
               </a>
             ) : (
-              <>
-                <button
-                  type="button"
-                  className="btn btn-primary download-btn download-btn--soon"
-                  onClick={() => setLinuxNotice(true)}
-                >
-                  {p.label}
-                </button>
-                {linuxNotice && (
-                  <p className="download-card-notice" role="status">
-                    Linux build is coming soon — stay tuned!
-                  </p>
-                )}
-              </>
+              <button type="button" className="btn btn-primary download-btn download-btn--soon" disabled>
+                {p.label}
+              </button>
             )}
           </motion.div>
         ))}
       </motion.div>
       <p className="download-web-hint">
-        Prefer the browser? <Link to="/login">Open Slide in Web</Link> — no install needed.
+        Prefer the browser? <Link to="/app">Open Slide in Web</Link> — no install needed.
       </p>
       </div>
     </section>

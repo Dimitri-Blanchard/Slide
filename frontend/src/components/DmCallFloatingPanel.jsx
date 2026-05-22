@@ -67,6 +67,7 @@ const DmCallFloatingPanel = memo(function DmCallFloatingPanel({ conversations = 
   const {
     voiceConversationId,
     voiceConversationName,
+    voiceLeaveAnim,
     dmCallCallerId,
     dmFloatingPanelCollapsed,
     setDmFloatingPanelCollapsed,
@@ -78,8 +79,13 @@ const DmCallFloatingPanel = memo(function DmCallFloatingPanel({ conversations = 
   const iAmDmCaller =
     dmCallCallerId != null && user?.id != null && Number(dmCallCallerId) === Number(user.id);
 
+  const isLeavingDm =
+    voiceLeaveAnim?.kind === 'dm' &&
+    voiceConversationId != null &&
+    Number(voiceLeaveAnim.conversationId) === Number(voiceConversationId);
+
   const showFloating =
-    !!voiceConversationId &&
+    (!!voiceConversationId || isLeavingDm) &&
     !isMobile &&
     iAmDmCaller &&
     (activeDmRouteId == null || activeDmRouteId !== voiceConversationId);
@@ -208,7 +214,7 @@ const DmCallFloatingPanel = memo(function DmCallFloatingPanel({ conversations = 
   return createPortal(
     <div
       ref={rootRef}
-      className={`dm-call-floating-root ${dmFloatingPanelCollapsed ? 'dm-call-floating-root--collapsed' : ''} ${isDragging ? 'dm-call-floating-root--dragging' : ''}`}
+      className={`dm-call-floating-root ${dmFloatingPanelCollapsed ? 'dm-call-floating-root--collapsed' : ''} ${isDragging ? 'dm-call-floating-root--dragging' : ''} ${isLeavingDm ? 'dm-call-floating-root--exiting' : ''}`}
       style={
         pos == null
           ? {

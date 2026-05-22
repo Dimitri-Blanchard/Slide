@@ -11,10 +11,10 @@ import './UserStatusAndSettings.css';
 
 export default function UserStatusAndSettings({ sidebarWidth }) {
   const navigate = useNavigate();
-  const { isMuted, isDeafened, toggleMute, toggleDeafen, voiceChannelId, voiceConversationId, isScreenSharing, isCameraOn, startScreenShare, stopScreenShare, startScreenShareDM, stopScreenShareDM, startCamera, stopCamera, leaveVoice, leaveVoiceDM, switchAudioInput, switchAudioOutput } = useVoice();
+  const { isMuted, isDeafened, toggleMute, toggleDeafen, voiceChannelId, voiceConversationId, voiceLeaveAnim, isScreenSharing, isCameraOn, startScreenShare, stopScreenShare, startScreenShareDM, stopScreenShareDM, startCamera, stopCamera, leaveVoice, leaveVoiceDM, switchAudioInput, switchAudioOutput } = useVoice();
   const { settings } = useSettings();
   const { inputs, outputs, videoInputs } = useMediaDevices();
-  const isInVoice = voiceChannelId || voiceConversationId;
+  const isInVoice = voiceChannelId || voiceConversationId || voiceLeaveAnim;
 
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
   useEffect(() => {
@@ -56,12 +56,9 @@ export default function UserStatusAndSettings({ sidebarWidth }) {
   }, [openDropdown]);
 
   const handleDisconnect = () => {
-    if (voiceChannelId) {
-      leaveVoice();
-      window.dispatchEvent(new CustomEvent('slide:voice-channel-disconnect'));
-    } else {
-      leaveVoiceDM();
-    }
+    if (voiceLeaveAnim) return;
+    if (voiceChannelId) leaveVoice();
+    else leaveVoiceDM();
   };
 
   if (isFullscreen) return null;

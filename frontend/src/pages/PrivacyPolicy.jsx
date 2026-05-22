@@ -1,13 +1,17 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import AuthShell from '../components/AuthShell';
+import { useAppHomePath } from '../hooks/useAppHomePath';
 import './Legal.css';
 
 export default function PrivacyPolicy() {
+  const appHome = useAppHomePath();
+
   return (
     <AuthShell
       variant="legal"
       legalTitle="Slide — Privacy Policy"
+      legalBackTo={appHome}
     >
       <div className="legal-page legal-page--in-shell">
         <article className="legal-document">
@@ -412,7 +416,7 @@ export default function PrivacyPolicy() {
             <span className="legal-footer-sep">·</span>
             <Link to="/terms">Terms of Service</Link>
           </div>
-          <Link to="/" className="legal-back-link">Back to Home</Link>
+          <Link to={appHome} className="legal-back-link">Back to Home</Link>
         </footer>
       </article>
       </div>

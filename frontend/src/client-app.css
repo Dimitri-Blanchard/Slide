@@ -1,0 +1,64 @@
+/* ═══════════════════════════════════════════════════════════
+   CLIENT APP (Capacitor / Electron) — no marketing site UX
+   html.client-app is set in PlatformContext
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Auth: native shell, no heavy video backdrop ── */
+html.client-app .auth-shell.auth-shell--backdrop {
+  background: var(--bg-primary);
+}
+
+html.client-app .auth-shell--backdrop::before,
+html.client-app .auth-bg-video {
+  display: none !important;
+}
+
+html.client-app .auth-shell.auth-shell--backdrop .auth-shell-header {
+  background: var(--bg-secondary);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html.client-app .auth-shell-main--backdrop {
+  padding: 16px;
+  padding-bottom: calc(16px + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
+}
+
+html.client-app .auth-card {
+  max-width: 100%;
+  width: min(100%, 440px);
+  margin: 0 auto;
+  animation: m-content-rise var(--m-dur-short, 200ms) var(--m-ease-emphasized-decel, cubic-bezier(0.05, 0.7, 0.1, 1)) forwards;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.28);
+}
+
+html.client-app .login-card {
+  max-width: 100%;
+  flex-direction: column;
+}
+
+html.client-app .login-card--native {
+  max-width: min(100%, 440px);
+}
+
+html.client-app .login-separator,
+html.client-app .login-right {
+  display: none !important;
+}
+
+html.client-app .login-left {
+  width: 100%;
+  padding: 28px 24px 32px;
+}
+
+html.client-app.platform-mobile .auth-submit,
+html.client-app.platform-mobile .auth-card input {
+  min-height: 48px;
+}
+
+html.client-app .auth-shell-brand {
+  pointer-events: none;
+  cursor: default;
+}

@@ -14,7 +14,14 @@ export function detectDownloadPlatform() {
 
   if (/android/.test(ua)) return 'android';
   if (/win/.test(ua) || platform.includes('win')) return 'windows';
-  if (/linux/.test(ua) || /cros/.test(ua) || platform.includes('linux')) return 'linux';
+  if (
+    /linux|x11/.test(ua) ||
+    /cros/.test(ua) ||
+    platform.includes('linux') ||
+    platform === 'chrome os'
+  ) {
+    return 'linux';
+  }
 
   return 'windows';
 }
@@ -32,7 +39,12 @@ export function getPlatformLabel(platform) {
   }
 }
 
-/** @param {DownloadPlatform} platform */
-export function isPlatformDownloadAvailable(platform) {
-  return platform !== 'linux';
+/**
+ * @param {DownloadPlatform} platform
+ * @param {{ windows?: string, android?: string, linux?: string } | null | undefined} downloadLinks
+ */
+export function isPlatformDownloadAvailable(platform, downloadLinks) {
+  const href = downloadLinks?.[platform];
+  if (href) return true;
+  return platform === 'windows' || platform === 'android';
 }

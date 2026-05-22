@@ -24,9 +24,9 @@ html.platform-mobile body {
   height: 100%;
   height: var(--app-height, 100dvh);
   max-height: var(--app-height, 100dvh);
-  /* Subtle overscroll containment */
+  /* Subtle overscroll containment; manipulation keeps pinch-zoom off but allows swipe hosts */
   overscroll-behavior: none;
-  touch-action: pan-y pinch-zoom;
+  touch-action: manipulation;
 }
 
 html.platform-mobile #root {

@@ -10,6 +10,8 @@ import AuthShell from '../components/AuthShell';
 import AuthBackdrop from '../components/AuthBackdrop';
 import QrLoginAppLoading from '../components/QrLoginAppLoading';
 import { buildQrLoginScanUrl, normalizeQrLoginCheckResponse, prefetchSlideAppData } from '../utils/qrLoginFlow';
+import { resolvePostLoginPath } from '../utils/postLoginRedirect';
+import { isClientApp } from '../utils/clientApp';
 import './Auth.css';
 
 const QR_POLL_INTERVAL = 600;
@@ -62,7 +64,9 @@ export default function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isAddAccount = searchParams.get('add') === '1';
+  const postLoginPath = resolvePostLoginPath(searchParams.get('redirect'));
   const showMfaStep = !!mfaStep;
+  const clientApp = isClientApp();
 
   useEffect(() => {
     if (authError) {
@@ -80,7 +84,7 @@ export default function Login() {
       setError('');
       try {
         await verify2FA(mfaStep.tempToken, code);
-        navigate('/channels/@me');
+        navigate(postLoginPath, { replace: true });
       } catch (err) {
         setError(err.message || t('auth.mfaInvalidCode'));
         setMfaCode('');
@@ -89,7 +93,7 @@ export default function Login() {
       }
     };
     runVerify();
-  }, [mfaCode, mfaStep, loading, verify2FA, navigate, t]);
+  }, [mfaCode, mfaStep, loading, verify2FA, navigate, postLoginPath, t]);
 
   const rotateQrSession = useCallback(async (reason = 'manual') => {
     if (qrSettledRef.current || rotatingRef.current) return null;
@@ -141,14 +145,14 @@ export default function Login() {
       try {
         await completeQrLogin(user, token);
         await prefetchSlideAppData(setQrLoadStep);
-        navigate('/channels/@me', { replace: true });
+        navigate(postLoginPath, { replace: true });
       } catch {
         setQrError('Connexion confirmée mais impossible d’ouvrir la session. Réessayez.');
         qrSettledRef.current = false;
         setQrPhase('waiting');
       }
     },
-    [completeQrLogin, navigate, stopQrLoops],
+    [completeQrLogin, navigate, postLoginPath, stopQrLoops],
   );
 
   const tryFinishFromCheck = useCallback(
@@ -169,7 +173,7 @@ export default function Login() {
   );
 
   useEffect(() => {
-    if (showMfaStep || !qrToken) return;
+    if (clientApp || showMfaStep || !qrToken) return;
 
     const poll = async () => {
       if (qrSettledRef.current || pollInFlightRef.current) return;
@@ -241,10 +245,11 @@ export default function Login() {
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
     };
-  }, [qrToken, showMfaStep, finishQrLogin, tryFinishFromCheck, rotateQrSession, stopQrLoops]);
+  }, [clientApp, qrToken, showMfaStep, finishQrLogin, tryFinishFromCheck, rotateQrSession, stopQrLoops]);
 
   // Start QR only when login form is shown — not when rotateQrSession identity changes
   useEffect(() => {
+    if (clientApp) return undefined;
     if (showMfaStep) {
       stopQrLoops();
       return;
@@ -260,14 +265,15 @@ export default function Login() {
   }, [showMfaStep, rotateQrSession, stopQrLoops]);
 
   useEffect(() => {
-    if (showMfaStep || !qrToken) return;
+    if (clientApp || showMfaStep || !qrToken) return;
     rotateRef.current = setInterval(() => rotateQrSession('scheduled'), QR_ROTATE_MS);
     return () => {
       if (rotateRef.current) clearInterval(rotateRef.current);
     };
-  }, [qrToken, showMfaStep, rotateQrSession]);
+  }, [clientApp, qrToken, showMfaStep, rotateQrSession]);
 
   useEffect(() => {
+    if (clientApp) return undefined;
     const onOnline = () => {
       setQrOffline(false);
       if (!showMfaStep) rotateQrSession('online');
@@ -282,7 +288,7 @@ export default function Login() {
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
     };
-  }, [showMfaStep, rotateQrSession]); // rotateQrSession is stable ([])
+  }, [clientApp, showMfaStep, rotateQrSession]); // rotateQrSession is stable ([])
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -293,7 +299,7 @@ export default function Login() {
       setLoading(true);
       try {
         await verify2FA(mfaStep.tempToken, mfaCode.replace(/\s/g, ''));
-        navigate('/channels/@me');
+        navigate(postLoginPath, { replace: true });
       } catch (err) {
         setError(err.message || t('auth.mfaInvalidCode'));
         setMfaCode('');
@@ -324,7 +330,7 @@ export default function Login() {
         setMfaCode('');
         setError('');
       } else {
-        navigate('/channels/@me');
+        navigate(postLoginPath, { replace: true });
       }
     } catch (err) {
       setError(err.message || t('errors.wrongPassword'));
@@ -339,8 +345,13 @@ export default function Login() {
     (email.trim() || null);
 
   return (
-    <AuthShell backgroundMedia={<AuthBackdrop variant="login" />} backdropVariant="login">
-      <div className={`auth-card login-card${showMfaStep ? ' login-card--mfa' : ''}${qrPhase === 'loading-app' ? ' login-card--qr-loading' : ''}`}>
+    <AuthShell
+      backgroundMedia={clientApp ? null : <AuthBackdrop variant="login" />}
+      backdropVariant="login"
+    >
+      <div
+        className={`auth-card login-card${clientApp ? ' login-card--native' : ''}${showMfaStep ? ' login-card--mfa' : ''}${qrPhase === 'loading-app' ? ' login-card--qr-loading' : ''}`}
+      >
         <div className="login-left">
           <div className="auth-brand">
             <img src="/logo.png" alt="Slide" className="auth-logo" />
@@ -415,7 +426,7 @@ export default function Login() {
 
                 {isAddAccount && user && (
                   <div className="auth-switch">
-                    <Link to="/channels/@me">Back to app</Link>
+                    <Link to="/app">Back to app</Link>
                   </div>
                 )}
 
@@ -468,7 +479,7 @@ export default function Login() {
           </form>
         </div>
 
-        {!showMfaStep && (
+        {!clientApp && !showMfaStep && (
           <>
         <div className="login-separator" />
 

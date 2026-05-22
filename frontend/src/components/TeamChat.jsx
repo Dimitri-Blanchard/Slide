@@ -1223,35 +1223,18 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
     }
   }, [mobileChannelListOpen, navigate, teamId]);
 
-  const swipeBack = useSwipeBack(
+  const swipe = useSwipeBack(
     isMobile && teamId ? handleSwipeBack : undefined,
     isMobile && teamId && mobileChannelListOpen && lastChannelIdRef.current ? handleSwipeForward : undefined
   );
 
-  const swipeHandlers = isMobile && teamId
-    ? {
-        onTouchStart: swipeBack.onTouchStart,
-        onTouchMove: swipeBack.onTouchMove,
-        onTouchEnd: swipeBack.onTouchEnd,
-        onTouchCancel: swipeBack.onTouchCancel,
-      }
-    : {};
-
   return (
     <div
-      className={`team-view ${mobileChannelListOpen ? 'mobile-channels-open' : ''} ${showStickerPanel ? 'sticker-panel-open' : ''}`}
-      style={{
-        transform: isMobile ? `translateX(${swipeBack.dragOffsetX}px)` : undefined,
-        transition: isMobile && !swipeBack.isDragging ? 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
-      }}
-      {...swipeHandlers}
+      ref={isMobile && teamId ? swipe.hostRef : undefined}
+      className={`team-view mobile-swipe-host ${mobileChannelListOpen ? 'mobile-channels-open' : ''} ${showStickerPanel ? 'sticker-panel-open' : ''} ${isMobile && swipe.isDragging ? 'is-swipe-dragging' : ''}`}
     >
-      {swipeBack.swipeProgress > 0 && channelId && (
-        <div
-          className="swipe-back-indicator"
-          style={{ opacity: Math.min(1, swipeBack.swipeProgress * 1.2), transform: `translateX(${swipeBack.swipeProgress * 12}px)` }}
-          aria-hidden
-        >
+      {isMobile && channelId && (
+        <div className="swipe-back-indicator" aria-hidden>
           <div className="swipe-back-chevron" />
         </div>
       )}

@@ -20,6 +20,7 @@ import { shortcodeToEmoji, emojiToShortcode, emojifyText } from '../utils/emojiS
 import { emojiToAranjaUrl } from '../utils/emojiAranja';
 import { Spoiler, parseInlineMarkdown, parseMessageContent as _parseMarkdown, HAS_MARKDOWN_RE } from '../utils/markdownParser';
 import { getStaticUrl } from '../utils/staticUrl';
+import { getToken } from '../utils/tokenStorage';
 import TextWithAranjaEmojis from './TextWithAranjaEmojis';
 import ContextMenu from './ContextMenu';
 import MessageMobileActionSheet from './MessageMobileActionSheet';
@@ -172,36 +173,497 @@ function formatDuration(seconds) {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Electron: simple HTML5 Audio player — Web Audio API can crash the renderer
-const VoiceMessagePlayerSimple = memo(function VoiceMessagePlayerSimple({ src, pending, failed }) {
-  const audioRef = useRef(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const togglePlay = useCallback(() => {
-    const a = audioRef.current;
-    if (!a || pending || failed) return;
-    if (a.paused) {
-      a.play().catch(() => {});
-      setIsPlaying(true);
-    } else {
-      a.pause();
-      setIsPlaying(false);
+const VOICE_AUDIO_EXTENSIONS = new Set(['webm', 'ogg', 'opus', 'mp3', 'wav', 'm4a', 'aac', 'mp4']);
+
+function mimeFromVoiceExtension(ext) {
+  switch (ext) {
+    case 'webm': return 'audio/webm';
+    case 'ogg':
+    case 'opus': return 'audio/ogg';
+    case 'mp3': return 'audio/mpeg';
+    case 'wav': return 'audio/wav';
+    case 'm4a':
+    case 'mp4': return 'audio/mp4';
+    case 'aac': return 'audio/aac';
+    default: return null;
+  }
+}
+
+function isVoiceAttachment(mimeType, fileName) {
+  if (mimeType?.startsWith('audio/')) return true;
+  const ext = fileName?.split('.').pop()?.toLowerCase();
+  return ext ? VOICE_AUDIO_EXTENSIONS.has(ext) : false;
+}
+
+async function fetchVoiceMessageBlob(src) {
+  if (!src) return null;
+  if (src.startsWith('blob:') || src.startsWith('data:')) {
+    try {
+      const res = await fetch(src);
+      return res.ok ? res.blob() : null;
+    } catch {
+      return null;
     }
-  }, [pending, failed]);
+  }
+  const token = getToken();
+  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+  for (const credentials of ['include', 'omit']) {
+    try {
+      const res = await fetch(src, { credentials, headers: { ...authHeaders } });
+      if (res.ok) return res.blob();
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
+function extractWaveformPeaks(audioBuffer, barCount = 48) {
+  const rawData = audioBuffer.getChannelData(0);
+  const samplesPerBar = Math.floor(rawData.length / barCount);
+  const peaks = [];
+  for (let i = 0; i < barCount; i++) {
+    let sum = 0;
+    const start = i * samplesPerBar;
+    const end = Math.min(start + samplesPerBar, rawData.length);
+    for (let j = start; j < end; j++) sum += Math.abs(rawData[j]);
+    peaks.push(sum / Math.max(end - start, 1));
+  }
+  const maxPeak = Math.max(...peaks, 0.001);
+  return peaks.map((p) => {
+    const normalized = p / maxPeak;
+    return Math.max(10, Math.min(98, normalized * 95 + 5));
+  });
+}
+
+// Electron: cache blob URLs; fetch only on play (parallel prefetch freezes renderer).
+const VOICE_BLOB_CACHE = new Map();
+const VOICE_DURATION_CACHE = new Map();
+const VOICE_CACHE_MAX = 24;
+let voiceBlobFetchQueue = Promise.resolve();
+let voiceDurationProbeQueue = Promise.resolve();
+
+function normalizeAudioDuration(seconds) {
+  if (!Number.isFinite(seconds) || seconds <= 0 || seconds === Infinity) return 0;
+  return seconds;
+}
+
+/** Reliable duration from <audio> (WebM from MediaRecorder often reports Infinity until seek-to-end). */
+function probeAudioDuration(audioEl) {
+  return new Promise((resolve) => {
+    if (!audioEl) {
+      resolve(0);
+      return;
+    }
+    const read = () => normalizeAudioDuration(audioEl.duration);
+    const immediate = read();
+    if (immediate > 0) {
+      resolve(immediate);
+      return;
+    }
+
+    let settled = false;
+    let triedSeek = false;
+    const savedTime = audioEl.currentTime || 0;
+
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      const dur = normalizeAudioDuration(value);
+      if (dur > 0 && savedTime > 0) {
+        try { audioEl.currentTime = Math.min(savedTime, Math.max(0, dur - 0.001)); } catch (_) { /* ignore */ }
+      }
+      resolve(dur);
+    };
+
+    const cleanup = () => {
+      audioEl.removeEventListener('loadedmetadata', onMeta);
+      audioEl.removeEventListener('durationchange', onMeta);
+      audioEl.removeEventListener('loadeddata', onMeta);
+      audioEl.removeEventListener('seeked', onSeeked);
+      audioEl.removeEventListener('error', onError);
+      clearTimeout(timer);
+    };
+
+    const trySeekToEnd = () => {
+      if (triedSeek || audioEl.readyState < 1) return;
+      if (!audioEl.paused) return;
+      triedSeek = true;
+      const raw = audioEl.duration;
+      if (Number.isFinite(raw) && raw > 0) {
+        finish(raw);
+        return;
+      }
+      try {
+        audioEl.addEventListener('seeked', onSeeked);
+        audioEl.currentTime = 1e10;
+      } catch {
+        finish(0);
+      }
+    };
+
+    const onMeta = () => {
+      const dur = read();
+      if (dur > 0) {
+        finish(dur);
+        return;
+      }
+      trySeekToEnd();
+    };
+
+    const onSeeked = () => finish(read());
+    const onError = () => finish(0);
+
+    audioEl.addEventListener('loadedmetadata', onMeta);
+    audioEl.addEventListener('durationchange', onMeta);
+    audioEl.addEventListener('loadeddata', onMeta);
+    audioEl.addEventListener('error', onError);
+
+    const timer = window.setTimeout(() => finish(read()), 5000);
+
+    if (audioEl.readyState >= 1) onMeta();
+  });
+}
+
+function readDurationFromObjectUrl(objectUrl) {
+  const audio = document.createElement('audio');
+  audio.preload = 'auto';
+  audio.src = objectUrl;
+  return probeAudioDuration(audio).finally(() => {
+    audio.src = '';
+  });
+}
+
+function waitForAudioCanPlay(audioEl, timeoutMs = 12000) {
+  return new Promise((resolve, reject) => {
+    if (!audioEl) {
+      reject(new Error('no audio element'));
+      return;
+    }
+    if (audioEl.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+      resolve();
+      return;
+    }
+    let settled = false;
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      audioEl.removeEventListener('canplay', onReady);
+      audioEl.removeEventListener('loadeddata', onReady);
+      audioEl.removeEventListener('error', onError);
+      clearTimeout(timer);
+      if (ok) resolve();
+      else reject(new Error('audio load failed'));
+    };
+    const onReady = () => finish(true);
+    const onError = () => finish(false);
+    const timer = window.setTimeout(() => finish(true), timeoutMs);
+    audioEl.addEventListener('canplay', onReady);
+    audioEl.addEventListener('loadeddata', onReady);
+    audioEl.addEventListener('error', onError);
+    if (audioEl.networkState === HTMLMediaElement.NETWORK_EMPTY) {
+      try { audioEl.load(); } catch { /* ignore */ }
+    }
+  });
+}
+
+function queueVoiceDurationProbe(src) {
+  const cached = VOICE_DURATION_CACHE.get(src);
+  if (cached) return Promise.resolve(cached);
+
+  const job = voiceDurationProbeQueue.then(async () => {
+    const hit = VOICE_DURATION_CACHE.get(src);
+    if (hit) return hit;
+    const entry = await queueVoiceBlobFetch(src);
+    if (!entry) return 0;
+    const dur = await readDurationFromObjectUrl(entry.objectUrl);
+    if (dur > 0) VOICE_DURATION_CACHE.set(src, dur);
+    return dur;
+  });
+
+  voiceDurationProbeQueue = job.catch(() => 0);
+  return job;
+}
+
+function getMessageVoiceDuration(msg) {
+  const fromMsg = msg?._voiceDuration ?? msg?.attachment?.duration ?? msg?.attachment?.duration_seconds;
+  return normalizeAudioDuration(Number(fromMsg));
+}
+
+const VOICE_PLACEHOLDER_BARS = Array.from({ length: 48 }, (_, i) => (
+  Math.max(12, Math.min(90, 28 + Math.sin(i * 0.55) * 22 + (i % 3) * 8))
+));
+
+function trimVoiceCaches() {
+  while (VOICE_BLOB_CACHE.size > VOICE_CACHE_MAX) {
+    const oldest = VOICE_BLOB_CACHE.keys().next().value;
+    const entry = VOICE_BLOB_CACHE.get(oldest);
+    if (entry?.objectUrl) URL.revokeObjectURL(entry.objectUrl);
+    VOICE_BLOB_CACHE.delete(oldest);
+    VOICE_DURATION_CACHE.delete(oldest);
+  }
+  while (VOICE_DURATION_CACHE.size > VOICE_CACHE_MAX) {
+    VOICE_DURATION_CACHE.delete(VOICE_DURATION_CACHE.keys().next().value);
+  }
+}
+
+function queueVoiceBlobFetch(src) {
+  const cached = VOICE_BLOB_CACHE.get(src);
+  if (cached) return Promise.resolve(cached);
+
+  const job = voiceBlobFetchQueue.then(async () => {
+    const hit = VOICE_BLOB_CACHE.get(src);
+    if (hit) return hit;
+    const blob = await fetchVoiceMessageBlob(src);
+    if (!blob) return null;
+    const entry = { objectUrl: URL.createObjectURL(blob), blob };
+    VOICE_BLOB_CACHE.set(src, entry);
+    trimVoiceCaches();
+    return entry;
+  });
+
+  voiceBlobFetchQueue = job.catch(() => {});
+  return job;
+}
+
+// Electron: load audio on play; probe duration one-at-a-time when visible.
+const VoiceMessagePlayerSimple = memo(function VoiceMessagePlayerSimple({ src, pending, failed, initialDuration }) {
+  const rootRef = useRef(null);
+  const audioRef = useRef(null);
+  const waveformRef = useRef(null);
+  const dragRef = useRef(false);
+  const loadGenRef = useRef(0);
+  const playLockRef = useRef(false);
+  const attachedSrcRef = useRef(null);
+  const ignorePauseRef = useRef(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const [hasPlaybackBlob, setHasPlaybackBlob] = useState(() => VOICE_BLOB_CACHE.has(src));
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [mediaReady, setMediaReady] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [duration, setDuration] = useState(() => {
+    const cached = VOICE_DURATION_CACHE.get(src);
+    return normalizeAudioDuration(initialDuration) || cached || 0;
+  });
+  const [currentTime, setCurrentTime] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || pending || failed) return undefined;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setIsVisible(true); },
+      { rootMargin: '80px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [pending, failed, src]);
+
+  useEffect(() => {
+    const cachedDur = VOICE_DURATION_CACHE.get(src);
+    attachedSrcRef.current = null;
+    setHasPlaybackBlob(VOICE_BLOB_CACHE.has(src));
+    setMediaReady(false);
+    setLoadFailed(false);
+    setIsPlaying(false);
+    setIsLoading(false);
+    setCurrentTime(0);
+    setIsVisible(false);
+    const seed = normalizeAudioDuration(initialDuration) || cachedDur || 0;
+    setDuration(seed);
+    const a = audioRef.current;
+    if (a) {
+      a.pause();
+      a.removeAttribute('src');
+      a.load();
+    }
+  }, [src, initialDuration]);
+
+  useEffect(() => {
+    if (!isVisible || pending || failed || !src) return undefined;
+    const known = normalizeAudioDuration(initialDuration) || VOICE_DURATION_CACHE.get(src);
+    if (known > 0) {
+      setDuration(known);
+      return undefined;
+    }
+    let cancelled = false;
+    queueVoiceDurationProbe(src).then((dur) => {
+      if (!cancelled && dur > 0) setDuration(dur);
+    });
+    return () => { cancelled = true; };
+  }, [isVisible, src, pending, failed, initialDuration]);
+
   useEffect(() => {
     const a = audioRef.current;
-    if (!a) return;
-    const onEnd = () => setIsPlaying(false);
+    if (!a) return undefined;
+
+    const onEnd = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
     const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
+    const onPause = () => {
+      if (ignorePauseRef.current) return;
+      setIsPlaying(false);
+    };
+    const onTimeUpdate = () => {
+      if (Number.isFinite(a.currentTime)) setCurrentTime(a.currentTime);
+      const dur = normalizeAudioDuration(a.duration);
+      if (dur > 0) {
+        setDuration((prev) => (prev > 0 ? prev : dur));
+        VOICE_DURATION_CACHE.set(src, dur);
+      }
+    };
+    const onLoaded = () => {
+      ignorePauseRef.current = false;
+      setMediaReady(true);
+      setLoadFailed(false);
+      const dur = normalizeAudioDuration(a.duration);
+      if (dur > 0) {
+        setDuration(dur);
+        VOICE_DURATION_CACHE.set(src, dur);
+      }
+    };
+    const onError = () => {
+      ignorePauseRef.current = false;
+      setMediaReady(false);
+      setLoadFailed(true);
+      setIsPlaying(false);
+    };
+
     a.addEventListener('ended', onEnd);
     a.addEventListener('play', onPlay);
     a.addEventListener('pause', onPause);
+    a.addEventListener('timeupdate', onTimeUpdate);
+    a.addEventListener('loadedmetadata', onLoaded);
+    a.addEventListener('canplay', onLoaded);
+    a.addEventListener('error', onError);
+
     return () => {
       a.removeEventListener('ended', onEnd);
       a.removeEventListener('play', onPlay);
       a.removeEventListener('pause', onPause);
+      a.removeEventListener('timeupdate', onTimeUpdate);
+      a.removeEventListener('loadedmetadata', onLoaded);
+      a.removeEventListener('canplay', onLoaded);
+      a.removeEventListener('error', onError);
     };
   }, [src]);
+
+  const attachPlaybackSource = useCallback((objectUrl) => {
+    const a = audioRef.current;
+    if (!a || !objectUrl || attachedSrcRef.current === objectUrl) return false;
+    attachedSrcRef.current = objectUrl;
+    ignorePauseRef.current = true;
+    a.src = objectUrl;
+    try { a.load(); } catch { /* ignore */ }
+    return true;
+  }, []);
+
+  const ensureAudioLoaded = useCallback(async () => {
+    const cached = VOICE_BLOB_CACHE.get(src);
+    if (cached?.objectUrl) {
+      attachPlaybackSource(cached.objectUrl);
+      setHasPlaybackBlob(true);
+      return cached;
+    }
+    const gen = ++loadGenRef.current;
+    setIsLoading(true);
+    setLoadFailed(false);
+    try {
+      const entry = await queueVoiceBlobFetch(src);
+      if (loadGenRef.current !== gen) return null;
+      if (!entry) {
+        setLoadFailed(true);
+        return null;
+      }
+      attachPlaybackSource(entry.objectUrl);
+      setHasPlaybackBlob(true);
+      return entry;
+    } finally {
+      if (loadGenRef.current === gen) setIsLoading(false);
+    }
+  }, [src, attachPlaybackSource]);
+
+  const seekTo = useCallback((time) => {
+    const a = audioRef.current;
+    if (!a || !duration) return;
+    const clamped = Math.max(0, Math.min(time, duration));
+    a.currentTime = clamped;
+    setCurrentTime(clamped);
+  }, [duration]);
+
+  const seekFromMouse = useCallback((clientX) => {
+    const waveform = waveformRef.current;
+    if (!waveform || !duration) return;
+    const rect = waveform.getBoundingClientRect();
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    seekTo((x / rect.width) * duration);
+  }, [duration, seekTo]);
+
+  const handleMouseDown = useCallback(async (e) => {
+    if (!duration) return;
+    e.preventDefault();
+    if (!mediaReady && !hasPlaybackBlob) {
+      await ensureAudioLoaded();
+    }
+    const a = audioRef.current;
+    if (!a || !duration) return;
+    dragRef.current = true;
+    setIsDragging(true);
+    seekFromMouse(e.clientX);
+
+    const onMove = (ev) => seekFromMouse(ev.clientX);
+    const onUp = () => {
+      dragRef.current = false;
+      setIsDragging(false);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [duration, mediaReady, hasPlaybackBlob, ensureAudioLoaded, seekFromMouse]);
+
+  const togglePlay = useCallback(async () => {
+    if (pending || failed || loadFailed || isLoading || playLockRef.current) return;
+    const a = audioRef.current;
+    if (!a) return;
+
+    playLockRef.current = true;
+    try {
+      if (!a.paused) {
+        a.pause();
+        setIsPlaying(false);
+        return;
+      }
+
+      const entry = await ensureAudioLoaded();
+      if (!entry) return;
+
+      await waitForAudioCanPlay(a);
+      await a.play();
+      setIsPlaying(true);
+      setMediaReady(true);
+
+      const dur = normalizeAudioDuration(a.duration);
+      if (dur > 0) {
+        setDuration(dur);
+        VOICE_DURATION_CACHE.set(src, dur);
+      }
+    } catch {
+      setIsPlaying(false);
+    } finally {
+      playLockRef.current = false;
+    }
+  }, [pending, failed, loadFailed, isLoading, ensureAudioLoaded, src]);
+
+  const showFailed = failed || loadFailed;
+  const effectiveDuration = duration || normalizeAudioDuration(initialDuration) || 0;
+  const hasTotal = effectiveDuration > 0;
+  const progress = hasTotal ? Math.min((currentTime / effectiveDuration) * 100, 100) : 0;
+  const elapsed = formatDuration(currentTime);
+  const total = hasTotal ? formatDuration(effectiveDuration) : '…';
+  const showElapsed = hasTotal && (isPlaying || currentTime > 0);
   if (pending) {
     return (
       <div className="voice-message pending">
@@ -210,42 +672,73 @@ const VoiceMessagePlayerSimple = memo(function VoiceMessagePlayerSimple({ src, p
       </div>
     );
   }
-  if (failed) {
+  if (showFailed) {
     return (
       <div className="voice-message failed">
         <button className="voice-message-play" disabled>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
         </button>
-        <div className="voice-message-body"><span className="voice-message-time">0:00</span></div>
+        <div className="voice-message-body"><span className="voice-message-time">{total}</span></div>
       </div>
     );
   }
+  const bars = VOICE_PLACEHOLDER_BARS;
+  const canInteract = !pending && !failed && !loadFailed;
+
   return (
-    <div className={`voice-message ${isPlaying ? 'playing' : ''}`}>
-      <audio ref={audioRef} src={src} preload="metadata" />
-      <button className="voice-message-play" onClick={togglePlay}>
-        {isPlaying ? (
+    <div
+      ref={rootRef}
+      className={`voice-message ${isPlaying ? 'playing' : ''} ${isDragging ? 'dragging' : ''}`}
+    >
+      <audio ref={audioRef} preload="none" />
+      <button className="voice-message-play" onClick={togglePlay} disabled={!canInteract || isLoading}>
+        {isLoading ? (
+          <span className="voice-message-spinner" />
+        ) : isPlaying ? (
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1.5" /><rect x="14" y="4" width="4" height="16" rx="1.5" /></svg>
         ) : (
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z" /></svg>
         )}
       </button>
       <div className="voice-message-body">
-        <div className="voice-message-waveform" style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {Array.from({ length: 24 }, (_, i) => <div key={i} className="voice-message-bar" style={{ height: `${20 + (i % 5) * 15}%` }} />)}
+        <div
+          className="voice-message-waveform"
+          ref={waveformRef}
+          onMouseDown={handleMouseDown}
+        >
+          {bars.map((height, i) => {
+            const barProgress = ((i + 0.5) / bars.length) * 100;
+            const isPlayed = barProgress <= progress;
+            return (
+              <div
+                key={i}
+                className={`voice-message-bar ${isPlayed ? 'played' : ''}`}
+                style={{ height: `${height}%` }}
+              />
+            );
+          })}
+          {(mediaReady || isPlaying || currentTime > 0) && (
+            <div className="voice-message-scrubber" style={{ left: `${progress}%` }} />
+          )}
         </div>
-        <div className="voice-message-info"><span className="voice-message-time">Voice message</span></div>
+        <div className="voice-message-info">
+          <span className="voice-message-time">
+            {showElapsed ? (
+              <>{elapsed}<span className="voice-message-time-sep">/</span>{total}</>
+            ) : total}
+          </span>
+        </div>
       </div>
     </div>
   );
 });
 
 // Voice message player — uses Web Audio API for reliable seeking on WebM
-// In Electron, use simple HTML5 Audio to avoid renderer crashes
+// In Electron, fetch on play only (prefetch freezes renderer with many voice messages)
 const VoiceMessagePlayer = memo(function VoiceMessagePlayer({ src, fileName, pending, failed, initialDuration }) {
   const isElectron = typeof window !== 'undefined' && window.electron?.isElectron;
   if (isElectron) {
-    return <VoiceMessagePlayerSimple src={src} pending={pending} failed={failed} />;
+    return <VoiceMessagePlayerSimple src={src} pending={pending} failed={failed} initialDuration={initialDuration} />;
   }
   return <VoiceMessagePlayerFull src={src} fileName={fileName} pending={pending} failed={failed} initialDuration={initialDuration} />;
 });
@@ -293,25 +786,7 @@ const VoiceMessagePlayerFull = memo(function VoiceMessagePlayerFull({ src, fileN
         setDuration(dur);
         setLoaded(true);
 
-        // Extract real waveform from audio data
-        const BAR_COUNT = 48;
-        const rawData = audioBuffer.getChannelData(0);
-        const samplesPerBar = Math.floor(rawData.length / BAR_COUNT);
-        const peaks = [];
-        for (let i = 0; i < BAR_COUNT; i++) {
-          let sum = 0;
-          const start = i * samplesPerBar;
-          const end = Math.min(start + samplesPerBar, rawData.length);
-          for (let j = start; j < end; j++) {
-            sum += Math.abs(rawData[j]);
-          }
-          peaks.push(sum / (end - start));
-        }
-        const maxPeak = Math.max(...peaks, 0.001);
-        setWaveformBars(peaks.map(p => {
-          const normalized = p / maxPeak;
-          return Math.max(10, Math.min(98, normalized * 95 + 5));
-        }));
+        setWaveformBars(extractWaveformPeaks(audioBuffer));
       })
       .catch(() => {});
 
@@ -1453,12 +1928,12 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
       file_url = getStaticUrl(contentUrl);
       file_name = originalName || storedFilename;
       file_size = null;
-      mime_type = ext ? `application/${ext}` : 'application/octet-stream';
+      mime_type = mimeFromVoiceExtension(ext) || (ext ? `application/${ext}` : 'application/octet-stream');
     } else {
       // No valid file info, show as text
       return <div className="message-content">{msg.content}</div>;
     }
-    const isAudio = mime_type?.startsWith('audio/');
+    const isAudio = isVoiceAttachment(mime_type, file_name);
     const isVideo = mime_type?.startsWith('video/');
     
     if (isAudio) {
@@ -1469,7 +1944,7 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
             fileName={file_name} 
             pending={msg._pending}
             failed={msg._failed}
-            initialDuration={msg._voiceDuration}
+            initialDuration={getMessageVoiceDuration(msg) || undefined}
           />
         </VoiceMessageBoundary>
       );

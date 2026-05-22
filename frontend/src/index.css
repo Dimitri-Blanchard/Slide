@@ -2,6 +2,8 @@
 @import './modalEnterInstant.css';
 @import './platform-android.css';
 @import './mobile-shell.css';
+@import './mobile-gestures.css';
+@import './client-app.css';
 /* Mobile motion overrides — must come AFTER platform-android.css and animations.css
    so its rules win on html.platform-mobile (Capacitor Android/iOS + small web). */
 @import './mobile-animations.css';

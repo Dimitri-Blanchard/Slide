@@ -61,13 +61,7 @@ html.platform-mobile .app-main > .content-phase-in {
 /* ───────────────────────────────────────────────────────────────────────────
    2. PAGE TRANSITIONS — chat enter (subtle, GPU-only)
    ─────────────────────────────────────────────────────────────────────────── */
-html.platform-mobile .mobile-app-layout .direct-chat,
-html.platform-mobile .mobile-app-layout .team-chat,
-html.platform-mobile .platform-android .direct-chat,
-html.platform-mobile .platform-android .team-chat {
-  /* Override platform-android.css + AppLayout.css 40px slide (felt heavy) */
-  animation: m-page-in var(--m-dur-medium) var(--m-ease-emphasized-decel) forwards;
-}
+/* Page enter for chat lives in mobile-gestures.css (.mobile-swipe-host) */
 
 @keyframes m-page-in {
   from { opacity: 0; transform: translate3d(12px, 0, 0); }
@@ -158,14 +152,14 @@ html.platform-android .channel-item {
   /* Override the platform-android.css opacity 0.65 flash */
   opacity: 1 !important;
 }
-html.platform-android button:active,
-html.platform-android [role="button"]:active,
+html.platform-android button:active:not(:disabled),
+html.platform-android [role="button"]:active:not([aria-disabled="true"]),
 html.platform-android .server-icon-link:active,
 html.platform-android .msp-item:active,
 html.platform-android .mbn-tab:active,
 html.platform-android .dm-item:active,
 html.platform-android .channel-item:active {
-  opacity: 0.92 !important;
+  opacity: 1 !important;
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
@@ -270,17 +264,14 @@ html.platform-mobile .typing-dot {
 html.platform-mobile .mobile-bottom-nav,
 html.platform-mobile .mobile-server-bar,
 html.platform-mobile .mobile-content-main,
-html.platform-mobile .direct-chat,
-html.platform-mobile .team-chat,
 html.platform-mobile .modal,
 html.platform-mobile .modal-overlay,
 html.platform-mobile [class*="bottom-sheet"] {
-  /* Promote to its own layer so the animation doesn't repaint nearby elements. */
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
+
+/* Swipe hosts own transform via --swipe-x; do not force translateZ(0) here */
 
 /* ───────────────────────────────────────────────────────────────────────────
    11. REMOVE retriggers on rerender for chat lists

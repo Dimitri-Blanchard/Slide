@@ -19,13 +19,20 @@ const VoiceFullscreenOverlay = memo(function VoiceFullscreenOverlay({ isMobile, 
     voiceChannelName,
     voiceConversationId,
     voiceConversationName,
+    voiceLeaveAnim,
     voiceViewMinimized,
     setVoiceViewMinimized,
     expandedLiveView,
   } = useVoice();
 
-  const isInVoice = voiceChannelId || voiceConversationId;
-  const displayName = voiceChannelId ? (voiceChannelName || 'Voice') : (voiceConversationName || 'Call');
+  const isInVoice = voiceChannelId || voiceConversationId || voiceLeaveAnim;
+  const displayName = voiceLeaveAnim?.kind === 'channel'
+    ? (voiceLeaveAnim.channelName || 'Voice')
+    : voiceLeaveAnim?.kind === 'dm'
+      ? (voiceLeaveAnim.conversationName || 'Call')
+      : voiceChannelId
+        ? (voiceChannelName || 'Voice')
+        : (voiceConversationName || 'Call');
 
   const conversation = conversations?.find(c => c.conversation_id === voiceConversationId);
   const otherUser = conversation?.participants?.find(p => p.id !== user?.id);
@@ -60,7 +67,7 @@ const VoiceFullscreenOverlay = memo(function VoiceFullscreenOverlay({ isMobile, 
   }
 
   return (
-    <div className="voice-fullscreen-overlay voice-fullscreen-overlay--v2">
+    <div className={`voice-fullscreen-overlay voice-fullscreen-overlay--v2${voiceLeaveAnim ? ' voice-fullscreen-overlay--exiting' : ''}`}>
       <div className="voice-fullscreen-topbar">
         <div className="voice-fullscreen-brand">
           <span className="voice-fullscreen-brand-icon" aria-hidden>

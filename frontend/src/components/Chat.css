@@ -4,22 +4,28 @@
 .swipe-back-indicator {
   position: fixed;
   top: 50%;
-  left: 12px;
+  left: 16px;
   transform: translateY(-50%);
-  z-index: 100;
+  z-index: 120;
   pointer-events: none;
-  transition: opacity 0.08s ease;
+  transition: none;
 }
 
 .swipe-back-chevron {
-  width: 28px;
-  height: 28px;
-  background: var(--bg-primary);
+  width: 36px;
+  height: 36px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
   border-radius: 50%;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+html.platform-mobile .swipe-back-chevron {
+  width: 40px;
+  height: 40px;
 }
 
 .swipe-back-chevron::before {

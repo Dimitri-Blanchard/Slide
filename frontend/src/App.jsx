@@ -1,11 +1,19 @@
 import React, { Suspense, lazy, useState, useEffect, useCallback } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { getToken } from './utils/tokenStorage';
 import AppLayout from './layouts/AppLayout';
 import ElectronTitleBar from './components/ElectronTitleBar';
 import DevelopmentBanner from './components/DevelopmentBanner';
+import ClientAppRootRedirect from './components/ClientAppRootRedirect';
+import NativeRouteGuard from './components/NativeRouteGuard';
 import { lazyRoute } from './utils/lazyRoute';
+import { isClientApp } from './utils/clientApp';
+
+/** Compile-time: Capacitor/Electron bundles exclude the marketing site. */
+const isNativeBundle =
+  import.meta.env.VITE_CAPACITOR === '1' ||
+  import.meta.env.VITE_ELECTRON === '1';
 
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
@@ -17,8 +25,21 @@ const PrivacyPolicy = lazyRoute(() => import('./pages/PrivacyPolicy.jsx'));
 const TermsOfService = lazyRoute(() => import('./pages/TermsOfService.jsx'));
 const QrLoginRedirect = lazy(() => import('./pages/QrLoginRedirect'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
-const LandingPage = lazy(() => import('./pages/LandingPage'));
+const LandingPage = isNativeBundle
+  ? null
+  : lazy(() => import('./pages/LandingPage'));
 const NotFound = lazy(() => import('./pages/NotFound'));
+
+function RootRoute() {
+  if (isClientApp()) {
+    return <ClientAppRootRedirect />;
+  }
+  return (
+    <Suspense fallback={<RouteLoadingFallback />}>
+      <LandingPage />
+    </Suspense>
+  );
+}
 
 function RouteLoadingFallback() {
   return (
@@ -31,16 +52,12 @@ function RouteLoadingFallback() {
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   const hasToken = !!getToken();
-  if (!loading && !user) return <Navigate to="/" replace />;
+  const location = useLocation();
+  if (!loading && !user) {
+    const redirect = encodeURIComponent(`${location.pathname}${location.search}`);
+    return <Navigate to={`/login?redirect=${redirect}`} replace />;
+  }
   if (loading && !hasToken) return <RouteLoadingFallback />;
-  return children;
-}
-
-function PublicRoute({ children }) {
-  const { user, loading } = useAuth();
-  const hasToken = !!getToken();
-  if (!loading && user) return <Navigate to="/channels/@me" replace />;
-  if (loading && hasToken) return <RouteLoadingFallback />;
   return children;
 }
 
@@ -101,14 +118,16 @@ export default function App() {
         <DevelopmentBanner />
       )}
       <div className="app-content">
+        <NativeRouteGuard />
         <Suspense fallback={<RouteLoadingFallback />}>
           <Routes>
+            <Route path="/" element={<RootRoute />} />
             <Route
-              path="/"
+              path="/app"
               element={(
-                <PublicRoute>
-                  <LandingPage />
-                </PublicRoute>
+                <ProtectedRoute>
+                  <Navigate to="/channels/@me" replace />
+                </ProtectedRoute>
               )}
             />
             <Route path="/login" element={<Login />} />

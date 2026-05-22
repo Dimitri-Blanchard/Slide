@@ -77,6 +77,12 @@
   background: rgba(240, 178, 50, 0.08);
 }
 
+.dm-call-panel--exiting .dm-call-status-pill {
+  color: #b5bac1;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+
 .dm-call-status-pill.connecting .dm-call-status-pill-label {
   animation: dm-call-text-blink 1.2s ease-in-out infinite;
 }

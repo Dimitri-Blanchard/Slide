@@ -59,11 +59,19 @@ export function PlatformProvider({ children }) {
     if (typeof document === 'undefined') return;
     const root = document.documentElement;
     // Clean all platform classes first
-    root.classList.remove('platform-android', 'platform-ios', 'platform-electron', 'platform-web', 'platform-mobile', 'platform-desktop');
+    root.classList.remove(
+      'platform-android',
+      'platform-ios',
+      'platform-electron',
+      'platform-web',
+      'platform-mobile',
+      'platform-desktop',
+      'client-app'
+    );
     // Add specific platform class
-    if (platform.isAndroid) root.classList.add('platform-android', 'platform-mobile');
-    else if (platform.isIOS) root.classList.add('platform-ios', 'platform-mobile');
-    else if (platform.isElectron) root.classList.add('platform-electron', 'platform-desktop');
+    if (platform.isAndroid) root.classList.add('platform-android', 'platform-mobile', 'client-app');
+    else if (platform.isIOS) root.classList.add('platform-ios', 'platform-mobile', 'client-app');
+    else if (platform.isElectron) root.classList.add('platform-electron', 'platform-desktop', 'client-app');
     else root.classList.add('platform-web', 'platform-desktop');
   }, [platform]);
 

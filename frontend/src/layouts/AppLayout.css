@@ -110,10 +110,9 @@
   background: var(--bg-primary);
 }
 
-/* ── Mobile chat slide-in animation (forward navigation feel) ── */
-/* Chat screen slides in from the right when a DM/channel is opened */
-.mobile-app-layout .direct-chat,
-.mobile-app-layout .team-chat {
+/* Mobile chat page motion: mobile-gestures.css (.mobile-swipe-host on Capacitor) */
+html:not(.platform-mobile) .mobile-app-layout .direct-chat,
+html:not(.platform-mobile) .mobile-app-layout .team-chat {
   animation: pageSlideInFromRight 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 

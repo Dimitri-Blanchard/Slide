@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   detectDownloadPlatform,
   getPlatformLabel,
@@ -16,34 +16,28 @@ function DownloadIcon() {
   );
 }
 
+function getDownloadHref(platform, downloadLinks) {
+  if (platform === 'android') return downloadLinks.android;
+  if (platform === 'linux') return downloadLinks.linux;
+  return downloadLinks.windows;
+}
+
 /**
- * Hero / sticky CTA: detects OS, shows its icon, downloads or "coming soon" for Linux.
+ * Hero / sticky CTA: detects OS, shows its icon, links to the matching installer.
  */
 export default function SmartDownloadButton({
   downloadLinks,
   className = 'btn btn-primary btn-lg hero-download-btn',
-  showComingSoonHint = true,
 }) {
   const platform = useMemo(() => detectDownloadPlatform(), []);
-  const [linuxNotice, setLinuxNotice] = useState(false);
-  const available = isPlatformDownloadAvailable(platform);
-  const href = platform === 'android' ? downloadLinks.android : downloadLinks.windows;
+  const href = getDownloadHref(platform, downloadLinks);
+  const available = isPlatformDownloadAvailable(platform, downloadLinks) && Boolean(href);
   const label = getPlatformLabel(platform);
 
   const trackDownload = () => {
     if (typeof window.gtag === 'function') {
       window.gtag('event', 'download', { platform });
     }
-  };
-
-  const handleLinuxClick = (e) => {
-    e.preventDefault();
-    setLinuxNotice(true);
-    document.getElementById('download')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    const linuxCard = document.getElementById('download-linux');
-    linuxCard?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    linuxCard?.classList.add('download-card--highlight');
-    window.setTimeout(() => linuxCard?.classList.remove('download-card--highlight'), 2200);
   };
 
   const content = (
@@ -54,22 +48,16 @@ export default function SmartDownloadButton({
     </>
   );
 
-  if (!available) {
+  if (!available || !href) {
     return (
       <div className="smart-download-wrap">
-        <button
-          type="button"
+        <a
+          href="#download"
           className={className}
-          onClick={handleLinuxClick}
-          aria-label={`Download for ${label} — coming soon`}
+          aria-label="View download options"
         >
           {content}
-        </button>
-        {showComingSoonHint && linuxNotice && (
-          <p className="smart-download-notice" role="status">
-            Linux build is coming soon — stay tuned!
-          </p>
-        )}
+        </a>
       </div>
     );
   }

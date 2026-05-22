@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { getToken } from '../utils/tokenStorage';
 
 /**
  * Hook for managing audio input/output devices
@@ -220,8 +221,8 @@ export function useAudioDevices(settings) {
         setOutputDevices(outputs);
         setPermissionGranted(hasLabels);
 
-        // If no labels and we haven't requested permission yet, ask for it
-        if (!hasLabels && !permissionRequestedRef.current) {
+        // If no labels and we haven't requested permission yet, ask for it (logged-in only)
+        if (getToken() && !hasLabels && !permissionRequestedRef.current) {
           permissionRequestedRef.current = true;
           try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
