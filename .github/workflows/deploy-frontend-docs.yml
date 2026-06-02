@@ -5,6 +5,8 @@ name: Publish site to docs/
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
   workflow_dispatch:
 
 permissions:
@@ -23,6 +25,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -52,4 +56,4 @@ jobs:
           folder: frontend/dist
           target-folder: docs
           clean: true
-          commit-message: deploy: frontend to docs/
+          commit-message: 'deploy: frontend to docs/ [skip ci]'
