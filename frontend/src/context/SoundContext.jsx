@@ -49,6 +49,31 @@ function playCallEndSound(ctx, destination, volume = 0.2) {
   setTimeout(() => playTone(ctx, destination, 350, 0.15, volume * 0.8, 'sine'), 100);
 }
 
+function playVoiceJoinSound(ctx, destination, volume = 0.2) {
+  if (!ctx) return;
+  playTone(ctx, destination, 523, 0.07, volume * 0.75, 'sine');
+  setTimeout(() => playTone(ctx, destination, 659, 0.08, volume * 0.8, 'sine'), 65);
+  setTimeout(() => playTone(ctx, destination, 784, 0.1, volume * 0.7, 'sine'), 130);
+}
+
+function playVoiceLeaveSound(ctx, destination, volume = 0.2) {
+  if (!ctx) return;
+  playTone(ctx, destination, 523, 0.08, volume * 0.7, 'sine');
+  setTimeout(() => playTone(ctx, destination, 392, 0.11, volume * 0.75, 'sine'), 75);
+}
+
+function playVoiceMuteSound(ctx, destination, volume = 0.16) {
+  if (!ctx) return;
+  playTone(ctx, destination, 360, 0.05, volume, 'triangle');
+  setTimeout(() => playTone(ctx, destination, 240, 0.07, volume * 0.85, 'triangle'), 50);
+}
+
+function playVoiceUnmuteSound(ctx, destination, volume = 0.16) {
+  if (!ctx) return;
+  playTone(ctx, destination, 300, 0.05, volume * 0.85, 'triangle');
+  setTimeout(() => playTone(ctx, destination, 520, 0.08, volume, 'triangle'), 55);
+}
+
 function playSoftTone(ctx, destination, frequency, duration, volume, attack = 0.03) {
   if (!ctx || !destination) return;
   try {
@@ -167,6 +192,30 @@ export function SoundProvider({ children }) {
     if (ctx && dest) playCallEndSound(ctx, dest, soundVolume);
   }, [getDestination, soundVolume]);
 
+  const playVoiceJoin = useCallback(() => {
+    if (settings?.notification_sound === false) return;
+    const { ctx, dest } = getDestination();
+    if (ctx && dest) playVoiceJoinSound(ctx, dest, soundVolume * 0.75);
+  }, [settings?.notification_sound, getDestination, soundVolume]);
+
+  const playVoiceLeave = useCallback(() => {
+    if (settings?.notification_sound === false) return;
+    const { ctx, dest } = getDestination();
+    if (ctx && dest) playVoiceLeaveSound(ctx, dest, soundVolume * 0.75);
+  }, [settings?.notification_sound, getDestination, soundVolume]);
+
+  const playVoiceMute = useCallback(() => {
+    if (settings?.notification_sound === false) return;
+    const { ctx, dest } = getDestination();
+    if (ctx && dest) playVoiceMuteSound(ctx, dest, soundVolume * 0.7);
+  }, [settings?.notification_sound, getDestination, soundVolume]);
+
+  const playVoiceUnmute = useCallback(() => {
+    if (settings?.notification_sound === false) return;
+    const { ctx, dest } = getDestination();
+    if (ctx && dest) playVoiceUnmuteSound(ctx, dest, soundVolume * 0.7);
+  }, [settings?.notification_sound, getDestination, soundVolume]);
+
   const startRingtone = useCallback(({ force = false } = {}) => {
     if (!force && settings?.notification_sound === false) return;
     const { ctx, dest } = getDestination();
@@ -187,9 +236,13 @@ export function SoundProvider({ children }) {
     playPing,
     playMessageSent,
     playCallEnd,
+    playVoiceJoin,
+    playVoiceLeave,
+    playVoiceMute,
+    playVoiceUnmute,
     startRingtone,
     stopRingtone,
-  }), [playNotification, playPing, playMessageSent, playCallEnd, startRingtone, stopRingtone]);
+  }), [playNotification, playPing, playMessageSent, playCallEnd, playVoiceJoin, playVoiceLeave, playVoiceMute, playVoiceUnmute, startRingtone, stopRingtone]);
 
   return (
     <SoundContext.Provider value={value}>
@@ -205,6 +258,10 @@ export function useSounds() {
     playPing: () => {},
     playMessageSent: () => {},
     playCallEnd: () => {},
+    playVoiceJoin: () => {},
+    playVoiceLeave: () => {},
+    playVoiceMute: () => {},
+    playVoiceUnmute: () => {},
     startRingtone: () => {},
     stopRingtone: () => {},
   };

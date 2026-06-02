@@ -9,6 +9,16 @@
 @import './mobile-animations.css';
 @import './design-quality.css';
 
+/* Product rule: never render CSS outlines anywhere. */
+*,
+*::before,
+*::after,
+*:focus,
+*:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+}
+
 /* ═══════════════════════════════════════════════════════════
    GLOBAL RESET
    ═══════════════════════════════════════════════════════════ */

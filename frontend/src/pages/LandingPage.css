@@ -573,7 +573,8 @@ body.landing-nav-open .landing-page > *:not(.header):not(.landing-backdrop):not(
   border-radius: var(--radius);
 }
 
-.download-card-icon svg {
+.download-card-icon svg,
+.download-card-icon .platform-brand-icon {
   width: 32px;
   height: 32px;
 }
@@ -582,14 +583,8 @@ body.landing-nav-open .landing-page > *:not(.header):not(.landing-backdrop):not(
   background: rgba(0, 120, 215, 0.2);
 }
 
-.download-card-icon-img {
-  width: 32px;
-  height: 32px;
-  object-fit: contain;
-}
-
-/* Windows icon: tint blue (#00a4ef) */
-.download-card--windows .download-card-icon-img {
+/* Windows brand SVG — tint to match card accent */
+.download-card--windows .platform-brand-icon {
   filter: brightness(0) saturate(100%) invert(48%) sepia(79%) saturate(2476%) hue-rotate(189deg);
 }
 
@@ -601,6 +596,30 @@ body.landing-nav-open .landing-page > *:not(.header):not(.landing-backdrop):not(
 .download-card--linux .download-card-icon {
   background: rgba(252, 198, 36, 0.18);
   color: #fcc624;
+}
+
+/* Linux brand SVG — warm gold tint */
+.download-card--linux .platform-brand-icon {
+  filter: brightness(0) saturate(100%) invert(78%) sepia(52%) saturate(640%) hue-rotate(358deg);
+}
+
+.platform-brand-icon {
+  display: block;
+  object-fit: contain;
+}
+
+.hero-platform-pill .platform-brand-icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.92;
+  filter: brightness(0) invert(0.88);
+}
+
+.platform-os-icon.platform-brand-icon {
+  width: 20px;
+  height: 20px;
+  opacity: 0.95;
+  filter: brightness(0) invert(0.92);
 }
 
 .download-card--soon {

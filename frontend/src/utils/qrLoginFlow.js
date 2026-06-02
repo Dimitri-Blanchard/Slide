@@ -137,9 +137,9 @@ export function emitQrLoginResult(success, message) {
 }
 
 function triggerMobileSuccessFeedback() {
-  if (typeof navigator !== 'undefined' && navigator.vibrate) {
-    navigator.vibrate([40, 60, 40]);
-  }
+  import('./nativeHaptics')
+    .then(({ hapticNotification }) => hapticNotification('Success'))
+    .catch(() => {});
 }
 
 /** Preload account data after QR success (native app). */

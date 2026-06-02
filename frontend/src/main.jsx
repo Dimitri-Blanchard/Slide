@@ -174,6 +174,63 @@ if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform()) {
     CapApp.addListener('appUrlOpen', ({ url }) => handleLoginUrl(url));
     CapApp.getLaunchUrl().then(({ url }) => handleLoginUrl(url)).catch(() => {});
   });
+  import('@capacitor/push-notifications').then(({ PushNotifications }) => {
+    const getStringValue = (data, keys) => {
+      for (const key of keys) {
+        const value = data?.[key];
+        if (value != null && value !== '') return String(value);
+      }
+      return '';
+    };
+
+    const hashFromPath = (path) => {
+      if (!path || typeof path !== 'string') return '';
+      if (path.startsWith('#/')) return path;
+      if (path.startsWith('/')) return `#${path}`;
+      try {
+        const url = new URL(path);
+        if (url.hash?.startsWith('#/')) return url.hash;
+        return `#${url.pathname}${url.search || ''}`;
+      } catch {
+        return '';
+      }
+    };
+
+    const routeFromNotificationData = (rawData = {}) => {
+      const data = rawData && typeof rawData === 'object' ? rawData : {};
+      const explicitRoute = hashFromPath(getStringValue(data, ['url', 'route', 'path', 'link']));
+      if (explicitRoute) return explicitRoute;
+
+      const conversationId = getStringValue(data, ['conversationId', 'conversation_id', 'dmId', 'dm_id']);
+      if (conversationId) return `#/channels/@me/${encodeURIComponent(conversationId)}`;
+
+      const teamId = getStringValue(data, ['teamId', 'team_id', 'serverId', 'server_id']);
+      const channelId = getStringValue(data, ['channelId', 'channel_id']);
+      if (teamId && channelId) {
+        return `#/team/${encodeURIComponent(teamId)}/channel/${encodeURIComponent(channelId)}`;
+      }
+      if (teamId) return `#/team/${encodeURIComponent(teamId)}`;
+
+      return '#/channels/@me';
+    };
+
+    PushNotifications.addListener('pushNotificationActionPerformed', (event) => {
+      const notification = event?.notification || {};
+      const data = notification.data || notification.extra || {};
+      const targetHash = routeFromNotificationData(data);
+      if (!targetHash) return;
+
+      if (window.location.hash === targetHash) {
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+        return;
+      }
+      window.location.hash = targetHash;
+    }).catch((err) => {
+      console.warn('[Push] Notification action listener failed:', err?.message || err);
+    });
+  }).catch((err) => {
+    console.warn('[Push] Native notification tap setup failed:', err?.message || err);
+  });
 }
 
 // Capacitor and Electron require HashRouter — BrowserRouter causes black screen

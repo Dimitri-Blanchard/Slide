@@ -8,6 +8,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
+import { initPushNotifications } from '../utils/nativeNotifications';
 
 async function getVapidKey() {
   try {
@@ -38,12 +39,21 @@ async function registerSW() {
 }
 
 export function usePushNotifications(enabled = true) {
-  const supported = ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
-  const [permission, setPermission] = useState(supported ? Notification.permission : 'denied');
+  const native = typeof window !== 'undefined' && !!window.Capacitor?.isNativePlatform?.();
+  const webSupported = typeof window !== 'undefined'
+    && typeof navigator !== 'undefined'
+    && ('serviceWorker' in navigator)
+    && ('PushManager' in window)
+    && ('Notification' in window);
+  const supported = native || webSupported;
+  const [permission, setPermission] = useState(() => (
+    native ? 'default' : (webSupported ? Notification.permission : 'denied')
+  ));
   const [subscribed, setSubscribed] = useState(false);
 
   useEffect(() => {
     if (!supported || !enabled) return;
+    if (native) return;
     // Check if already subscribed
     navigator.serviceWorker.ready.then(reg => {
       reg.pushManager.getSubscription().then(sub => {
@@ -54,6 +64,37 @@ export function usePushNotifications(enabled = true) {
 
   const subscribe = useCallback(async () => {
     if (!supported) return { ok: false, reason: 'unsupported' };
+    if (native) {
+      const platform = window.Capacitor?.getPlatform?.() || 'android';
+      const syncedTokens = new Set();
+      const syncNativeToken = async (token) => {
+        if (!token) return;
+        if (syncedTokens.has(token)) return;
+        syncedTokens.add(token);
+        await api('/push/subscribe', {
+          method: 'POST',
+          body: JSON.stringify({
+            endpoint: `capacitor:fcm:${token}`,
+            platform,
+            token,
+            keys: {},
+          }),
+        }).catch((err) => console.warn('[Push] Native token sync failed:', err?.message));
+      };
+
+      const result = await initPushNotifications(async (token) => {
+        await syncNativeToken(token);
+        setPermission('granted');
+        setSubscribed(true);
+      });
+      if (result.token) {
+        await syncNativeToken(result.token);
+      }
+      setPermission(result.permission || (result.supported ? 'granted' : 'denied'));
+      const ok = result.permission === 'granted' && !!result.token;
+      setSubscribed(ok);
+      return ok ? { ok: true } : { ok: false, reason: result.permission || 'no-token' };
+    }
     if (Notification.permission === 'denied') return { ok: false, reason: 'denied' };
 
     const vapidKey = await getVapidKey();
@@ -92,10 +133,15 @@ export function usePushNotifications(enabled = true) {
       console.error('[Push] Subscribe error:', err.message);
       return { ok: false, reason: err.message };
     }
-  }, [supported]);
+  }, [supported, native]);
 
   const unsubscribe = useCallback(async () => {
     if (!supported) return;
+    if (native) {
+      // FCM token revocation is platform-managed; backend can expire old capacitor:fcm endpoints.
+      setSubscribed(false);
+      return;
+    }
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
     if (sub) {
@@ -107,7 +153,7 @@ export function usePushNotifications(enabled = true) {
       }).catch(() => {});
     }
     setSubscribed(false);
-  }, [supported]);
+  }, [supported, native]);
 
   return { supported, permission, subscribed, subscribe, unsubscribe };
 }

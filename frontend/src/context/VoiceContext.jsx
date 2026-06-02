@@ -4,6 +4,7 @@ import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
 import { useSettings } from './SettingsContext';
 import { useNotification } from './NotificationContext';
+import { useSounds } from './SoundContext';
 import { randomUuidV4 } from '../utils/randomUuid';
 
 const VoiceContext = createContext(null);
@@ -271,11 +272,35 @@ function clearDmRoster(prev, conversationId) {
   return next;
 }
 
+function normalizePresenceChannel(entry) {
+  const id = coercePositiveInt(
+    typeof entry === 'object' && entry !== null
+      ? (entry.channelId ?? entry.channel_id ?? entry.id)
+      : entry
+  );
+  if (id == null) return null;
+  return {
+    id,
+    teamId: coercePositiveInt(entry?.teamId ?? entry?.team_id),
+    name: entry?.channelName ?? entry?.channel_name ?? entry?.name ?? '',
+    teamName: entry?.teamName ?? entry?.team_name ?? '',
+  };
+}
+
+function normalizePresenceDm(entry) {
+  return coercePositiveInt(
+    typeof entry === 'object' && entry !== null
+      ? (entry.conversationId ?? entry.conversation_id ?? entry.id)
+      : entry
+  );
+}
+
 export function VoiceProvider({ children }) {
   const socket = useSocket();
   const { user } = useAuth();
   const { settings, updateSetting } = useSettings();
   const { notify } = useNotification();
+  const { playVoiceJoin, playVoiceLeave, playVoiceMute, playVoiceUnmute } = useSounds();
   const hasNitroRef = useRef(!!user?.has_nitro);
   useEffect(() => {
     hasNitroRef.current = !!user?.has_nitro;
@@ -386,8 +411,39 @@ export function VoiceProvider({ children }) {
   const myVoiceClientIdRef = useRef(createVoiceClientId());
   /** Channels the user explicitly left — blocks VoiceChannel auto-rejoin until they join again. */
   const suppressAutoJoinChannelsRef = useRef(new Set());
+  const recentVoiceJoinUntilRef = useRef(0);
+  const voiceSoundsRef = useRef({
+    join: () => {},
+    leave: () => {},
+    mute: () => {},
+    unmute: () => {},
+  });
+  const voiceStateSoundBurstRef = useRef({ at: 0, count: 0 });
   const leaveAnimTimerRef = useRef(null);
   const isLeavingCallRef = useRef(false);
+
+  useEffect(() => {
+    voiceSoundsRef.current = {
+      join: playVoiceJoin,
+      leave: playVoiceLeave,
+      mute: playVoiceMute,
+      unmute: playVoiceUnmute,
+    };
+  }, [playVoiceJoin, playVoiceLeave, playVoiceMute, playVoiceUnmute]);
+
+  const playVoiceStateSound = useCallback((muted) => {
+    const now = Date.now();
+    const burst = voiceStateSoundBurstRef.current;
+    if (now - burst.at > 700) {
+      burst.at = now;
+      burst.count = 0;
+    }
+    burst.count += 1;
+    // Avoid machine-gun audio for bulk moderation actions such as muting everyone.
+    if (burst.count > 3) return;
+    if (muted) voiceSoundsRef.current.mute();
+    else voiceSoundsRef.current.unmute();
+  }, []);
 
   const cancelLeaveAnimation = useCallback(() => {
     if (leaveAnimTimerRef.current) {
@@ -554,6 +610,14 @@ export function VoiceProvider({ children }) {
       return await navigator.mediaDevices.getUserMedia(getAudioConstraints(false));
     }
   }, [getAudioConstraints]);
+
+  const hasActiveLocalMic = useCallback(() => {
+    const tracks = [
+      ...(localStreamRef.current?.getAudioTracks?.() || []),
+      ...(processedStreamRef.current?.getAudioTracks?.() || []),
+    ];
+    return tracks.some(track => track.readyState !== 'ended');
+  }, []);
 
   const startSpeakingDetection = useCallback(async (stream) => {
     try {
@@ -1071,7 +1135,16 @@ export function VoiceProvider({ children }) {
       return;
     }
 
+    try {
+      if (audioContextRef.current?.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+    } catch (_) {
+      /* WebView may suspend AudioContext until user gesture */
+    }
+
     suppressAutoJoinChannelsRef.current.delete(chId);
+    recentVoiceJoinUntilRef.current = Date.now() + 5000;
     cancelLeaveAnimation();
 
     const currentCh = coercePositiveInt(voiceChannelIdRef.current);
@@ -1102,10 +1175,16 @@ export function VoiceProvider({ children }) {
       return;
     }
 
+    const prevJoined = coercePositiveInt(voiceChannelIdRef.current);
+    const prevConversationId = voiceConversationIdRef.current;
+
     setConnectionState('connecting');
     setVoiceChannelId(chId);
+    voiceChannelIdRef.current = chId;
     setVoiceTeamId(tId);
+    voiceTeamIdRef.current = tId;
     setVoiceChannelName(channelName);
+    setVoiceViewMinimized(false);
     setSpeakingUsers(new Set());
 
     // Wait for socket to be connected (handles returning after idle/disconnect)
@@ -1117,8 +1196,7 @@ export function VoiceProvider({ children }) {
       }
     }
 
-    // Leave any current voice (server or DM) — after socket is ready
-    const prevJoined = coercePositiveInt(voiceChannelIdRef.current);
+    // Leave any previous voice (server or DM) — after socket is ready.
     if (prevJoined != null && prevJoined !== chId) {
       rotateVoiceClientId();
       if (socket) socket.emit('voice_leave', { channelId: prevJoined });
@@ -1132,11 +1210,11 @@ export function VoiceProvider({ children }) {
         return next;
       });
     }
-    if (voiceConversationIdRef.current) {
+    if (prevConversationId) {
       rotateVoiceClientId();
-      if (socket) socket.emit('voice_leave_dm', { conversationId: voiceConversationIdRef.current });
+      if (socket) socket.emit('voice_leave_dm', { conversationId: prevConversationId });
       cleanupAllConnections();
-      const dmKey = `dm_${voiceConversationIdRef.current}`;
+      const dmKey = `dm_${prevConversationId}`;
       setVoiceUsers(prev => {
         const next = { ...prev };
         if (next[dmKey]) {
@@ -1146,6 +1224,7 @@ export function VoiceProvider({ children }) {
         return next;
       });
       setVoiceConversationId(null);
+      voiceConversationIdRef.current = null;
       setVoiceConversationName('');
       setDmCallCallerId(null);
     }
@@ -1194,9 +1273,11 @@ export function VoiceProvider({ children }) {
     setConnectionState('connected');
     setIsDeafened(false);
     window.electron?.blockPowerSave?.();
+    voiceSoundsRef.current.join();
   }, [socket, user, acquireMicStream, startSpeakingDetection, cleanupAllConnections, rotateVoiceClientId]);
 
   const finishLeaveVoice = useCallback((channelId, skipEmit) => {
+    recentVoiceJoinUntilRef.current = 0;
     setVoiceUsers((prev) => clearChannelRoster(prev, channelId));
     setVoiceChannelMeta((prev) => {
       const next = { ...prev };
@@ -1228,6 +1309,7 @@ export function VoiceProvider({ children }) {
     const opts = typeof options === 'object' && options !== null ? options : {};
     const { skipEmit = false, animate = true } = opts;
     if (!voiceChannelIdRef.current || isLeavingCallRef.current) return;
+    recentVoiceJoinUntilRef.current = 0;
 
     const channelId = voiceChannelIdRef.current;
     const chId = coercePositiveInt(channelId);
@@ -1239,6 +1321,7 @@ export function VoiceProvider({ children }) {
     }
 
     isLeavingCallRef.current = true;
+    voiceSoundsRef.current.leave();
     if (leaveAnimTimerRef.current) clearTimeout(leaveAnimTimerRef.current);
 
     setVoiceLeaveAnim({
@@ -1282,7 +1365,17 @@ export function VoiceProvider({ children }) {
   const joinVoiceDM = useCallback(async (conversationId, otherUserName) => {
     const convId = typeof conversationId === 'number' ? conversationId : parseInt(conversationId, 10);
     if (Number.isNaN(convId)) return;
+
+    try {
+      if (audioContextRef.current?.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+    } catch (_) {
+      /* Android WebView */
+    }
+
     removeDeclinedDmConv(convId);
+    recentVoiceJoinUntilRef.current = Date.now() + 5000;
     cancelLeaveAnimation();
     if (voiceConversationIdRef.current === convId) {
       if (user?.id) {
@@ -1332,6 +1425,7 @@ export function VoiceProvider({ children }) {
     setVoiceConversationId(convId);
     voiceConversationIdRef.current = convId;
     setVoiceConversationName(otherUserName || 'DM Call');
+    setVoiceViewMinimized(false);
 
     // Wait for socket to be connected (handles returning after idle/disconnect)
     if (socket && !socket.connected) {
@@ -1357,7 +1451,9 @@ export function VoiceProvider({ children }) {
         return next;
       });
       setVoiceChannelId(null);
+      voiceChannelIdRef.current = null;
       setVoiceTeamId(null);
+      voiceTeamIdRef.current = null;
       setVoiceChannelName('');
     }
     if (previousDmConversationId != null) {
@@ -1420,9 +1516,11 @@ export function VoiceProvider({ children }) {
 
     setConnectionState('connected');
     window.electron?.blockPowerSave?.();
+    voiceSoundsRef.current.join();
   }, [socket, user, acquireMicStream, startSpeakingDetection, cleanupAllConnections, rotateVoiceClientId, removeDeclinedDmConv]);
 
   const finishLeaveVoiceDM = useCallback((conversationId, convId, skipEmit) => {
+    recentVoiceJoinUntilRef.current = 0;
     setVoiceUsers((prev) => clearDmRoster(prev, conversationId));
     setSpeakingUsers(new Set());
     setVoiceConversationId(null);
@@ -1449,6 +1547,7 @@ export function VoiceProvider({ children }) {
     const opts = typeof options === 'object' && options !== null ? options : {};
     const { skipEmit = false, animate = true } = opts;
     if (!voiceConversationIdRef.current || isLeavingCallRef.current) return;
+    recentVoiceJoinUntilRef.current = 0;
 
     const conversationId = voiceConversationIdRef.current;
     const convId = coercePositiveInt(conversationId) ?? conversationId;
@@ -1459,6 +1558,7 @@ export function VoiceProvider({ children }) {
     }
 
     isLeavingCallRef.current = true;
+    voiceSoundsRef.current.leave();
     if (leaveAnimTimerRef.current) clearTimeout(leaveAnimTimerRef.current);
 
     setVoiceLeaveAnim({
@@ -1490,6 +1590,32 @@ export function VoiceProvider({ children }) {
   const clearSuppressAutoJoin = useCallback((channelId) => {
     const id = coercePositiveInt(channelId);
     if (id != null) suppressAutoJoinChannelsRef.current.delete(id);
+  }, []);
+
+  const suppressAutoJoin = useCallback((channelId) => {
+    const id = coercePositiveInt(channelId);
+    if (id != null) suppressAutoJoinChannelsRef.current.add(id);
+  }, []);
+
+  /** Resume Web Audio + unlock playback — required on Android WebView after user tap. */
+  const resumeVoiceSession = useCallback(async () => {
+    try {
+      if (audioContextRef.current?.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+    } catch (e) {
+      console.warn('resumeVoiceSession:', e?.message);
+    }
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx && !audioContextRef.current) {
+        const ctx = new Ctx();
+        if (ctx.state === 'suspended') await ctx.resume();
+        ctx.close?.();
+      }
+    } catch (_) {
+      /* ignore */
+    }
   }, []);
 
   const authUserIdRef = useRef(null);
@@ -1548,7 +1674,7 @@ export function VoiceProvider({ children }) {
     const currentlyMuted = isMuted;
     if (currentlyMuted) {
       // User wants to unmute — check if we have a mic
-      if (!localStreamRef.current || !localStreamRef.current.getAudioTracks().length) {
+      if (!hasActiveLocalMic()) {
         notify.warning('No microphone detected');
         try {
           const stream = await acquireMicStream();
@@ -1556,6 +1682,7 @@ export function VoiceProvider({ children }) {
           await startSpeakingDetection(stream);
           isMutedRef.current = false;
           setIsMuted(false);
+          playVoiceStateSound(false);
           if (isDeafened) {
             setIsDeafened(false);
             isDeafenedRef.current = false;
@@ -1641,9 +1768,10 @@ export function VoiceProvider({ children }) {
           [chId]: prev2[chId].map(u => sameUserId(u.id, user?.id) ? { ...u, muted: newMuted, deafened: newDeafened } : u),
         };
       });
+      playVoiceStateSound(newMuted);
       return newMuted;
     });
-  }, [socket, user?.id, isDeafened, isMuted, notify, acquireMicStream, startSpeakingDetection, renegotiateAllPeerConnections]);
+  }, [socket, user?.id, isDeafened, isMuted, notify, acquireMicStream, hasActiveLocalMic, startSpeakingDetection, renegotiateAllPeerConnections, playVoiceStateSound]);
 
   const toggleDeafen = useCallback(() => {
     setIsDeafened(prev => {
@@ -1653,6 +1781,7 @@ export function VoiceProvider({ children }) {
       let newMuted = isMuted;
       if (newDeafened && !isMuted) {
         newMuted = true;
+        isMutedRef.current = true;
         setIsMuted(true);
         if (localStreamRef.current) {
           localStreamRef.current.getAudioTracks().forEach(t => { t.enabled = false; });
@@ -1661,13 +1790,20 @@ export function VoiceProvider({ children }) {
           processedStreamRef.current.getAudioTracks().forEach(t => { t.enabled = false; });
         }
       } else if (!newDeafened && isMuted) {
-        newMuted = false;
-        setIsMuted(false);
-        if (localStreamRef.current) {
-          localStreamRef.current.getAudioTracks().forEach(t => { t.enabled = true; });
-        }
-        if (processedStreamRef.current) {
-          processedStreamRef.current.getAudioTracks().forEach(t => { t.enabled = true; });
+        if (hasActiveLocalMic()) {
+          newMuted = false;
+          isMutedRef.current = false;
+          setIsMuted(false);
+          if (localStreamRef.current) {
+            localStreamRef.current.getAudioTracks().forEach(t => { t.enabled = true; });
+          }
+          if (processedStreamRef.current) {
+            processedStreamRef.current.getAudioTracks().forEach(t => { t.enabled = true; });
+          }
+        } else {
+          newMuted = true;
+          isMutedRef.current = true;
+          setIsMuted(true);
         }
       }
 
@@ -1696,7 +1832,7 @@ export function VoiceProvider({ children }) {
       });
       return newDeafened;
     });
-  }, [socket, user?.id, isMuted]);
+  }, [socket, user?.id, isMuted, hasActiveLocalMic]);
 
   // Keep tray action refs in sync
   useEffect(() => {
@@ -2116,7 +2252,7 @@ export function VoiceProvider({ children }) {
           [channelId]: { channelName: channelName || 'Voice', teamName: teamName || 'Server', teamId },
         }));
       }
-      if (voiceChannelIdRef.current === channelId) {
+      if (coercePositiveInt(voiceChannelIdRef.current) === coercePositiveInt(channelId)) {
         syncPeersFromEndpointRows(users);
       }
     };
@@ -2125,6 +2261,7 @@ export function VoiceProvider({ children }) {
       setVoiceUsers(prev => {
         const existing = prev[channelId] || [];
         if (existing.some(u => sameUserId(u.id, joinedUser.id))) return prev;
+        if (!sameUserId(joinedUser.id, user?.id)) voiceSoundsRef.current.join();
         return { ...prev, [channelId]: [...existing, joinedUser] };
       });
       if (teamId != null && (channelName || teamName)) {
@@ -2136,7 +2273,7 @@ export function VoiceProvider({ children }) {
     };
 
     const onVoiceEndpointJoined = ({ channelId, user: ju }) => {
-      if (voiceChannelIdRef.current !== channelId) return;
+      if (coercePositiveInt(voiceChannelIdRef.current) !== coercePositiveInt(channelId)) return;
       const vc = ju?.voice_client_id;
       if (vc == null) return;
       if (sameUserId(ju.id, user?.id) && vc === myVoiceClientIdRef.current) return;
@@ -2144,7 +2281,7 @@ export function VoiceProvider({ children }) {
     };
 
     const onVoiceEndpointLeft = ({ channelId, userId, voice_client_id }) => {
-      if (voiceChannelIdRef.current !== channelId) return;
+      if (coercePositiveInt(voiceChannelIdRef.current) !== coercePositiveInt(channelId)) return;
       if (voice_client_id) cleanupPeerConnection(peerKey(userId, voice_client_id));
     };
 
@@ -2152,8 +2289,23 @@ export function VoiceProvider({ children }) {
       if (sameUserId(userId, user?.id)) {
         const ch = coercePositiveInt(channelId);
         if (ch != null && coercePositiveInt(voiceChannelIdRef.current) === ch) {
-          suppressAutoJoinChannelsRef.current.add(ch);
-          leaveVoice({ skipEmit: true });
+          if (isLeavingCallRef.current) {
+            suppressAutoJoinChannelsRef.current.add(ch);
+            return;
+          }
+          if (Date.now() < recentVoiceJoinUntilRef.current && socket?.connected) {
+            const tid = coercePositiveInt(voiceTeamIdRef.current);
+            socket.emit('voice_join', {
+              channelId: ch,
+              teamId: tid ?? 0,
+              voiceClientId: myVoiceClientIdRef.current,
+            });
+            socket.emit('voice_state', {
+              channelId: ch,
+              muted: isMutedRef.current,
+              deafened: isDeafenedRef.current,
+            });
+          }
         }
         return;
       }
@@ -2185,6 +2337,7 @@ export function VoiceProvider({ children }) {
         next.delete(userId);
         return next;
       });
+      voiceSoundsRef.current.leave();
       cleanupPeersForLogicalUserId(userId);
       setSpeakingUsers(prev => {
         const sk = speakingKey(userId);
@@ -2198,6 +2351,10 @@ export function VoiceProvider({ children }) {
     const onVoiceStateUpdate = ({ channelId, userId, muted, deafened }) => {
       setVoiceUsers(prev => {
         if (!prev[channelId]) return prev;
+        if (!sameUserId(userId, user?.id)) {
+          const current = prev[channelId].find(u => sameUserId(u.id, userId));
+          if (current && current.muted !== muted) playVoiceStateSound(muted);
+        }
         return {
           ...prev,
           [channelId]: prev[channelId].map(u =>
@@ -2222,7 +2379,7 @@ export function VoiceProvider({ children }) {
     };
 
     const onVoiceScreenSharing = ({ channelId, userId, sharing }) => {
-      if (voiceChannelIdRef.current !== channelId) return;
+      if (coercePositiveInt(voiceChannelIdRef.current) !== coercePositiveInt(channelId)) return;
       setScreenSharingUserIds(prev => {
         const next = new Set(prev);
         if (sharing) next.add(userId);
@@ -2267,6 +2424,7 @@ export function VoiceProvider({ children }) {
         const key = dmKey(conversationId);
         const existing = prev[key] || [];
         if (existing.some(u => sameUserId(u.id, joinedUser.id))) return prev;
+        if (!sameUserId(joinedUser.id, user?.id)) voiceSoundsRef.current.join();
         return { ...prev, [key]: [...existing, joinedUser] };
       });
     };
@@ -2334,7 +2492,18 @@ export function VoiceProvider({ children }) {
       setIncomingCall(prev => (prev?.conversationId === conversationId && sameUserId(prev?.caller?.id, userId) ? null : prev));
       if (sameUserId(userId, user?.id)) {
         if (Number(voiceConversationIdRef.current) === Number(conversationId)) {
-          leaveVoiceDM({ skipEmit: true });
+          if (isLeavingCallRef.current) return;
+          if (Date.now() < recentVoiceJoinUntilRef.current && socket?.connected) {
+            socket.emit('voice_join_dm', {
+              conversationId,
+              voiceClientId: myVoiceClientIdRef.current,
+            });
+            socket.emit('voice_state_dm', {
+              conversationId,
+              muted: isMutedRef.current,
+              deafened: isDeafenedRef.current,
+            });
+          }
         }
         return;
       }
@@ -2349,6 +2518,7 @@ export function VoiceProvider({ children }) {
         }
         return { ...prev, [key]: filtered };
       });
+      voiceSoundsRef.current.leave();
       cleanupPeersForLogicalUserId(userId);
       setSpeakingUsers(prev => {
         const sk = speakingKey(userId);
@@ -2363,6 +2533,10 @@ export function VoiceProvider({ children }) {
       setVoiceUsers(prev => {
         const key = dmKey(conversationId);
         if (!prev[key]) return prev;
+        if (!sameUserId(userId, user?.id)) {
+          const current = prev[key].find(u => sameUserId(u.id, userId));
+          if (current && current.muted !== muted) playVoiceStateSound(muted);
+        }
         return {
           ...prev,
           [key]: prev[key].map(u =>
@@ -2511,32 +2685,142 @@ export function VoiceProvider({ children }) {
       if (kind === 'channel') {
         const ch = coercePositiveInt(channelId);
         if (ch != null && coercePositiveInt(voiceChannelIdRef.current) === ch) {
-          leaveVoice({ skipEmit: true });
+          if (isLeavingCallRef.current) return;
+          if (Date.now() < recentVoiceJoinUntilRef.current && socket?.connected) {
+            const tid = coercePositiveInt(voiceTeamIdRef.current);
+            socket.emit('voice_join', {
+              channelId: ch,
+              teamId: tid ?? 0,
+              voiceClientId: myVoiceClientIdRef.current,
+            });
+            socket.emit('voice_state', {
+              channelId: ch,
+              muted: isMutedRef.current,
+              deafened: isDeafenedRef.current,
+            });
+          }
         }
       } else if (kind === 'dm') {
         const conv = coercePositiveInt(conversationId);
         if (conv != null && Number(voiceConversationIdRef.current) === Number(conv)) {
-          leaveVoiceDM({ skipEmit: true });
+          if (isLeavingCallRef.current) return;
+          if (Date.now() < recentVoiceJoinUntilRef.current && socket?.connected) {
+            socket.emit('voice_join_dm', {
+              conversationId: conv,
+              voiceClientId: myVoiceClientIdRef.current,
+            });
+            socket.emit('voice_state_dm', {
+              conversationId: conv,
+              muted: isMutedRef.current,
+              deafened: isDeafenedRef.current,
+            });
+          }
         }
       }
     };
     socket.on('voice_you_left', onVoiceYouLeft);
 
     const onVoicePresenceSync = ({ channels = [], dmConversations = [] }) => {
-      const serverChannels = new Set(
-        channels.map((c) => coercePositiveInt(c)).filter((c) => c != null)
-      );
-      const serverDms = new Set(
-        dmConversations.map((c) => coercePositiveInt(c)).filter((c) => c != null)
-      );
+      const normalizedChannels = channels.map(normalizePresenceChannel).filter(Boolean);
+      const normalizedDms = dmConversations.map(normalizePresenceDm).filter((c) => c != null);
+      const serverChannels = new Set(normalizedChannels.map((c) => c.id));
+      const serverDms = new Set(normalizedDms);
       const localCh = coercePositiveInt(voiceChannelIdRef.current);
       const localDm = coercePositiveInt(voiceConversationIdRef.current);
+
+      if (isLeavingCallRef.current) return;
+
+      if (localCh == null && localDm == null) {
+        const recoveredChannel = normalizedChannels[0];
+        if (recoveredChannel) {
+          voiceChannelIdRef.current = recoveredChannel.id;
+          voiceTeamIdRef.current = recoveredChannel.teamId;
+          setVoiceChannelId(recoveredChannel.id);
+          setVoiceTeamId(recoveredChannel.teamId);
+          setVoiceChannelName(recoveredChannel.name || 'Voice Channel');
+          setVoiceConversationId(null);
+          voiceConversationIdRef.current = null;
+          setVoiceConversationName('');
+          setConnectionState('connected');
+          setVoiceViewMinimized(false);
+          window.electron?.blockPowerSave?.();
+          if (recoveredChannel.teamId != null || recoveredChannel.name || recoveredChannel.teamName) {
+            setVoiceChannelMeta((prev) => ({
+              ...prev,
+              [recoveredChannel.id]: {
+                channelName: recoveredChannel.name || 'Voice Channel',
+                teamName: recoveredChannel.teamName || 'Server',
+                teamId: recoveredChannel.teamId,
+              },
+            }));
+          }
+          if (socket?.connected) {
+            socket.emit('voice_state', {
+              channelId: recoveredChannel.id,
+              muted: isMutedRef.current,
+              deafened: isDeafenedRef.current,
+            });
+          }
+          return;
+        }
+
+        const recoveredDm = normalizedDms[0];
+        if (recoveredDm != null) {
+          voiceConversationIdRef.current = recoveredDm;
+          setVoiceConversationId(recoveredDm);
+          setVoiceConversationName('DM Call');
+          setVoiceChannelId(null);
+          voiceChannelIdRef.current = null;
+          setVoiceTeamId(null);
+          voiceTeamIdRef.current = null;
+          setVoiceChannelName('');
+          setConnectionState('connected');
+          setVoiceViewMinimized(false);
+          setDmFloatingPanelCollapsed(false);
+          window.electron?.blockPowerSave?.();
+          if (socket?.connected) {
+            socket.emit('voice_state_dm', {
+              conversationId: recoveredDm,
+              muted: isMutedRef.current,
+              deafened: isDeafenedRef.current,
+            });
+          }
+          return;
+        }
+      }
+
       if (localCh != null && !serverChannels.has(localCh)) {
-        suppressAutoJoinChannelsRef.current.add(localCh);
-        leaveVoice({ skipEmit: true });
+        if (Date.now() < recentVoiceJoinUntilRef.current && socket?.connected) {
+          const tid = coercePositiveInt(voiceTeamIdRef.current);
+          socket.emit('voice_join', {
+            channelId: localCh,
+            teamId: tid ?? 0,
+            voiceClientId: myVoiceClientIdRef.current,
+          });
+          socket.emit('voice_state', {
+            channelId: localCh,
+            muted: isMutedRef.current,
+            deafened: isDeafenedRef.current,
+          });
+        } else {
+          suppressAutoJoinChannelsRef.current.add(localCh);
+          leaveVoice({ skipEmit: true });
+        }
       }
       if (localDm != null && !serverDms.has(localDm)) {
-        leaveVoiceDM({ skipEmit: true });
+        if (Date.now() < recentVoiceJoinUntilRef.current && socket?.connected) {
+          socket.emit('voice_join_dm', {
+            conversationId: localDm,
+            voiceClientId: myVoiceClientIdRef.current,
+          });
+          socket.emit('voice_state_dm', {
+            conversationId: localDm,
+            muted: isMutedRef.current,
+            deafened: isDeafenedRef.current,
+          });
+        } else {
+          leaveVoiceDM({ skipEmit: true });
+        }
       }
       if (!user?.id) return;
       setVoiceUsers((prev) => {
@@ -2613,7 +2897,7 @@ export function VoiceProvider({ children }) {
       socket.off('voice_presence_sync', onVoicePresenceSync);
       socket.off('connect', requestVoiceSync);
     };
-  }, [socket, user?.id, createPeerConnection, cleanupPeerConnection, leaveVoice, leaveVoiceDM, emitVoiceSignal, hasDeclinedDmConv, removeDeclinedDmConv]);
+  }, [socket, user?.id, createPeerConnection, cleanupPeerConnection, leaveVoice, leaveVoiceDM, emitVoiceSignal, hasDeclinedDmConv, removeDeclinedDmConv, playVoiceStateSound]);
 
   // In Electron: stay in voice when minimized to tray, only leave on real quit.
   // In browser: leave voice after 2 minutes hidden (long absence / tab forgotten).
@@ -2717,6 +3001,8 @@ export function VoiceProvider({ children }) {
     leaveVoice,
     shouldAutoJoinChannel,
     clearSuppressAutoJoin,
+    suppressAutoJoin,
+    resumeVoiceSession,
     joinVoiceDM,
     leaveVoiceDM,
     ringVoiceDM,
@@ -2748,7 +3034,8 @@ export function VoiceProvider({ children }) {
     isScreenSharing, isCameraOn, ownScreenStream, ownCameraStream,
     screenSharingUserIds, videoEnabledUserIds, remoteVideoStreams,
     expandedLiveView, voiceViewMinimized, dmFloatingPanelCollapsed,
-    joinVoice, leaveVoice, shouldAutoJoinChannel, clearSuppressAutoJoin, joinVoiceDM, leaveVoiceDM, ringVoiceDM, ringAgainTrigger,
+    joinVoice, leaveVoice, shouldAutoJoinChannel, clearSuppressAutoJoin, suppressAutoJoin, resumeVoiceSession,
+    joinVoiceDM, leaveVoiceDM, ringVoiceDM, ringAgainTrigger,
     toggleMute, toggleDeafen, startScreenShare, stopScreenShare,
     startScreenShareDM, stopScreenShareDM, startCamera, stopCamera,
     switchAudioInput, switchAudioOutput, switchVideoInput,

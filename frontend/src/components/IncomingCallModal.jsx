@@ -9,7 +9,7 @@ import Avatar from './Avatar';
 import './IncomingCallModal.css';
 
 export default function IncomingCallModal() {
-  const { incomingCall, rejectIncomingCall, joinVoiceDM } = useVoice();
+  const { incomingCall, rejectIncomingCall, joinVoiceDM, resumeVoiceSession, setVoiceViewMinimized } = useVoice();
   const { t } = useLanguage();
   const { sendNotification } = useSettings();
   const { startRingtone, stopRingtone } = useSounds();
@@ -32,8 +32,10 @@ export default function IncomingCallModal() {
 
   const { conversationId, caller } = incomingCall;
 
-  const handleAccept = () => {
+  const handleAccept = async () => {
     stopRingtone();
+    await resumeVoiceSession();
+    setVoiceViewMinimized(false);
     joinVoiceDM(conversationId, caller?.display_name);
   };
 

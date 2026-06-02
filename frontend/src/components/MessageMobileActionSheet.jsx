@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { emojiToShortcode, shortcodeToEmoji } from '../utils/emojiShortcodes';
 import { emojiToAranjaUrl } from '../utils/emojiAranja';
 import { getRecentEmojis, saveRecentEmoji } from './StickerPicker';
+import { useNativeBackHandler } from '../hooks/useNativeBackHandler';
 import './MessageMobileActionSheet.css';
 
 function SheetRow({ icon, label, onClick, danger }) {
@@ -112,6 +113,11 @@ const MessageMobileActionSheet = memo(function MessageMobileActionSheet({
     String(msg.sender_id) !== String(currentUserId) &&
     !msg.is_webhook &&
     !msg.sender?.is_webhook;
+
+  useNativeBackHandler(true, () => {
+    onClose();
+    return true;
+  }, 125);
 
   const showCopyLink = messageSurface?.kind === 'server' || messageSurface?.kind === 'dm';
   const mentionUsername = msg.sender?.username;

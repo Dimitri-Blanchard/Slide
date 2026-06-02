@@ -137,7 +137,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
   const socket = useSocket();
   const { isUserOnline } = useOnlineUsers();
   const { isOnline, addToQueue: addToOfflineQueue } = useOffline();
-  const { voiceConversationId, voiceLeaveAnim, voiceUsers, joinVoiceDM, leaveVoiceDM } = useVoice();
+  const { voiceConversationId, voiceLeaveAnim, voiceUsers, joinVoiceDM, leaveVoiceDM, resumeVoiceSession, setVoiceViewMinimized } = useVoice();
   const { user } = useAuth();
   const { notify } = useNotification();
   const { sendNotification, shouldNotify } = useSettings();
@@ -1032,7 +1032,9 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
   }, [isGroup, other?.id]);
 
   const swipe = useSwipeBack(
-    isMobile ? () => navigate('/channels/@me') : undefined
+    isMobile ? () => navigate('/channels/@me') : undefined,
+    undefined,
+    { edgeOnly: true }
   );
 
   // Not found: API returned no conversation and we're done loading
@@ -1126,7 +1128,10 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
                 leaveVoiceDM();
               } else {
                 messageListRef.current?.preserveScroll?.();
-                joinVoiceDM(convId, title);
+                resumeVoiceSession().then(() => {
+                  setVoiceViewMinimized(false);
+                  joinVoiceDM(convId, title);
+                });
               }
             }}
             title={isInCall ? t('call.endCall', 'End Call') : canJoinCall ? t('call.joinCall', 'Join Call') : t('call.startCall', 'Start Voice Call')}

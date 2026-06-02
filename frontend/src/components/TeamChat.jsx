@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { messages as messagesApi, channels as channelsApi, teams as teamsApi, reactions as reactionsApi, servers, invalidateCache, direct as directApi } from '../api';
 import { useSocket } from '../context/SocketContext';
@@ -10,6 +9,7 @@ import { useSounds } from '../context/SoundContext';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import ConfirmModal from './ConfirmModal';
+import VoiceJoinSheet from './VoiceJoinSheet';
 import StickerPicker from './StickerPicker';
 import { undoToast } from './UndoToast';
 import { useLanguage } from '../context/LanguageContext';
@@ -175,7 +175,19 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   const socket = useSocket();
   const { user } = useAuth();
   const { isOnline, addToQueue: addToOfflineQueue } = useOffline();
-  const { expandedLiveView, setExpandedLiveView, remoteVideoStreams, ownScreenStream, voiceChannelId, voiceConversationId, voiceViewMinimized, joinVoice } = useVoice();
+  const {
+    expandedLiveView,
+    setExpandedLiveView,
+    remoteVideoStreams,
+    ownScreenStream,
+    voiceChannelId,
+    voiceConversationId,
+    voiceViewMinimized,
+    setVoiceViewMinimized,
+    joinVoice,
+    suppressAutoJoin,
+    resumeVoiceSession,
+  } = useVoice();
   const { notify, addInboxItem } = useNotification();
   const { playPing } = useSounds();
   const { t } = useLanguage();
@@ -1189,15 +1201,23 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
     return String(voiceChannelId ?? '') !== String(displayChannel.id);
   }, [isMobile, displayChannel?.id, displayChannel?.channel_type, teamId, voiceChannelId]);
 
+  useEffect(() => {
+    if (needsVoiceJoinPrompt && displayChannel?.id) {
+      suppressAutoJoin(displayChannel.id);
+    }
+  }, [needsVoiceJoinPrompt, displayChannel?.id, suppressAutoJoin]);
+
   const handleVoiceJoinConfirm = useCallback(async () => {
     if (!displayChannel || displayChannel.channel_type !== 'voice' || !teamId || voiceJoining) return;
     setVoiceJoining(true);
     try {
+      await resumeVoiceSession();
       await joinVoice(displayChannel.id, parseInt(teamId, 10), displayChannel.name);
+      setVoiceViewMinimized(false);
     } finally {
       setVoiceJoining(false);
     }
-  }, [displayChannel, teamId, joinVoice, voiceJoining]);
+  }, [displayChannel, teamId, joinVoice, voiceJoining, resumeVoiceSession, setVoiceViewMinimized]);
 
   const handleVoiceJoinCancel = useCallback(() => {
     const fallback = lastTextChannelIdRef.current || channels.find(c => c?.channel_type !== 'voice')?.id;
@@ -1225,7 +1245,8 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
 
   const swipe = useSwipeBack(
     isMobile && teamId ? handleSwipeBack : undefined,
-    isMobile && teamId && mobileChannelListOpen && lastChannelIdRef.current ? handleSwipeForward : undefined
+    isMobile && teamId && mobileChannelListOpen && lastChannelIdRef.current ? handleSwipeForward : undefined,
+    { edgeOnly: true }
   );
 
   return (
@@ -1434,35 +1455,19 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
       )}
       {showInbox && <InboxPanel onClose={() => setShowInbox(false)} />}
 
-      {needsVoiceJoinPrompt && displayChannel && createPortal(
-        <div className="voice-join-sheet-layer" role="dialog" aria-modal="true" aria-labelledby="voice-join-sheet-title">
-          <button type="button" className="voice-join-sheet-backdrop" onClick={handleVoiceJoinCancel} aria-label={t('common.close')} />
-          <div className="voice-join-sheet">
-            <div className="voice-join-sheet-grab" aria-hidden />
-            <p className="voice-join-sheet-kicker">{t('chat.voiceChannelKicker')}</p>
-            <h2 id="voice-join-sheet-title" className="voice-join-sheet-title">
-              {t('chat.voiceJoinTitle', { name: displayChannel.name })}
-            </h2>
-            <p className="voice-join-sheet-desc">
-              {t('chat.voiceJoinDesc')}
-            </p>
-            <div className="voice-join-sheet-actions">
-              <button
-                type="button"
-                className="voice-join-sheet-btn voice-join-sheet-btn-primary"
-                onClick={handleVoiceJoinConfirm}
-                disabled={voiceJoining}
-              >
-                {voiceJoining ? t('chat.voiceJoining') : t('chat.voiceJoinConfirm')}
-              </button>
-              <button type="button" className="voice-join-sheet-btn voice-join-sheet-btn-muted" style={{ marginTop: 10 }} onClick={handleVoiceJoinCancel}>
-                {t('chat.voiceJoinNotNow')}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      <VoiceJoinSheet
+        isOpen={needsVoiceJoinPrompt && !!displayChannel}
+        channelName={displayChannel?.name}
+        kicker={t('chat.voiceChannelKicker')}
+        title={t('chat.voiceJoinTitle', { name: displayChannel?.name || '' })}
+        description={t('chat.voiceJoinDesc')}
+        confirmLabel={t('chat.voiceJoinConfirm')}
+        joiningLabel={t('chat.voiceJoining')}
+        cancelLabel={t('chat.voiceJoinNotNow')}
+        joining={voiceJoining}
+        onConfirm={handleVoiceJoinConfirm}
+        onCancel={handleVoiceJoinCancel}
+      />
     </div>
   );
 });

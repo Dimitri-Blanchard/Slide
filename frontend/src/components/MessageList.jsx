@@ -26,6 +26,7 @@ import ContextMenu from './ContextMenu';
 import MessageMobileActionSheet from './MessageMobileActionSheet';
 import { teams as teamsApi, direct as directApi } from '../api';
 import { useNotification } from '../context/NotificationContext';
+import { hapticImpact } from '../utils/nativeHaptics';
 import './MessageList.css';
 import './MentionSuggestions.css';
 
@@ -2509,9 +2510,7 @@ const MessageItem = memo(function MessageItem({
     longPressTimerRef.current = window.setTimeout(() => {
       longPressTimerRef.current = null;
       longPressStartRef.current = null;
-      if ('vibrate' in navigator) {
-        try { navigator.vibrate(12); } catch (_) { /* ignore */ }
-      }
+      hapticImpact('Medium');
       if (onMobileLongPress) {
         onMobileLongPress(msg);
       } else {

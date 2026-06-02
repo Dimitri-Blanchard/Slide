@@ -79,9 +79,25 @@
 
     <link rel="icon" type="image/png" href="/icon.png" />
     <link rel="apple-touch-icon" href="/icon.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <script>
+      (function () {
+        var isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+        if (isNative) return;
+        var preconnectGoogle = document.createElement('link');
+        preconnectGoogle.rel = 'preconnect';
+        preconnectGoogle.href = 'https://fonts.googleapis.com';
+        document.head.appendChild(preconnectGoogle);
+        var preconnectGstatic = document.createElement('link');
+        preconnectGstatic.rel = 'preconnect';
+        preconnectGstatic.href = 'https://fonts.gstatic.com';
+        preconnectGstatic.crossOrigin = '';
+        document.head.appendChild(preconnectGstatic);
+        var font = document.createElement('link');
+        font.rel = 'stylesheet';
+        font.href = 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap';
+        document.head.appendChild(font);
+      })();
+    </script>
     
     <!-- Favicon and apple-touch-icon above load icon.png; avoid preload to prevent "not used" warnings -->
     <style>

@@ -15,6 +15,7 @@ import { ShareInviteModal } from './InviteModal';
 import ContextMenu from './ContextMenu';
 import ConfirmModal from './ConfirmModal';
 import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
+import { hapticImpact } from '../utils/nativeHaptics';
 import './ServerBar.css';
 
 const MUTED_SERVERS_KEY = 'slide_muted_servers';
@@ -188,9 +189,7 @@ const ServerIcon = memo(function ServerIcon({ team, isActive, hasUnread = false,
       longPressTimerRef.current = null;
       longPressStartRef.current = null;
       longPressFiredRef.current = true;
-      if ('vibrate' in navigator) {
-        try { navigator.vibrate(12); } catch (_) { /* ignore */ }
-      }
+      hapticImpact('Medium');
       onContextMenu?.({ clientX: cx, clientY: cy, preventDefault: () => {}, stopPropagation: () => {} }, team);
     }, 480);
   }, [compactTouchUi, team, onContextMenu]);
@@ -375,9 +374,7 @@ const HomeButton = memo(function HomeButton({ isActive, onContextMenu, homeTarge
       longPressTimerRef.current = null;
       longPressStartRef.current = null;
       longPressFiredRef.current = true;
-      if ('vibrate' in navigator) {
-        try { navigator.vibrate(12); } catch (_) { /* ignore */ }
-      }
+      hapticImpact('Medium');
       onContextMenu?.({ clientX: cx, clientY: cy, preventDefault: () => {}, stopPropagation: () => {} });
     }, 480);
   }, [compactTouchUi, onContextMenu]);

@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { settings as settingsApi } from '../api';
 import { getToken } from '../utils/tokenStorage';
+import { isClientApp } from '../utils/clientApp';
+import { scheduleNativeNotification } from '../utils/nativeNotifications';
 import { useLanguage } from './LanguageContext';
 
 const SettingsContext = createContext(null);
@@ -453,6 +455,15 @@ export function SettingsProvider({ children }) {
       });
     }
     
+    if (isClientApp() && settings.desktop_notifications) {
+      scheduleNativeNotification({
+        title,
+        body: !settings.message_previews && !options.isCall ? 'Nouveau message' : options.body,
+        isCall: !!options.isCall,
+        extra: options.extra || {},
+      });
+    }
+
     // Show desktop notification if enabled and permitted
     if (settings.desktop_notifications && 
         'Notification' in window && 
@@ -485,7 +496,7 @@ export function SettingsProvider({ children }) {
         console.error('Error showing notification:', err);
       }
     }
-  }, [settings.enable_notifications, settings.notification_sound, settings.desktop_notifications, settings.message_previews]);
+  }, [settings.enable_notifications, settings.notification_sound, settings.desktop_notifications, settings.message_previews, settings.output_device, settings.output_volume]);
   
   // ═══════════════════════════════════════════════════════════
   // CHECK IF SHOULD NOTIFY FOR MESSAGE TYPE

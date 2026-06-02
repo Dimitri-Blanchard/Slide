@@ -170,14 +170,15 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId, className, de
     return list;
   }, [channelUsers, user?.id, effectiveFocusedId, remoteVideoStreams, ownScreenStream, ownCameraStream, speakingUsers]);
 
-  // Auto-join when opening a voice channel (not after explicit disconnect on this channel)
+  // Auto-join on desktop inline view only — mobile uses VoiceJoinSheet then overlay (no double-join)
+  const isMobileOverlay = className?.includes('voice-channel-view--mobile-overlay');
   useEffect(() => {
     const cid = coercePositiveInt(channel?.id);
     const tid = coercePositiveInt(teamId);
-    if (cid == null || isConnected) return;
+    if (cid == null || isConnected || isMobileOverlay) return;
     if (!shouldAutoJoinChannel(cid)) return;
     joinVoice(cid, tid ?? 0, channel.name);
-  }, [channel?.id, channel?.name, teamId, isConnected, joinVoice, shouldAutoJoinChannel]);
+  }, [channel?.id, channel?.name, teamId, isConnected, isMobileOverlay, joinVoice, shouldAutoJoinChannel]);
 
   const hasFocusedStream = !!focusedData?.stream;
   const showLivestreamChrome = hasFocusedStream;

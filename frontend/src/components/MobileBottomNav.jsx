@@ -1,4 +1,6 @@
 import React from 'react';
+import { useLanguage } from '../context/LanguageContext';
+import { hapticSelection } from '../utils/nativeHaptics';
 import './MobileBottomNav.css';
 
 /* Icons for 3-tab nav: Home (DMs + servers via bar), Notifications, You */
@@ -22,22 +24,28 @@ const IconYou = () => (
 
 /* Home = DMs (Slide icon) + servers (server bar). Notifications. You. */
 const TABS = [
-  { id: 'home', label: 'Accueil', Icon: IconHome },
-  { id: 'notifications', label: 'Notifications', Icon: IconNotifications },
-  { id: 'profile', label: 'Vous', Icon: IconYou },
+  { id: 'home', labelKey: 'mobile.home', fallback: 'Home', Icon: IconHome },
+  { id: 'notifications', labelKey: 'notifications.title', fallback: 'Notifications', Icon: IconNotifications },
+  { id: 'profile', labelKey: 'mobile.you', fallback: 'You', Icon: IconYou },
 ];
 
 export default function MobileBottomNav({ activeTab, onTabChange, unreadCounts = {}, userAvatar }) {
+  const { t } = useLanguage();
   return (
     <nav className="mobile-bottom-nav" aria-label="Navigation principale">
-      {TABS.map(({ id, label, Icon }) => {
+      {TABS.map(({ id, labelKey, fallback, Icon }) => {
+        const translated = t(labelKey);
+        const label = translated === labelKey ? fallback : translated;
         const count = unreadCounts[id] || 0;
         const isProfile = id === 'profile';
         return (
           <button
             key={id}
             className={`mbn-tab ${activeTab === id ? 'active' : ''}`}
-            onClick={() => onTabChange(id)}
+            onClick={() => {
+              if (activeTab !== id) hapticSelection();
+              onTabChange(id);
+            }}
             aria-label={label}
             aria-current={activeTab === id ? 'page' : undefined}
           >

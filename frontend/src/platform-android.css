@@ -17,6 +17,15 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.platform-android,
+.platform-android body,
+.platform-android button,
+.platform-android input,
+.platform-android textarea,
+.platform-android select {
+  font-family: var(--font-family) !important;
+}
+
 /* ── Scrollbars: hide on Android (native handles it) ── */
 .platform-android ::-webkit-scrollbar {
   width: 0 !important;

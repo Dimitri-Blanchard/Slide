@@ -11,6 +11,7 @@ import { useMediaDevices } from '../hooks/useMediaDevices';
 import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import { useAuth } from '../context/AuthContext';
+import { hapticImpact } from '../utils/nativeHaptics';
 import ConfirmModal from './ConfirmModal';
 import ClickableAvatar from './ClickableAvatar';
 import ChannelSettings from './ChannelSettings';
@@ -621,9 +622,7 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
     longPressTimerRef.current = window.setTimeout(() => {
       longPressTimerRef.current = null;
       longPressStartRef.current = null;
-      if ('vibrate' in navigator) {
-        try { navigator.vibrate(12); } catch (_) { /* ignore */ }
-      }
+      hapticImpact('Medium');
       openChannelMenuAt(cx, cy);
     }, 500);
   }, [compactTouchUi, openChannelMenuAt]);
