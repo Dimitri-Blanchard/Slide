@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Slide</title>
+    <script>
+      // If Pages serves the repo root (README), redirect to the built SPA in /docs/
+      (function () {
+        var p = window.location.pathname || '/';
+        var prefix = p === '/Slide' || p.indexOf('/Slide/') === 0 ? '/Slide' : '';
+        var target = prefix + '/docs/' + (window.location.search || '') + (window.location.hash || '');
+        window.location.replace(target);
+      })();
+    </script>
+  </head>
+  <body>
+    <p>Redirection vers <a href="/docs/">Slide</a>…</p>
+  </body>
+</html>
