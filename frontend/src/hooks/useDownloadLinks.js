@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { DOWNLOAD_BASE, getLatestDownloadArtifacts } from '../api';
 
 const FALLBACK_LINKS = {
-  windows: `${DOWNLOAD_BASE}/download/Slide_Alpha_v0.0.4.rar`,
+  windows: `${DOWNLOAD_BASE}/download/Slide_Alpha_v0.0.4.exe`,
   android: `${DOWNLOAD_BASE}/download/Slide_Alpha_v0.0.4.apk`,
   linux: `${DOWNLOAD_BASE}/download/Slide_Alpha_v0.0.1.AppImage`,
 };

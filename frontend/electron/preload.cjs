@@ -103,6 +103,16 @@ contextBridge.exposeInMainWorld('electron', {
   // Restart the Electron app itself (not the OS)
   appRestart: () => ipcRenderer.invoke('app-restart'),
 
+  // ── App updates ─────────────────────────────────────────────────────────────
+  getUpdateState: () => ipcRenderer.invoke('get-update-state'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  installAppUpdate: () => ipcRenderer.invoke('install-app-update'),
+  onUpdateStateChange: (callback) => {
+    const fn = (_, state) => callback(state);
+    ipcRenderer.on('update-state-change', fn);
+    return () => ipcRenderer.removeListener('update-state-change', fn);
+  },
+
   // ── Shell ────────────────────────────────────────────────────────────────────
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   showItemInFolder: (filePath) => ipcRenderer.invoke('show-item-in-folder', filePath),

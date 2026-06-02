@@ -72,6 +72,16 @@ if (typeof window !== 'undefined') {
   startDevToolsWarning();
 }
 
+// Electron: capture browser-auth deep links as soon as the renderer boots.
+// AuthProvider may still be mounting or may have timed out its initial handoff.
+if (typeof window !== 'undefined' && window.electron?.onProtocolUrl) {
+  window.electron.onProtocolUrl((url) => {
+    import('./utils/qrLoginFlow')
+      .then(({ queueBrowserAuthUrl }) => queueBrowserAuthUrl(url))
+      .catch(() => {});
+  });
+}
+
 // Run now, then again after a short delay in case the
 // Android WebView dispatches insets after first paint.
 if (typeof window !== 'undefined') {

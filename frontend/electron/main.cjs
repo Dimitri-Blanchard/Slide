@@ -1,6 +1,6 @@
 const {
   app, BrowserWindow, ipcMain, Menu, Tray, nativeImage,
-  session, desktopCapturer, Notification, powerSaveBlocker,
+  session, desktopCapturer, Notification, powerSaveBlocker, powerMonitor,
   shell, dialog, globalShortcut, screen, safeStorage,
 } = require('electron');
 const path = require('path');
@@ -9,7 +9,7 @@ const https = require('https');
 const fs = require('fs');
 const url = require('url');
 const zlib = require('zlib');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 
 try { require('dotenv').config({ path: path.join(__dirname, '.env') }); } catch (_) {}
 
@@ -18,6 +18,8 @@ const isDev = process.env.NODE_ENV === 'development';
 /** Electron app MUST always use this backend (no override) */
 const ELECTRON_BACKEND_URL = 'https://api.sl1de.xyz';
 const PROXY_PATHS = ['/avatars', '/uploads', '/api', '/socket.io'];
+const UPDATE_CHECK_INTERVAL_MS = Number(process.env.SLIDE_UPDATE_CHECK_INTERVAL_MS || 15 * 60 * 1000);
+const FALLBACK_WINDOWS_UPDATE_URL = `${ELECTRON_BACKEND_URL}/download/Slide_Alpha_v0.0.4.exe`;
 
 if (isDev) app.commandLine.appendSwitch('ignore-certificate-errors');
 
@@ -50,6 +52,17 @@ let pendingSourceId = null;
 let currentBadgeCount = 0;
 let currentVoiceState = 'idle'; // 'idle' | 'call' | 'speaking' | 'muted'
 let speakingAnimInterval = null;
+let updateCheckTimer = null;
+let updateState = {
+  checking: false,
+  downloading: false,
+  updateAvailable: false,
+  currentVersion: null,
+  latestVersion: null,
+  downloadUrl: null,
+  filename: null,
+  error: null,
+};
 app.isQuitting = false;
 
 // ─── PNG badge generation (16×16 for Windows overlay icon) ────────────────────
@@ -551,11 +564,67 @@ function safeSend(win, channel, ...args) {
 
 // ─── Auto-update check (backend-driven) ────────────────────────────────────────
 
-function httpGet(uri) {
+function parseVersion(v) {
+  if (!v || typeof v !== 'string') return [0, 0, 0];
+  const clean = v.trim().replace(/^v/i, '');
+  const parts = clean.split('.').map((n) => parseInt(n, 10) || 0);
+  return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
+}
+
+function compareVersions(a, b) {
+  const av = parseVersion(a);
+  const bv = parseVersion(b);
+  for (let i = 0; i < 3; i++) {
+    if (av[i] > bv[i]) return 1;
+    if (av[i] < bv[i]) return -1;
+  }
+  return 0;
+}
+
+function extractVersionFromName(value) {
+  const match = String(value || '').match(/(?:^|[_-])v?(\d+\.\d+\.\d+)(?:[._-]|$)/i);
+  return match?.[1] || null;
+}
+
+function basenameFromUrl(value) {
+  try {
+    const parsed = new URL(value, ELECTRON_BACKEND_URL);
+    return path.basename(decodeURIComponent(parsed.pathname));
+  } catch {
+    return path.basename(String(value || ''));
+  }
+}
+
+function resolveBackendUrl(value) {
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  return `${ELECTRON_BACKEND_URL}${String(value).startsWith('/') ? '' : '/'}${value}`;
+}
+
+function setUpdateState(next) {
+  updateState = {
+    ...updateState,
+    ...next,
+    currentVersion: next.currentVersion ?? updateState.currentVersion ?? app.getVersion(),
+  };
+  safeSend(mainWindow, 'update-state-change', updateState);
+  return updateState;
+}
+
+function getJson(uri, redirects = 0) {
   return new Promise((resolve, reject) => {
-    const u = url.parse(uri);
-    const lib = u.protocol === 'https:' ? https : http;
+    const lib = uri.startsWith('https:') ? https : http;
     const req = lib.get(uri, { timeout: 10000 }, (res) => {
+      if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location && redirects < 5) {
+        res.resume();
+        resolve(getJson(new URL(res.headers.location, uri).toString(), redirects + 1));
+        return;
+      }
+      if (res.statusCode >= 400) {
+        res.resume();
+        reject(new Error(`HTTP ${res.statusCode}`));
+        return;
+      }
       let data = '';
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
@@ -567,12 +636,18 @@ function httpGet(uri) {
   });
 }
 
-function downloadFile(uri, destPath) {
+function downloadFile(uri, destPath, redirects = 0) {
   return new Promise((resolve, reject) => {
-    const u = url.parse(uri);
-    const lib = u.protocol === 'https:' ? https : http;
+    const lib = uri.startsWith('https:') ? https : http;
     const file = fs.createWriteStream(destPath);
     const req = lib.get(uri, { timeout: 120000 }, (res) => {
+      if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location && redirects < 5) {
+        file.close();
+        fs.unlink(destPath, () => {});
+        res.resume();
+        resolve(downloadFile(new URL(res.headers.location, uri).toString(), destPath, redirects + 1));
+        return;
+      }
       if (res.statusCode >= 400) {
         file.close();
         fs.unlink(destPath, () => {});
@@ -582,48 +657,129 @@ function downloadFile(uri, destPath) {
       res.pipe(file);
       file.on('finish', () => { file.close(); resolve(destPath); });
     });
-    req.on('error', () => { file.close(); fs.unlink(destPath, () => {}); reject(); });
+    req.on('error', (err) => { file.close(); fs.unlink(destPath, () => {}); reject(err); });
+    req.on('timeout', () => {
+      req.destroy();
+      file.close();
+      fs.unlink(destPath, () => {});
+      reject(new Error('Timeout'));
+    });
     file.on('error', (e) => { file.close(); fs.unlink(destPath, () => {}); reject(e); });
   });
 }
 
+function runWindowsInstallerAndRelaunch(installerPath) {
+  const relaunchScript = path.join(app.getPath('temp'), `slide-update-${Date.now()}.cmd`);
+  const currentExe = app.getPath('exe');
+  const script = [
+    '@echo off',
+    'timeout /t 2 /nobreak >nul',
+    `"${installerPath}" /S`,
+    `start "" "${currentExe}"`,
+    'exit /b 0',
+    '',
+  ].join('\r\n');
+
+  fs.writeFileSync(relaunchScript, script, 'utf8');
+  const child = spawn('cmd.exe', ['/d', '/s', '/c', relaunchScript], {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+  });
+  child.unref();
+}
+
+function normalizeWindowsArtifact(data) {
+  const entry = data?.windows || {};
+  const urlValue = resolveBackendUrl(entry.url) || FALLBACK_WINDOWS_UPDATE_URL;
+  const filename = entry.filename || basenameFromUrl(urlValue);
+  const version = entry.version || extractVersionFromName(filename) || extractVersionFromName(urlValue);
+  return { filename, url: urlValue, version };
+}
+
 async function checkForUpdates() {
-  try {
-    const currentVersion = app.getVersion();
-    const platform = process.platform;
-    const checkUrl = `${ELECTRON_BACKEND_URL}/api/app/update-check?platform=${platform}&version=${encodeURIComponent(currentVersion)}`;
-    const data = await httpGet(checkUrl);
-
-    if (!data.updateAvailable || !data.downloadUrl) return;
-
-    const { response } = await dialog.showMessageBox(mainWindow || undefined, {
-      type: 'info',
-      title: 'Update available',
-      message: `Slide ${data.version} is available. You have ${currentVersion}.`,
-      detail: data.releaseNotes || 'Would you like to download and install the update now?',
-      buttons: ['Download and install', 'Later'],
-      defaultId: 0,
-      cancelId: 1,
-    });
-
-    if (response !== 0) return;
-
-    const ext = platform === 'win32' ? '.exe' : platform === 'darwin' ? '.dmg' : '.AppImage';
-    const destPath = path.join(app.getPath('temp'), `Slide-Setup-${data.version}${ext}`);
-
-    try {
-      await downloadFile(data.downloadUrl, destPath);
-      shell.openPath(destPath).then((err) => {
-        if (err) console.error('Update installer open error:', err);
-        app.isQuitting = true;
-        app.quit();
-      });
-    } catch (e) {
-      dialog.showErrorBox('Update failed', `Could not download update: ${e?.message || 'Unknown error'}`);
-    }
-  } catch (e) {
-    // Silent fail — don't block app startup
+  if (isDev) {
+    return setUpdateState({ checking: false, updateAvailable: false, error: null });
   }
+
+  const currentVersion = app.getVersion();
+  setUpdateState({ checking: true, currentVersion, error: null });
+
+  try {
+    const data = await getJson(`${ELECTRON_BACKEND_URL}/api/app/downloads/latest`);
+    const artifact = normalizeWindowsArtifact(data);
+    const comparableCurrentVersion =
+      currentVersion === '1.0.0' && artifact.version && compareVersions(artifact.version, '1.0.0') < 0
+        ? '0.0.4'
+        : currentVersion;
+    const updateAvailable = !!artifact.url && !!artifact.version && compareVersions(artifact.version, comparableCurrentVersion) > 0;
+
+    return setUpdateState({
+      checking: false,
+      downloading: false,
+      updateAvailable,
+      currentVersion,
+      latestVersion: artifact.version,
+      downloadUrl: artifact.url,
+      filename: artifact.filename,
+      error: null,
+    });
+  } catch (e) {
+    const fallbackVersion = extractVersionFromName(FALLBACK_WINDOWS_UPDATE_URL);
+    const updateAvailable = compareVersions(fallbackVersion, currentVersion) > 0;
+    return setUpdateState({
+      checking: false,
+      downloading: false,
+      updateAvailable,
+      currentVersion,
+      latestVersion: fallbackVersion,
+      downloadUrl: FALLBACK_WINDOWS_UPDATE_URL,
+      filename: basenameFromUrl(FALLBACK_WINDOWS_UPDATE_URL),
+      error: e?.message || 'Update check failed',
+    });
+  }
+}
+
+async function installAvailableUpdate() {
+  const state = updateState.updateAvailable ? updateState : await checkForUpdates();
+  if (!state.updateAvailable || !state.downloadUrl) {
+    return setUpdateState({ downloading: false, error: 'No update available' });
+  }
+
+  try {
+    setUpdateState({ downloading: true, error: null });
+    const filename = state.filename || basenameFromUrl(state.downloadUrl);
+    const ext = path.extname(filename).toLowerCase() || '.exe';
+    const destPath = path.join(app.getPath('temp'), filename || `Slide_Alpha_v${state.latestVersion}${ext}`);
+
+    await downloadFile(state.downloadUrl, destPath);
+
+    if (ext === '.exe') {
+      runWindowsInstallerAndRelaunch(destPath);
+    } else {
+      const err = await shell.openPath(destPath);
+      if (err) throw new Error(err);
+    }
+
+    setUpdateState({ downloading: false });
+    app.isQuitting = true;
+    app.quit();
+    return updateState;
+  } catch (e) {
+    return setUpdateState({
+      downloading: false,
+      error: e?.message || 'Update install failed',
+    });
+  }
+}
+
+function startUpdateChecks() {
+  if (isDev) return;
+  checkForUpdates().catch(() => {});
+  if (updateCheckTimer) clearInterval(updateCheckTimer);
+  updateCheckTimer = setInterval(() => {
+    checkForUpdates().catch(() => {});
+  }, Math.max(60 * 1000, UPDATE_CHECK_INTERVAL_MS));
 }
 
 // ─── Splash window ────────────────────────────────────────────────────────────
@@ -815,10 +971,10 @@ app.whenReady().then(async () => {
   mainWindow = await createMainWindow();
   createTray();
 
-  // Check for app updates on launch (skip in dev)
-  if (!isDev) {
-    checkForUpdates().catch(() => {});
-  }
+  // Check for app updates on launch, then periodically and after system wake.
+  startUpdateChecks();
+  powerMonitor.on('resume', () => checkForUpdates().catch(() => {}));
+  powerMonitor.on('unlock-screen', () => checkForUpdates().catch(() => {}));
 
   // macOS: re-show when clicking dock icon
   app.on('activate', async () => {
@@ -864,7 +1020,10 @@ app.on('before-quit', (e) => {
   }
 });
 
-app.on('will-quit', () => { globalShortcut.unregisterAll(); });
+app.on('will-quit', () => {
+  if (updateCheckTimer) clearInterval(updateCheckTimer);
+  globalShortcut.unregisterAll();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
@@ -1008,6 +1167,11 @@ ipcMain.handle('system-reboot',   async () => runSystemCommand('reboot'));
 ipcMain.handle('system-shutdown', async () => runSystemCommand('shutdown'));
 ipcMain.handle('system-sleep',    async () => runSystemCommand('sleep'));
 ipcMain.handle('app-restart', () => { app.isQuitting = true; app.relaunch(); app.exit(0); });
+
+// ─── IPC: App updates ─────────────────────────────────────────────────────────
+ipcMain.handle('get-update-state', () => updateState);
+ipcMain.handle('check-for-updates', () => checkForUpdates());
+ipcMain.handle('install-app-update', () => installAvailableUpdate());
 
 // ─── IPC: Shell / misc ────────────────────────────────────────────────────────
 ipcMain.handle('open-external', (_, targetUrl) => {

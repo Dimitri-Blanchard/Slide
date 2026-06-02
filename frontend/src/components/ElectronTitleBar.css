@@ -103,6 +103,35 @@
   color: #fff;
 }
 
+.electron-title-bar-update-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 112px;
+  height: 24px;
+  margin-right: 8px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #23a55a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s, opacity 0.15s;
+  -webkit-app-region: no-drag;
+}
+
+.electron-title-bar-update-btn:hover:not(:disabled) {
+  background: #2dbf6a;
+  transform: translateY(-1px);
+}
+
+.electron-title-bar-update-btn:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
 /* Navigation arrows */
 .electron-title-bar-nav {
   display: flex;

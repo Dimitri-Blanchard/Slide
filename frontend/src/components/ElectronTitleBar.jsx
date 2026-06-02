@@ -8,6 +8,7 @@ import './ElectronTitleBar.css';
 export default function ElectronTitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
   const [teamData, setTeamData] = useState(null);
+  const [updateState, setUpdateState] = useState(null);
   const hasElectron = typeof window !== 'undefined' && !!window.electron;
   const location = useLocation();
   const navigate = useNavigate();
@@ -43,9 +44,43 @@ export default function ElectronTitleBar() {
     return () => clearInterval(iv);
   }, []);
 
+  useEffect(() => {
+    if (!window.electron?.getUpdateState) return undefined;
+    let cancelled = false;
+
+    window.electron.getUpdateState()
+      .then((state) => {
+        if (!cancelled) setUpdateState(state);
+      })
+      .catch(() => {});
+
+    const cleanup = window.electron.onUpdateStateChange?.((state) => {
+      setUpdateState(state);
+    });
+
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+  }, []);
+
   const handleMaximize = () => {
     window.electron.maximize();
     setIsMaximized((v) => !v);
+  };
+
+  const handleInstallUpdate = () => {
+    if (!window.electron?.installAppUpdate || updateState?.downloading) return;
+    setUpdateState((state) => ({ ...(state || {}), downloading: true, error: null }));
+    window.electron.installAppUpdate()
+      .then((state) => setUpdateState(state))
+      .catch((err) => {
+        setUpdateState((state) => ({
+          ...(state || {}),
+          downloading: false,
+          error: err?.message || 'Update failed',
+        }));
+      });
   };
 
   if (!hasElectron) return null;
@@ -145,6 +180,18 @@ export default function ElectronTitleBar() {
         {getIconElement()}
         <span className="electron-title-bar-title">{getPageTitle()}</span>
       </div>
+
+      {updateState?.updateAvailable && (
+        <button
+          className="electron-title-bar-update-btn"
+          onClick={handleInstallUpdate}
+          disabled={!!updateState.downloading}
+          title={`Update Slide to v${updateState.latestVersion || 'latest'}`}
+          aria-label="Update Slide"
+        >
+          {updateState.downloading ? 'Updating...' : `Download v${updateState.latestVersion || ''}`.trim()}
+        </button>
+      )}
 
       {!isMac && <div className="electron-title-bar-controls">{buttons}</div>}
     </div>
