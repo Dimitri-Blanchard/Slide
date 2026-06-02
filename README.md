@@ -26,7 +26,9 @@ Set `VITE_PUBLIC_SITE_URL` (and API-related `VITE_*` vars from `frontend/.env.ex
 
 ## Deploy (GitHub Pages)
 
-Pushes to `main` build and deploy the static site via `.github/workflows/deploy-frontend-pages.yml`. Set repository variables `VITE_API_BASE_URL`, `VITE_BACKEND_ORIGIN`, and `VITE_CDN_BASE_URL` in GitHub **Settings → Secrets and variables → Actions**.
+1. **Settings → Pages → Build and deployment → Source** must be **GitHub Actions** (not “Deploy from a branch”). If it points at `main` / root, visitors see this README instead of the app, and `/qr-login` returns 404.
+2. Pushes to `main` run `.github/workflows/deploy-frontend-pages.yml` and publish `frontend/dist` (SPA + `404.html` for deep links like `/qr-login`).
+3. Optional repo variables (**Settings → Secrets and variables → Actions**): `VITE_API_BASE_URL`, `VITE_BACKEND_ORIGIN`, `VITE_CDN_BASE_URL`, `VITE_PUBLIC_SITE_URL` (default `https://sl1de.xyz` in the workflow).
 
 ---
 
