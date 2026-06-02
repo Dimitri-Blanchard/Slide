@@ -45,6 +45,7 @@ function normalizeAccount(raw) {
     username: sanitizeLegacyHandle(raw.username || raw.handle || ''),
     displayName: sanitizeLegacyDisplayName(raw.displayName || raw.display_name || raw.name || '', raw.username || raw.handle || ''),
     token,
+    refreshToken: raw.refreshToken || raw.refresh_token || null,
     avatar_url: raw.avatar_url || raw.avatarUrl || null,
   };
 }
@@ -202,7 +203,7 @@ export async function getDeviceName() {
 
 /**
  * Get saved accounts for multi-account switching.
- * @returns {Array<{userId: number, username: string, displayName: string, token: string, avatar_url?: string}>}
+ * @returns {Array<{userId: number, username: string, displayName: string, token: string, refreshToken?: string, avatar_url?: string}>}
  */
 export function getAccounts() {
   if (typeof window === 'undefined') return [];
@@ -219,7 +220,7 @@ export function getAccounts() {
       normalized.length !== parsed.length ||
       normalized.some((acc, i) => {
         const prev = parsed[i];
-        return !prev || prev.userId !== acc.userId || prev.token !== acc.token;
+        return !prev || prev.userId !== acc.userId || prev.token !== acc.token || (prev.refreshToken ?? null) !== acc.refreshToken;
       });
     if (wasDifferent) {
       localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(normalized));
@@ -234,15 +235,18 @@ export function getAccounts() {
  * Add or update an account in the saved accounts list.
  * @param {{id: number, username?: string, display_name?: string, avatar_url?: string}} user
  * @param {string} token
+ * @param {string|null} refreshToken
  */
-export function addAccount(user, token) {
+export function addAccount(user, token, refreshToken = null) {
   if (typeof window === 'undefined' || !user?.id || !token) return;
   const accounts = getAccounts();
+  const existing = accounts.find((a) => idsEqual(a.userId, user.id));
   const entry = {
     userId: user.id,
     username: sanitizeLegacyHandle(user.username || ''),
     displayName: sanitizeLegacyDisplayName(user.display_name || '', user.username || ''),
     token,
+    refreshToken: refreshToken || existing?.refreshToken || null,
     avatar_url: user.avatar_url || null,
   };
   const filtered = accounts.filter((a) => !idsEqual(a.userId, user.id));
@@ -271,6 +275,17 @@ export function getAccountToken(userId) {
   const accounts = getAccounts();
   const acc = accounts.find((a) => idsEqual(a.userId, userId));
   return acc?.token ?? null;
+}
+
+/**
+ * Get refresh token for a saved account.
+ * @param {number} userId
+ * @returns {string|null}
+ */
+export function getAccountRefreshToken(userId) {
+  const accounts = getAccounts();
+  const acc = accounts.find((a) => idsEqual(a.userId, userId));
+  return acc?.refreshToken ?? null;
 }
 
 /**

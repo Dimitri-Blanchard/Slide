@@ -76,6 +76,12 @@ export default function Login() {
   }, [authError, clearAuthError]);
 
   useEffect(() => {
+    if (user && !isAddAccount && !showMfaStep) {
+      navigate(postLoginPath, { replace: true });
+    }
+  }, [user, isAddAccount, showMfaStep, navigate, postLoginPath]);
+
+  useEffect(() => {
     if (!mfaStep || loading) return;
     const code = mfaCode.replace(/\D/g, '');
     if (code.length !== 6) return;

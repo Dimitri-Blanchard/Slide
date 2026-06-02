@@ -2,18 +2,34 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   approveQrLoginSession,
+  buildDesktopBrowserAuthCancelUrl,
+  buildDesktopBrowserAuthCallbackUrl,
   buildOpenSlideAppUrl,
   extractQrTokenFromUrl,
   openSlideApp,
   savePendingQrLoginToken,
 } from '../utils/qrLoginFlow';
-import { getToken } from '../utils/tokenStorage';
+import { getRefreshToken, getToken } from '../utils/tokenStorage';
 import './QrLoginRedirect.css';
+
+function closeBrowserHandoffPage() {
+  try {
+    window.close();
+  } catch (_) {
+    // Some browsers only allow closing script-opened tabs.
+  }
+}
 
 export default function QrLoginRedirect() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get('token') || extractQrTokenFromUrl(window.location.href);
+  const isDesktopBrowserHandoff = searchParams.get('source') === 'desktop';
+  const isDirectBrowserHandoff = isDesktopBrowserHandoff && searchParams.get('handoff') === 'direct';
+  const targetDevice = {
+    deviceId: searchParams.get('deviceId') || null,
+    deviceName: searchParams.get('deviceName') || null,
+  };
   const fallbackPageUrl =
     typeof window !== 'undefined' && token
       ? `${window.location.origin}/qr-login?token=${encodeURIComponent(token)}`
@@ -21,46 +37,75 @@ export default function QrLoginRedirect() {
   const openUrl = buildOpenSlideAppUrl(token, fallbackPageUrl);
   const isNative = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
   const [status, setStatus] = useState(() => {
-    if (!token) return 'invalid';
+    if (!token && !isDirectBrowserHandoff) return 'invalid';
     if (isNative || getToken()) return 'approving';
+    if (isDirectBrowserHandoff) return 'closing';
+    if (isDesktopBrowserHandoff) return 'need-login';
     return 'redirect';
   });
   const [errorMessage, setErrorMessage] = useState('');
 
   const runApprove = useCallback(async () => {
-    if (!token) return;
+    if (!token && !isDirectBrowserHandoff) return;
     setStatus('approving');
     setErrorMessage('');
     try {
       if (!getToken()) {
-        savePendingQrLoginToken(token);
+        if (isDirectBrowserHandoff) {
+          window.location.href = buildDesktopBrowserAuthCancelUrl('not_logged_in');
+          setStatus('closing');
+          setTimeout(closeBrowserHandoffPage, 500);
+          return;
+        }
+        if (token) savePendingQrLoginToken(token, targetDevice);
         setStatus('need-login');
         return;
       }
-      await approveQrLoginSession(token);
+      if (isDirectBrowserHandoff) {
+        const callbackUrl = buildDesktopBrowserAuthCallbackUrl({
+          token: getToken(),
+          refreshToken: await getRefreshToken(),
+        });
+        if (!callbackUrl) throw new Error('Session navigateur introuvable.');
+        window.location.href = callbackUrl;
+        setStatus('success');
+        return;
+      }
+      await approveQrLoginSession(token, targetDevice);
       setStatus('success');
     } catch (err) {
       if (err?.message === 'NOT_LOGGED_IN') {
-        savePendingQrLoginToken(token);
+        if (token) savePendingQrLoginToken(token, targetDevice);
         setStatus('need-login');
         return;
       }
       setErrorMessage(err?.message || 'Impossible de confirmer la connexion.');
       setStatus('error');
     }
-  }, [token]);
+  }, [isDirectBrowserHandoff, token, targetDevice.deviceId, targetDevice.deviceName]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token && !isDirectBrowserHandoff) return;
     if (isNative || getToken()) {
       runApprove();
+      return;
+    }
+    if (isDirectBrowserHandoff) {
+      window.location.href = buildDesktopBrowserAuthCancelUrl('not_logged_in');
+      setStatus('closing');
+      setTimeout(closeBrowserHandoffPage, 500);
+      return;
+    }
+    if (isDesktopBrowserHandoff) {
+      savePendingQrLoginToken(token, targetDevice);
+      setStatus('need-login');
       return;
     }
     const timer = setTimeout(() => {
       openSlideApp(token, fallbackPageUrl);
     }, 1200);
     return () => clearTimeout(timer);
-  }, [token, fallbackPageUrl, isNative, runApprove]);
+  }, [token, fallbackPageUrl, isNative, isDesktopBrowserHandoff, isDirectBrowserHandoff, runApprove]);
 
   useEffect(() => {
     if (status !== 'success' || !isNative) return;
@@ -76,7 +121,10 @@ export default function QrLoginRedirect() {
       return;
     }
     if (status === 'need-login') {
-      navigate('/login', { replace: true });
+      const redirect = isDirectBrowserHandoff
+        ? `/qr-login?${searchParams.toString()}`
+        : '/login';
+      navigate(`/login?redirect=${encodeURIComponent(redirect)}`, { replace: true });
       return;
     }
     if (status === 'error') {
@@ -152,8 +200,14 @@ export default function QrLoginRedirect() {
                 <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
               </svg>
             </div>
-            <h1>Connectez-vous</h1>
-            <p>Connectez-vous dans Slide avec votre compte, puis scannez à nouveau le QR code.</p>
+            <h1>{isDesktopBrowserHandoff ? 'Connectez-vous dans le navigateur' : 'Connectez-vous'}</h1>
+            <p>
+              {isDirectBrowserHandoff
+                ? 'Connectez-vous ici avec votre compte Slide. Cette page renverra ensuite la session à l’application desktop.'
+                : isDesktopBrowserHandoff
+                ? 'Connectez-vous ici avec votre compte Slide, puis la connexion sera envoyée automatiquement à l’application desktop.'
+                : 'Connectez-vous dans Slide avec votre compte, puis scannez à nouveau le QR code.'}
+            </p>
             <button type="button" className="qr-confirm-btn" onClick={handleContinue}>
               Se connecter
             </button>
@@ -169,7 +223,17 @@ export default function QrLoginRedirect() {
               </svg>
             </div>
             <h1>Lien invalide</h1>
-            <p>Scannez à nouveau le QR code affiché sur votre ordinateur.</p>
+            <p>Le lien de connexion n&apos;est plus valide. Relancez la connexion depuis l&apos;application Slide.</p>
+          </div>
+        )}
+
+        {status === 'closing' && (
+          <div className="qr-confirm-state qr-confirm-state--loading" key="closing">
+            <div className="qr-confirm-ring" aria-hidden>
+              <div className="qr-confirm-ring-inner" />
+            </div>
+            <h1>Retour à l&apos;application</h1>
+            <p>Connectez-vous directement dans l&apos;application Slide.</p>
           </div>
         )}
 

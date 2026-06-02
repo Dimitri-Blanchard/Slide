@@ -7,6 +7,17 @@ import { getToken, getOrCreateDeviceId, getDeviceName } from './tokenStorage';
 const PENDING_QR_TOKEN_KEY = 'slide_pending_qr_login_token';
 const PUBLIC_SITE = (import.meta.env.VITE_PUBLIC_SITE_URL || 'https://sl1de.xyz').replace(/\/$/, '');
 
+function normalizePendingQrLogin(raw) {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed?.token) return parsed;
+  } catch {
+    // Legacy pending storage was the token string itself.
+  }
+  return { token: raw };
+}
+
 /** Deep link / intent URL to open the native app for QR approval (mobile browser). */
 /** Normalize /auth/qr-login/check response (field names vary by backend version). */
 export function normalizeQrLoginCheckResponse(data) {
@@ -25,7 +36,61 @@ export function normalizeQrLoginCheckResponse(data) {
     session?.accessToken ??
     session?.access_token ??
     null;
-  return { status, user, token };
+  const refreshToken =
+    data.refreshToken ??
+    data.refresh_token ??
+    session?.refreshToken ??
+    session?.refresh_token ??
+    null;
+  return { status, user, token, refreshToken };
+}
+
+export function buildBrowserQrLoginApprovalUrl(token, source = 'desktop', targetDevice = {}) {
+  if (!token) return null;
+  const params = new URLSearchParams({ token });
+  if (source) params.set('source', source);
+  if (targetDevice.deviceId) params.set('deviceId', targetDevice.deviceId);
+  if (targetDevice.deviceName) params.set('deviceName', targetDevice.deviceName);
+  return `${PUBLIC_SITE}/qr-login?${params.toString()}`;
+}
+
+export function buildBrowserAuthHandoffUrl(targetDevice = {}) {
+  const params = new URLSearchParams({ source: 'desktop', handoff: 'direct' });
+  if (targetDevice.deviceId) params.set('deviceId', targetDevice.deviceId);
+  if (targetDevice.deviceName) params.set('deviceName', targetDevice.deviceName);
+  return `${PUBLIC_SITE}/qr-login?${params.toString()}`;
+}
+
+export function buildDesktopBrowserAuthCallbackUrl({ token, refreshToken } = {}) {
+  if (!token) return null;
+  const params = new URLSearchParams({ token });
+  if (refreshToken) params.set('refreshToken', refreshToken);
+  return `slide://browser-auth?${params.toString()}`;
+}
+
+export function buildDesktopBrowserAuthCancelUrl(reason = 'not_logged_in') {
+  const params = new URLSearchParams({ cancel: reason });
+  return `slide://browser-auth?${params.toString()}`;
+}
+
+export function extractBrowserAuthFromUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string' || !/^slide:\/\/\/?browser-auth/i.test(rawUrl)) {
+    return null;
+  }
+  try {
+    const normalized = rawUrl.replace(/^slide:\/\/\/?browser-auth/i, 'https://slide.local/browser-auth');
+    const parsed = new URL(normalized, 'https://slide.local');
+    const cancel = parsed.searchParams.get('cancel');
+    if (cancel) return { cancelled: true, reason: cancel };
+    const token = parsed.searchParams.get('token');
+    if (!token) return null;
+    return {
+      token,
+      refreshToken: parsed.searchParams.get('refreshToken'),
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function buildOpenSlideAppUrl(token, fallbackPageUrl) {
@@ -98,9 +163,14 @@ export function isQrLoginDeepLink(url) {
   return false;
 }
 
-export function savePendingQrLoginToken(token) {
+export function savePendingQrLoginToken(token, targetDevice = {}) {
   if (!token || typeof sessionStorage === 'undefined') return;
-  sessionStorage.setItem(PENDING_QR_TOKEN_KEY, token);
+  const payload = {
+    token,
+    ...(targetDevice.deviceId && { deviceId: targetDevice.deviceId }),
+    ...(targetDevice.deviceName && { deviceName: targetDevice.deviceName }),
+  };
+  sessionStorage.setItem(PENDING_QR_TOKEN_KEY, JSON.stringify(payload));
 }
 
 export function clearPendingQrLoginToken() {
@@ -110,7 +180,12 @@ export function clearPendingQrLoginToken() {
 
 export function getPendingQrLoginToken() {
   if (typeof sessionStorage === 'undefined') return null;
-  return sessionStorage.getItem(PENDING_QR_TOKEN_KEY);
+  return normalizePendingQrLogin(sessionStorage.getItem(PENDING_QR_TOKEN_KEY))?.token ?? null;
+}
+
+export function getPendingQrLoginRequest() {
+  if (typeof sessionStorage === 'undefined') return null;
+  return normalizePendingQrLogin(sessionStorage.getItem(PENDING_QR_TOKEN_KEY));
 }
 
 /** Open the in-app QR confirmation screen (HashRouter on native). */
@@ -153,16 +228,17 @@ export async function prefetchSlideAppData(onStep) {
   await new Promise((r) => setTimeout(r, 400));
 }
 
-export async function approveQrLoginSession(token) {
+export async function approveQrLoginSession(token, targetDevice = {}) {
   if (!token) throw new Error('Token manquant');
   if (!getToken()) {
-    savePendingQrLoginToken(token);
+    savePendingQrLoginToken(token, targetDevice);
     const err = new Error('NOT_LOGGED_IN');
     throw err;
   }
   emitQrLoginConfirming();
-  const deviceName = await getDeviceName();
-  await auth.qrLogin.approve(token, getOrCreateDeviceId(), deviceName);
+  const deviceId = targetDevice.deviceId || getOrCreateDeviceId();
+  const deviceName = targetDevice.deviceName || await getDeviceName();
+  await auth.qrLogin.approve(token, deviceId, deviceName);
   clearPendingQrLoginToken();
   triggerMobileSuccessFeedback();
   emitQrLoginResult(true, 'Connexion confirmée ! Vous pouvez revenir à votre ordinateur.');
@@ -176,10 +252,10 @@ export async function approveQrLoginSession(token) {
 }
 
 export async function processPendingQrLoginIfAny() {
-  const token = getPendingQrLoginToken();
-  if (!token || !getToken()) return false;
+  const pending = getPendingQrLoginRequest();
+  if (!pending?.token || !getToken()) return false;
   try {
-    await approveQrLoginSession(token);
+    await approveQrLoginSession(pending.token, pending);
     return true;
   } catch (err) {
     if (err?.message === 'NOT_LOGGED_IN') return false;

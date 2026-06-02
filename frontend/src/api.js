@@ -403,6 +403,7 @@ export async function api(endpoint, options = {}) {
 
       // Skip forced logout for non-auth failures (e.g. missing permissions).
       const shouldForceLogout = shouldInvalidateSession(res.status, errorCode)
+        && !options._skipAuthInvalidation
         && !endpoint.includes('/auth/login')
         && !endpoint.includes('/auth/register')
         && !endpoint.includes('/auth/2fa/verify')
@@ -421,6 +422,7 @@ export async function api(endpoint, options = {}) {
 
       const err = new Error(data.error || 'Session expirée');
       err.status = res.status;
+      err.code = errorCode;
       throw err;
     }
 
@@ -562,9 +564,9 @@ export const auth = {
     list: () => api('/auth/devices'),
     revoke: (deviceId) => api(`/auth/devices/${deviceId}`, { method: 'DELETE' }),
   },
-  me: () => api('/auth/me'),
+  me: (options = {}) => api('/auth/me', options),
   updateMe: (data) => api('/auth/me', { method: 'PATCH', body: JSON.stringify(data) }),
-  refresh: (refreshToken) => api('/auth/refresh', { method: 'POST', body: JSON.stringify({ refreshToken }) }),
+  refresh: (refreshToken) => api('/auth/refresh', { method: 'POST', _noAuth: true, _skipAuthInvalidation: true, body: JSON.stringify({ refreshToken }) }),
   setFlags: (flags) => api('/auth/me/flags', { method: 'POST', body: JSON.stringify(flags) }),
   deleteAccount: (password) => api('/gdpr/account', {
     method: 'DELETE',
