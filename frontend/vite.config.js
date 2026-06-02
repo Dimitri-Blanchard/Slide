@@ -31,6 +31,11 @@ function slidePublicSitePlugin(mode) {
         if (!body.includes(PUBLIC_SITE_TOKEN)) continue;
         fs.writeFileSync(file, body.split(PUBLIC_SITE_TOKEN).join(siteUrl), 'utf8');
       }
+      // GitHub Pages: serve the SPA shell for deep links (/qr-login, /login, …)
+      const indexHtml = path.join(outDir, 'index.html');
+      if (fs.existsSync(indexHtml)) {
+        fs.copyFileSync(indexHtml, path.join(outDir, '404.html'));
+      }
     },
   };
 }
