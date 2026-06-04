@@ -16,6 +16,7 @@ const ClickableAvatar = memo(function ClickableAvatar({
   showPresence = false,
   position = 'right',
   disabled = false,
+  suppressContextMenu = false,
   onClick,
   contextMenuItems = [],
   contextMenuContext = {},
@@ -57,7 +58,7 @@ const ClickableAvatar = memo(function ClickableAvatar({
   const handleContextMenu = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (disabled) return;
+    if (disabled || suppressContextMenu) return;
     if (onClick) return;
     if (!user?.id) return;
     const viewProfileItem = {
@@ -82,7 +83,7 @@ const ClickableAvatar = memo(function ClickableAvatar({
       items = [viewProfileItem, { separator: true }, ...fullItems];
     }
     setContextMenu({ x: e.clientX, y: e.clientY, items });
-  }, [disabled, onClick, contextMenuItems, contextMenuContext, getFullContextMenuItems, user?.id, developerMode]);
+  }, [disabled, suppressContextMenu, onClick, contextMenuItems, contextMenuContext, getFullContextMenuItems, user?.id, developerMode]);
 
   const handleClose = useCallback(() => {
     setShowProfile(false);

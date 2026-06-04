@@ -11,6 +11,7 @@ import { harmonizeGradientColors } from '../utils/gradientColors';
 import Avatar from './Avatar';
 import { useSettings } from '../context/SettingsContext';
 import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
+import { loadUserNote, saveUserNote } from '../utils/userNotes';
 import './UserDetailModal.css';
 
 const STATUS_COLORS = {
@@ -20,18 +21,6 @@ const STATUS_COLORS = {
   invisible: '#80848e',
   offline:   '#80848e',
 };
-
-const NOTE_KEY = 'slide_profile_notes';
-function loadNote(uid) {
-  try { return JSON.parse(localStorage.getItem(NOTE_KEY) || '{}')[uid] ?? ''; } catch { return ''; }
-}
-function saveNote(uid, note) {
-  try {
-    const d = JSON.parse(localStorage.getItem(NOTE_KEY) || '{}');
-    if (note) d[uid] = note; else delete d[uid];
-    localStorage.setItem(NOTE_KEY, JSON.stringify(d));
-  } catch {}
-}
 
 function isGifUrl(url) {
   if (!url || typeof url !== 'string') return false;
@@ -81,9 +70,20 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
       usersApi.getCommonTeams(resolvedId)
         .then(data => { setCommonTeams(Array.isArray(data) ? data : []); setTeamsLoading(false); })
         .catch(() => { setCommonTeams([]); setTeamsLoading(false); });
-      setNote(loadNote(resolvedId));
+      setNote(loadUserNote(resolvedId));
     }
   }, [isOpen, userId, providedUser, resolvedId, isOwnProfile]);
+
+  useEffect(() => {
+    if (!resolvedId || isOwnProfile) return;
+    const onNoteChanged = (e) => {
+      if (String(e.detail?.userId) === String(resolvedId)) {
+        setNote(e.detail?.note ?? loadUserNote(resolvedId));
+      }
+    };
+    window.addEventListener('slide:user-note-changed', onNoteChanged);
+    return () => window.removeEventListener('slide:user-note-changed', onNoteChanged);
+  }, [resolvedId, isOwnProfile]);
 
   // Close on Escape / outside click
   useEffect(() => {
@@ -104,7 +104,7 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
 
   const handleNoteChange = useCallback((val) => {
     setNote(val);
-    saveNote(resolvedId, val);
+    saveUserNote(resolvedId, val);
   }, [resolvedId]);
 
   const autoResizeNoteInput = useCallback(() => {

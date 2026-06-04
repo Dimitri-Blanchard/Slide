@@ -4,8 +4,8 @@ import ServerBar from '../components/ServerBar';
 import Sidebar from '../components/Sidebar';
 import TeamChat from '../components/TeamChat';
 import DirectChat from '../components/DirectChat';
+import LocalPrivateChat from '../components/LocalPrivateChat';
 import FriendsPage from '../components/FriendsPage';
-import ActiveNow from '../components/ActiveNow';
 import SearchModal from '../components/SearchModal';
 import DmCallFloatingPanel from '../components/DmCallFloatingPanel';
 import ServerErrorBoundary from '../components/ServerErrorBoundary';
@@ -19,7 +19,6 @@ import '../pages/NitroPage.css';
 import '../pages/QuestsPage.css';
 
 const NitroPage = lazy(() => import('../pages/NitroPage'));
-const ShopPage = lazy(() => import('../pages/ShopPage'));
 const QuestsPage = lazy(() => import('../pages/QuestsPage'));
 const SecurityDashboard = lazy(() => import('../pages/SecurityDashboard'));
 const CommunityServersPage = lazy(() => import('../pages/CommunityServersPage'));
@@ -57,6 +56,10 @@ export default function DesktopAppLayoutShell({
   handleTouchMove,
   handleTouchEnd,
 }) {
+  const serverConversations = Array.isArray(conversations)
+    ? conversations.filter((conversation) => !conversation?.is_local_private)
+    : [];
+
   return (
     <div className={`app-layout scene-${scene} ${mobileNavOpen ? 'mobile-nav-open' : ''}`}>
       {!isOnline && (
@@ -94,6 +97,7 @@ export default function DesktopAppLayoutShell({
             user={user}
             conversations={conversations}
             currentConversationId={params.conversationId}
+            currentLocalPrivateUserId={params.localPrivateUserId}
             onRefreshConversations={refreshConversations}
             onAddConversation={addConversation}
             onRemoveConversation={removeConversationLocal}
@@ -134,19 +138,27 @@ export default function DesktopAppLayoutShell({
               )}
             />
             <Route
+              path="/channels/@me/private-local/:peerUserId"
+              element={(
+                <LocalPrivateChat
+                  peerUserId={params.localPrivateUserId}
+                  isMobile={isMobile}
+                />
+              )}
+            />
+            <Route
               path="/channels/@me/:conversationId"
               element={(
                 <DirectChat
                   conversationId={params.conversationId}
                   onConversationsChange={setConversations}
-                  conversations={conversations}
+                  conversations={serverConversations}
                 />
               )}
             />
             <Route path="/community" element={<CommunityServersPage />} />
             <Route path="/nitro" element={<NitroPage />} />
             <Route path="/security" element={<SecurityDashboard />} />
-            <Route path="/shop" element={<ShopPage />} />
             <Route path="/quests" element={<QuestsPage />} />
             <Route path="/channels/@me" element={<FriendsPage />} />
             <Route path="/settings" element={<FriendsPage />} />
@@ -157,18 +169,16 @@ export default function DesktopAppLayoutShell({
           </Routes>
         </div>
       </main>
-      {!params.teamId && !params.conversationId && <ActiveNow />}
-
       {params.isSettings && <Settings />}
 
       <SearchModal
         isOpen={showSearch}
         onClose={() => setShowSearch(false)}
-        conversations={conversations}
+        conversations={serverConversations}
         teams={teams}
       />
 
-      <DmCallFloatingPanel conversations={conversations} isMobile={isMobile} />
+      <DmCallFloatingPanel conversations={serverConversations} isMobile={isMobile} />
     </div>
   );
 }

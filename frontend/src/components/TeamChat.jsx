@@ -23,6 +23,7 @@ import ChannelHeader from './ChannelHeader';
 import TopicModal from './TopicModal';
 import InboxPanel from './InboxPanel';
 import { useSwipeBack } from '../hooks/useSwipeBack';
+import { MESSAGE_SEND_BACKPRESSURE_LIMIT, MESSAGE_SEND_QUEUE_GAP_MS, getRateLimitDelayMs, isRateLimitError, notifyRateLimit, wait } from '../utils/rateLimitRetry';
 import FileDropOverlay from './FileDropOverlay';
 import VoiceChannel from './VoiceChannel';
 import './Chat.css';
@@ -136,7 +137,6 @@ const LiveStreamFullscreenVideo = memo(function LiveStreamFullscreenVideo({ stre
 });
 
 const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, onLeaveServer, onOpenSearch, sidebarWidth, onSidebarResizeStart }) {
-  const DELETE_FUME_MS = 760;
   const [team, setTeam] = useState(null);
   const [channelId, setChannelId] = useState(initialChannelId || null);
   const [channels, setChannels] = useState([]);
@@ -171,6 +171,7 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   const [loadingMore, setLoadingMore] = useState(false);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [voiceJoining, setVoiceJoining] = useState(false);
+  const [sendQueueDepth, setSendQueueDepth] = useState(0);
 
   const socket = useSocket();
   const { user } = useAuth();
@@ -195,6 +196,7 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   const typingTimeoutRef = useRef(null);
   const messageListRef = useRef(null);
   const messageInputRef = useRef(null);
+  const sendQueueRef = useRef(Promise.resolve());
   const prevTeamIdRef = useRef(null);
 
   useEffect(() => {
@@ -206,6 +208,11 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   const skipMessagesEffectRef = useRef(false);
   const lastChannelIdRef = useRef(null);
   const lastTextChannelIdRef = useRef(null);
+
+  useEffect(() => {
+    sendQueueRef.current = Promise.resolve();
+    setSendQueueDepth(0);
+  }, [channelId]);
 
   const currentChannel = useMemo(() =>
     channels.find(c => c.id === parseInt(channelId, 10)),
@@ -519,7 +526,10 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   useEffect(() => {
     if (!socket || !teamId) return;
     const tId = parseInt(teamId, 10);
-    const rejoin = () => socket.emit('join_team', tId);
+    const rejoin = () => {
+      socket.emit('join_team', tId);
+      socket.emit('voice_sync');
+    };
     rejoin();
     socket.on('connect', rejoin);
     return () => {
@@ -865,59 +875,80 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
       }
     }
 
-    try {
-      const msg = await messagesApi.sendChannel(channelId, content, type, replyToId);
-      if (msg?.isCommand) {
-        const commandMsg = {
-          id: tempId,
-          channel_id: parseInt(channelId, 10),
-          sender_id: user?.id,
-          content: msg.message,
-          type: 'system',
-          subtype: 'command_result',
-          created_at: new Date().toISOString(),
-          sender: { id: user?.id, display_name: user?.display_name, avatar_url: user?.avatar_url },
-          isCommand: true,
-          commandSuccess: msg.success,
-          commandType: msg.type,
-          commandInput: content.trim(),
-        };
-        setMessages(prev => prev.map(m => (
-          m.id === tempId
-            ? { ...commandMsg, _clientKey: m._clientKey || m.id }
-            : m
-        )));
-        return commandMsg;
-      }
-      setMessages(prev => prev.map(m => (
-        m.id === tempId
-          ? { ...msg, _clientKey: m._clientKey || m.id }
-          : m
-      )));
-      return msg;
-    } catch (err) {
-      const { isNetworkError } = await import('../utils/offlineMessageQueue');
-      if (isNetworkError(err)) {
+    const sendToServer = async () => {
+      while (true) {
         try {
-          await addToOfflineQueue({
-            context: 'channel',
-            targetId: channelId,
-            payload: { content, type, replyToId },
-            tempId,
-          });
-          return optimisticMsg;
-        } catch (e) {
+          const msg = await messagesApi.sendChannel(channelId, content, type, replyToId);
+          if (msg?.isCommand) {
+            const commandMsg = {
+              id: tempId,
+              channel_id: parseInt(channelId, 10),
+              sender_id: user?.id,
+              content: msg.message,
+              type: 'system',
+              subtype: 'command_result',
+              created_at: new Date().toISOString(),
+              sender: { id: user?.id, display_name: user?.display_name, avatar_url: user?.avatar_url },
+              isCommand: true,
+              commandSuccess: msg.success,
+              commandType: msg.type,
+              commandInput: content.trim(),
+            };
+            setMessages(prev => prev.map(m => (
+              m.id === tempId
+                ? { ...commandMsg, _clientKey: m._clientKey || m.id }
+                : m
+            )));
+            return commandMsg;
+          }
+          setMessages(prev => prev.map(m => (
+            m.id === tempId
+              ? { ...msg, _clientKey: m._clientKey || m.id }
+              : m
+          )));
+          return msg;
+        } catch (err) {
+          if (isRateLimitError(err)) {
+            await wait(getRateLimitDelayMs(err));
+            continue;
+          }
+
+          const { isNetworkError } = await import('../utils/offlineMessageQueue');
+          if (isNetworkError(err)) {
+            try {
+              await addToOfflineQueue({
+                context: 'channel',
+                targetId: channelId,
+                payload: { content, type, replyToId },
+                tempId,
+              });
+              return optimisticMsg;
+            } catch (e) {
+              setMessages(prev => prev.map(m =>
+                m.id === tempId ? { ...m, _pending: false, _failed: true, _retryPayload: { content, type, replyToId } } : m
+              ));
+              throw err;
+            }
+          }
           setMessages(prev => prev.map(m =>
             m.id === tempId ? { ...m, _pending: false, _failed: true, _retryPayload: { content, type, replyToId } } : m
           ));
           throw err;
         }
       }
-      setMessages(prev => prev.map(m =>
-        m.id === tempId ? { ...m, _pending: false, _failed: true, _retryPayload: { content, type, replyToId } } : m
-      ));
-      throw err;
-    }
+    };
+
+    setSendQueueDepth((count) => {
+      const nextCount = count + 1;
+      if (nextCount >= MESSAGE_SEND_BACKPRESSURE_LIMIT) notifyRateLimit();
+      return nextCount;
+    });
+    const queuedSend = sendQueueRef.current.then(sendToServer, sendToServer);
+    const trackedSend = queuedSend.finally(() => {
+      setSendQueueDepth((count) => Math.max(0, count - 1));
+    });
+    sendQueueRef.current = trackedSend.catch(() => {}).then(() => wait(MESSAGE_SEND_QUEUE_GAP_MS));
+    return trackedSend;
   }, [channelId, socket, user, isOnline, addToOfflineQueue]);
 
   const retryFailedMessage = useCallback(msg => {
@@ -995,25 +1026,19 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
 
   const handleDeleteForMe = useCallback(msg => {
     if (!channelId) return;
-    setMessages(prev => prev.map(m => (m.id === msg.id ? { ...m, _deleting: true } : m)));
-    window.setTimeout(() => {
-      setMessages(prev => prev.filter(m => m.id !== msg.id));
-      undoToast.show(
-        t('chat.messageHidden'),
-        () => messagesApi.hideChannel(channelId, msg.id).catch(err => { notify.error(err.message); setMessages(prev => [...prev, msg].sort((a, b) => a.id - b.id)); }),
-        () => setMessages(prev => [...prev, msg].sort((a, b) => a.id - b.id))
-      );
-    }, DELETE_FUME_MS);
-  }, [channelId, notify, t, DELETE_FUME_MS]);
+    setMessages(prev => prev.filter(m => m.id !== msg.id));
+    undoToast.show(
+      t('chat.messageHidden'),
+      () => messagesApi.hideChannel(channelId, msg.id).catch(err => { notify.error(err.message); setMessages(prev => [...prev, msg].sort((a, b) => a.id - b.id)); }),
+      () => setMessages(prev => [...prev, msg].sort((a, b) => a.id - b.id))
+    );
+  }, [channelId, notify, t]);
 
   const doDeleteForAll = useCallback((msg) => {
     if (!channelId) return;
-    setMessages(prev => prev.map(m => (m.id === msg.id ? { ...m, _deleting: true } : m)));
-    window.setTimeout(() => {
-      setMessages(prev => prev.filter(m => m.id !== msg.id));
-      messagesApi.deleteChannel(channelId, msg.id).catch(err => { notify.error(err.message); setMessages(prev => [...prev, msg].sort((a, b) => a.id - b.id)); });
-    }, DELETE_FUME_MS);
-  }, [channelId, notify, DELETE_FUME_MS]);
+    setMessages(prev => prev.filter(m => m.id !== msg.id));
+    messagesApi.deleteChannel(channelId, msg.id).catch(err => { notify.error(err.message); setMessages(prev => [...prev, msg].sort((a, b) => a.id - b.id)); });
+  }, [channelId, notify]);
 
   const handleDeleteForAll = useCallback((msg, instant) => {
     if (instant) {
@@ -1174,6 +1199,17 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
     );
   }, [canManage, memberRolesMap, roles, user?.id]);
 
+  const handleVoiceUserRolesChanged = useCallback((userId, roleId, added) => {
+    setMemberRolesMap((prev) => {
+      const cur = prev[userId] || [];
+      if (added) {
+        if (cur.some((id) => String(id) === String(roleId))) return prev;
+        return { ...prev, [userId]: [...cur, roleId] };
+      }
+      return { ...prev, [userId]: cur.filter((id) => String(id) !== String(roleId)) };
+    });
+  }, []);
+
   // ═══════════════════════════════════════════════════════════
   // TOPIC EDITING
   // ═══════════════════════════════════════════════════════════
@@ -1281,6 +1317,9 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
         hideUserPanel={isMobile && mobileChannelListOpen}
         isMobile={isMobile}
         onActiveChannelClick={isMobile ? () => setMobileChannelListOpen(false) : undefined}
+        roles={roles}
+        memberRolesMap={memberRolesMap}
+        onRolesChanged={handleVoiceUserRolesChanged}
       />
 
       {expandedLiveView ? (
@@ -1366,6 +1405,8 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
                   ) : null}
                   lastReadMessageId={currentLastRead}
                   serverName={displayTeam?.name}
+                  channelId={displayChannel?.id}
+                  channelName={displayChannel?.name}
                   onInviteClick={() => setShowInviteModal(true)}
                   onFocusInput={() => messageInputRef.current?.focus?.()}
                   messageSurfaceContext={messageSurfaceContext}
@@ -1397,6 +1438,7 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
                     isAdmin={canManage}
                     canSend={displayChannel?.can_send !== false}
                     maxFileSize={maxFileSize}
+                    isSendBackpressured={sendQueueDepth >= MESSAGE_SEND_BACKPRESSURE_LIMIT}
                     onInputFocus={isMobile ? () => messageListRef.current?.scrollToBottom?.() : undefined}
                   />
                 )}

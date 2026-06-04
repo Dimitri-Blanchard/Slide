@@ -448,9 +448,7 @@
     "teamInCommon": "gemeinsame Gruppe",
     "conversationDeleted": "Unterhaltung gelöscht",
     "nitro": "Nitro",
-    "shop": "Geschäft",
     "quests": "Quests",
-    "shopNew": "NEU",
     "comingSoon": "Demnächst verfügbar!",
     "discover": "Entdecken Sie Communities",
     "securityDashboard": "Sicherheits-Dashboard"
@@ -484,6 +482,17 @@
     "welcomeTitle": "Willkommen bei {name}",
     "welcomeDescription": "Das ist dein brandneuer Server. Hier sind ein paar Schritte, um loszulegen.",
     "welcomeGettingStarted": "Einstiegs-Anleitung",
+    "welcomeChannelHints": [
+      "Willkommen in {channel}!",
+      "Das ist der Anfang des Kanals {channel}.",
+      "Du bist in {channel} — sag Hallo!",
+      "{channel} wartet auf dich. Schreib die erste Nachricht!",
+      "Hier beginnt die Geschichte von {channel}.",
+      "Willkommen im Herzen von {channel}!",
+      "Alles beginnt in {channel}.",
+      "Neu in {channel}? Du bist richtig hier."
+    ],
+    "welcomeServerOn": "Server · {name}",
     "inviteFriends": "Lade Freunde ein",
     "sendFirstMessage": "Sende deine erste Nachricht",
     "uploadFile": "Datei hochladen",
@@ -833,12 +842,6 @@
     "notifyEveryone": "Alle benachrichtigen",
     "notifyChannel": "Kanalmitglieder benachrichtigen"
   },
-  "activeNow": {
-    "title": "Jetzt aktiv",
-    "empty": "Es ist gerade ruhig...",
-    "emptyDesc": "Wenn ein Freund eine Aktivität startet — wie ein Spiel spielen oder im Sprachkanal abhängen — zeigen wir es hier!",
-    "playing": "Spielt {game}"
-  },
   "errorBoundary": {
     "serverLoadFailed": "Beim Laden dieser Ansicht ist ein Fehler aufgetreten.",
     "backToMessages": "Zurück zu Direktnachrichten"
@@ -1084,37 +1087,11 @@
     "launching": "Start..."
   },
   "shop": {
-    "title": "Geschäft",
-    "searchPlaceholder": "Search items...",
-    "all": "All",
-    "avatarDecorations": "Avatar Decorations",
-    "profileEffects": "Profile Effects",
-    "nameplates": "Nameplates",
-    "purchase": "Purchase",
-    "orbs": "Orbs",
-    "noResults": "No items found",
-    "owned": "Owned",
-    "notEnoughOrbs": "Not enough Orbs",
-    "equip": "Equip",
-    "equipped": "Equipped",
-    "unequipped": "Unequipped",
-    "goldRingDesc": "A subtle gold ring around your avatar",
-    "platinumRingDesc": "A soft platinum ring around your avatar",
-    "warmGlowDesc": "A warm glow at the bottom of your profile card",
-    "softHighlightDesc": "A soft highlight at the top of your profile",
-    "goldBadgeDesc": "A gold badge next to your name in messages",
-    "violetRingDesc": "A soft violet ring around your avatar",
-    "frostGlowDesc": "A subtle frost glow on your profile",
-    "frostRingDesc": "A clean frost ring around your avatar",
-    "silverBadgeDesc": "A silver badge next to your name in messages",
-    "frostEdgeDesc": "Ein dezenter Frostrand auf Ihrer Visitenkarte",
-    "equippedItems": "Ausgerüstete Gegenstände",
-    "equippedItemsDesc": "Passen Sie Ihren Avatar, Ihr Profil und Ihr Namensschild mit Artikeln aus dem Shop an",
-    "manageInShop": "Im Shop verwalten"
+    "orbs": "Orbs"
   },
   "quests": {
     "title": "Quests",
-    "description": "Schließe Quests ab, um Kugeln zu erhalten, die du im Shop ausgeben kannst",
+    "description": "Schließe Quests ab, um Orbs zu erhalten",
     "daily": "Daily",
     "weekly": "Weekly",
     "seasonal": "Seasonal",

@@ -448,9 +448,7 @@
     "teamInCommon": "общая группа",
     "conversationDeleted": "Разговор удалён",
     "nitro": "Nitro",
-    "shop": "Магазин",
     "quests": "Квесты",
-    "shopNew": "НОВОЕ",
     "comingSoon": "Скоро!",
     "discover": "Explore Communities",
     "securityDashboard": "Security Dashboard"
@@ -484,6 +482,17 @@
     "welcomeTitle": "Добро пожаловать в {name}",
     "welcomeDescription": "Это ваш новый сервер. Вот несколько шагов, чтобы начать.",
     "welcomeGettingStarted": "Руководство для начинающих",
+    "welcomeChannelHints": [
+      "Добро пожаловать в {channel}!",
+      "Это начало канала {channel}.",
+      "Вы в {channel} — поздоровайтесь!",
+      "{channel} ждёт вас. Отправьте первое сообщение!",
+      "Здесь начинается история {channel}.",
+      "Добро пожаловать в сердце {channel}!",
+      "Всё начинается в {channel}.",
+      "Впервые в {channel}? Вы по адресу."
+    ],
+    "welcomeServerOn": "Сервер · {name}",
     "inviteFriends": "Пригласите друзей",
     "sendFirstMessage": "Отправьте первое сообщение",
     "uploadFile": "Загрузить файл",
@@ -833,12 +842,6 @@
     "notifyEveryone": "Уведомить всех",
     "notifyChannel": "Уведомить участников канала"
   },
-  "activeNow": {
-    "title": "Сейчас активны",
-    "empty": "Пока тихо...",
-    "emptyDesc": "Когда друг начнёт активность — например, играть в игру или общаться в голосовом канале — мы покажем это здесь!",
-    "playing": "Играет в {game}"
-  },
   "errorBoundary": {
     "serverLoadFailed": "Something went wrong loading this view.",
     "backToMessages": "Back to direct messages"
@@ -1084,37 +1087,11 @@
     "launching": "Launching..."
   },
   "shop": {
-    "title": "Shop",
-    "searchPlaceholder": "Search items...",
-    "all": "All",
-    "avatarDecorations": "Avatar Decorations",
-    "profileEffects": "Profile Effects",
-    "nameplates": "Nameplates",
-    "purchase": "Purchase",
-    "orbs": "Orbs",
-    "noResults": "No items found",
-    "owned": "Owned",
-    "notEnoughOrbs": "Not enough Orbs",
-    "equip": "Equip",
-    "equipped": "Equipped",
-    "unequipped": "Unequipped",
-    "goldRingDesc": "A subtle gold ring around your avatar",
-    "platinumRingDesc": "A soft platinum ring around your avatar",
-    "warmGlowDesc": "A warm glow at the bottom of your profile card",
-    "softHighlightDesc": "A soft highlight at the top of your profile",
-    "goldBadgeDesc": "A gold badge next to your name in messages",
-    "violetRingDesc": "A soft violet ring around your avatar",
-    "frostGlowDesc": "A subtle frost glow on your profile",
-    "frostRingDesc": "A clean frost ring around your avatar",
-    "silverBadgeDesc": "A silver badge next to your name in messages",
-    "frostEdgeDesc": "A subtle frost edge on your profile card",
-    "equippedItems": "Equipped Items",
-    "equippedItemsDesc": "Customize your avatar, profile, and nameplate with items from the Shop",
-    "manageInShop": "Manage in Shop"
+    "orbs": "Orbs"
   },
   "quests": {
     "title": "Quests",
-    "description": "Complete quests to earn Orbs that you can spend in the Shop",
+    "description": "Complete quests to earn Orbs",
     "daily": "Daily",
     "weekly": "Weekly",
     "seasonal": "Seasonal",

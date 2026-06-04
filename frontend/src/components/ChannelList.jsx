@@ -1,7 +1,6 @@
 import React, { useState, useCallback, memo, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronDown, Mic, MicOff, Headphones, HeadphoneOff, Monitor, PhoneOff } from 'lucide-react';
 import { channels as channelsApi, servers } from '../api';
 import { useLanguage } from '../context/LanguageContext';
 import { useNotification } from '../context/NotificationContext';
@@ -16,38 +15,20 @@ import ConfirmModal from './ConfirmModal';
 import ClickableAvatar from './ClickableAvatar';
 import ChannelSettings from './ChannelSettings';
 import ContextMenu from './ContextMenu';
+import ProfileCard from './ProfileCard';
+import UserDetailModal from './UserDetailModal';
+import AddNoteModal from './AddNoteModal';
+import { useVoiceSidebarUserContextMenu } from '../hooks/useVoiceSidebarUserContextMenu';
+import AppIcon from './icons/AppIcon';
 import { ScreenShareVolumeControl } from './ScreenShareVolumeControl';
 import './ChannelList.css';
 
 const channelIcons = {
-  text: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" opacity="0.7">
-      <path d="M5.88657 21C5.57547 21 5.3399 20.7189 5.39427 20.4126L6.00001 17H2.59511C2.28449 17 2.04905 16.7198 2.10259 16.4138L2.27759 15.4138C2.31946 15.1746 2.52722 15 2.77011 15H6.35001L7.41001 9H4.00511C3.69449 9 3.45905 8.71977 3.51259 8.41381L3.68759 7.41381C3.72946 7.17456 3.93722 7 4.18011 7H7.76001L8.39677 3.41262C8.43914 3.17391 8.64664 3 8.88907 3H9.87344C10.1845 3 10.4201 3.28107 10.3657 3.58738L9.76001 7H15.76L16.3968 3.41262C16.4391 3.17391 16.6466 3 16.8891 3H17.8734C18.1845 3 18.4201 3.28107 18.3657 3.58738L17.76 7H21.1649C21.4755 7 21.711 7.28023 21.6574 7.58619L21.4824 8.58619C21.4406 8.82544 21.2328 9 20.9899 9H17.41L16.35 15H19.7549C20.0655 15 20.301 15.2802 20.2474 15.5862L20.0724 16.5862C20.0306 16.8254 19.8228 17 19.5799 17H16L15.3632 20.5874C15.3209 20.8261 15.1134 21 14.8709 21H13.8866C13.5755 21 13.3399 20.7189 13.3943 20.4126L14 17H8.00001L7.36325 20.5874C7.32088 20.8261 7.11337 21 6.87094 21H5.88657ZM9.41001 9L8.35001 15H14.35L15.41 9H9.41001Z" />
-    </svg>
-  ),
-  voice: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" opacity="0.7">
-      <path d="M11.383 3.07904C11.009 2.92504 10.579 3.01004 10.293 3.29604L6.586 7.00304H3C2.45 7.00304 2 7.45304 2 8.00304V16.003C2 16.553 2.45 17.003 3 17.003H6.586L10.293 20.71C10.579 20.996 11.009 21.082 11.383 20.927C11.757 20.772 12 20.407 12 20.003V4.00304C12 3.59904 11.757 3.23404 11.383 3.07904Z" />
-      <path d="M14 9.00304C14 9.00304 16 10.003 16 12.003C16 14.003 14 15.003 14 15.003" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M17 7.00304C17 7.00304 20 9.00304 20 12.003C20 15.003 17 17.003 17 17.003" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  ),
-  announcement: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" opacity="0.7">
-      <path d="M3.9 8.26H2V15.2941H3.9V8.26Z" />
-      <path d="M19.1 4V5.12659L4.85 8.26447V18.1176C4.85 18.5496 5.1464 18.9252 5.5701 19.0315L9.3701 19.9727C9.4461 19.9906 9.524 20 9.6 20C9.89545 20 10.1776 19.8468 10.3347 19.5765L12.0282 16.5741L19.1 18.2894V19.4H21V4H19.1ZM10.4112 17.9082L6.65 17.0576V16.1576L11.4476 17.2167L10.4112 17.9082ZM19.1 16.1374L5.85 13.0957V10.4898L19.1 7.27429V16.1374Z" />
-    </svg>
-  ),
-  stage: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" opacity="0.7">
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-    </svg>
-  ),
-  forum: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" opacity="0.7">
-      <path d="M4.79805 3C3.80445 3 2.99805 3.8052 2.99805 4.8V15.6C2.99805 16.5936 3.80445 17.4 4.79805 17.4H7.49805V21L11.098 17.4H19.198C20.1924 17.4 20.998 16.5936 20.998 15.6V4.8C20.998 3.8052 20.1924 3 19.198 3H4.79805Z"/>
-    </svg>
-  ),
+  text: <AppIcon name="channelText" size={18} />,
+  voice: <AppIcon name="channelVoice" size={18} />,
+  announcement: <AppIcon name="channelAnnouncement" size={18} />,
+  stage: <AppIcon name="check" size={18} />,
+  forum: <AppIcon name="channelForum" size={18} />,
 };
 
 const ServerHeader = memo(function ServerHeader({ team, onOpenSettings, onInvite, onCreateChannel, onCreateCategory, onLeave }) {
@@ -72,41 +53,39 @@ const ServerHeader = memo(function ServerHeader({ team, onOpenSettings, onInvite
         <span className="server-header-name">{team.name}</span>
         {team?.boost_level > 0 && (
           <span className="boost-badge" title={`Server Boost Level ${team.boost_level}`}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8.47 3.812a3.5 3.5 0 0 1 7.06 0L17 8h3.5a1.5 1.5 0 0 1 1.064 2.56L18 14l1.054 4.209a1.5 1.5 0 0 1-2.256 1.636L12 17l-4.799 2.845a1.5 1.5 0 0 1-2.256-1.636L6 14 2.437 10.56A1.5 1.5 0 0 1 3.5 8H7l1.47-4.188Z"/>
-            </svg>
+            <AppIcon name="nitro" size={10} />
             Level {team.boost_level}
           </span>
         )}
         {dropdownOpen ? (
-          <svg className="server-header-chevron" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.4 4L12 10.4L5.6 4L4 5.6L10.4 12L4 18.4L5.6 20L12 13.6L18.4 20L20 18.4L13.6 12L20 5.6L18.4 4Z"/></svg>
+          <AppIcon name="close" size={18} className="server-header-chevron" weight="bold" />
         ) : (
-          <svg className="server-header-chevron" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
+          <AppIcon name="caretDown" size={18} className="server-header-chevron" weight="bold" />
         )}
       </button>
       {dropdownOpen && (
         <div className="server-dropdown">
           <button className="server-dropdown-item accent" onClick={() => { onInvite?.(); setDropdownOpen(false); }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            <AppIcon name="userPlus" size={18} />
             <span>{t('server.invitePeople') || 'Invite People'}</span>
           </button>
           <div className="server-dropdown-separator" />
           <button className="server-dropdown-item" onClick={() => { onOpenSettings?.(); setDropdownOpen(false); }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+            <AppIcon name="settings" size={18} />
             <span>{t('server.settings') || 'Server Settings'}</span>
           </button>
           <button className="server-dropdown-item" onClick={() => { onCreateChannel?.(); setDropdownOpen(false); }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            <AppIcon name="plus" size={18} weight="bold" />
             <span>{t('server.createChannel') || 'Create Channel'}</span>
           </button>
           <button className="server-dropdown-item" onClick={() => { onCreateCategory?.(); setDropdownOpen(false); }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-1 8h-3v3h-2v-3h-3v-2h3V9h2v3h3v2z"/></svg>
+            <AppIcon name="archive" size={18} />
             <span>{t('server.createCategory') || 'Create Category'}</span>
           </button>
           {team?.role !== 'owner' && (<>
           <div className="server-dropdown-separator" />
           <button className="server-dropdown-item danger" onClick={() => { onLeave?.(); setDropdownOpen(false); }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
+            <AppIcon name="signOut" size={18} />
             <span>{t('server.leave') || 'Leave Server'}</span>
           </button>
           </>)}
@@ -127,10 +106,10 @@ const MUTE_DURATIONS = [
   { label: 'For 24 Hours', ms: 24 * 60 * 60 * 1000, key: '24h' },
 ];
 
-const checkIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>;
+const checkIcon = <AppIcon name="check" size={16} />;
 
-const bellIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/></svg>;
-const bellMutedIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 18.69L7.84 6.14 5.27 3.49 4 4.76l2.8 2.8v.01c-.52.99-.8 2.16-.8 3.42v5l-2 2v1h13.73l2 2L21 19.72l-1-1.03zM12 22c1.11 0 2-.89 2-2h-4c0 1.11.89 2 2 2zm6-7.32V11c0-3.08-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68c-.15.03-.29.08-.42.12-.1.03-.2.07-.3.11h-.01c-.01 0-.01 0-.02.01-.23.09-.46.2-.68.31 0 0-.01 0-.01.01L18 14.68z"/></svg>;
+const bellIcon = <AppIcon name="bell" size={16} />;
+const bellMutedIcon = <AppIcon name="bellOff" size={16} />;
 
 const ChannelContextMenu = memo(function ChannelContextMenu({ x, y, channel, teamId, onClose, canManage, onEdit, onDelete, onCopyId, isMuted, muteKey, onMute, onUnmute }) {
   const items = [];
@@ -138,7 +117,7 @@ const ChannelContextMenu = memo(function ChannelContextMenu({ x, y, channel, tea
   items.push(
     {
       label: 'Copy Link',
-      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>,
+      icon: <AppIcon name="link" size={16} />,
       onClick: () => {
         const link = `${window.location.origin}/team/${teamId}/channel/${channel.id}`;
         navigator.clipboard?.writeText(link).then(() => {}, () => {});
@@ -146,7 +125,7 @@ const ChannelContextMenu = memo(function ChannelContextMenu({ x, y, channel, tea
     },
     {
       label: 'Copy Channel ID',
-      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>,
+      icon: <AppIcon name="copy" size={16} />,
       onClick: () => onCopyId?.(channel.id),
     },
     { separator: true },
@@ -198,19 +177,19 @@ const ChannelContextMenu = memo(function ChannelContextMenu({ x, y, channel, tea
       { separator: true },
       {
         label: 'Edit Channel',
-        icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>,
+        icon: <AppIcon name="edit" size={16} />,
         onClick: () => onEdit?.(channel),
       },
       {
         label: 'Channel Settings',
-        icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58z"/></svg>,
+        icon: <AppIcon name="settings" size={16} />,
         onClick: () => onEdit?.(channel),
       },
       { separator: true },
       {
         label: 'Delete Channel',
         danger: true,
-        icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>,
+        icon: <AppIcon name="delete" size={16} />,
         onClick: () => onDelete?.(channel),
       }
     );
@@ -226,19 +205,19 @@ const CategoryContextMenu = memo(function CategoryContextMenu({ x, y, category, 
   const items = [
     {
       label: 'Edit Category',
-      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>,
+      icon: <AppIcon name="edit" size={16} />,
       onClick: () => onEdit?.(category),
     },
     {
       label: 'Create Channel',
-      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>,
+      icon: <AppIcon name="plus" size={16} weight="bold" />,
       onClick: () => onCreate?.(category?.id),
     },
     { separator: true },
     {
       label: 'Delete Category',
       danger: true,
-      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>,
+      icon: <AppIcon name="delete" size={16} />,
       onClick: () => onDelete?.(category),
     },
   ];
@@ -254,7 +233,7 @@ const Category = memo(function Category({
   unreadChannels, onEditChannel, onDeleteChannel, onCopyChannelId,
   isChannelMuted, getChannelMuteKey, onMuteChannel, onUnmuteChannel,
   onChannelMove, dragOverCategoryId, setDragOverCategoryId,
-  isMobile, onActiveChannelClick,
+  isMobile, onActiveChannelClick, roles, memberRolesMap, onRolesChanged,
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [ctxMenu, setCtxMenu] = useState(null);
@@ -384,21 +363,12 @@ const Category = memo(function Category({
           className={`collapse-arrow-wrap${collapsed ? ' is-collapsed' : ''}`}
           aria-hidden
         >
-          <svg className="collapse-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <path
-              className="collapse-arrow-path"
-              d="M6 9l6 6 6-6"
-              stroke="currentColor"
-              strokeWidth="2.25"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <AppIcon name="caretDown" size={14} className="collapse-arrow" weight="bold" />
         </span>
         <span className="category-name">{category?.name || 'CHANNELS'}</span>
         {canManage && (
           <button className="add-channel-btn" onClick={(e) => { e.stopPropagation(); onCreateChannel?.(category?.id); }} title="Create Channel">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            <AppIcon name="plus" size={16} weight="bold" />
           </button>
         )}
       </div>
@@ -435,6 +405,9 @@ const Category = memo(function Category({
             isDragOverCategory={isDragOver}
             isMobile={isMobile}
             onActiveChannelClick={onActiveChannelClick}
+            roles={roles}
+            memberRolesMap={memberRolesMap}
+            onRolesChanged={onRolesChanged}
           />
           );
         })}
@@ -505,11 +478,48 @@ const LiveStreamHoverPreview = memo(function LiveStreamHoverPreview({ stream, di
 // ═══════════════════════════════════════════════════════════
 // VOICE USER in sidebar (shown under voice channels)
 // ═══════════════════════════════════════════════════════════
-const VoiceUserItem = memo(function VoiceUserItem({ voiceUser, isSpeaking, isScreenSharing, stream, onLiveClick, channelId, teamId, isExiting }) {
+const VoiceUserItem = memo(function VoiceUserItem({
+  voiceUser,
+  isSpeaking,
+  isScreenSharing,
+  stream,
+  onLiveClick,
+  channelId,
+  teamId,
+  isExiting,
+  roles,
+  memberRolesMap,
+  canManage,
+  onRolesChanged,
+  serverRoleBadges,
+  serverTeamRole,
+}) {
   const [showHoverPreview, setShowHoverPreview] = React.useState(false);
+  const [showProfile, setShowProfile] = React.useState(false);
+  const [showProfileDetail, setShowProfileDetail] = React.useState(false);
+  const [contextMenu, setContextMenu] = React.useState(null);
+  const [noteModalUser, setNoteModalUser] = React.useState(null);
   const hoverTimeoutRef = React.useRef(null);
   const hideTimeoutRef = React.useRef(null);
   const itemRef = React.useRef(null);
+  const avatarWrapRef = React.useRef(null);
+
+  const menuItems = useVoiceSidebarUserContextMenu(voiceUser, {
+    teamId,
+    channelId,
+    roles,
+    memberRolesMap,
+    canManage,
+    onOpenProfileDetail: () => {
+      setContextMenu(null);
+      setShowProfileDetail(true);
+    },
+    onOpenNoteModal: (u) => {
+      setContextMenu(null);
+      setNoteModalUser(u);
+    },
+    onRolesChanged,
+  });
 
   const clearHideTimeout = () => {
     if (hideTimeoutRef.current) {
@@ -536,62 +546,117 @@ const VoiceUserItem = memo(function VoiceUserItem({ voiceUser, isSpeaking, isScr
     if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
   }, []);
 
+  const handleRowClick = (e) => {
+    e.stopPropagation();
+    setShowProfile(true);
+  };
+
+  const handleRowContextMenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!voiceUser?.id) return;
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  };
+
   return (
-    <div
-      ref={itemRef}
-      className={`voice-sidebar-user ${isSpeaking ? 'speaking' : ''} ${isScreenSharing ? 'has-live' : ''} ${isExiting ? 'voice-sidebar-user--exiting' : ''}`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      <div className={`voice-sidebar-avatar ${isSpeaking ? 'speaking' : ''}`}>
-        <ClickableAvatar
-          user={voiceUser}
-          size="small"
-          showPresence={false}
-          position="right"
-          contextMenuContext={{ channelId, teamId }}
-        />
+    <>
+      <div
+        ref={itemRef}
+        className={`voice-sidebar-user ${isSpeaking ? 'speaking' : ''} ${isScreenSharing ? 'has-live' : ''} ${isExiting ? 'voice-sidebar-user--exiting' : ''}`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onClick={handleRowClick}
+        onContextMenu={handleRowContextMenu}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleRowClick(e);
+          }
+        }}
+      >
+        <div ref={avatarWrapRef} className={`voice-sidebar-avatar ${isSpeaking ? 'speaking' : ''}`}>
+          <ClickableAvatar
+            user={voiceUser}
+            size="small"
+            showPresence={false}
+            position="right"
+            suppressContextMenu
+            onClick={handleRowClick}
+            serverRoleBadges={serverRoleBadges}
+            serverTeamRole={serverTeamRole}
+          />
+        </div>
+        <span className="voice-sidebar-username">{voiceUser.display_name}</span>
+        {isScreenSharing && (
+          <span
+            className={`voice-sidebar-live-badge ${stream ? 'clickable' : ''}`}
+            onClick={(e) => { if (stream) { e.stopPropagation(); onLiveClick?.(); } }}
+            title={stream ? 'Voir le live' : 'Connexion en cours...'}
+          >
+            LIVE
+          </span>
+        )}
+        {!!voiceUser.muted && (
+          <AppIcon name="micOff" size={14} className="voice-sidebar-status muted" />
+        )}
+        {!!voiceUser.deafened && (
+          <AppIcon name="deafenOff" size={14} className="voice-sidebar-status deafened" />
+        )}
+        {showHoverPreview && isScreenSharing && stream && (
+          <LiveStreamHoverPreview
+            stream={stream}
+            displayName={voiceUser.display_name}
+            anchorRef={itemRef}
+            onMouseEnter={clearHideTimeout}
+            onClose={() => { clearHideTimeout(); setShowHoverPreview(false); }}
+          />
+        )}
       </div>
-      <span className="voice-sidebar-username">{voiceUser.display_name}</span>
-      {isScreenSharing && (
-        <span
-          className={`voice-sidebar-live-badge ${stream ? 'clickable' : ''}`}
-          onClick={(e) => { if (stream) { e.stopPropagation(); onLiveClick?.(); } }}
-          title={stream ? 'Voir le live' : 'Connexion en cours...'}
-        >
-          LIVE
-        </span>
-      )}
-      {!!voiceUser.muted && (
-        <svg className="voice-sidebar-status muted" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-          <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-          <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-        </svg>
-      )}
-      {!!voiceUser.deafened && (
-        <svg className="voice-sidebar-status deafened" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z"/>
-          <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-        </svg>
-      )}
-      {showHoverPreview && isScreenSharing && stream && (
-        <LiveStreamHoverPreview
-          stream={stream}
-          displayName={voiceUser.display_name}
-          anchorRef={itemRef}
-          onMouseEnter={clearHideTimeout}
-          onClose={() => { clearHideTimeout(); setShowHoverPreview(false); }}
+      <ProfileCard
+        userId={voiceUser?.id}
+        user={voiceUser}
+        isOpen={showProfile}
+        onClose={() => setShowProfile(false)}
+        anchorEl={avatarWrapRef.current?.querySelector('.clickable-avatar')}
+        position="right"
+        keepRightOfSelector=".channel-sidebar"
+        serverRoleBadges={serverRoleBadges}
+        serverTeamRole={serverTeamRole}
+      />
+      <UserDetailModal
+        userId={voiceUser?.id}
+        user={voiceUser}
+        isOpen={showProfileDetail}
+        onClose={() => setShowProfileDetail(false)}
+      />
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={menuItems}
+          onClose={() => setContextMenu(null)}
         />
       )}
-    </div>
+      <AddNoteModal
+        isOpen={!!noteModalUser}
+        onClose={() => setNoteModalUser(null)}
+        user={noteModalUser}
+      />
+    </>
   );
 });
 
 // ═══════════════════════════════════════════════════════════
 // CHANNEL ITEM with context menu & hover actions
 // ═══════════════════════════════════════════════════════════
-const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUnread, canManage, onEdit, onDelete, onCopyId, isMuted, muteKey, onMute, onUnmute, onChannelMove, onDragEnd, onDragOverAtPosition, categoryId, position, channelCount, dropIndicatorPosition, isDragOverCategory, isMobile, onActiveChannelClick }) {
+const ChannelItem = memo(function ChannelItem({
+  channel, teamId, isActive, hasUnread, canManage, onEdit, onDelete, onCopyId,
+  isMuted, muteKey, onMute, onUnmute, onChannelMove, onDragEnd, onDragOverAtPosition,
+  categoryId, position, channelCount, dropIndicatorPosition, isDragOverCategory,
+  isMobile, onActiveChannelClick, roles, memberRolesMap, onRolesChanged,
+}) {
   if (!channel || channel.id == null) return null;
   const icon = channelIcons[channel.channel_type] || channelIcons.text;
   const isPrivate = channel.is_private;
@@ -636,7 +701,7 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
 
   const onChannelRowPointerUp = useCallback(() => clearChannelLongPress(), [clearChannelLongPress]);
 
-  const { voiceUsers, speakingUsers, voiceChannelId, voiceLeaveAnim, remoteVideoStreams, screenSharingUserIds, isScreenSharing, ownScreenStream, setExpandedLiveView } = useVoice();
+  const { voiceUsers, isUserSpeakingInChannel, voiceChannelId, voiceLeaveAnim, remoteVideoStreams, screenSharingUserIds, isScreenSharing, ownScreenStream, setExpandedLiveView } = useVoice();
   const navigate = useNavigate();
 
   const channelVoiceUsers = isVoice
@@ -724,16 +789,12 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
     <>
       <span className="channel-icon">{icon}</span>
       {!!isPrivate && (
-        <svg className="channel-lock" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" opacity="0.5">
-          <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
-        </svg>
+        <AppIcon name="lock" size={12} className="channel-lock" />
       )}
       <span className="channel-name">{channel.name}</span>
       {!!channel.nsfw && <span className="channel-nsfw">18+</span>}
       {isMuted && (
-        <svg className="channel-muted-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" opacity="0.4">
-          <path d="M20 18.69L7.84 6.14 5.27 3.49 4 4.76l2.8 2.8v.01c-.52.99-.8 2.16-.8 3.42v5l-2 2v1h13.73l2 2L21 19.72l-1-1.03zM12 22c1.11 0 2-.89 2-2h-4c0 1.11.89 2 2 2zm6-7.32V11c0-3.08-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68c-.15.03-.29.08-.42.12-.1.03-.2.07-.3.11h-.01c-.01 0-.01 0-.02.01-.23.09-.46.2-.68.31 0 0-.01 0-.01.01L18 14.68z"/>
-        </svg>
+        <AppIcon name="bellOff" size={12} className="channel-muted-icon" />
       )}
       {showUnread && <span className="channel-unread-dot" />}
     </>
@@ -790,17 +851,13 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
             setCtxMenu({ x: r.left, y: r.bottom + 4 });
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <circle cx="12" cy="5" r="2" />
-            <circle cx="12" cy="12" r="2" />
-            <circle cx="12" cy="19" r="2" />
-          </svg>
+          <AppIcon name="more" size={18} />
         </button>
       )}
       {canManage && (
         <div className="channel-actions">
           <button className="channel-action-btn" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit?.(channel); }} title="Edit Channel">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58z"/></svg>
+            <AppIcon name="settings" size={14} />
           </button>
         </div>
       )}
@@ -815,13 +872,19 @@ const ChannelItem = memo(function ChannelItem({ channel, teamId, isActive, hasUn
             <VoiceUserItem
               key={u.id}
               voiceUser={u}
-              isSpeaking={u.id != null && speakingUsers.has(String(u.id))}
+              isSpeaking={!!u.speaking || isUserSpeakingInChannel(channel.id, u.id)}
               isScreenSharing={!!getRemoteStreamForUser(remoteVideoStreams, u.id) || screenSharingUserIds?.has?.(u.id) || (sameUserId(u.id, user?.id) && isScreenSharing)}
               stream={sameUserId(u.id, user?.id) ? ownScreenStream : getRemoteStreamForUser(remoteVideoStreams, u.id)}
               onLiveClick={() => setExpandedLiveView({ userId: u.id, displayName: u.display_name })}
               channelId={channel.id}
               teamId={teamId}
               isExiting={exitingSelf}
+              roles={roles}
+              memberRolesMap={memberRolesMap}
+              canManage={canManage}
+              onRolesChanged={onRolesChanged}
+              serverRoleBadges={(roles || []).filter((r) => (memberRolesMap?.[u.id] || []).some((id) => String(id) === String(r.id))).map((r) => ({ name: r.name, color: r.color }))}
+              serverTeamRole={u.role}
             />
             );
           })}
@@ -907,7 +970,7 @@ const ChannelModal = ({ isOpen, onClose, onSubmit, onError, teamId, categories, 
           <h3>{initialData ? 'Edit Channel' : 'Create Channel'}</h3>
           <p className="channel-modal-sub">{initialData ? 'Update this channel\'s settings' : 'in ' + (categories?.find(c => String(c.id) === String(categoryId || ''))?.name || 'your server')}</p>
           <button className="modal-close-btn" onClick={onClose}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            <AppIcon name="close" size={20} weight="bold" />
           </button>
         </div>
 
@@ -958,7 +1021,7 @@ const ChannelModal = ({ isOpen, onClose, onSubmit, onError, teamId, categories, 
           <div className="form-toggles">
             <label className="toggle-row">
               <div className="toggle-info">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" opacity="0.7"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+                <AppIcon name="lock" size={16} />
                 <span>Private Channel</span>
               </div>
               <div className={`toggle-switch ${isPrivate ? 'on' : ''}`} onClick={() => setIsPrivate(!isPrivate)}>
@@ -1075,7 +1138,7 @@ const CategoryModal = ({ isOpen, onClose, onSubmit, initialName }) => {
             </p>
           </div>
           <button type="button" className="category-modal-close" onClick={onClose} aria-label="Close">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            <AppIcon name="close" size={20} weight="bold" />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="category-modal-form">
@@ -1128,10 +1191,10 @@ const CategoryModal = ({ isOpen, onClose, onSubmit, initialName }) => {
 // VOICE STATUS BAR - Shows when connected to voice (server or DM)
 // ═══════════════════════════════════════════════════════════
 const MicIcon = ({ muted }) =>
-  muted ? <MicOff size={18} strokeWidth={2} /> : <Mic size={18} strokeWidth={2} />;
+  <AppIcon name={muted ? 'micOff' : 'mic'} size={18} />;
 
 const HeadphoneIcon = ({ deafened }) =>
-  deafened ? <HeadphoneOff size={18} strokeWidth={2} /> : <Headphones size={18} strokeWidth={2} />;
+  <AppIcon name={deafened ? 'deafenOff' : 'deafen'} size={18} />;
 
 export const VoiceStatusBar = memo(function VoiceStatusBar() {
   const { voiceChannelId, voiceChannelName, voiceConversationId, voiceConversationName, voiceLeaveAnim, connectionState, isMuted, isDeafened, isScreenSharing, toggleMute, toggleDeafen, startScreenShare, stopScreenShare, leaveVoice, leaveVoiceDM, switchAudioInput, switchAudioOutput } = useVoice();
@@ -1308,7 +1371,7 @@ export const VoiceStatusBar = memo(function VoiceStatusBar() {
                 <span className="vdm-row-value">{voiceStats.packetLoss}%</span>
               </div>
               <div className="vdm-encryption">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
+                <AppIcon name="lock" size={14} />
                 <span>End-to-end encrypted</span>
               </div>
             </div>,
@@ -1321,12 +1384,12 @@ export const VoiceStatusBar = memo(function VoiceStatusBar() {
         {/* Microphone — split: icon | chevron for device selection */}
         <div ref={micGroupRef} className="vsb-ctrl-group">
           <div className={`vsb-ctrl-split ${isMuted ? 'active' : ''}`}>
-            <button className="vsb-ctrl-main" onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
+            <button className="vsb-ctrl-main" data-voice-mute-trigger onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
               <MicIcon muted={isMuted} />
             </button>
             <span className="vsb-ctrl-divider" />
             <button className="vsb-ctrl-dropdown" onClick={() => setOpenDropdown(openDropdown === 'mic' ? null : 'mic')} title="Select microphone" data-open={openDropdown === 'mic'} aria-expanded={openDropdown === 'mic'}>
-              <ChevronDown size={14} strokeWidth={2.5} />
+              <AppIcon name="caretDown" size={14} weight="bold" />
             </button>
           </div>
           {openDropdown === 'mic' && popoverRect && createPortal(
@@ -1349,7 +1412,7 @@ export const VoiceStatusBar = memo(function VoiceStatusBar() {
             </button>
             <span className="vsb-ctrl-divider" />
             <button className="vsb-ctrl-dropdown" onClick={() => setOpenDropdown(openDropdown === 'output' ? null : 'output')} title="Select audio output" data-open={openDropdown === 'output'} aria-expanded={openDropdown === 'output'}>
-              <ChevronDown size={14} strokeWidth={2.5} />
+              <AppIcon name="caretDown" size={14} weight="bold" />
             </button>
           </div>
           {openDropdown === 'output' && popoverRect && createPortal(
@@ -1371,7 +1434,7 @@ export const VoiceStatusBar = memo(function VoiceStatusBar() {
               onClick={isScreenSharing ? stopScreenShare : startScreenShare}
               title={isScreenSharing ? 'Arrêter le partage' : 'Partager l\'écran'}
             >
-              <Monitor size={18} strokeWidth={2} />
+              <AppIcon name="screenShare" size={18} />
             </button>
             <ScreenShareVolumeControl variant="vsb" />
           </>
@@ -1381,7 +1444,7 @@ export const VoiceStatusBar = memo(function VoiceStatusBar() {
           onClick={handleDisconnect}
           title="Disconnect"
         >
-          <PhoneOff size={18} strokeWidth={2} />
+          <AppIcon name="phoneOff" size={18} />
         </button>
       </div>
     </div>
@@ -1402,6 +1465,9 @@ export default function ChannelList({
   onActiveChannelClick,
   width,
   onResizeStart,
+  roles = [],
+  memberRolesMap = {},
+  onRolesChanged,
 }) {
   const [showChannelModal, setShowChannelModal] = useState(false);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
@@ -1598,6 +1664,7 @@ export default function ChannelList({
           onChannelMove={canManage ? handleChannelMove : undefined}
           dragOverCategoryId={dragOverCategoryId} setDragOverCategoryId={setDragOverCategoryId}
           isMobile={isMobile} onActiveChannelClick={onActiveChannelClick}
+          roles={roles} memberRolesMap={memberRolesMap} onRolesChanged={onRolesChanged}
         />
 
         {sortedCategories.map(category => (
@@ -1611,6 +1678,7 @@ export default function ChannelList({
             onChannelMove={canManage ? handleChannelMove : undefined}
             dragOverCategoryId={dragOverCategoryId} setDragOverCategoryId={setDragOverCategoryId}
             isMobile={isMobile} onActiveChannelClick={onActiveChannelClick}
+            roles={roles} memberRolesMap={memberRolesMap} onRolesChanged={onRolesChanged}
           />
         ))}
 
@@ -1623,12 +1691,12 @@ export default function ChannelList({
           items={[
             {
               label: 'Create Channel',
-              icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>,
+              icon: <AppIcon name="plus" size={16} weight="bold" />,
               onClick: () => handleCreateChannel(null),
             },
             {
               label: 'Create Category',
-              icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>,
+              icon: <AppIcon name="archive" size={16} />,
               onClick: () => { setEditingCategory(null); setShowCategoryModal(true); },
             },
           ]}

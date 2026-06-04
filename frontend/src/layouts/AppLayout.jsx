@@ -13,7 +13,14 @@ import MobileAppLayoutShell from './MobileAppLayoutShell';
 import DesktopAppLayoutShell from './DesktopAppLayoutShell';
 import NotFound from '../pages/NotFound';
 import { isAuthenticatedAppPath } from './appPaths';
+import {
+  getLocalPrivateChats,
+  LOCAL_PRIVATE_CHATS_CHANGED_EVENT,
+  toLocalPrivateConversation,
+  upsertLocalPrivateChat,
+} from '../utils/localPrivateChatCrypto';
 import './AppLayout.css';
+import './panel-junctions.css';
 
 function useIsMobile(breakpoint = 768, webTabletBreakpoint = 1024) {
   const { isMobileDevice, isWeb } = usePlatform();
@@ -105,7 +112,7 @@ function setCachedTeams(userId, teams) {
   if (userId == null) return;
   try {
     localStorage.setItem(cacheKeyTeams(userId), JSON.stringify({
-      data: teams,
+      data: sanitizeTeamsList(teams),
       timestamp: Date.now()
     }));
   } catch (e) {
@@ -123,12 +130,14 @@ function useAppParams() {
   return useMemo(() => {
     const teamMatch = pathname.match(/\/team\/(\d+)/);
     const channelMatch = pathname.match(/\/team\/\d+\/channel\/(\d+)/);
+    const localPrivateMatch = pathname.match(/\/channels\/@me\/private-local\/([^/]+)/);
     const dmMatch = pathname.match(/\/channels\/@me\/(\d+)/);
     const isSettings = pathname === '/settings';
     return {
       teamId: teamMatch?.[1] || null,
       channelId: channelMatch?.[1] || null,
-      conversationId: dmMatch?.[1] || null,
+      conversationId: localPrivateMatch ? null : (dmMatch?.[1] || null),
+      localPrivateUserId: localPrivateMatch ? decodeURIComponent(localPrivateMatch[1]) : null,
       isSettings,
     };
   }, [pathname]);
@@ -172,6 +181,7 @@ function AppLayout() {
 
   const [teams, setTeams] = useState([]);
   const [conversations, setConversations] = useState([]);
+  const [localPrivateConversations, setLocalPrivateConversations] = useState([]);
   const [conversationsLoaded, setConversationsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
@@ -194,6 +204,7 @@ function AppLayout() {
   useEffect(() => {
     if (!user?.id) {
       setLastDmConversationId(null);
+      setLocalPrivateConversations([]);
       return;
     }
     try {
@@ -203,6 +214,23 @@ function AppLayout() {
       setLastDmConversationId(null);
     }
   }, [user?.id]);
+
+  const refreshLocalPrivateConversations = useCallback(() => {
+    if (!user?.id) {
+      setLocalPrivateConversations([]);
+      return;
+    }
+    const localConvos = getLocalPrivateChats(user.id)
+      .map(toLocalPrivateConversation)
+      .filter(Boolean);
+    setLocalPrivateConversations(localConvos);
+  }, [user?.id]);
+
+  useEffect(() => {
+    refreshLocalPrivateConversations();
+    window.addEventListener(LOCAL_PRIVATE_CHATS_CHANGED_EVENT, refreshLocalPrivateConversations);
+    return () => window.removeEventListener(LOCAL_PRIVATE_CHATS_CHANGED_EVENT, refreshLocalPrivateConversations);
+  }, [refreshLocalPrivateConversations]);
 
   useEffect(() => {
     if (!params.conversationId) return;
@@ -306,9 +334,15 @@ function AppLayout() {
   // Silent background sync — fetch teams and conversations in parallel.
   // Set loading false as soon as conversations arrive so sidebar appears progressively.
   const silentSync = useCallback((onConversationsReady) => {
+    if (!user?.id) return Promise.resolve();
+    const uid = user.id;
     const teamsPromise = teamsApi.list()
       .then((teamsList) => {
-        if (Array.isArray(teamsList)) setTeams(sanitizeTeamsList(teamsList));
+        if (Array.isArray(teamsList)) {
+          const safeTeams = sanitizeTeamsList(teamsList);
+          setTeams(safeTeams);
+          setCachedTeams(uid, safeTeams);
+        }
       })
       .catch((err) => { console.warn('Teams sync failed:', err); });
 
@@ -328,7 +362,7 @@ function AppLayout() {
       });
 
     return Promise.allSettled([teamsPromise, convosPromise]);
-  }, []);
+  }, [user?.id]);
 
   // Per-account hydrate from localStorage + background sync (never mix users in sidebar cache)
   useEffect(() => {
@@ -370,7 +404,7 @@ function AppLayout() {
   }, [conversations, conversationsLoaded, user?.id]);
 
   useEffect(() => {
-    if (!user?.id || teams.length === 0) return;
+    if (!user?.id) return;
     setCachedTeams(user.id, sanitizeTeamsList(teams));
   }, [teams, user?.id]);
 
@@ -396,8 +430,17 @@ function AppLayout() {
   // Join all team rooms to receive server_updated (icon, name, etc.) for sidebar
   useEffect(() => {
     if (!socket || teams.length === 0) return;
-    teams.forEach((t) => t?.id != null && socket.emit('join_team', t.id));
-    return () => teams.forEach((t) => t?.id != null && socket.emit('leave_team', t.id));
+    teams.forEach((t) => {
+      if (t?.id == null) return;
+      socket.emit('join_team', t.id);
+    });
+    const syncVoice = () => socket.emit('voice_sync');
+    if (socket.connected) syncVoice();
+    socket.on('connect', syncVoice);
+    return () => {
+      socket.off('connect', syncVoice);
+      teams.forEach((t) => t?.id != null && socket.emit('leave_team', t.id));
+    };
   }, [socket, teams]);
 
   // Listen to real-time team events
@@ -604,6 +647,20 @@ function AppLayout() {
     };
   }, [socket, params.conversationId, user?.id]);
 
+  useEffect(() => {
+    if (!socket || !user?.id) return;
+    const onLocalPrivateInvite = ({ fromUserId, fromUser }) => {
+      if (!fromUserId || String(fromUserId) === String(user.id)) return;
+      upsertLocalPrivateChat(user.id, fromUser || { id: fromUserId }, {
+        last_message_preview: 'Invitation privée locale',
+        last_message_at: new Date().toISOString(),
+        accepted: false,
+      });
+    };
+    socket.on('local_private_chat_key_announce', onLocalPrivateInvite);
+    return () => socket.off('local_private_chat_key_announce', onLocalPrivateInvite);
+  }, [socket, user?.id]);
+
   // Close mobile nav when route changes
   const { pathname, state: locationState } = useLocation();
   useEffect(() => {
@@ -620,12 +677,12 @@ function AppLayout() {
     }
     const wasInConv = !!prevParamsRef.current.conversationId;
     const wasInTeam = !!prevParamsRef.current.teamId;
-    const nowHome = !params.conversationId && !params.teamId && pathname !== '/community';
+    const nowHome = !params.conversationId && !params.localPrivateUserId && !params.teamId && pathname !== '/community';
     if (nowHome && (wasInConv || wasInTeam)) {
       setMobileTab('home');
     }
     prevParamsRef.current = params;
-  }, [pathname, params.conversationId, params.teamId, locationState?.mobileTab]);
+  }, [pathname, params.conversationId, params.localPrivateUserId, params.teamId, locationState?.mobileTab]);
 
   useEffect(() => {
     if (params.conversationId) {
@@ -650,32 +707,34 @@ function AppLayout() {
   }, [params.teamId]);
 
   const refreshConversations = useCallback(() => {
+    if (!user?.id) return;
     directApi.conversations()
       .then((convos) => {
         if (Array.isArray(convos)) {
           setConversations(convos);
-          setCachedConversations(convos);
+          setCachedConversations(user.id, convos);
           setConversationsLoaded(true);
         }
       })
       .catch((err) => {
         console.error('Erreur refresh conversations:', err);
       });
-  }, []);
+  }, [user?.id]);
 
   const refreshTeams = useCallback(() => {
+    if (!user?.id) return;
     teamsApi.list()
       .then((teamsList) => {
         if (Array.isArray(teamsList)) {
           const safeTeams = sanitizeTeamsList(teamsList);
           setTeams(safeTeams);
-          setCachedTeams(safeTeams);
+          setCachedTeams(user.id, safeTeams);
         }
       })
       .catch((err) => {
         console.error('Erreur refresh teams:', err);
       });
-  }, []);
+  }, [user?.id]);
 
   const handleTeamsChange = useCallback((nextTeamsOrUpdater) => {
     if (typeof nextTeamsOrUpdater === 'function') {
@@ -825,6 +884,11 @@ function AppLayout() {
   const { queuedCount, processing } = useOffline();
   const scene = useScene();
   const { width: sidebarWidth, handleResizeStart: handleSidebarResizeStart } = useSidebarWidth();
+  const displayedConversations = useMemo(() => {
+    return [...localPrivateConversations, ...conversations].sort((a, b) =>
+      new Date(b.last_message_at || b.updated_at || b.created_at) - new Date(a.last_message_at || a.updated_at || a.created_at)
+    );
+  }, [conversations, localPrivateConversations]);
 
   if (!isAuthenticatedAppPath(pathname)) {
     return <NotFound />;
@@ -840,7 +904,7 @@ function AppLayout() {
         queuedCount={queuedCount}
         processing={processing}
         teams={teams}
-        conversations={conversations}
+        conversations={displayedConversations}
         setConversations={setConversations}
         loading={loading}
         user={user}
@@ -875,7 +939,7 @@ function AppLayout() {
       processing={processing}
       teams={teams}
       user={user}
-      conversations={conversations}
+      conversations={displayedConversations}
       setConversations={setConversations}
       lastDmConversationId={lastDmConversationId}
       handleTeamsChange={handleTeamsChange}

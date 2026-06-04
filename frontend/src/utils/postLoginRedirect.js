@@ -1,5 +1,5 @@
 /** Paths allowed after login when using ?redirect= (blocks open redirects). */
-const SAFE_REDIRECT = /^\/(app|channels|team|community|nitro|security|shop|quests|settings|home|profile|admin|qr-login)(\/|$|\?)/;
+const SAFE_REDIRECT = /^\/(app|channels|team|community|nitro|security|quests|settings|home|profile|admin|qr-login)(\/|$|\?)/;
 
 /** Resolve ?redirect= to an in-app path; /app maps to the default messages home. */
 export function resolvePostLoginPath(redirectParam) {

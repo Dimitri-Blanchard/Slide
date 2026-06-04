@@ -500,7 +500,7 @@ export default function DMCallView({
       <div className="dm-call-controls" ref={dropdownRef}>
         <div className="dm-call-ctrl-group-wrap">
           <div className={`dm-call-ctrl-split ${isMuted ? 'has-active danger' : ''}`}>
-            <button className="dm-call-ctrl-main" onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
+            <button className="dm-call-ctrl-main" data-voice-mute-trigger onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
               {isMuted ? <MicOff size={20} strokeWidth={2} /> : <Mic size={20} strokeWidth={2} />}
             </button>
             <span className="dm-call-ctrl-divider" />

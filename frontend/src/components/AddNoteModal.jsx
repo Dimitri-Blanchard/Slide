@@ -3,9 +3,8 @@ import { createPortal } from 'react-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { useNotification } from '../context/NotificationContext';
 import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
+import { loadUserNote, saveUserNote } from '../utils/userNotes';
 import './AddNoteModal.css';
-
-const NOTE_KEY = (userId) => `slide_user_note_${userId}`;
 
 export default function AddNoteModal({ isOpen, onClose, user, onSaved }) {
   const [note, setNote] = useState('');
@@ -14,7 +13,7 @@ export default function AddNoteModal({ isOpen, onClose, user, onSaved }) {
 
   useEffect(() => {
     if (isOpen && user?.id) {
-      setNote(localStorage.getItem(NOTE_KEY(user.id)) || '');
+      setNote(loadUserNote(user.id));
     }
   }, [isOpen, user?.id]);
 
@@ -35,11 +34,7 @@ export default function AddNoteModal({ isOpen, onClose, user, onSaved }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!user?.id) return;
-    if (note.trim()) {
-      localStorage.setItem(NOTE_KEY(user.id), note.trim());
-    } else {
-      localStorage.removeItem(NOTE_KEY(user.id));
-    }
+    saveUserNote(user.id, note);
     notify.success(t('common.saved') || 'Saved');
     onSaved?.();
     onClose();

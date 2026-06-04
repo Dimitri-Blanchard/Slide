@@ -12,6 +12,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { usePrefetchOnHover } from '../context/PrefetchContext';
 import { useSwipeBack } from '../hooks/useSwipeBack';
 import { prefetchProfile } from '../utils/profileCache';
+import { MESSAGE_SEND_BACKPRESSURE_LIMIT, MESSAGE_SEND_QUEUE_GAP_MS, getRateLimitDelayMs, isRateLimitError, notifyRateLimit, wait } from '../utils/rateLimitRetry';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import PinnedMessages from './PinnedMessages';
@@ -113,7 +114,6 @@ const GroupMembersSidebar = memo(function GroupMembersSidebar({ members, ownerId
 });
 
 const DirectChat = memo(function DirectChat({ conversationId, onConversationsChange, conversations, isMobile }) {
-  const DELETE_FUME_MS = 760;
   const { onMouseEnter, onMouseLeave } = usePrefetchOnHover();
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -134,6 +134,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
   const [deleteCaptionConfirm, setDeleteCaptionConfirm] = useState(null);
   const [showGroupMembers, setShowGroupMembers] = useState(false);
   const [isFriend, setIsFriend] = useState(false);
+  const [sendQueueDepth, setSendQueueDepth] = useState(0);
   const socket = useSocket();
   const { isUserOnline } = useOnlineUsers();
   const { isOnline, addToQueue: addToOfflineQueue } = useOffline();
@@ -147,6 +148,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
   const lastReadRef = useRef(null);
   const messageListRef = useRef(null);
   const messageInputRef = useRef(null);
+  const sendQueueRef = useRef(Promise.resolve());
   
   // Use a ref to access conversations without triggering re-renders
   const conversationsRef = useRef(conversations);
@@ -167,6 +169,8 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
   useEffect(() => {
     if (!conversationId) return;
     let cancelled = false;
+    sendQueueRef.current = Promise.resolve();
+    setSendQueueDepth(0);
 
     // Reset UI state but keep messages if we have cache
     setReplyTo(null);
@@ -498,59 +502,80 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
       }
     }
 
-    try {
-      const msg = await directApi.sendMessage(conversationId, content, type, replyToId);
-      if (msg?.isCommand) {
-        const commandMsg = {
-          id: tempId,
-          conversation_id: parseInt(conversationId, 10),
-          sender_id: user?.id,
-          content: msg.message,
-          type: 'system',
-          subtype: 'command_result',
-          created_at: new Date().toISOString(),
-          sender: { id: user?.id, display_name: user?.display_name, avatar_url: user?.avatar_url },
-          isCommand: true,
-          commandSuccess: msg.success,
-          commandType: msg.type,
-          commandInput: content.trim(),
-        };
-        setMessages((prev) => prev.map((m) => (
-          m.id === tempId
-            ? { ...commandMsg, _clientKey: m._clientKey || m.id }
-            : m
-        )));
-        return commandMsg;
-      }
-      setMessages((prev) => prev.map((m) => (
-        m.id === tempId
-          ? { ...msg, _clientKey: m._clientKey || m.id }
-          : m
-      )));
-      return msg;
-    } catch (err) {
-      const { isNetworkError } = await import('../utils/offlineMessageQueue');
-      if (isNetworkError(err)) {
+    const sendToServer = async () => {
+      while (true) {
         try {
-          await addToOfflineQueue({
-            context: 'dm',
-            targetId: conversationId,
-            payload: { content, type, replyToId },
-            tempId,
-          });
-          return optimisticMsg;
-        } catch (e) {
+          const msg = await directApi.sendMessage(conversationId, content, type, replyToId);
+          if (msg?.isCommand) {
+            const commandMsg = {
+              id: tempId,
+              conversation_id: parseInt(conversationId, 10),
+              sender_id: user?.id,
+              content: msg.message,
+              type: 'system',
+              subtype: 'command_result',
+              created_at: new Date().toISOString(),
+              sender: { id: user?.id, display_name: user?.display_name, avatar_url: user?.avatar_url },
+              isCommand: true,
+              commandSuccess: msg.success,
+              commandType: msg.type,
+              commandInput: content.trim(),
+            };
+            setMessages((prev) => prev.map((m) => (
+              m.id === tempId
+                ? { ...commandMsg, _clientKey: m._clientKey || m.id }
+                : m
+            )));
+            return commandMsg;
+          }
+          setMessages((prev) => prev.map((m) => (
+            m.id === tempId
+              ? { ...msg, _clientKey: m._clientKey || m.id }
+              : m
+          )));
+          return msg;
+        } catch (err) {
+          if (isRateLimitError(err)) {
+            await wait(getRateLimitDelayMs(err));
+            continue;
+          }
+
+          const { isNetworkError } = await import('../utils/offlineMessageQueue');
+          if (isNetworkError(err)) {
+            try {
+              await addToOfflineQueue({
+                context: 'dm',
+                targetId: conversationId,
+                payload: { content, type, replyToId },
+                tempId,
+              });
+              return optimisticMsg;
+            } catch (e) {
+              setMessages((prev) => prev.map((m) =>
+                m.id === tempId ? { ...m, _pending: false, _failed: true, _retryPayload: { content, type, replyToId } } : m
+              ));
+              throw err;
+            }
+          }
           setMessages((prev) => prev.map((m) =>
             m.id === tempId ? { ...m, _pending: false, _failed: true, _retryPayload: { content, type, replyToId } } : m
           ));
           throw err;
         }
       }
-      setMessages((prev) => prev.map((m) =>
-        m.id === tempId ? { ...m, _pending: false, _failed: true, _retryPayload: { content, type, replyToId } } : m
-      ));
-      throw err;
-    }
+    };
+
+    setSendQueueDepth((count) => {
+      const nextCount = count + 1;
+      if (nextCount >= MESSAGE_SEND_BACKPRESSURE_LIMIT) notifyRateLimit();
+      return nextCount;
+    });
+    const queuedSend = sendQueueRef.current.then(sendToServer, sendToServer);
+    const trackedSend = queuedSend.finally(() => {
+      setSendQueueDepth((count) => Math.max(0, count - 1));
+    });
+    sendQueueRef.current = trackedSend.catch(() => {}).then(() => wait(MESSAGE_SEND_QUEUE_GAP_MS));
+    return trackedSend;
   }, [conversationId, socket, user, isOnline, addToOfflineQueue]);
 
   const retryFailedMessage = useCallback((msg) => {
@@ -665,35 +690,28 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
 
   // Delete for me (hide) - with undo
   const handleDeleteForMe = useCallback((msg) => {
-    // Show dissolve state first, then remove to keep the "melt into air" effect visible.
-    setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, _deleting: true } : m)));
-    window.setTimeout(() => {
-      setMessages((prev) => prev.filter((m) => m.id !== msg.id));
-      undoToast.show(
-        t('chat.messageHidden'),
-        () => {
-          directApi.hideMessage(conversationId, msg.id).catch((err) => {
-            notify.error(err.message || t('errors.delete'));
-            setMessages((prev) => [...prev, msg].sort((a, b) => a.id - b.id));
-          });
-        },
-        () => {
+    setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+    undoToast.show(
+      t('chat.messageHidden'),
+      () => {
+        directApi.hideMessage(conversationId, msg.id).catch((err) => {
+          notify.error(err.message || t('errors.delete'));
           setMessages((prev) => [...prev, msg].sort((a, b) => a.id - b.id));
-        }
-      );
-    }, DELETE_FUME_MS);
-  }, [conversationId, notify, t, DELETE_FUME_MS]);
+        });
+      },
+      () => {
+        setMessages((prev) => [...prev, msg].sort((a, b) => a.id - b.id));
+      }
+    );
+  }, [conversationId, notify, t]);
 
   const doDeleteForAll = useCallback((msg) => {
-    setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, _deleting: true } : m)));
-    window.setTimeout(() => {
-      setMessages((prev) => prev.filter((m) => m.id !== msg.id));
-      directApi.deleteMessage(conversationId, msg.id).catch((err) => {
-        notify.error(err.message || t('errors.delete'));
-        setMessages((prev) => [...prev, msg].sort((a, b) => a.id - b.id));
-      });
-    }, DELETE_FUME_MS);
-  }, [conversationId, notify, t, DELETE_FUME_MS]);
+    setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+    directApi.deleteMessage(conversationId, msg.id).catch((err) => {
+      notify.error(err.message || t('errors.delete'));
+      setMessages((prev) => [...prev, msg].sort((a, b) => a.id - b.id));
+    });
+  }, [conversationId, notify, t]);
 
   const handleDeleteForAll = useCallback((msg, instant) => {
     if (instant) {
@@ -1316,6 +1334,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
               onToggleStickerPanel={handleToggleStickerPanel}
               stickerPanelOpen={showStickerPanel}
               isAdmin={user?.role === 'admin'}
+              isSendBackpressured={sendQueueDepth >= MESSAGE_SEND_BACKPRESSURE_LIMIT}
               onInputFocus={isMobile ? () => messageListRef.current?.scrollToBottom?.() : undefined}
             />
           </div>

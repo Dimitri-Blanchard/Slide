@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
 import { useSettings } from './SettingsContext';
-import { useNotification } from './NotificationContext';
 import { useSounds } from './SoundContext';
 import { randomUuidV4 } from '../utils/randomUuid';
 
@@ -23,6 +22,26 @@ const AUDIO_BITRATE = 128000;
 const VIDEO_BITRATE_NITRO = 12_000_000;
 const VIDEO_BITRATE_FREE = 2_500_000;
 const NITRO_STREAM_SEEN_KEY = 'slide_nitro_stream_celebrated';
+
+function getMicrophoneIssueFromError(err) {
+  const name = err?.name || '';
+  const message = err?.message || '';
+  const text = `${name} ${message}`.toLowerCase();
+
+  if (['NotAllowedError', 'PermissionDeniedError', 'SecurityError'].includes(name)) {
+    return { type: 'permission-denied', label: 'Accès micro refusé' };
+  }
+
+  if (['NotFoundError', 'DevicesNotFoundError', 'OverconstrainedError'].includes(name) || text.includes('device not found')) {
+    return { type: 'no-device', label: 'Aucun micro détecté' };
+  }
+
+  if (['NotReadableError', 'TrackStartError', 'AbortError'].includes(name)) {
+    return { type: 'device-busy', label: 'Micro utilisé ailleurs' };
+  }
+
+  return { type: 'access-failed', label: 'Micro indisponible' };
+}
 
 function applyScreenShareTrackHints(stream) {
   const track = stream?.getVideoTracks?.()?.[0];
@@ -97,6 +116,34 @@ function reconfigureAllVideoSenders(peerConnectionsRef, hasNitro) {
 
 const SPEAKING_THRESHOLD = 25;
 const SPEAKING_CHECK_INTERVAL = 100;
+const MIC_SPEECH_ATTEMPT_RESHOW_MS = 10_000;
+const MIC_SPEECH_ATTEMPT_GAP_MS = 1_500;
+const MIC_SPEECH_LEVEL_MIN = 32;
+const MIC_SPEECH_VOICE_RATIO_MIN = 0.42;
+const MIC_SPEECH_VOICE_BAND_MIN_HZ = 300;
+const MIC_SPEECH_VOICE_BAND_MAX_HZ = 3400;
+
+/** Voice-band energy ratio — ignores steady low rumble / HVAC-style noise. */
+function isLikelyHumanSpeech(analyser, dataArray, sampleRate) {
+  analyser.getByteFrequencyData(dataArray);
+  const binCount = dataArray.length;
+  if (!binCount) return false;
+  const binWidth = (sampleRate / 2) / binCount;
+  let voiceBandEnergy = 0;
+  let totalEnergy = 0;
+  for (let i = 0; i < binCount; i++) {
+    const e = dataArray[i];
+    totalEnergy += e;
+    const freq = i * binWidth;
+    if (freq >= MIC_SPEECH_VOICE_BAND_MIN_HZ && freq <= MIC_SPEECH_VOICE_BAND_MAX_HZ) {
+      voiceBandEnergy += e;
+    }
+  }
+  if (totalEnergy < 1) return false;
+  const avg = totalEnergy / binCount;
+  const voiceRatio = voiceBandEnergy / totalEnergy;
+  return avg >= MIC_SPEECH_LEVEL_MIN && voiceRatio >= MIC_SPEECH_VOICE_RATIO_MIN;
+}
 
 function waitForSocketConnected(socket, timeoutMs = 5000) {
   if (!socket) return Promise.reject(new Error('No socket'));
@@ -121,6 +168,146 @@ export function sameUserId(a, b) {
 function speakingKey(id) {
   if (id == null || id === '') return null;
   return String(id);
+}
+
+function dmSpeakingScopeKey(conversationId) {
+  const id = coercePositiveInt(conversationId) ?? conversationId;
+  return `dm_${id}`;
+}
+
+function channelSpeakingScopeKey(channelId) {
+  const id = coercePositiveInt(channelId);
+  return id != null ? String(id) : String(channelId);
+}
+
+/** voiceUsers roster may use numeric or string channel ids — check both for speaking. */
+function channelScopeLookupKeys(channelId) {
+  const canon = channelSpeakingScopeKey(channelId);
+  const keys = [canon];
+  if (channelId != null && String(channelId) !== canon) keys.push(String(channelId));
+  return keys;
+}
+
+function cloneSpeakingByScope(prev) {
+  const next = {};
+  for (const k of Object.keys(prev)) {
+    next[k] = new Set(prev[k]);
+  }
+  return next;
+}
+
+function patchSpeakingInScope(prev, scopeKey, userId, speaking) {
+  if (!scopeKey) return prev;
+  const sk = speakingKey(userId);
+  if (!sk) return prev;
+  const key = String(scopeKey);
+  const bucket = prev[key];
+  if (speaking) {
+    if (bucket?.has(sk)) return prev;
+    const next = cloneSpeakingByScope(prev);
+    if (!next[key]) next[key] = new Set();
+    next[key].add(sk);
+    return next;
+  }
+  if (!bucket?.has(sk)) return prev;
+  const next = cloneSpeakingByScope(prev);
+  next[key].delete(sk);
+  if (next[key].size === 0) delete next[key];
+  return next;
+}
+
+function clearSelfFromScopes(prev, scopeKeys, selfId) {
+  const sk = speakingKey(selfId);
+  if (!sk) return prev;
+  let next = null;
+  for (const scopeKey of scopeKeys) {
+    const key = String(scopeKey);
+    const bucket = (next ?? prev)[key];
+    if (!bucket?.has(sk)) continue;
+    if (!next) next = cloneSpeakingByScope(prev);
+    next[key].delete(sk);
+    if (next[key].size === 0) delete next[key];
+  }
+  return next ?? prev;
+}
+
+function speakingSetForScope(map, scopeKey) {
+  if (!scopeKey) return new Set();
+  const keys =
+    typeof scopeKey === 'string' && scopeKey.startsWith('dm_')
+      ? [scopeKey]
+      : channelScopeLookupKeys(scopeKey);
+  const out = new Set();
+  for (const k of keys) {
+    map[k]?.forEach((id) => out.add(id));
+  }
+  return out;
+}
+
+function isUserSpeakingInScopeMap(map, scopeKey, userId) {
+  const sk = speakingKey(userId);
+  if (!sk) return false;
+  const keys =
+    typeof scopeKey === 'string' && scopeKey.startsWith('dm_')
+      ? [scopeKey]
+      : channelScopeLookupKeys(scopeKey);
+  return keys.some((k) => map[k]?.has(sk));
+}
+
+function rosterUserIsSpeaking(u) {
+  return !!(u?.speaking ?? u?.is_speaking ?? u?.isSpeaking);
+}
+
+function normalizeSpeakingPayload(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return { channelId: null, conversationId: null, userId: null, speaking: false };
+  }
+  return {
+    channelId: payload.channelId ?? payload.channel_id ?? null,
+    conversationId: payload.conversationId ?? payload.conversation_id ?? null,
+    userId: payload.userId ?? payload.user_id ?? payload.id ?? null,
+    speaking: !!(payload.speaking ?? payload.is_speaking ?? payload.isSpeaking),
+  };
+}
+
+function findVoiceChannelIdForUser(voiceUsersMap, userId) {
+  if (!voiceUsersMap || userId == null) return null;
+  for (const [key, list] of Object.entries(voiceUsersMap)) {
+    if (key.startsWith('dm_')) continue;
+    if (Array.isArray(list) && list.some((u) => sameUserId(u.id, userId))) return key;
+  }
+  return null;
+}
+
+function patchVoiceUserSpeaking(prev, channelId, userId, speaking) {
+  const keys = channelScopeLookupKeys(channelId);
+  let next = prev;
+  let changed = false;
+  for (const key of keys) {
+    const list = next[key];
+    if (!Array.isArray(list)) continue;
+    const idx = list.findIndex((u) => sameUserId(u.id, userId));
+    if (idx === -1) continue;
+    if (!!list[idx].speaking === !!speaking) continue;
+    if (!changed) {
+      next = { ...prev };
+      changed = true;
+    }
+    const updated = [...(next[key] || list)];
+    updated[idx] = { ...updated[idx], speaking: !!speaking };
+    next[key] = updated;
+  }
+  return changed ? next : prev;
+}
+
+function syncSpeakingScopeFromRoster(prevScope, channelId, users) {
+  const scope = channelSpeakingScopeKey(channelId);
+  let next = prevScope;
+  for (const u of users || []) {
+    if (u?.id == null) continue;
+    next = patchSpeakingInScope(next, scope, u.id, rosterUserIsSpeaking(u));
+  }
+  return next;
 }
 
 /** Server voice handlers require positive integers; normalize strings/NaN from API or routes. */
@@ -264,11 +451,36 @@ function clearChannelRoster(prev, channelId) {
   return next;
 }
 
+/** Leave voice: drop only the current user from sidebar roster — keep other participants visible. */
+function removeSelfFromChannelRoster(prev, channelId, authUserId) {
+  if (authUserId == null) return clearChannelRoster(prev, channelId);
+  const next = { ...prev };
+  for (const k of voiceChannelRosterKeys(channelId)) {
+    if (!Array.isArray(next[k])) continue;
+    const filtered = filterOutSelfInVoiceList(next[k], authUserId);
+    if (filtered.length === 0) delete next[k];
+    else next[k] = filtered;
+  }
+  return next;
+}
+
 function clearDmRoster(prev, conversationId) {
   const next = { ...prev };
   delete next[voiceDmRosterKey(conversationId)];
   const id = coercePositiveInt(conversationId);
   if (id != null) delete next[`dm_${String(id)}`];
+  return next;
+}
+
+function removeSelfFromDmRoster(prev, conversationId, authUserId) {
+  if (authUserId == null) return clearDmRoster(prev, conversationId);
+  const next = { ...prev };
+  for (const k of [voiceDmRosterKey(conversationId), `dm_${String(coercePositiveInt(conversationId) ?? conversationId)}`]) {
+    if (!Array.isArray(next[k])) continue;
+    const filtered = filterOutSelfInVoiceList(next[k], authUserId);
+    if (filtered.length === 0) delete next[k];
+    else next[k] = filtered;
+  }
   return next;
 }
 
@@ -299,7 +511,6 @@ export function VoiceProvider({ children }) {
   const socket = useSocket();
   const { user } = useAuth();
   const { settings, updateSetting } = useSettings();
-  const { notify } = useNotification();
   const { playVoiceJoin, playVoiceLeave, playVoiceMute, playVoiceUnmute } = useSounds();
   const hasNitroRef = useRef(!!user?.has_nitro);
   useEffect(() => {
@@ -318,7 +529,8 @@ export function VoiceProvider({ children }) {
   const [voiceChannelMeta, setVoiceChannelMeta] = useState({}); // channelId -> { channelName, teamName, teamId }
   const [isMuted, setIsMuted] = useState(false);
   const [isDeafened, setIsDeafened] = useState(false);
-  const [speakingUsers, setSpeakingUsers] = useState(new Set());
+  /** channelId or dm_<conversationId> -> Set of speaking user ids (visible even when not in that voice room). */
+  const [speakingUsersByScope, setSpeakingUsersByScope] = useState({});
   const [connectionState, setConnectionState] = useState('disconnected');
   /** DM: WebRTC reports connected or remote audio is playing (roster alone can lag behind media). */
   const [dmRemoteMediaReady, setDmRemoteMediaReady] = useState(false);
@@ -343,6 +555,75 @@ export function VoiceProvider({ children }) {
   const [screenShareCaptureAudioActive, setScreenShareCaptureAudioActive] = useState(false);
   /** Per remote user id: 0–100; combined with settings.output_volume for playback. */
   const [streamVolumeByUserId, setStreamVolumeByUserId] = useState({});
+  const [microphoneIssue, setMicrophoneIssue] = useState(null);
+  const lastMicrophoneIssueRef = useRef(null);
+  const micAttemptStreamRef = useRef(null);
+  const micAttemptAudioContextRef = useRef(null);
+  const micAttemptAnalyserRef = useRef(null);
+  const micAttemptCheckRef = useRef(null);
+  const micAttemptAccumMsRef = useRef(0);
+  const micAttemptLastActiveAtRef = useRef(0);
+
+  const speakingUsers = useMemo(() => {
+    if (voiceChannelId != null) {
+      return speakingSetForScope(speakingUsersByScope, channelSpeakingScopeKey(voiceChannelId));
+    }
+    if (voiceConversationId != null) {
+      return speakingSetForScope(speakingUsersByScope, dmSpeakingScopeKey(voiceConversationId));
+    }
+    return new Set();
+  }, [speakingUsersByScope, voiceChannelId, voiceConversationId]);
+
+  const isUserSpeakingInChannel = useCallback(
+    (channelId, userId) => isUserSpeakingInScopeMap(speakingUsersByScope, channelId, userId),
+    [speakingUsersByScope],
+  );
+
+  useEffect(() => {
+    voiceUsersRef.current = voiceUsers;
+  }, [voiceUsers]);
+
+  const stopMicSpeechAttemptMonitor = useCallback(() => {
+    if (micAttemptCheckRef.current) {
+      clearInterval(micAttemptCheckRef.current);
+      micAttemptCheckRef.current = null;
+    }
+    if (micAttemptStreamRef.current) {
+      micAttemptStreamRef.current.getTracks().forEach((t) => t.stop());
+      micAttemptStreamRef.current = null;
+    }
+    if (micAttemptAudioContextRef.current) {
+      micAttemptAudioContextRef.current.close().catch(() => {});
+      micAttemptAudioContextRef.current = null;
+    }
+    micAttemptAnalyserRef.current = null;
+    micAttemptAccumMsRef.current = 0;
+    micAttemptLastActiveAtRef.current = 0;
+  }, []);
+
+  const clearMicrophoneIssue = useCallback(() => {
+    lastMicrophoneIssueRef.current = null;
+    setMicrophoneIssue(null);
+    stopMicSpeechAttemptMonitor();
+  }, [stopMicSpeechAttemptMonitor]);
+
+  const showMicrophoneIssue = useCallback((err) => {
+    const issue = { id: Date.now(), ...getMicrophoneIssueFromError(err) };
+    lastMicrophoneIssueRef.current = issue;
+    setMicrophoneIssue(issue);
+    stopMicSpeechAttemptMonitor();
+  }, [stopMicSpeechAttemptMonitor]);
+
+  const dismissMicrophoneIssue = useCallback(() => {
+    setMicrophoneIssue(null);
+  }, []);
+
+  const restoreMicrophoneIssue = useCallback(() => {
+    const issue = lastMicrophoneIssueRef.current;
+    if (!issue) return;
+    setMicrophoneIssue({ ...issue, id: Date.now() });
+    stopMicSpeechAttemptMonitor();
+  }, [stopMicSpeechAttemptMonitor]);
 
   /** Persisted: conversation ids the user declined ringing for (no repeat incoming until call ends or they join). */
   const declinedDmConvIdsRef = useRef(null);
@@ -405,6 +686,8 @@ export function VoiceProvider({ children }) {
   const analyserRef = useRef(null);
   const speakingCheckRef = useRef(null);
   const wasSpeakingRef = useRef(false);
+  const voiceUsersRef = useRef({});
+  const remoteSpeakingMonitorsRef = useRef({});
   const voiceChannelIdRef = useRef(null);
   const voiceConversationIdRef = useRef(null);
   const voiceTeamIdRef = useRef(null);
@@ -477,6 +760,12 @@ export function VoiceProvider({ children }) {
   useEffect(() => {
     voiceConversationIdRef.current = voiceConversationId;
   }, [voiceConversationId]);
+
+  useEffect(() => {
+    if (voiceChannelId == null && voiceConversationId == null) {
+      clearMicrophoneIssue();
+    }
+  }, [voiceChannelId, voiceConversationId, clearMicrophoneIssue]);
 
   // After auth hydrates or profile updates, fix participant rows for the active call.
   useEffect(() => {
@@ -619,6 +908,88 @@ export function VoiceProvider({ children }) {
     return tracks.some(track => track.readyState !== 'ended');
   }, []);
 
+  const startMicSpeechAttemptMonitor = useCallback(async () => {
+    if (micAttemptCheckRef.current || !lastMicrophoneIssueRef.current) return;
+    if (voiceChannelIdRef.current == null && voiceConversationIdRef.current == null) return;
+    if (hasActiveLocalMic()) return;
+
+    try {
+      const stream = await acquireMicStream();
+      micAttemptStreamRef.current = stream;
+      const ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+      micAttemptAudioContextRef.current = ctx;
+      if (ctx.state === 'suspended') await ctx.resume();
+
+      const source = ctx.createMediaStreamSource(stream);
+      const highpass = ctx.createBiquadFilter();
+      highpass.type = 'highpass';
+      highpass.frequency.value = 120;
+      highpass.Q.value = 0.7;
+
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.65;
+      source.connect(highpass);
+      highpass.connect(analyser);
+      micAttemptAnalyserRef.current = analyser;
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const sampleRate = ctx.sampleRate;
+      micAttemptAccumMsRef.current = 0;
+      micAttemptLastActiveAtRef.current = 0;
+
+      micAttemptCheckRef.current = setInterval(() => {
+        const a = micAttemptAnalyserRef.current;
+        if (!a) return;
+        const now = Date.now();
+        if (isLikelyHumanSpeech(a, dataArray, sampleRate)) {
+          const last = micAttemptLastActiveAtRef.current;
+          if (last && now - last > MIC_SPEECH_ATTEMPT_GAP_MS) {
+            micAttemptAccumMsRef.current = 0;
+          }
+          micAttemptLastActiveAtRef.current = now;
+          micAttemptAccumMsRef.current += SPEAKING_CHECK_INTERVAL;
+          if (micAttemptAccumMsRef.current >= MIC_SPEECH_ATTEMPT_RESHOW_MS) {
+            restoreMicrophoneIssue();
+          }
+        } else if (
+          micAttemptLastActiveAtRef.current &&
+          now - micAttemptLastActiveAtRef.current > MIC_SPEECH_ATTEMPT_GAP_MS
+        ) {
+          micAttemptAccumMsRef.current = 0;
+        }
+      }, SPEAKING_CHECK_INTERVAL);
+    } catch {
+      stopMicSpeechAttemptMonitor();
+    }
+  }, [acquireMicStream, hasActiveLocalMic, restoreMicrophoneIssue, stopMicSpeechAttemptMonitor]);
+
+  useEffect(() => {
+    const inVoice = voiceChannelId != null || voiceConversationId != null;
+    const shouldMonitor =
+      inVoice &&
+      lastMicrophoneIssueRef.current &&
+      !microphoneIssue &&
+      isMutedRef.current &&
+      !hasActiveLocalMic();
+
+    if (!shouldMonitor) {
+      stopMicSpeechAttemptMonitor();
+      return undefined;
+    }
+
+    startMicSpeechAttemptMonitor();
+    return () => stopMicSpeechAttemptMonitor();
+  }, [
+    voiceChannelId,
+    voiceConversationId,
+    microphoneIssue,
+    isMuted,
+    startMicSpeechAttemptMonitor,
+    stopMicSpeechAttemptMonitor,
+    hasActiveLocalMic,
+  ]);
+
   const startSpeakingDetection = useCallback(async (stream) => {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
@@ -675,13 +1046,16 @@ export function VoiceProvider({ children }) {
         if (isSpeaking !== wasSpeakingRef.current) {
           wasSpeakingRef.current = isSpeaking;
           const sk = speakingKey(user?.id);
-          setSpeakingUsers(prev => {
-            const next = new Set(prev);
-            if (!sk) return next;
-            if (isSpeaking) next.add(sk);
-            else next.delete(sk);
-            return next;
-          });
+          if (sk) {
+            const scope = voiceChannelIdRef.current
+              ? channelSpeakingScopeKey(voiceChannelIdRef.current)
+              : voiceConversationIdRef.current
+                ? dmSpeakingScopeKey(voiceConversationIdRef.current)
+                : null;
+            if (scope) {
+              setSpeakingUsersByScope((prev) => patchSpeakingInScope(prev, scope, user?.id, isSpeaking));
+            }
+          }
           if (socket) {
             if (voiceChannelIdRef.current) {
               socket.emit('voice_speaking', {
@@ -844,6 +1218,64 @@ export function VoiceProvider({ children }) {
     return Math.min(1, Math.max(0, base * (getStreamVolumePercent(userId) / 100)));
   }, [settings?.output_volume, getStreamVolumePercent]);
 
+  const applyRemoteSpeakingState = useCallback((scopeKey, userId, isSpeaking) => {
+    if (!scopeKey || userId == null) return;
+    setSpeakingUsersByScope((prev) => patchSpeakingInScope(prev, scopeKey, userId, isSpeaking));
+    if (typeof scopeKey === 'string' && scopeKey.startsWith('dm_')) {
+      const convId = scopeKey.slice(3);
+      setVoiceUsers((prev) => patchVoiceUserSpeaking(prev, voiceDmRosterKey(convId), userId, isSpeaking));
+    } else {
+      setVoiceUsers((prev) => patchVoiceUserSpeaking(prev, scopeKey, userId, isSpeaking));
+    }
+  }, []);
+
+  const stopRemoteSpeakingMonitor = useCallback((peerKeyStr) => {
+    const mon = remoteSpeakingMonitorsRef.current[peerKeyStr];
+    if (!mon) return;
+    if (mon.interval) clearInterval(mon.interval);
+    if (mon.ctx) mon.ctx.close().catch(() => {});
+    delete remoteSpeakingMonitorsRef.current[peerKeyStr];
+  }, []);
+
+  const startRemoteSpeakingMonitor = useCallback((peerKeyStr, stream) => {
+    const { userId: rosterUserId } = parsePeerKey(peerKeyStr);
+    if (rosterUserId == null || sameUserId(rosterUserId, user?.id)) return;
+    const dm = voiceConversationIdRef.current;
+    const ch = voiceChannelIdRef.current;
+    const scopeKey = dm != null ? dmSpeakingScopeKey(dm) : ch != null ? channelSpeakingScopeKey(ch) : null;
+    if (!scopeKey || !stream?.getAudioTracks?.().length) return;
+
+    stopRemoteSpeakingMonitor(peerKeyStr);
+
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      const ctx = new AC();
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      const source = ctx.createMediaStreamSource(stream);
+      source.connect(analyser);
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      let wasSpeaking = false;
+
+      const interval = setInterval(() => {
+        if (!stream.getAudioTracks().some((t) => t.readyState === 'live')) return;
+        analyser.getByteFrequencyData(dataArray);
+        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+        const isSpeaking = avg > SPEAKING_THRESHOLD;
+        if (isSpeaking !== wasSpeaking) {
+          wasSpeaking = isSpeaking;
+          applyRemoteSpeakingState(scopeKey, rosterUserId, isSpeaking);
+        }
+      }, SPEAKING_CHECK_INTERVAL);
+
+      remoteSpeakingMonitorsRef.current[peerKeyStr] = { interval, ctx };
+    } catch (err) {
+      console.warn('Remote speaking monitor failed:', err);
+    }
+  }, [user?.id, stopRemoteSpeakingMonitor, applyRemoteSpeakingState]);
+
   const playRemoteStream = useCallback((peerKeyStr, stream) => {
     const { userId: rosterUserId } = parsePeerKey(peerKeyStr);
     ensurePeerInVoiceRoster(rosterUserId);
@@ -876,7 +1308,8 @@ export function VoiceProvider({ children }) {
         document.addEventListener('keydown', retry, { once: true });
       });
     }
-  }, [getListenVolume01, settings?.output_device, ensurePeerInVoiceRoster]);
+    startRemoteSpeakingMonitor(peerKeyStr, stream);
+  }, [getListenVolume01, settings?.output_device, ensurePeerInVoiceRoster, startRemoteSpeakingMonitor]);
 
   useEffect(() => {
     for (const peerKeyStr of Object.keys(remoteAudioRefs.current)) {
@@ -888,6 +1321,7 @@ export function VoiceProvider({ children }) {
   }, [getListenVolume01]);
 
   const cleanupPeerConnection = useCallback((peerKeyStr) => {
+    stopRemoteSpeakingMonitor(peerKeyStr);
     delete iceCandidateQueueRef.current[peerKeyStr];
     const pc = peerConnectionsRef.current[peerKeyStr];
     if (pc) {
@@ -910,7 +1344,7 @@ export function VoiceProvider({ children }) {
       delete next[peerKeyStr];
       return next;
     });
-  }, []);
+  }, [stopRemoteSpeakingMonitor]);
 
   const emitVoiceSignal = useCallback((targetUserId, targetVoiceClientId, signal) => {
     if (!socket || !targetVoiceClientId) return;
@@ -1091,9 +1525,11 @@ export function VoiceProvider({ children }) {
         const stream = await acquireMicStream();
         localStreamRef.current = stream;
         await startSpeakingDetection(stream);
+        clearMicrophoneIssue();
         isMutedRef.current = false;
         setIsMuted(false);
-      } catch {
+      } catch (err) {
+        showMicrophoneIssue(err);
         isMutedRef.current = true;
         setIsMuted(true);
       }
@@ -1125,7 +1561,7 @@ export function VoiceProvider({ children }) {
     };
     socket.io.on('reconnect', onReconnect);
     return () => socket.io.off('reconnect', onReconnect);
-  }, [socket, rotateVoiceClientId, cleanupAllConnections, acquireMicStream, startSpeakingDetection]);
+  }, [socket, rotateVoiceClientId, cleanupAllConnections, acquireMicStream, startSpeakingDetection, showMicrophoneIssue, clearMicrophoneIssue]);
 
   const joinVoice = useCallback(async (channelId, teamId, channelName) => {
     const chId = coercePositiveInt(channelId);
@@ -1185,7 +1621,6 @@ export function VoiceProvider({ children }) {
     voiceTeamIdRef.current = tId;
     setVoiceChannelName(channelName);
     setVoiceViewMinimized(false);
-    setSpeakingUsers(new Set());
 
     // Wait for socket to be connected (handles returning after idle/disconnect)
     if (socket && !socket.connected) {
@@ -1235,9 +1670,11 @@ export function VoiceProvider({ children }) {
       const stream = await acquireMicStream();
       localStreamRef.current = stream;
       await startSpeakingDetection(stream);
+      clearMicrophoneIssue();
       hasMic = true;
     } catch (err) {
       console.warn('No microphone available, joining as listen-only:', err?.message);
+      showMicrophoneIssue(err);
       isMutedRef.current = true;
       setIsMuted(true);
     }
@@ -1274,19 +1711,26 @@ export function VoiceProvider({ children }) {
     setIsDeafened(false);
     window.electron?.blockPowerSave?.();
     voiceSoundsRef.current.join();
-  }, [socket, user, acquireMicStream, startSpeakingDetection, cleanupAllConnections, rotateVoiceClientId]);
+  }, [socket, user, acquireMicStream, startSpeakingDetection, cleanupAllConnections, rotateVoiceClientId, showMicrophoneIssue, clearMicrophoneIssue]);
 
   const finishLeaveVoice = useCallback((channelId, skipEmit) => {
     recentVoiceJoinUntilRef.current = 0;
-    setVoiceUsers((prev) => clearChannelRoster(prev, channelId));
-    setVoiceChannelMeta((prev) => {
-      const next = { ...prev };
-      for (const k of voiceChannelRosterKeys(channelId)) {
-        delete next[k];
+    setVoiceUsers((prev) => {
+      const next = removeSelfFromChannelRoster(prev, channelId, user?.id);
+      const keys = voiceChannelRosterKeys(channelId);
+      const channelEmpty = keys.every((k) => !Array.isArray(next[k]) || next[k].length === 0);
+      if (channelEmpty) {
+        setVoiceChannelMeta((meta) => {
+          const metaNext = { ...meta };
+          for (const k of keys) delete metaNext[k];
+          return metaNext;
+        });
       }
       return next;
     });
-    setSpeakingUsers(new Set());
+    setSpeakingUsersByScope((prev) =>
+      clearSelfFromScopes(prev, channelScopeLookupKeys(channelId), user?.id),
+    );
     setVoiceChannelId(null);
     voiceChannelIdRef.current = null;
     setVoiceTeamId(null);
@@ -1303,7 +1747,7 @@ export function VoiceProvider({ children }) {
       window.dispatchEvent(new CustomEvent('slide:voice-channel-disconnect'));
       if (socket?.connected) socket.emit('voice_sync');
     }
-  }, [socket]);
+  }, [socket, user?.id]);
 
   const leaveVoice = useCallback((options = {}) => {
     const opts = typeof options === 'object' && options !== null ? options : {};
@@ -1476,9 +1920,11 @@ export function VoiceProvider({ children }) {
       const stream = await acquireMicStream();
       localStreamRef.current = stream;
       await startSpeakingDetection(stream);
+      clearMicrophoneIssue();
       hasMic = true;
     } catch (err) {
       console.warn('No microphone available, joining DM as listen-only:', err?.message);
+      showMicrophoneIssue(err);
       isMutedRef.current = true;
       setIsMuted(true);
     }
@@ -1517,12 +1963,14 @@ export function VoiceProvider({ children }) {
     setConnectionState('connected');
     window.electron?.blockPowerSave?.();
     voiceSoundsRef.current.join();
-  }, [socket, user, acquireMicStream, startSpeakingDetection, cleanupAllConnections, rotateVoiceClientId, removeDeclinedDmConv]);
+  }, [socket, user, acquireMicStream, startSpeakingDetection, cleanupAllConnections, rotateVoiceClientId, removeDeclinedDmConv, showMicrophoneIssue, clearMicrophoneIssue]);
 
   const finishLeaveVoiceDM = useCallback((conversationId, convId, skipEmit) => {
     recentVoiceJoinUntilRef.current = 0;
-    setVoiceUsers((prev) => clearDmRoster(prev, conversationId));
-    setSpeakingUsers(new Set());
+    setVoiceUsers((prev) => removeSelfFromDmRoster(prev, conversationId, user?.id));
+    setSpeakingUsersByScope((prev) =>
+      clearSelfFromScopes(prev, [dmSpeakingScopeKey(conversationId)], user?.id),
+    );
     setVoiceConversationId(null);
     voiceConversationIdRef.current = null;
     setVoiceConversationName('');
@@ -1541,7 +1989,7 @@ export function VoiceProvider({ children }) {
       window.dispatchEvent(new CustomEvent('slide:dm-call-disconnect', { detail: { conversationId: convId } }));
       if (socket?.connected) socket.emit('voice_sync');
     }
-  }, [socket, removeDeclinedDmConv]);
+  }, [socket, removeDeclinedDmConv, user?.id]);
 
   const leaveVoiceDM = useCallback((options = {}) => {
     const opts = typeof options === 'object' && options !== null ? options : {};
@@ -1675,11 +2123,11 @@ export function VoiceProvider({ children }) {
     if (currentlyMuted) {
       // User wants to unmute — check if we have a mic
       if (!hasActiveLocalMic()) {
-        notify.warning('No microphone detected');
         try {
           const stream = await acquireMicStream();
           localStreamRef.current = stream;
           await startSpeakingDetection(stream);
+          clearMicrophoneIssue();
           isMutedRef.current = false;
           setIsMuted(false);
           playVoiceStateSound(false);
@@ -1688,7 +2136,6 @@ export function VoiceProvider({ children }) {
             isDeafenedRef.current = false;
             Object.values(remoteAudioRefs.current).forEach(a => { a.muted = false; });
           }
-          notify.success('Microphone connected');
           if (socket) {
             if (voiceChannelIdRef.current) {
               socket.emit('voice_state', { channelId: voiceChannelIdRef.current, muted: false, deafened: false });
@@ -1715,7 +2162,7 @@ export function VoiceProvider({ children }) {
           }
           renegotiateAllPeerConnections();
         } catch (err) {
-          notify.error('Could not access microphone. Check Settings > Voice');
+          showMicrophoneIssue(err);
         }
         return;
       }
@@ -1731,13 +2178,14 @@ export function VoiceProvider({ children }) {
       }
       if (newMuted) {
         wasSpeakingRef.current = false;
-        setSpeakingUsers(p => {
-          const sk = speakingKey(user?.id);
-          if (!sk) return p;
-          const next = new Set(p);
-          next.delete(sk);
-          return next;
-        });
+        const muteScope = voiceChannelIdRef.current
+          ? channelSpeakingScopeKey(voiceChannelIdRef.current)
+          : voiceConversationIdRef.current
+            ? dmSpeakingScopeKey(voiceConversationIdRef.current)
+            : null;
+        if (muteScope) {
+          setSpeakingUsersByScope((p) => patchSpeakingInScope(p, muteScope, user?.id, false));
+        }
       }
       const newDeafened = newMuted ? isDeafened : false;
       if (!newMuted && isDeafened) {
@@ -1771,7 +2219,7 @@ export function VoiceProvider({ children }) {
       playVoiceStateSound(newMuted);
       return newMuted;
     });
-  }, [socket, user?.id, isDeafened, isMuted, notify, acquireMicStream, hasActiveLocalMic, startSpeakingDetection, renegotiateAllPeerConnections, playVoiceStateSound]);
+  }, [socket, user?.id, isDeafened, isMuted, acquireMicStream, hasActiveLocalMic, startSpeakingDetection, renegotiateAllPeerConnections, playVoiceStateSound, showMicrophoneIssue, clearMicrophoneIssue]);
 
   const toggleDeafen = useCallback(() => {
     setIsDeafened(prev => {
@@ -2134,13 +2582,14 @@ export function VoiceProvider({ children }) {
 
     // Immediately clear speaking state while mic is switching
     wasSpeakingRef.current = false;
-    setSpeakingUsers(prev => {
-      const sk = speakingKey(user?.id);
-      if (!sk || !prev.has(sk)) return prev;
-      const next = new Set(prev);
-      next.delete(sk);
-      return next;
-    });
+    const switchScope = voiceChannelIdRef.current
+      ? channelSpeakingScopeKey(voiceChannelIdRef.current)
+      : voiceConversationIdRef.current
+        ? dmSpeakingScopeKey(voiceConversationIdRef.current)
+        : null;
+    if (switchScope) {
+      setSpeakingUsersByScope((prev) => patchSpeakingInScope(prev, switchScope, user?.id, false));
+    }
     if (socket) {
       if (voiceChannelIdRef.current) {
         socket.emit('voice_speaking', { channelId: voiceChannelIdRef.current, speaking: false });
@@ -2242,10 +2691,24 @@ export function VoiceProvider({ children }) {
 
     const onVoiceUsers = ({ channelId, users, teamId, channelName, teamName }) => {
       const deduped = dedupeVoiceParticipantsByUserId(users);
-      const merged = deduped.map(u =>
-        sameUserId(u.id, user?.id) ? { ...u, muted: isMutedRef.current, deafened: isDeafenedRef.current } : u
-      );
-      setVoiceUsers(prev => ({ ...prev, [channelId]: merged }));
+      const merged = deduped.map((u) => {
+        const row = sameUserId(u.id, user?.id)
+          ? { ...u, muted: isMutedRef.current, deafened: isDeafenedRef.current }
+          : u;
+        return { ...row, speaking: rosterUserIsSpeaking(row) };
+      });
+      setSpeakingUsersByScope((prev) => syncSpeakingScopeFromRoster(prev, channelId, merged));
+      setVoiceUsers((prev) => {
+        const inThisChannel = coercePositiveInt(voiceChannelIdRef.current) === coercePositiveInt(channelId);
+        if (!inThisChannel && merged.length === 0) {
+          const existing =
+            prev[channelId] ||
+            prev[coercePositiveInt(channelId)] ||
+            prev[String(channelId)];
+          if (Array.isArray(existing) && existing.length > 0) return prev;
+        }
+        return { ...prev, [channelId]: merged };
+      });
       if (teamId != null && (channelName || teamName)) {
         setVoiceChannelMeta(prev => ({
           ...prev,
@@ -2339,13 +2802,10 @@ export function VoiceProvider({ children }) {
       });
       voiceSoundsRef.current.leave();
       cleanupPeersForLogicalUserId(userId);
-      setSpeakingUsers(prev => {
-        const sk = speakingKey(userId);
-        if (!sk || !prev.has(sk)) return prev;
-        const next = new Set(prev);
-        next.delete(sk);
-        return next;
-      });
+      setSpeakingUsersByScope((prev) =>
+        patchSpeakingInScope(prev, channelSpeakingScopeKey(channelId), userId, false),
+      );
+      setVoiceUsers((prev) => patchVoiceUserSpeaking(prev, channelId, userId, false));
     };
 
     const onVoiceStateUpdate = ({ channelId, userId, muted, deafened }) => {
@@ -2364,18 +2824,16 @@ export function VoiceProvider({ children }) {
       });
     };
 
-    const onVoiceSpeaking = ({ channelId, userId, speaking }) => {
-      if (sameUserId(userId, user?.id)) return;
-      const sk = speakingKey(userId);
-      if (!sk) return;
-      setSpeakingUsers(prev => {
-        if (speaking && prev.has(sk)) return prev;
-        if (!speaking && !prev.has(sk)) return prev;
-        const next = new Set(prev);
-        if (speaking) next.add(sk);
-        else next.delete(sk);
-        return next;
-      });
+    const onVoiceSpeaking = (raw) => {
+      const { channelId: rawChannelId, userId, speaking } = normalizeSpeakingPayload(raw);
+      if (userId == null || sameUserId(userId, user?.id)) return;
+      const channelId =
+        rawChannelId ?? findVoiceChannelIdForUser(voiceUsersRef.current, userId);
+      if (channelId == null) return;
+      setSpeakingUsersByScope((prev) =>
+        patchSpeakingInScope(prev, channelSpeakingScopeKey(channelId), userId, speaking),
+      );
+      setVoiceUsers((prev) => patchVoiceUserSpeaking(prev, channelId, userId, speaking));
     };
 
     const onVoiceScreenSharing = ({ channelId, userId, sharing }) => {
@@ -2520,13 +2978,12 @@ export function VoiceProvider({ children }) {
       });
       voiceSoundsRef.current.leave();
       cleanupPeersForLogicalUserId(userId);
-      setSpeakingUsers(prev => {
-        const sk = speakingKey(userId);
-        if (!sk || !prev.has(sk)) return prev;
-        const next = new Set(prev);
-        next.delete(sk);
-        return next;
-      });
+      setSpeakingUsersByScope((prev) =>
+        patchSpeakingInScope(prev, dmSpeakingScopeKey(conversationId), userId, false),
+      );
+      setVoiceUsers((prev) =>
+        patchVoiceUserSpeaking(prev, dmSpeakingScopeKey(conversationId), userId, false),
+      );
     };
 
     const onVoiceStateUpdateDm = ({ conversationId, userId, muted, deafened }) => {
@@ -2546,18 +3003,14 @@ export function VoiceProvider({ children }) {
       });
     };
 
-    const onVoiceSpeakingDm = ({ conversationId, userId, speaking }) => {
-      if (sameUserId(userId, user?.id)) return;
-      const sk = speakingKey(userId);
-      if (!sk) return;
-      setSpeakingUsers(prev => {
-        if (speaking && prev.has(sk)) return prev;
-        if (!speaking && !prev.has(sk)) return prev;
-        const next = new Set(prev);
-        if (speaking) next.add(sk);
-        else next.delete(sk);
-        return next;
-      });
+    const onVoiceSpeakingDm = (raw) => {
+      const { conversationId, userId, speaking } = normalizeSpeakingPayload(raw);
+      if (userId == null || sameUserId(userId, user?.id) || conversationId == null) return;
+      const dmScope = dmSpeakingScopeKey(conversationId);
+      setSpeakingUsersByScope((prev) =>
+        patchSpeakingInScope(prev, dmScope, userId, speaking),
+      );
+      setVoiceUsers((prev) => patchVoiceUserSpeaking(prev, dmScope, userId, speaking));
     };
 
     const onVoiceScreenSharingDm = ({ conversationId, userId, sharing }) => {
@@ -2982,6 +3435,7 @@ export function VoiceProvider({ children }) {
     isMuted,
     isDeafened,
     speakingUsers,
+    isUserSpeakingInChannel,
     connectionState,
     dmRemoteMediaReady,
     isScreenSharing,
@@ -3026,11 +3480,14 @@ export function VoiceProvider({ children }) {
     setStreamVolumeForUser,
     getStreamVolumePercent,
     getListenVolume01,
+    microphoneIssue,
+    clearMicrophoneIssue,
+    dismissMicrophoneIssue,
   }), [
     voiceChannelId, voiceTeamId, voiceChannelName,
     voiceConversationId, voiceConversationName, voiceLeaveAnim, dmCallCallerId,
     incomingCall, dismissIncomingCall, rejectIncomingCall,
-    voiceUsers, voiceChannelMeta, isMuted, isDeafened, speakingUsers, connectionState, dmRemoteMediaReady,
+    voiceUsers, voiceChannelMeta, isMuted, isDeafened, speakingUsers, isUserSpeakingInChannel, connectionState, dmRemoteMediaReady,
     isScreenSharing, isCameraOn, ownScreenStream, ownCameraStream,
     screenSharingUserIds, videoEnabledUserIds, remoteVideoStreams,
     expandedLiveView, voiceViewMinimized, dmFloatingPanelCollapsed,
@@ -3042,6 +3499,7 @@ export function VoiceProvider({ children }) {
     screenSharePicker, resolveScreenSharePicker,
     screenShareCaptureAudioActive, setScreenShareCaptureVolume,
     streamVolumeByUserId, setStreamVolumeForUser, getStreamVolumePercent, getListenVolume01,
+    microphoneIssue, clearMicrophoneIssue, dismissMicrophoneIssue,
   ]);
 
   return (

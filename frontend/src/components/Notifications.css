@@ -1,157 +1,78 @@
-/* ═══════════════════════════════════════════════════════════
-   NOTIFICATIONS - Clean, minimal toasts
-   ═══════════════════════════════════════════════════════════ */
-.notifications-container {
+/* Compact problem notices. Success/info notifications are intentionally not rendered. */
+.problem-notices-container {
   position: fixed;
-  top: 1.25rem;
-  right: 1.25rem;
+  left: 50%;
+  bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
   z-index: 999999;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  max-width: 380px;
+  align-items: center;
+  gap: 0.35rem;
   pointer-events: none;
 }
 
-/* Push notifications below Electron title bar (32px) */
-body:has(.electron-title-bar) .notifications-container {
-  top: calc(32px + 0.75rem);
-}
-
-.notification {
-  display: flex;
+.problem-notice {
+  display: inline-flex;
   align-items: center;
-  gap: 0.875rem;
-  padding: 1rem 1.25rem;
-  border-radius: 12px;
-  background: var(--glass-float-bg);
-  border: 1px solid var(--border-default);
-  box-shadow: var(--shadow-elevated);
-  animation: notif-slide-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  gap: 0.35rem;
+  max-width: min(300px, calc(100vw - 1rem));
+  padding: 6px 12px;
+  border-radius: 5px;
+  background: rgba(218, 55, 60, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22);
+  color: #fff;
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: problem-notice-in 0.12s ease-out forwards;
   pointer-events: auto;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  position: relative;
-  overflow: hidden;
-  color: var(--text-primary);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
-.notification:hover {
-  transform: translateX(-4px);
-  box-shadow: var(--shadow-elevated), 0 0 0 1px var(--border-subtle);
-}
-
-.notification:active {
-  transform: scale(0.99);
-}
-
-@keyframes notif-slide-in {
+@keyframes problem-notice-in {
   0% {
     opacity: 0;
-    transform: translateX(100%);
+    transform: translateY(3px);
   }
   100% {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0);
   }
 }
 
-.notification.exiting {
-  animation: notif-slide-out 0.3s ease forwards;
-}
-
-@keyframes notif-slide-out {
-  0% {
-    opacity: 1;
-    transform: translateX(0);
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(100%);
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════
-   NOTIFICATION TYPES - Icon accent only (no left bar)
-   ═══════════════════════════════════════════════════════════ */
-
-.notification-success .notification-icon {
-  color: var(--success);
-  background: rgba(35, 165, 89, 0.12);
-}
-
-.notification-error .notification-icon {
-  color: var(--error);
-  background: rgba(218, 55, 60, 0.12);
-}
-
-.notification-warning .notification-icon {
-  color: var(--warning);
-  background: rgba(240, 178, 50, 0.12);
-}
-
-.notification-info .notification-icon {
-  color: var(--info);
-  background: var(--accent-muted);
-}
-
-.notification-icon {
+.problem-notice-icon {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  opacity: 1;
-  transform: none;
+  width: 16px;
+  height: 16px;
+  opacity: 0.92;
 }
 
-@keyframes iconPop {
-  0% {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.notification-message {
+.problem-notice-message {
   color: inherit;
-  font-size: 0.9375rem;
-  font-weight: 500;
-  line-height: 1.4;
-  flex: 1;
-  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.notification-count-badge {
-  margin-left: auto;
+.problem-notice-count {
   flex-shrink: 0;
-  font-size: 0.72rem;
+  font-size: 10px;
   font-weight: 700;
-  line-height: 1;
-  padding: 4px 7px;
-  border-radius: 999px;
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-subtle);
-}
-
-/* Light theme adjustments */
-[data-theme="light"] .notification {
-  box-shadow: var(--shadow-elevated), 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.15);
+  color: rgba(255, 255, 255, 0.92);
 }
 
 @media (max-width: 500px) {
-  .notifications-container {
-    top: 0.75rem;
-    right: 0.75rem;
-    left: 0.75rem;
-    max-width: none;
+  .problem-notices-container {
+    bottom: calc(0.875rem + env(safe-area-inset-bottom, 0px));
   }
 }

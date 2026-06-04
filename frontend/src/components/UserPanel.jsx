@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { AvatarImg } from './Avatar';
 import { useAuth } from '../context/AuthContext';
+import { useVoice } from '../context/VoiceContext';
 import { auth as authApi, settings as settingsApi, invalidateCache } from '../api';
 import {
   getStoredOnlineStatus,
@@ -74,6 +75,7 @@ function StatusIcon({ status, size = 10, borderColor = '#202225' }) {
 
 export default function UserPanel() {
   const { user, accounts, switchAccount, updateUser } = useAuth();
+  const { speakingUsers } = useVoice();
   const navigate = useNavigate();
 
   const [onlineStatus, setOnlineStatus] = useState(() => {
@@ -278,6 +280,7 @@ export default function UserPanel() {
   const statusOpt = STATUS_OPTIONS.find(s => s.id === onlineStatus) || STATUS_OPTIONS[0];
   const displayStatus = customStatus || statusOpt.label;
   const displayName = normalizeDisplayName(user.display_name, user.username) || '?';
+  const isSpeaking = user?.id != null && speakingUsers?.has?.(String(user.id));
   const otherAccounts = accounts.filter((a) => String(a.userId) !== String(user?.id));
 
   const drawerHost = drawerMounted ? document.querySelector('.usas-status-drawer-host') : null;
@@ -293,7 +296,7 @@ export default function UserPanel() {
           aria-expanded={showStatusMenu}
           aria-haspopup="true"
         >
-          <div className="user-panel-avatar">
+          <div className={`user-panel-avatar${isSpeaking ? ' speaking' : ''}`}>
             {user.avatar_url ? (
               <AvatarImg
                 src={user.avatar_url}

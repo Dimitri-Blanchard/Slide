@@ -7,6 +7,7 @@ import { useNotification } from '../context/NotificationContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useSettings } from '../context/SettingsContext';
 import { Icons } from '../components/ContextMenu';
+import { isLocalPrivateChatAvailable, makeLocalPrivateRoute, upsertLocalPrivateChat } from '../utils/localPrivateChatCrypto';
 
 export function useUserContextMenuItems(user, context = {}) {
   const { conversationId, channelId, teamId, lastMessageId, hasUnread, isDmList, onPinConversation, isPinned, canPin, onOpenNicknameModal, onOpenNoteModal, isInCallWaiting } = context;
@@ -104,6 +105,17 @@ export function useUserContextMenuItems(user, context = {}) {
     ringVoiceDM();
   }, [conversationId, ringVoiceDM]);
 
+  const handleOpenLocalPrivateChat = useCallback(() => {
+    if (!user?.id || isOwn) return;
+    if (currentUser?.id) {
+      upsertLocalPrivateChat(currentUser.id, user, {
+        last_message_preview: 'Invitation privée locale',
+        last_message_at: new Date().toISOString(),
+      });
+    }
+    navigate(makeLocalPrivateRoute(user.id), { state: { user } });
+  }, [currentUser?.id, isOwn, navigate, user]);
+
   const handleMarkAsRead = useCallback(async () => {
     if (!conversationId || !lastMessageId) return;
     try {
@@ -124,6 +136,13 @@ export function useUserContextMenuItems(user, context = {}) {
         navigate(`/channels/@me/${conv.conversation_id}`);
       } catch (err) { notify.error(err.message); }
     } });
+    if (!isOwn && isLocalPrivateChatAvailable()) {
+      items.push({
+        label: t('chat.localPrivateChat') || 'Créer un chat privé local',
+        icon: Icons.lock,
+        onClick: handleOpenLocalPrivateChat,
+      });
+    }
     items.push({ separator: true });
 
     if (conversationId) {
@@ -228,7 +247,7 @@ export function useUserContextMenuItems(user, context = {}) {
     user, conversationId, channelId, lastMessageId, hasUnread, isOwn,
     isDmList, onPinConversation, isPinned, canPin, isInCallWaiting,
     friendIds,
-    handleStartCall, handleRingAgain, handleMarkAsRead,
+    handleStartCall, handleRingAgain, handleMarkAsRead, handleOpenLocalPrivateChat,
     handleBlock, handleAddFriend, handleRemoveFriend,
     copyUserId, copyChannelId, copyConversationId, developerMode, onOpenNicknameModal, onOpenNoteModal, t, notify, navigate,
   ]);

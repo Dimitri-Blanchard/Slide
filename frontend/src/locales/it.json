@@ -448,9 +448,7 @@
     "teamInCommon": "gruppo in comune",
     "conversationDeleted": "Conversazione eliminata",
     "nitro": "Nitro",
-    "shop": "Negozio",
     "quests": "Missioni",
-    "shopNew": "NUOVO",
     "comingSoon": "Prossimamente!",
     "discover": "Explore Communities",
     "securityDashboard": "Security Dashboard"
@@ -484,6 +482,17 @@
     "welcomeTitle": "Benvenuto su {name}",
     "welcomeDescription": "Questo è il tuo nuovo server. Ecco alcuni passaggi per iniziare.",
     "welcomeGettingStarted": "Guida introduttiva",
+    "welcomeChannelHints": [
+      "Benvenuto in {channel}!",
+      "Questo è l'inizio del canale {channel}.",
+      "Sei in {channel} — saluta!",
+      "{channel} ti aspetta. Invia il primo messaggio!",
+      "Qui inizia la storia di {channel}.",
+      "Benvenuto nel cuore di {channel}!",
+      "Tutto inizia in {channel}.",
+      "Nuovo in {channel}? Sei nel posto giusto."
+    ],
+    "welcomeServerOn": "Server · {name}",
     "inviteFriends": "Invita i tuoi amici",
     "sendFirstMessage": "Invia il tuo primo messaggio",
     "uploadFile": "Carica file",
@@ -833,12 +842,6 @@
     "notifyEveryone": "Notifica tutti",
     "notifyChannel": "Notifica i membri del canale"
   },
-  "activeNow": {
-    "title": "Attivi ora",
-    "empty": "È tutto tranquillo per ora...",
-    "emptyDesc": "Quando un amico inizia un'attività, come giocare o parlare in vocale, lo mostreremo qui!",
-    "playing": "Sta giocando a {game}"
-  },
   "errorBoundary": {
     "serverLoadFailed": "Something went wrong loading this view.",
     "backToMessages": "Back to direct messages"
@@ -1084,37 +1087,11 @@
     "launching": "Launching..."
   },
   "shop": {
-    "title": "Shop",
-    "searchPlaceholder": "Search items...",
-    "all": "All",
-    "avatarDecorations": "Avatar Decorations",
-    "profileEffects": "Profile Effects",
-    "nameplates": "Nameplates",
-    "purchase": "Purchase",
-    "orbs": "Orbs",
-    "noResults": "No items found",
-    "owned": "Owned",
-    "notEnoughOrbs": "Not enough Orbs",
-    "equip": "Equip",
-    "equipped": "Equipped",
-    "unequipped": "Unequipped",
-    "goldRingDesc": "A subtle gold ring around your avatar",
-    "platinumRingDesc": "A soft platinum ring around your avatar",
-    "warmGlowDesc": "A warm glow at the bottom of your profile card",
-    "softHighlightDesc": "A soft highlight at the top of your profile",
-    "goldBadgeDesc": "A gold badge next to your name in messages",
-    "violetRingDesc": "A soft violet ring around your avatar",
-    "frostGlowDesc": "A subtle frost glow on your profile",
-    "frostRingDesc": "A clean frost ring around your avatar",
-    "silverBadgeDesc": "A silver badge next to your name in messages",
-    "frostEdgeDesc": "A subtle frost edge on your profile card",
-    "equippedItems": "Equipped Items",
-    "equippedItemsDesc": "Customize your avatar, profile, and nameplate with items from the Shop",
-    "manageInShop": "Manage in Shop"
+    "orbs": "Orbs"
   },
   "quests": {
     "title": "Quests",
-    "description": "Complete quests to earn Orbs that you can spend in the Shop",
+    "description": "Complete quests to earn Orbs",
     "daily": "Daily",
     "weekly": "Weekly",
     "seasonal": "Seasonal",

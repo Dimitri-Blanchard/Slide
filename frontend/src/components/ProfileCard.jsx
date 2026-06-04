@@ -23,19 +23,8 @@ import { harmonizeGradientColors, lightenHex, isLightGradient, isHighContrastGra
 import Avatar from './Avatar';
 import UserDetailModal from './UserDetailModal';
 import { useSettings } from '../context/SettingsContext';
+import { loadUserNote, saveUserNote } from '../utils/userNotes';
 import './ProfileCard.css';
-
-const NOTE_KEY = 'slide_profile_notes';
-function loadNote(uid) {
-  try { return JSON.parse(localStorage.getItem(NOTE_KEY) || '{}')[uid] ?? ''; } catch { return ''; }
-}
-function saveNote(uid, note) {
-  try {
-    const d = JSON.parse(localStorage.getItem(NOTE_KEY) || '{}');
-    if (note) d[uid] = note; else delete d[uid];
-    localStorage.setItem(NOTE_KEY, JSON.stringify(d));
-  } catch {}
-}
 
 const STATUS_COLORS = {
   online:    '#23a55a',
@@ -87,11 +76,22 @@ function isGifUrl(url) {
 
 const PROFILE_CARD_WIDTH = 320;
 const VIEWPORT_PAD = 12;
+/** Gap when docking profile card to the right of channel-sidebar (0 = flush). */
+const SIDEBAR_PROFILE_GAP = 0;
 
 /** Clamp popup position using measured card size so it stays on screen. */
-function computeProfileCardPosition({ cardW, cardH, clickPos, anchorEl, position = 'right', padding = VIEWPORT_PAD }) {
+function computeProfileCardPosition({
+  cardW,
+  cardH,
+  clickPos,
+  anchorEl,
+  position = 'right',
+  padding = VIEWPORT_PAD,
+  minLeft,
+}) {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
+  const floorLeft = minLeft != null ? minLeft : padding;
 
   let top;
   let left;
@@ -99,7 +99,7 @@ function computeProfileCardPosition({ cardW, cardH, clickPos, anchorEl, position
   if (clickPos) {
     top = clickPos.y;
     left = clickPos.x + padding;
-    if (left + cardW > vw - padding) {
+    if (minLeft == null && left + cardW > vw - padding) {
       left = clickPos.x - cardW - padding;
     }
   } else if (anchorEl) {
@@ -111,20 +111,27 @@ function computeProfileCardPosition({ cardW, cardH, clickPos, anchorEl, position
       top = r.bottom + padding;
       left = r.left + r.width / 2 - cardW / 2;
     } else {
-      left = r.right + padding;
+      left = minLeft != null ? minLeft : r.right + padding;
     }
-    if (position !== 'bottom' && left + cardW > vw - padding) {
+    if (position !== 'bottom' && minLeft == null && left + cardW > vw - padding) {
       left = r.left - cardW - padding;
     }
   } else {
     return {
       top: Math.max(padding, Math.round((vh - cardH) / 2)),
-      left: Math.max(padding, Math.round((vw - cardW) / 2)),
+      left: Math.max(floorLeft, Math.round((vw - cardW) / 2)),
     };
   }
 
-  if (left < padding) left = padding;
-  if (left + cardW > vw - padding) left = vw - cardW - padding;
+  if (minLeft != null) {
+    left = Math.max(left, minLeft);
+  } else if (left < padding) {
+    left = padding;
+  }
+
+  if (left + cardW > vw - padding) {
+    left = Math.max(floorLeft, vw - cardW - padding);
+  }
 
   if (top + cardH > vh - padding) {
     if (clickPos) {
@@ -200,6 +207,8 @@ const ProfileCard = memo(function ProfileCard({
   position = 'right',
   serverRoleBadges = null,
   serverTeamRole = null,
+  /** When set, card stays at or right of this element (e.g. ".channel-sidebar"). */
+  keepRightOfSelector = null,
 }) {
   const navigate   = useNavigate();
   const { user: currentUser } = useAuth();
@@ -231,7 +240,18 @@ const ProfileCard = memo(function ProfileCard({
 
   // Load note
   useEffect(() => {
-    if (resolvedId && !isOwnProfile) setNote(loadNote(resolvedId));
+    if (resolvedId && !isOwnProfile) setNote(loadUserNote(resolvedId));
+  }, [resolvedId, isOwnProfile]);
+
+  useEffect(() => {
+    if (!resolvedId || isOwnProfile) return;
+    const onNoteChanged = (e) => {
+      if (String(e.detail?.userId) === String(resolvedId)) {
+        setNote(e.detail?.note ?? loadUserNote(resolvedId));
+      }
+    };
+    window.addEventListener('slide:user-note-changed', onNoteChanged);
+    return () => window.removeEventListener('slide:user-note-changed', onNoteChanged);
   }, [resolvedId, isOwnProfile]);
 
   // Fetch full profile (uses cache — instant when prefetched)
@@ -259,6 +279,15 @@ const ProfileCard = memo(function ProfileCard({
     setUser((u) => (u?.spotify_now_playing ? { ...u, spotify_now_playing: undefined } : u));
   }, [isOwnProfile, appSettings.show_spotify_listening]);
 
+  const resolveMinLeft = useCallback(() => {
+    if (!keepRightOfSelector) return undefined;
+    const boundary =
+      anchorEl?.closest?.(keepRightOfSelector) ||
+      document.querySelector(keepRightOfSelector);
+    if (!boundary) return undefined;
+    return boundary.getBoundingClientRect().right + SIDEBAR_PROFILE_GAP;
+  }, [keepRightOfSelector, anchorEl]);
+
   const placeCard = useCallback(() => {
     const el = cardRef.current;
     if (!el || (!clickPos && !anchorEl)) return;
@@ -273,9 +302,10 @@ const ProfileCard = memo(function ProfileCard({
       clickPos,
       anchorEl,
       position,
+      minLeft: resolveMinLeft(),
     }));
     setIsCardPositioned(true);
-  }, [clickPos, anchorEl, position]);
+  }, [clickPos, anchorEl, position, resolveMinLeft]);
 
   // Measure real card size, then position before showing (avoids off-screen flash)
   useLayoutEffect(() => {
@@ -356,7 +386,7 @@ const ProfileCard = memo(function ProfileCard({
 
   const handleNoteChange = useCallback((val) => {
     setNote(val);
-    saveNote(resolvedId, val);
+    saveUserNote(resolvedId, val);
   }, [resolvedId]);
 
   const handleCopyId = async () => {

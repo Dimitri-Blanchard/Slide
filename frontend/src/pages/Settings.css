@@ -1496,35 +1496,6 @@
   padding: 20px;
 }
 
-/* Equipped items section */
-.profile-equipped-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.profile-equipped-row:last-of-type {
-  border-bottom: none;
-}
-
-.profile-equipped-label {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-}
-
-.profile-equipped-value {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.profile-equipped-shop-btn {
-  margin-top: 16px;
-  width: 100%;
-}
-
 /* Avatar edit section */
 .profile-avatar-edit {
   display: flex;

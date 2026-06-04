@@ -10,7 +10,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-right: 1px solid var(--border-subtle);
+  border-right: none;
   padding-bottom: 56px;
   transition: padding-bottom 0.4s cubic-bezier(0.22, 1, 0.36, 1);
   scrollbar-width: none;
@@ -52,7 +52,7 @@
   border: none;
   background: transparent;
   cursor: pointer;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: none;
 }
 
 .sidebar-search-btn span {
@@ -190,29 +190,6 @@
   gap: 4px;
 }
 
-/* ── Nav badge (NEW pill, Orbs) ── */
-.sidebar-nav-badge {
-  margin-left: auto;
-  padding: 0 6px;
-  height: 16px;
-  border-radius: 8px;
-  background: var(--success);
-  color: #fff;
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  display: inline-flex;
-  align-items: center;
-  line-height: 1;
-}
-
-.sidebar-orbs-badge {
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-  text-transform: none;
-  font-size: 0.7rem;
-}
-
 /* ── DM List ── */
 .sidebar-dm-list {
   list-style: none;
@@ -252,6 +229,10 @@
   font-weight: 600;
 }
 
+.dm-item.local-private-dm {
+  border: 1px solid rgba(88, 101, 242, 0.18);
+}
+
 .dm-item-avatar-wrap {
   flex-shrink: 0;
   display: flex;
@@ -278,6 +259,13 @@
   white-space: nowrap;
   line-height: 1.3;
   font-weight: 400;
+}
+
+.local-private-dm-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
 }
 
 .dm-item-name-clickable:hover {
@@ -700,7 +688,7 @@
    ═══════════════════════════════════════════════════════════ */
 [data-theme="dark"] .sidebar {
   background: var(--bg-secondary);
-  border-right: 1px solid var(--border-subtle);
+  border-right: none;
 }
 /* DM items: dim until hover */
 [data-theme="dark"] .dm-item {

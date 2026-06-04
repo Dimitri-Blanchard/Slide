@@ -25,7 +25,7 @@ const ThumbnailVideo = memo(function ThumbnailVideo({ stream, muted = true, list
 
 const VoiceChannel = memo(function VoiceChannel({ channel, teamId, className, defaultShowParticipants = false }) {
   const {
-    voiceChannelId, voiceUsers, speakingUsers,
+    voiceChannelId, voiceUsers, isUserSpeakingInChannel,
     remoteVideoStreams,
     ownScreenStream, ownCameraStream,
     joinVoice,
@@ -60,6 +60,12 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId, className, de
     (channelNumId != null && voiceUsers[channelNumId]) ||
     (channel?.id != null && voiceUsers[channel.id]) ||
     [];
+
+  const channelSpeakingId = channelNumId ?? channel?.id;
+  const userIsSpeaking = useCallback(
+    (u) => !!u?.speaking || isUserSpeakingInChannel(channelSpeakingId, u?.id),
+    [channelSpeakingId, isUserSpeakingInChannel],
+  );
 
   // --- Overlay auto-hide (mouse move shows; idle 3s hides) ---
   const clearHideTimer = useCallback(() => {
@@ -129,7 +135,7 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId, className, de
     }
     if (effectiveFocusedId === 'self-camera') {
       const self = channelUsers.find(u => sameUserId(u.id, user?.id));
-      return { id: 'self-camera', stream: ownCameraStream, displayName: 'You', avatarUrl: self?.avatar_url, isSelf: true, isSpeaking: user?.id != null && speakingUsers.has(String(user.id)), type: 'camera' };
+      return { id: 'self-camera', stream: ownCameraStream, displayName: 'You', avatarUrl: self?.avatar_url, isSelf: true, isSpeaking: userIsSpeaking(self), type: 'camera' };
     }
     const u = channelUsers.find(u => sameUserId(u.id, effectiveFocusedId));
     if (!u) return null;
@@ -140,10 +146,10 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId, className, de
       displayName: isSelf ? 'You' : u.display_name,
       avatarUrl: u.avatar_url,
       isSelf,
-      isSpeaking: u.id != null && speakingUsers.has(String(u.id)),
+      isSpeaking: userIsSpeaking(u),
       type: getRemoteStreamForUser(remoteVideoStreams, u.id) ? 'stream' : 'user',
     };
-  }, [effectiveFocusedId, channelUsers, user?.id, remoteVideoStreams, ownScreenStream, ownCameraStream, speakingUsers]);
+  }, [effectiveFocusedId, channelUsers, user?.id, remoteVideoStreams, ownScreenStream, ownCameraStream, userIsSpeaking]);
 
   const participants = useMemo(() => {
     const list = [];
@@ -157,7 +163,7 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId, className, de
         displayName: isSelf ? 'You' : u.display_name,
         avatarUrl: u.avatar_url,
         isSelf,
-        isSpeaking: u.id != null && speakingUsers.has(String(u.id)),
+        isSpeaking: userIsSpeaking(u),
         isLive: hasStream,
       });
     });
@@ -168,7 +174,7 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId, className, de
       list.push({ id: 'self-camera', stream: ownCameraStream, displayName: 'Your Camera', avatarUrl: null, isSelf: true, isSpeaking: false, isLive: true, type: 'camera' });
     }
     return list;
-  }, [channelUsers, user?.id, effectiveFocusedId, remoteVideoStreams, ownScreenStream, ownCameraStream, speakingUsers]);
+  }, [channelUsers, user?.id, effectiveFocusedId, remoteVideoStreams, ownScreenStream, ownCameraStream, userIsSpeaking]);
 
   // Auto-join on desktop inline view only — mobile uses VoiceJoinSheet then overlay (no double-join)
   const isMobileOverlay = className?.includes('voice-channel-view--mobile-overlay');

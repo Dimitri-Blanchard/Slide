@@ -1,13 +1,14 @@
 import React, { useState, useRef, useEffect, useMemo, memo, useCallback, forwardRef, useImperativeHandle } from 'react';
-import { Camera, Paperclip } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
 import { useLanguage } from '../context/LanguageContext';
 import VoiceRecorder from './VoiceRecorder';
 import MentionSuggestions from './MentionSuggestions';
 import CommandPalette from './CommandPalette';
 import TextWithAranjaEmojis from './TextWithAranjaEmojis';
+import AppIcon from './icons/AppIcon';
 import { getContent, setContent, insertEmoji, insertPlainTextAtCursor, getTextBeforeCursor, getCursorOffset, setCursorAtOffset } from '../utils/contentEditableEmoji';
 import { parseMessageContent, HAS_MARKDOWN_RE } from '../utils/markdownParser';
+import { RATE_LIMIT_EVENT } from '../utils/rateLimitRetry';
 import './MessageInput.css';
 
 // Format file size for display (uses browser locale-independent units)
@@ -49,10 +50,11 @@ const MessageInput = memo(forwardRef(function MessageInput({
   canSend = true,
   maxFileSize = 8 * 1024 * 1024,
   onInputFocus,
+  isSendBackpressured = false,
 }, ref) {
   const [value, setValue] = useState('');
   const [sending, setSending] = useState(false);
-  const [spamCooldownSeconds, setSpamCooldownSeconds] = useState(0);
+  const [showSpamModal, setShowSpamModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -370,10 +372,29 @@ const MessageInput = memo(forwardRef(function MessageInput({
     }
   }, [notify, t]);
 
+  const closeSpamModal = useCallback(() => {
+    setShowSpamModal(false);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, []);
+
+  useEffect(() => {
+    const handleRateLimit = () => setShowSpamModal(true);
+    window.addEventListener(RATE_LIMIT_EVENT, handleRateLimit);
+    return () => window.removeEventListener(RATE_LIMIT_EVENT, handleRateLimit);
+  }, []);
+
+  useEffect(() => {
+    if (isSendBackpressured) setShowSpamModal(true);
+  }, [isSendBackpressured]);
+
   // Handle arrow up to edit last message + maxLength + Enter to send
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      if (showSpamModal) {
+        closeSpamModal();
+        return;
+      }
       if (value.trim() || selectedFile) {
         e.target.closest('form')?.requestSubmit();
       }
@@ -388,7 +409,7 @@ const MessageInput = memo(forwardRef(function MessageInput({
     if (inputRef.current && getContent(inputRef.current).length >= 4000 && !/Backspace|Delete|ArrowLeft|ArrowRight|ArrowUp|ArrowDown|Home|End|Tab|Escape/.test(e.key) && e.key !== 'Enter' && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
     }
-  }, [value, selectedFile, lastOwnMessage, onEditLastMessage]);
+  }, [value, selectedFile, showSpamModal, closeSpamModal, lastOwnMessage, onEditLastMessage]);
 
   const handleFileSelect = useCallback((e) => {
     const file = e.target.files?.[0];
@@ -409,18 +430,14 @@ const MessageInput = memo(forwardRef(function MessageInput({
     setPreview(null);
   }, []);
 
-  // Live countdown for spam cooldown
-  useEffect(() => {
-    if (spamCooldownSeconds <= 0) return;
-    const tick = setInterval(() => {
-      setSpamCooldownSeconds((s) => (s <= 1 ? 0 : s - 1));
-    }, 1000);
-    return () => clearInterval(tick);
-  }, [spamCooldownSeconds]);
-
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
-    if (sending || spamCooldownSeconds > 0) return;
+    if (showSpamModal) return;
+    if (isSendBackpressured) {
+      setShowSpamModal(true);
+      return;
+    }
+    if (sending) return;
     
     const content = value.trim();
     const hasFile = selectedFile && onUpload;
@@ -428,10 +445,10 @@ const MessageInput = memo(forwardRef(function MessageInput({
     
     if (!hasFile && !hasText) return;
 
-    setSending(true);
     typingSentRef.current = false;
     try {
       if (hasFile) {
+        setSending(true);
         await onUpload(selectedFile, null, hasText ? content : null);
         setSelectedFile(null);
         setPreview(null);
@@ -441,7 +458,17 @@ const MessageInput = memo(forwardRef(function MessageInput({
           clearDraft();
         }
       } else if (hasText) {
-        await onSend(content, 'text', replyTo?.id || null);
+        Promise.resolve().then(() => onSend(content, 'text', replyTo?.id || null)).catch((err) => {
+          console.error('Erreur envoi:', err);
+          if (err.status === 429) {
+            setShowSpamModal(true);
+          } else {
+            const msg = err.retryAfter != null
+              ? `${err.message} ${t('chat.rateLimitCooldown', { seconds: err.retryAfter })}`
+              : (err.message || t('chat.sendError'));
+            notify.error(msg);
+          }
+        });
         if (inputRef.current) setContent(inputRef.current, '');
         setValue('');
         clearDraft();
@@ -454,11 +481,8 @@ const MessageInput = memo(forwardRef(function MessageInput({
       if (isMobile) setTimeout(focusInput, 100);
     } catch (err) {
       console.error('Erreur envoi:', err);
-      // Spam/rate limit: show explicit spam message + live countdown
-      if (err.status === 429 && err.retryAfter != null) {
-        const seconds = Math.ceil(Number(err.retryAfter));
-        setSpamCooldownSeconds(seconds);
-        notify.error(t('chat.spamWarning'));
+      if (err.status === 429) {
+        setShowSpamModal(true);
       } else {
         const msg = err.retryAfter != null
           ? `${err.message} ${t('chat.rateLimitCooldown', { seconds: err.retryAfter })}`
@@ -468,11 +492,13 @@ const MessageInput = memo(forwardRef(function MessageInput({
     } finally {
       setSending(false);
     }
-  }, [value, selectedFile, sending, spamCooldownSeconds, onSend, onUpload, notify, replyTo, onCancelReply, clearDraft, t]);
+  }, [value, selectedFile, sending, showSpamModal, isSendBackpressured, onSend, onUpload, notify, replyTo, onCancelReply, clearDraft, t]);
 
   const openFilePicker = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
+
+  const hasComposerContent = !!(value.trim() || selectedFile);
 
   // Voice recording handlers
   const startVoiceRecording = useCallback(() => {
@@ -486,9 +512,8 @@ const MessageInput = memo(forwardRef(function MessageInput({
       // The upload will happen in the background
         onUpload(audioFile, voiceDuration).catch((err) => {
         console.error('Erreur upload audio:', err);
-        if (err.status === 429 && err.retryAfter != null) {
-          setSpamCooldownSeconds(Math.ceil(Number(err.retryAfter)));
-          notify.error(t('chat.spamWarning'));
+        if (err.status === 429) {
+          setShowSpamModal(true);
         } else {
           const msg = err.retryAfter != null
             ? `${err.message} ${t('chat.rateLimitCooldown', { seconds: err.retryAfter })}`
@@ -515,10 +540,7 @@ const MessageInput = memo(forwardRef(function MessageInput({
     return (
       <div className="message-input-container">
         <div className="message-input-locked" aria-label="Envoi de messages désactivé">
-          <svg className="message-input-locked-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-          </svg>
+          <AppIcon name="lock" size={16} className="message-input-locked-icon" />
           <span>Vous n'avez pas la permission d'envoyer des messages dans ce canal.</span>
         </div>
       </div>
@@ -539,19 +561,6 @@ const MessageInput = memo(forwardRef(function MessageInput({
 
   return (
     <div className="message-input-container">
-      {/* Spam cooldown banner */}
-      {spamCooldownSeconds > 0 && (
-        <div className="message-input-spam-banner" role="alert">
-          <span className="message-input-spam-text">{t('chat.spamWarning')}</span>
-          <span className="message-input-spam-countdown">
-            <svg className="message-input-spam-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
-            {spamCooldownSeconds}
-          </span>
-        </div>
-      )}
       {/* Reply Preview */}
       {replyTo && (
         <div className="reply-preview">
@@ -562,8 +571,8 @@ const MessageInput = memo(forwardRef(function MessageInput({
               {replyTo.type === 'text' 
                 ? <TextWithAranjaEmojis text={replyTo.content?.length > 100 ? replyTo.content.substring(0, 100) + '...' : replyTo.content} />
                 : replyTo.type === 'image' 
-                  ? <><Camera size={14} /> {t('chat.image')}</>
-                  : <><Paperclip size={14} /> {t('chat.file')}</>
+                  ? <><AppIcon name="image" size={14} /> {t('chat.image')}</>
+                  : <><AppIcon name="paperclip" size={14} /> {t('chat.file')}</>
               }
             </span>
           </div>
@@ -573,10 +582,7 @@ const MessageInput = memo(forwardRef(function MessageInput({
             onClick={onCancelReply}
             title={t('chat.cancelReply')}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
+            <AppIcon name="close" size={16} weight="bold" />
           </button>
         </div>
       )}
@@ -599,9 +605,7 @@ const MessageInput = memo(forwardRef(function MessageInput({
                       playsInline
                     />
                     <span className="file-preview-video-play" aria-hidden="true">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
-                        <path d="M8 5v14l11-7z" fill="currentColor"/>
-                      </svg>
+                      <AppIcon name="play" size={11} />
                     </span>
                   </div>
                 </div>
@@ -615,9 +619,7 @@ const MessageInput = memo(forwardRef(function MessageInput({
           ) : (
             <div className="file-preview-info">
               <span className="file-preview-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
-                </svg>
+                <AppIcon name="file" size={18} />
               </span>
               <span className="file-preview-name">{selectedFile.name}</span>
               <span className="file-preview-size">{formatFileSize(selectedFile.size)}</span>
@@ -629,10 +631,7 @@ const MessageInput = memo(forwardRef(function MessageInput({
             onClick={handleRemoveFile}
             title={t('chat.removeFile')}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
+            <AppIcon name="close" size={14} weight="bold" />
           </button>
         </div>
       )}
@@ -641,10 +640,7 @@ const MessageInput = memo(forwardRef(function MessageInput({
       {showMdPreview && (
         <div className="md-live-preview">
           <div className="md-live-preview-header">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-              <circle cx="12" cy="12" r="3"/>
-            </svg>
+            <AppIcon name="eye" size={13} />
             <span>Aperçu</span>
             <button
               type="button"
@@ -653,9 +649,7 @@ const MessageInput = memo(forwardRef(function MessageInput({
               title="Fermer l'aperçu"
               aria-label="Fermer l'aperçu"
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
+              <AppIcon name="close" size={12} weight="bold" />
             </button>
           </div>
           <div className="md-live-preview-body message-content message-content-text">
@@ -664,99 +658,118 @@ const MessageInput = memo(forwardRef(function MessageInput({
         </div>
       )}
 
-      <form className="message-input-wrap" onSubmit={handleSubmit}>
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="message-file-input"
-          onChange={handleFileSelect}
-          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.rar,.txt,.mp3,.wav,.mp4,.webm"
-        />
-        
-        {/* Attach button */}
-        <button 
-          type="button" 
-          className="message-attach" 
-          onClick={openFilePicker}
-          disabled={sending || spamCooldownSeconds > 0}
-          title={t('chat.attachFile')}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
-          </svg>
-        </button>
-        
-        <div
-          ref={inputRef}
-          className="message-input message-input-editable"
-          contentEditable={spamCooldownSeconds <= 0}
-          suppressContentEditableWarning
-          onInput={handleInput}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          onFocus={() => {
-            const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
-            if (isMobile && onInputFocus) {
-              requestAnimationFrame(() => {
-                setTimeout(() => onInputFocus(), 100);
-              });
-            }
-          }}
-          data-placeholder={selectedFile ? (placeholder || t('chat.typeMessage')) : (placeholder || t('chat.typeMessage'))}
-        />
-        
-        {/* Sticker button */}
-        {onToggleStickerPanel && (
-          <button 
-            type="button" 
-            className={`message-sticker-btn ${stickerPanelOpen ? 'active' : ''}`}
-            onClick={handleToggleStickerPanel}
-            disabled={sending || spamCooldownSeconds > 0}
-            title={t('chat.stickers')}
+      <div className="message-composer">
+        <form className="message-input-wrap" onSubmit={handleSubmit}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="message-file-input"
+            onChange={handleFileSelect}
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.rar,.txt,.mp3,.wav,.mp4,.webm"
+          />
+
+          <button
+            type="button"
+            className="message-plus-btn"
+            onClick={openFilePicker}
+            disabled={sending}
+            title={t('chat.attachFile')}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
-              <line x1="9" y1="9" x2="9.01" y2="9"></line>
-              <line x1="15" y1="9" x2="15.01" y2="9"></line>
-            </svg>
+            <AppIcon name="plus" size={20} weight="bold" />
           </button>
-        )}
-        
-        {/* Voice message button */}
-        <button 
-          type="button" 
-          className="message-voice" 
-          onClick={startVoiceRecording}
-          disabled={sending || spamCooldownSeconds > 0 || !!selectedFile || !!value.trim()}
-          title={t('chat.voiceMessage')}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-            <line x1="12" y1="19" x2="12" y2="23"></line>
-            <line x1="8" y1="23" x2="16" y2="23"></line>
-          </svg>
-        </button>
-        
-        {(value.trim() || selectedFile) && (
-          <button 
-            type="submit" 
-            className="message-send" 
-            disabled={sending || spamCooldownSeconds > 0} 
-            title={t('chat.send')}
-          >
-            {sending ? (
-              <span className="send-spinner" />
-            ) : (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M2 21l21-9L2 3v7l15 2-15 2v7z" fill="currentColor"/>
-              </svg>
+
+          <div
+            ref={inputRef}
+            className="message-input message-input-editable"
+            contentEditable
+            suppressContentEditableWarning
+            onInput={handleInput}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            onFocus={() => {
+              const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+              if (isMobile && onInputFocus) {
+                requestAnimationFrame(() => {
+                  setTimeout(() => onInputFocus(), 100);
+                });
+              }
+            }}
+            data-placeholder={placeholder || t('chat.typeMessage')}
+          />
+
+          <div className="message-input-actions">
+            {onToggleStickerPanel && (
+              <button
+                type="button"
+                className={`message-action-btn ${stickerPanelOpen ? 'active' : ''}`}
+                onClick={handleToggleStickerPanel}
+                disabled={sending}
+                title={t('chat.stickers')}
+              >
+                <AppIcon name="sticker" size={20} />
+              </button>
             )}
-          </button>
-        )}
-      </form>
+
+            {hasComposerContent ? (
+              <button
+                type="submit"
+                className={`message-action-btn message-send ${hasComposerContent ? 'has-content' : ''}`}
+                disabled={sending || showSpamModal}
+                title={t('chat.send')}
+              >
+                {sending ? (
+                  <span className="send-spinner" />
+                ) : (
+                  <AppIcon name="send" size={20} weight="fill" />
+                )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="message-action-btn"
+                onClick={startVoiceRecording}
+                disabled={sending || !!selectedFile}
+                title={t('chat.voiceMessage')}
+              >
+                <AppIcon name="mic" size={20} />
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+
+      {showSpamModal && (
+        <div className="spam-modal-backdrop" role="presentation" onMouseDown={closeSpamModal}>
+          <div
+            className="spam-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="spam-modal-title"
+            aria-describedby="spam-modal-description"
+            onMouseDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                closeSpamModal();
+              }
+            }}
+          >
+            <button
+              type="button"
+              className="spam-modal-close"
+              onClick={closeSpamModal}
+              aria-label="Close"
+            >
+              <AppIcon name="close" size={24} weight="bold" />
+            </button>
+            <h2 id="spam-modal-title">WOAH THERE, WAY TOO SPICY</h2>
+            <p id="spam-modal-description">You're sending messages too quickly!</p>
+            <button type="button" className="spam-modal-button" onClick={closeSpamModal} autoFocus>
+              Enter the chill zone
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* Mention Suggestions */}
       {mentionState && mentionUsers.length > 0 && (

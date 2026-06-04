@@ -194,7 +194,7 @@
   }
   to {
     opacity: 1;
-    max-height: 300px;
+    max-height: 200px;
   }
 }
 
@@ -224,9 +224,11 @@
   white-space: nowrap;
 }
 
-/* Hide the old voice controls — we have our own buttons now */
 .usas-voice-zone .vsb-controls {
-  display: none !important;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 /* Constrain hover area to just the "Connected" text + signal dot */
@@ -246,101 +248,6 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: geometricPrecision;
-}
-
-/* Voice actions row — disconnect + icon buttons side by side */
-.usas-voice-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 14px 12px;
-}
-
-.usas-vc-btn {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.06);
-  border: none;
-  border-radius: 8px;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.usas-vc-btn svg {
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.usas-vc-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
-}
-
-.usas-vc-btn:hover svg {
-  transform: scale(1.1);
-}
-
-.usas-vc-btn:active svg {
-  transform: scale(0.9);
-}
-
-.usas-vc-btn.active {
-  background: rgba(35, 165, 90, 0.15);
-  color: #23a55a;
-}
-
-.usas-vc-btn.active:hover {
-  background: rgba(35, 165, 90, 0.25);
-  color: #2dc770;
-}
-
-.usas-vc-btn.disabled,
-.usas-vc-btn.disabled:hover {
-  opacity: 0.35;
-  cursor: not-allowed;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-muted);
-}
-
-.usas-vc-btn.disabled svg {
-  transform: none !important;
-}
-
-/* Disconnect button */
-.usas-disconnect-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  flex: 1;
-  padding: 8px 0;
-  border: none;
-  border-radius: 8px;
-  background: rgba(237, 66, 69, 0.12);
-  color: #ed4245;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease, transform 0.12s ease;
-}
-
-.usas-disconnect-btn:hover {
-  background: rgba(237, 66, 69, 0.22);
-}
-
-.usas-disconnect-btn:active {
-  transform: scale(0.97);
-}
-
-.usas-disconnect-btn svg {
-  transition: transform 0.2s ease;
-}
-
-.usas-disconnect-btn:hover svg {
-  transform: rotate(-12deg) scale(1.1);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -622,24 +529,16 @@
   background: transparent !important;
 }
 
-[data-theme="dark"] .usas-disconnect-btn {
-  background: rgba(237, 66, 69, 0.15);
-}
-
-[data-theme="dark"] .usas-disconnect-btn:hover {
-  background: rgba(237, 66, 69, 0.28);
-}
-
 /* ═══════════════════════════════════════════════════════════
    DYNAMIC BOTTOM PADDING — push sidebar/channel content up
    when usas is in voice (taller island)
    ═══════════════════════════════════════════════════════════ */
 body:has(.usas-in-voice) .sidebar {
-  padding-bottom: 180px;
+  padding-bottom: 140px;
 }
 
 body:has(.usas-in-voice) .channel-sidebar {
-  padding-bottom: 180px;
+  padding-bottom: 140px;
 }
 
 /* ═══════════════════════════════════════════════════════════

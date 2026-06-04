@@ -13,7 +13,7 @@
   padding-bottom: 80px;
   overflow-x: hidden;
   overflow-y: visible;
-  border-right: 1px solid var(--border-default);
+  border-right: none;
   transition: padding-bottom 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -593,7 +593,7 @@ button.server-icon-link:hover .server-tooltip,
    ═══════════════════════════════════════════════════════════ */
 [data-theme="dark"] .server-bar {
   background: #111113;
-  border-right: 1px solid var(--border-subtle);
+  border-right: none;
   width: 68px;
   min-width: 68px;
 }
@@ -641,6 +641,7 @@ button.server-icon-link:hover .server-tooltip,
 /* ── Mobile ── */
 @media (max-width: 768px) {
   .server-bar {
+    border-right: 1px solid var(--border-subtle);
     width: 64px;
     min-width: 64px;
     /* Keep first icon/ring clear of mobile browser UI and gesture areas */

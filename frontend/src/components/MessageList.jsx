@@ -1,7 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useMemo, memo, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
 import { createPortal } from 'react-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Link } from 'react-router-dom';
 import { Bot, Camera, Check, ChevronRight, Download, Eye, EyeOff, Lock, Maximize2, Minimize2, Palette, Paperclip, Pause, Phone, Play, Send, UserPlus, Volume2, VolumeX } from 'lucide-react';
 import ClickableAvatar from './ClickableAvatar';
 import ProfileCard from './ProfileCard';
@@ -12,6 +11,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useLanguage } from '../context/LanguageContext';
 import { stickers as stickersApi, users as usersApi, friends as friendsApi } from '../api';
 import ReportModal from './ReportModal';
+import AppIcon from './icons/AppIcon';
 import { useBlockedUsers } from '../hooks/useBlockedUsers';
 import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import { usePrefetchOnHover } from '../context/PrefetchContext';
@@ -20,6 +20,7 @@ import { shortcodeToEmoji, emojiToShortcode, emojifyText } from '../utils/emojiS
 import { emojiToAranjaUrl } from '../utils/emojiAranja';
 import { Spoiler, parseInlineMarkdown, parseMessageContent as _parseMarkdown, HAS_MARKDOWN_RE } from '../utils/markdownParser';
 import { getStaticUrl } from '../utils/staticUrl';
+import { pickChannelWelcomeHint } from '../utils/channelWelcomeHint';
 import { getToken } from '../utils/tokenStorage';
 import TextWithAranjaEmojis from './TextWithAranjaEmojis';
 import ContextMenu from './ContextMenu';
@@ -677,7 +678,7 @@ const VoiceMessagePlayerSimple = memo(function VoiceMessagePlayerSimple({ src, p
     return (
       <div className="voice-message failed">
         <button className="voice-message-play" disabled>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+          <AppIcon name="close" size={18} weight="bold" />
         </button>
         <div className="voice-message-body"><span className="voice-message-time">{total}</span></div>
       </div>
@@ -696,9 +697,9 @@ const VoiceMessagePlayerSimple = memo(function VoiceMessagePlayerSimple({ src, p
         {isLoading ? (
           <span className="voice-message-spinner" />
         ) : isPlaying ? (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1.5" /><rect x="14" y="4" width="4" height="16" rx="1.5" /></svg>
+          <AppIcon name="pause" size={16} />
         ) : (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z" /></svg>
+          <AppIcon name="play" size={16} />
         )}
       </button>
       <div className="voice-message-body">
@@ -2419,6 +2420,61 @@ const SystemMessageRow = memo(function SystemMessageRow({ msg, currentUserId, on
   );
 });
 
+// Discord-style empty channel intro (#channel + hint + date + actions)
+const ChannelWelcome = memo(function ChannelWelcome({
+  channelId,
+  channelName,
+  serverName,
+  onInviteClick,
+  onFocusInput,
+  t,
+  formatDate,
+  compact = false,
+}) {
+  const channelTag = `#${channelName || 'general'}`;
+  const todayLabel = formatDate(new Date());
+  const showActions = !compact && (onInviteClick || onFocusInput);
+  const welcomeHint = useMemo(
+    () => pickChannelWelcomeHint(t('chat.welcomeChannelHints'), channelId, channelName, channelTag),
+    [t, channelId, channelName, channelTag]
+  );
+
+  return (
+    <div className={`channel-welcome${compact ? ' channel-welcome--compact' : ''}`}>
+      <h1 className="channel-welcome-channel">{channelTag}</h1>
+      <p className="channel-welcome-hint">
+        {welcomeHint}
+      </p>
+      {serverName && (
+        <p className="channel-welcome-server">{t('chat.welcomeServerOn', { name: serverName })}</p>
+      )}
+      {showActions && (
+        <div className="channel-welcome-actions">
+          {onInviteClick && (
+            <button type="button" className="channel-welcome-btn" onClick={onInviteClick}>
+              <UserPlus size={20} strokeWidth={2} />
+              <span>{t('chat.inviteFriends')}</span>
+              <ChevronRight size={18} strokeWidth={2} />
+            </button>
+          )}
+          {onFocusInput && (
+            <button type="button" className="channel-welcome-btn" onClick={onFocusInput}>
+              <Send size={20} strokeWidth={2} />
+              <span>{t('chat.sendFirstMessage')}</span>
+              <ChevronRight size={18} strokeWidth={2} />
+            </button>
+          )}
+        </div>
+      )}
+      {!compact && (
+        <div className="date-separator channel-welcome-date" aria-hidden="true">
+          <span className="date-separator-label">{todayLabel}</span>
+        </div>
+      )}
+    </div>
+  );
+});
+
 // Member join system message row (Welcome user. Say hi!)
 const MemberJoinRow = memo(function MemberJoinRow({ msg, t }) {
   let joinData = {};
@@ -2470,8 +2526,6 @@ const MessageItem = memo(function MessageItem({
 }) {
   const [isMessageHovered, setIsMessageHovered] = useState(false);
   const isDeleting = !!msg?._deleting;
-  const deletingText = typeof msg?.content === 'string' ? msg.content : '';
-  const canFumeText = isDeleting && !reduceMotion && deletingText.trim().length > 0;
   const isReplyToCurrentUser = !!(
     !isOwn &&
     replyToMessage?.sender?.id != null &&
@@ -2539,7 +2593,7 @@ const MessageItem = memo(function MessageItem({
   
   return (
     <div 
-      className={`message-item ${isFirst ? 'first' : ''} ${isLast ? 'last' : ''} ${isSelected ? 'selected' : ''} ${isDeleting ? 'deleting' : ''} ${reduceMotion ? 'reduce-motion' : ''} ${isReplyToCurrentUser ? 'reply-to-me' : ''}`}
+      className={`message-item ${isFirst ? 'first' : ''} ${isLast ? 'last' : ''} ${isSelected ? 'selected' : ''} ${msg._pending ? 'pending' : ''} ${isDeleting ? 'deleting' : ''} ${reduceMotion ? 'reduce-motion' : ''} ${isReplyToCurrentUser ? 'reply-to-me' : ''}`}
       onContextMenu={handleContextMenu}
       onMouseEnter={compactTouchUi ? undefined : () => setIsMessageHovered(true)}
       onMouseLeave={compactTouchUi ? undefined : () => setIsMessageHovered(false)}
@@ -2572,27 +2626,27 @@ const MessageItem = memo(function MessageItem({
                   })}
                   <div className="hover-actions-separator" />
                   <button className="hover-action-btn" title={t('chat.react')} onClick={() => onReact(msg)}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                    <AppIcon name="emoji" size={20} />
                   </button>
                 </>
               )}
               {onReply && (
                 <button className="hover-action-btn" title={t('chat.reply')} onClick={() => onReply(msg)}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+                  <AppIcon name="arrowReply" size={20} />
                 </button>
               )}
               {isOwn && !msg.is_webhook && !msg.sender?.is_webhook && (msg.type === 'text' || msg.type === 'image' || msg.type === 'file') && onEdit && (
                 <button className="hover-action-btn" title={t('chat.edit')} onClick={() => onEdit(msg)}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  <AppIcon name="edit" size={20} />
                 </button>
               )}
               {isShiftHeld && (isOwn || isDM) && (
                 <button className="hover-action-btn hover-action-delete-all" title={t('chat.delete')} onClick={() => onDeleteForAll(msg, true)}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  <AppIcon name="delete" size={20} />
                 </button>
               )}
               <button className="hover-action-btn hover-action-more" title={t('chat.moreOptions')} onClick={handleContextMenu}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+                <AppIcon name="more" size={20} />
               </button>
         </div>
       <div className="message-avatar-col">
@@ -2629,33 +2683,19 @@ const MessageItem = memo(function MessageItem({
           <BlockedMessage onReveal={onReveal} t={t} />
         ) : (
           <>
-            {canFumeText ? (
-              <div className="message-delete-fume" aria-label={deletingText}>
-                {Array.from(deletingText).map((char, index, chars) => (
-                  <span
-                    key={`${char}-${index}`}
-                    className="message-delete-fume-char"
-                    style={{ '--char-delay': `${(chars.length - 1 - index) * 22}ms` }}
-                  >
-                    {char === ' ' ? '\u00A0' : char}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <MessageContent 
-                msg={msg} 
-                isEditing={isEditing}
-                editContent={editContent}
-                setEditContent={setEditContent}
-                onSaveEdit={onSaveEdit}
-                onCancelEdit={onCancelEdit}
-                onStickerClick={onStickerClick}
-                currentUserName={currentUserName}
-                mentionUsers={mentionUsers}
-                onMentionClick={onMentionClick}
-                t={t}
-              />
-            )}
+            <MessageContent 
+              msg={msg} 
+              isEditing={isEditing}
+              editContent={editContent}
+              setEditContent={setEditContent}
+              onSaveEdit={onSaveEdit}
+              onCancelEdit={onCancelEdit}
+              onStickerClick={onStickerClick}
+              currentUserName={currentUserName}
+              mentionUsers={mentionUsers}
+              onMentionClick={onMentionClick}
+              t={t}
+            />
             <MessageReactions 
               reactions={reactions} 
               currentUserId={currentUserId}
@@ -2705,6 +2745,8 @@ const MessageList = memo(forwardRef(function MessageList({
   lastReadMessageId = null,
   onMarkRead = null,
   serverName = null,
+  channelId = null,
+  channelName = null,
   onInviteClick = null,
   onFocusInput = null,
   roles = null,
@@ -2747,7 +2789,7 @@ const MessageList = memo(forwardRef(function MessageList({
   const contextMenuRef = useRef(null);
 
   const { settings, isCompactMode, showAvatars, showEmbeds, animateEmoji } = useSettings();
-  const { t } = useLanguage();
+  const { t, formatDate } = useLanguage();
   const { notify } = useNotification();
   const { blockedIds } = useBlockedUsers();
   const [revealedBlockedIds, setRevealedBlockedIds] = useState(() => new Set());
@@ -3428,13 +3470,32 @@ const MessageList = memo(forwardRef(function MessageList({
     });
   }, [messages, currentUserId, readReceipts, otherUsers, messagesById, lastReadMessageId]);
 
+  const showChannelIntro = !isDM && !!(channelName || serverName) && !!(onInviteClick || onFocusInput);
+  const showChannelIntroWithMessages = showChannelIntro && messages.length > 0;
+
+  const channelWelcomeBlock = showChannelIntro ? (
+    <ChannelWelcome
+      channelId={channelId}
+      channelName={channelName}
+      serverName={serverName}
+      onInviteClick={onInviteClick}
+      onFocusInput={onFocusInput}
+      t={t}
+      formatDate={formatDate}
+      compact={messages.length > 0}
+    />
+  ) : null;
+
+  const firstMessageId = processedMessages[0]?.id;
+
   // Liste des items virtuels (banner optionnel + messages)
   const virtualItems = useMemo(() => {
     const items = [];
     if (topBanner) items.push({ rowType: 'banner', id: '__banner__' });
+    if (showChannelIntroWithMessages) items.push({ rowType: 'channelWelcome', id: '__channel_welcome__' });
     processedMessages.forEach((msg, i) => items.push({ rowType: 'message', ...msg, virtualIndex: i }));
     return items;
-  }, [processedMessages, topBanner]);
+  }, [processedMessages, topBanner, showChannelIntroWithMessages]);
 
   const useVirtualization = virtualItems.length >= virtualizationThreshold;
 
@@ -3445,6 +3506,7 @@ const MessageList = memo(forwardRef(function MessageList({
     getItemKey: (index) => {
       const item = virtualItems[index];
       if (item?.rowType === 'banner') return '__banner__';
+      if (item?.rowType === 'channelWelcome') return '__channel_welcome__';
       if (item?.rowType === 'message') return String(item.renderKey ?? item.id ?? `idx-${index}`);
       return index;
     },
@@ -3452,6 +3514,7 @@ const MessageList = memo(forwardRef(function MessageList({
     estimateSize: (index) => {
       const item = virtualItems[index];
       if (item?.rowType === 'banner') return 120;
+      if (item?.rowType === 'channelWelcome') return 112;
       if (!item || item.rowType !== 'message') return ESTIMATED_MESSAGE_HEIGHT;
       let est = ESTIMATED_MESSAGE_HEIGHT;
       if (item.isSystem) return 48;
@@ -3530,31 +3593,10 @@ const MessageList = memo(forwardRef(function MessageList({
                 <div className="message-list-load-more-spinner" />
               </div>
             )}
+            {showChannelIntroWithMessages && !useVirtualization && channelWelcomeBlock}
             {messages.length === 0 && (
-              !isDM && serverName && (onInviteClick || onFocusInput) ? (
-                <div className="channel-welcome">
-                  <h2 className="channel-welcome-title">{t('chat.welcomeTitle', { name: serverName })}</h2>
-                  <p className="channel-welcome-desc">
-                    {t('chat.welcomeDescription')}{' '}
-                    <Link to="/nitro" className="channel-welcome-link">{t('chat.welcomeGettingStarted')}</Link>
-                  </p>
-                  <div className="channel-welcome-actions">
-                    {onInviteClick && (
-                      <button type="button" className="channel-welcome-btn" onClick={onInviteClick}>
-                        <UserPlus size={20} strokeWidth={2} />
-                        <span>{t('chat.inviteFriends')}</span>
-                        <ChevronRight size={18} strokeWidth={2} />
-                      </button>
-                    )}
-                    {onFocusInput && (
-                      <button type="button" className="channel-welcome-btn" onClick={onFocusInput}>
-                        <Send size={20} strokeWidth={2} />
-                        <span>{t('chat.sendFirstMessage')}</span>
-                        <ChevronRight size={18} strokeWidth={2} />
-                      </button>
-                    )}
-                  </div>
-                </div>
+              showChannelIntro ? (
+                channelWelcomeBlock
               ) : (
                 <div className="message-list-empty">
                   {t('chat.sendFirst')}
@@ -3590,6 +3632,24 @@ const MessageList = memo(forwardRef(function MessageList({
                       </div>
                     );
                   }
+                  if (item.rowType === 'channelWelcome') {
+                    return (
+                      <div
+                        key="__channel_welcome__"
+                        ref={rowVirtualizer.measureElement}
+                        data-index={virtualRow.index}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          transform: `translateY(${virtualRow.start}px)`,
+                        }}
+                      >
+                        {channelWelcomeBlock}
+                      </div>
+                    );
+                  }
                   const msg = item;
                   return (
                     <div
@@ -3605,7 +3665,7 @@ const MessageList = memo(forwardRef(function MessageList({
                       }}
                     >
                       {msg.showDateSeparator && !msg._deleting && (
-                        <div className={`date-separator${msg.showUnreadDivider ? ' date-separator--new' : ''}`}>
+                        <div className={`date-separator${msg.showUnreadDivider ? ' date-separator--new' : ''}${msg.id === firstMessageId && showChannelIntroWithMessages ? ' date-separator--channel-start' : ''}`}>
                           <span className="date-separator-label">{msg.dateLabel}</span>
                           {msg.showUnreadDivider && <span className="unread-badge">NEW</span>}
                         </div>
@@ -3686,7 +3746,7 @@ const MessageList = memo(forwardRef(function MessageList({
                   return (
                     <React.Fragment key={msg.renderKey}>
                       {msg.showDateSeparator && !msg._deleting && (
-                        <div className={`date-separator${msg.showUnreadDivider ? ' date-separator--new' : ''}`}>
+                        <div className={`date-separator${msg.showUnreadDivider ? ' date-separator--new' : ''}${msg.id === firstMessageId && showChannelIntroWithMessages ? ' date-separator--channel-start' : ''}`}>
                           <span className="date-separator-label">{msg.dateLabel}</span>
                           {msg.showUnreadDivider && <span className="unread-badge">NEW</span>}
                         </div>

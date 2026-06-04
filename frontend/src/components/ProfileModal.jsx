@@ -12,19 +12,8 @@ import { harmonizeGradientColors, lightenHex, isLightGradient, isHighContrastGra
 import Avatar from './Avatar';
 import { useSettings } from '../context/SettingsContext';
 import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
+import { loadUserNote, saveUserNote } from '../utils/userNotes';
 import './ProfileModal.css';
-
-const NOTE_KEY = 'slide_profile_notes';
-function loadNote(uid) {
-  try { return JSON.parse(localStorage.getItem(NOTE_KEY) || '{}')[uid] ?? ''; } catch { return ''; }
-}
-function saveNote(uid, note) {
-  try {
-    const d = JSON.parse(localStorage.getItem(NOTE_KEY) || '{}');
-    if (note) d[uid] = note; else delete d[uid];
-    localStorage.setItem(NOTE_KEY, JSON.stringify(d));
-  } catch {}
-}
 
 const STATUS_COLORS = {
   online:    '#23a55a',
@@ -98,7 +87,7 @@ const ProfileModal = memo(function ProfileModal({ userId, onClose }) {
 
   // Load note
   useEffect(() => {
-    if (userId && !isOwnProfile) setNote(loadNote(userId));
+    if (userId && !isOwnProfile) setNote(loadUserNote(userId));
   }, [userId, isOwnProfile]);
 
   // Fetch profile (uses cache — instant when prefetched)
@@ -159,7 +148,7 @@ const ProfileModal = memo(function ProfileModal({ userId, onClose }) {
 
   const handleNoteChange = (val) => {
     setNote(val);
-    saveNote(userId, val);
+    saveUserNote(userId, val);
   };
 
   const handleCopyId = async () => {

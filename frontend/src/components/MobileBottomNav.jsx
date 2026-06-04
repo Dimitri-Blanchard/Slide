@@ -1,39 +1,21 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { hapticSelection } from '../utils/nativeHaptics';
+import AppIcon from './icons/AppIcon';
 import './MobileBottomNav.css';
-
-/* Icons for 3-tab nav: Home (DMs + servers via bar), Notifications, You */
-const IconHome = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-  </svg>
-);
-
-const IconNotifications = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />
-  </svg>
-);
-
-const IconYou = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-  </svg>
-);
 
 /* Home = DMs (Slide icon) + servers (server bar). Notifications. You. */
 const TABS = [
-  { id: 'home', labelKey: 'mobile.home', fallback: 'Home', Icon: IconHome },
-  { id: 'notifications', labelKey: 'notifications.title', fallback: 'Notifications', Icon: IconNotifications },
-  { id: 'profile', labelKey: 'mobile.you', fallback: 'You', Icon: IconYou },
+  { id: 'home', labelKey: 'mobile.home', fallback: 'Home', icon: 'home' },
+  { id: 'notifications', labelKey: 'notifications.title', fallback: 'Notifications', icon: 'notification' },
+  { id: 'profile', labelKey: 'mobile.you', fallback: 'You', icon: 'user' },
 ];
 
 export default function MobileBottomNav({ activeTab, onTabChange, unreadCounts = {}, userAvatar }) {
   const { t } = useLanguage();
   return (
     <nav className="mobile-bottom-nav" aria-label="Navigation principale">
-      {TABS.map(({ id, labelKey, fallback, Icon }) => {
+      {TABS.map(({ id, labelKey, fallback, icon }) => {
         const translated = t(labelKey);
         const label = translated === labelKey ? fallback : translated;
         const count = unreadCounts[id] || 0;
@@ -53,7 +35,7 @@ export default function MobileBottomNav({ activeTab, onTabChange, unreadCounts =
               {isProfile && userAvatar ? (
                 <img src={userAvatar} alt="" className="mbn-profile-avatar" />
               ) : (
-                <Icon />
+                <AppIcon name={icon} size={24} />
               )}
               {count > 0 && !isProfile && (
                 <span className="mbn-badge">{count > 99 ? '99+' : count}</span>

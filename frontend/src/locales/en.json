@@ -319,7 +319,8 @@
     "statusPromptPlaceholder": "Best emoji to describe your day?",
     "listeningTo": "Listening to",
     "listeningToSpotify": "Listening to Spotify",
-    "noHandleSet": "No handle set"
+    "noHandleSet": "No handle set",
+    "viewFullProfile": "Profile"
   },
   "privacyMonetization": {
     "title": "Privacy & Monetization",
@@ -495,6 +496,9 @@
     "micAccessError": "Could not access microphone",
     "recordError": "Recording error",
     "startCall": "Start Call",
+    "startCallMenu": "Start a Call",
+    "userVolume": "User Volume",
+    "muteUser": "Mute",
     "ring": "Ring"
   },
   "call": {
@@ -586,9 +590,7 @@
     "teamInCommon": "team in common",
     "conversationDeleted": "Conversation deleted",
     "nitro": "Nitro",
-    "shop": "Shop",
     "quests": "Quests",
-    "shopNew": "NEW",
     "comingSoon": "Coming soon!"
   },
   "chat": {
@@ -616,11 +618,13 @@
     "unpin": "Unpin",
     "closeDM": "Close DM",
     "addNote": "Add Note",
+    "addNoteOnlyYou": "Only visible to you",
     "addNoteDesc": "Add a note for {name} (only visible to you)",
     "notePlaceholder": "Enter note",
     "addFriendNickname": "Add Friend Nickname",
     "addFriendNicknameDesc": "Set a nickname for {name} (only visible to you)",
     "nicknamePlaceholder": "Enter nickname",
+    "localPrivateChat": "Create local private chat",
     "delete": "Delete",
     "moreOptions": "More options",
     "copyText": "Copy text",
@@ -653,6 +657,17 @@
     "welcomeTitle": "Welcome to {name}",
     "welcomeDescription": "This is your brand new, shiny server. Here are some steps to help you get started.",
     "welcomeGettingStarted": "Getting Started guide",
+    "welcomeChannelHints": [
+      "Welcome to {channel}!",
+      "This is the start of the {channel} channel.",
+      "You've found {channel} — say hello!",
+      "{channel} is waiting. Send the first message!",
+      "This is where {channel} begins.",
+      "Welcome to the heart of {channel}!",
+      "It all starts in {channel}.",
+      "New to {channel}? You're in the right place."
+    ],
+    "welcomeServerOn": "Server · {name}",
     "inviteFriends": "Invite your friends",
     "sendFirstMessage": "Send your first message",
     "uploadFile": "Upload file",
@@ -1035,12 +1050,6 @@
     "inviteToServerSubtitle": "Choose a server to invite {name} to",
     "noServersToInvite": "You are not in any servers"
   },
-  "activeNow": {
-    "title": "Active Now",
-    "empty": "It's quiet for now...",
-    "emptyDesc": "When a friend starts an activity—like playing a game or hanging out on voice—we'll show it here!",
-    "playing": "Playing {game}"
-  },
   "nitro": {
     "title": "Nitro",
     "titleSub": "Premium Quality",
@@ -1104,37 +1113,11 @@
     "launching": "Launching..."
   },
   "shop": {
-    "title": "Shop",
-    "searchPlaceholder": "Search items...",
-    "all": "All",
-    "avatarDecorations": "Avatar Decorations",
-    "profileEffects": "Profile Effects",
-    "nameplates": "Nameplates",
-    "purchase": "Purchase",
-    "orbs": "Orbs",
-    "noResults": "No items found",
-    "owned": "Owned",
-    "notEnoughOrbs": "Not enough Orbs",
-    "equip": "Equip",
-    "equipped": "Equipped",
-    "unequipped": "Unequipped",
-    "goldRingDesc": "A subtle gold ring around your avatar",
-    "platinumRingDesc": "A soft platinum ring around your avatar",
-    "warmGlowDesc": "A warm glow at the bottom of your profile card",
-    "softHighlightDesc": "A soft highlight at the top of your profile",
-    "goldBadgeDesc": "A gold badge next to your name in messages",
-    "violetRingDesc": "A soft violet ring around your avatar",
-    "frostGlowDesc": "A subtle frost glow on your profile",
-    "frostRingDesc": "A clean frost ring around your avatar",
-    "silverBadgeDesc": "A silver badge next to your name in messages",
-    "frostEdgeDesc": "A subtle frost edge on your profile card",
-    "equippedItems": "Equipped Items",
-    "equippedItemsDesc": "Customize your avatar, profile, and nameplate with items from the Shop",
-    "manageInShop": "Manage in Shop"
+    "orbs": "Orbs"
   },
   "quests": {
     "title": "Quests",
-    "description": "Complete quests to earn Orbs that you can spend in the Shop",
+    "description": "Complete quests to earn Orbs",
     "daily": "Daily",
     "weekly": "Weekly",
     "seasonal": "Seasonal",

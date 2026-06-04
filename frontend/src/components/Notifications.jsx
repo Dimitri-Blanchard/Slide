@@ -3,23 +3,10 @@ import { createPortal } from 'react-dom';
 import { useNotification } from '../context/NotificationContext';
 import './Notifications.css';
 
-const CheckIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="20 6 9 17 4 12"></polyline>
-  </svg>
-);
-
 const XIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
     <line x1="18" y1="6" x2="6" y2="18"></line>
     <line x1="6" y1="6" x2="18" y2="18"></line>
-  </svg>
-);
-
-const InfoIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="12" y1="16" x2="12" y2="12"></line>
-    <line x1="12" y1="8" x2="12.01" y2="8"></line>
   </svg>
 );
 
@@ -32,26 +19,25 @@ const WarningIcon = () => (
 
 export default function Notifications() {
   const { notifications, removeNotification } = useNotification();
+  const problemNotifications = notifications.filter((notif) => notif.type === 'error' || notif.type === 'warning');
 
-  if (notifications.length === 0) return null;
+  if (problemNotifications.length === 0) return null;
 
   const content = (
-    <div className="notifications-container">
-      {notifications.map((notif) => (
+    <div className="problem-notices-container" aria-live="polite" aria-atomic="false">
+      {problemNotifications.map((notif) => (
         <div
           key={notif.id}
-          className={`notification notification-${notif.type}`}
+          className={`problem-notice problem-notice-${notif.type}`}
           onClick={() => removeNotification(notif.id)}
+          role="status"
         >
-          <div className="notification-icon">
-            {notif.type === 'success' && <CheckIcon />}
-            {notif.type === 'error' && <XIcon />}
-            {notif.type === 'warning' && <WarningIcon />}
-            {notif.type === 'info' && <InfoIcon />}
+          <div className="problem-notice-icon">
+            {notif.type === 'error' ? <XIcon /> : <WarningIcon />}
           </div>
-          <span className="notification-message">{notif.message}</span>
+          <span className="problem-notice-message">{notif.message}</span>
           {(notif.count || 1) > 1 && (
-            <span className="notification-count-badge">x{notif.count}</span>
+            <span className="problem-notice-count">x{notif.count}</span>
           )}
         </div>
       ))}

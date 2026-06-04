@@ -211,7 +211,7 @@
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
   margin-top: 4px;
   align-items: center;
   overflow: visible;
@@ -224,65 +224,69 @@
 .message-reaction {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 16px;
-  min-height: 36px;
-  min-width: 56px;
-  background: var(--surface-2);
-  border: 1px solid transparent;
-  border-radius: 12px;
+  justify-content: center;
+  gap: 5px;
+  padding: 2px 8px 2px 5px;
+  min-height: 28px;
+  min-width: 44px;
+  background: rgba(79, 84, 101, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
   font-size: 0.9rem;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  line-height: 1;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .message-reaction:hover {
-  background: var(--bg-hover);
+  background: rgba(88, 93, 112, 0.72);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .message-reaction.reacted {
-  background: rgba(var(--accent-rgb, 88, 101, 242), 0.2);
-  border-color: rgba(var(--accent-rgb, 88, 101, 242), 0.5);
+  background: rgba(88, 101, 242, 0.42);
+  border-color: rgba(130, 145, 255, 0.82);
+  box-shadow: inset 0 0 0 1px rgba(88, 101, 242, 0.24);
 }
 
 .message-reaction.reacted:hover {
-  background: rgba(var(--accent-rgb, 88, 101, 242), 0.28);
+  background: rgba(88, 101, 242, 0.52);
 }
 
 .reaction-emoji {
-  font-size: 1.35rem;
+  font-size: 1.15rem;
   line-height: 1;
   display: inline-flex;
   align-items: center;
 }
 
 .reaction-emoji img {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   object-fit: contain;
 }
 
 .reaction-count {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-secondary);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.86);
 }
 
 .message-reaction.reacted .reaction-count {
-  color: var(--text-primary);
+  color: #ffffff;
 }
 
 .message-item.own .message-reaction {
-  background: var(--surface-2);
+  background: rgba(79, 84, 101, 0.58);
 }
 
 .message-item.own .message-reaction:hover {
-  background: var(--bg-hover);
+  background: rgba(88, 93, 112, 0.72);
 }
 
 .message-item.own .message-reaction.reacted {
-  background: rgba(var(--accent-rgb, 88, 101, 242), 0.2);
-  border-color: rgba(var(--accent-rgb, 88, 101, 242), 0.5);
+  background: rgba(88, 101, 242, 0.42);
+  border-color: rgba(130, 145, 255, 0.82);
 }
 
 /* ── Reaction hover tooltip (Discord-style) ── */

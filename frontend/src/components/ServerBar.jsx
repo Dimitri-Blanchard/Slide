@@ -1,8 +1,8 @@
 import React, { useState, useCallback, memo, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Bell, BellOff } from 'lucide-react';
 import { AvatarImg } from './Avatar';
+import AppIcon from './icons/AppIcon';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -90,9 +90,7 @@ const InviteFriendsPanel = ({ team, friends, position, onClose, onInvite, sentId
             <div className="ifp-server-name">{team.name}</div>
           </div>
           <button className="ifp-close" onClick={onClose} aria-label="Fermer">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M18.4 4L12 10.4L5.6 4L4 5.6L10.4 12L4 18.4L5.6 20L12 13.6L18.4 20L20 18.4L13.6 12L20 5.6L18.4 4Z"/>
-            </svg>
+            <AppIcon name="close" size={14} weight="bold" />
           </button>
         </div>
         {friends.length === 0 ? (
@@ -326,9 +324,7 @@ const ServerIcon = memo(function ServerIcon({ team, isActive, hasUnread = false,
           {/* Muted indicator */}
           {isMuted && (
             <span className="server-badge muted" title="Notifications masquées">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
-              </svg>
+              <AppIcon name="bellOff" size={10} />
             </span>
           )}
         </div>
@@ -442,9 +438,7 @@ const AddServerButton = memo(function AddServerButton({ onClick }) {
         title="Add or join a server"
       >
         <div className="server-icon add-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-          </svg>
+          <AppIcon name="plus" size={24} weight="bold" />
         </div>
       </button>
       {hovered && <ServerBarTooltip text="Créer un serveur" anchorRef={tooltipRef} />}
@@ -473,9 +467,7 @@ const DiscoverButton = memo(function DiscoverButton() {
         title={t('sidebar.discover') || 'Explore Communities'}
       >
         <div className={`server-icon discover-icon ${isActive ? 'active' : ''}`}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
-          </svg>
+          <AppIcon name="compass" size={22} />
         </div>
         <div className={`server-indicator ${isActive ? 'active' : ''}`} />
       </Link>
@@ -643,11 +635,7 @@ const ServerBar = memo(function ServerBar({
 
   const serverMenuItems = serverContextMenu ? [
     {
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-        </svg>
-      ),
+      icon: <AppIcon name="userPlus" size={16} />,
       label: t('server.invitePeople') || 'Inviter des gens',
       hoverFlyout: true,
       flyoutData: { team: serverContextMenu.team },
@@ -659,11 +647,7 @@ const ServerBar = memo(function ServerBar({
     },
     { separator: true },
     {
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-        </svg>
-      ),
+      icon: <AppIcon name="copy" size={16} />,
       label: t('server.copyServerId') || 'Copy Server ID',
       onClick: () => {
         const id = String(serverContextMenu.team.id);
@@ -684,11 +668,7 @@ const ServerBar = memo(function ServerBar({
       ? [
           { separator: true },
           {
-            icon: (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-              </svg>
-            ),
+            icon: <AppIcon name="settings" size={16} />,
             label: t('server.settings') || 'Paramètres du serveur',
             onClick: () => handleOpenSettings(serverContextMenu.team),
           },
@@ -696,9 +676,9 @@ const ServerBar = memo(function ServerBar({
       : []),
     {
       icon: mutedServersSet.has(Number(serverContextMenu.team.id)) ? (
-        <Bell size={16} strokeWidth={2} aria-hidden />
+        <AppIcon name="bell" size={16} />
       ) : (
-        <BellOff size={16} strokeWidth={2} aria-hidden />
+        <AppIcon name="bellOff" size={16} />
       ),
       label: mutedServersSet.has(Number(serverContextMenu.team.id))
         ? (t('server.unmuteServer') || 'Afficher les notifications')
@@ -708,11 +688,7 @@ const ServerBar = memo(function ServerBar({
     ...(serverContextMenu.team?.role === 'owner' ? [] : [
       { separator: true },
       {
-        icon: (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
-          </svg>
-        ),
+        icon: <AppIcon name="signOut" size={16} />,
         label: t('server.leaveServer') || 'Quitter le serveur',
         onClick: () => handleLeaveClick(serverContextMenu.team),
         danger: true,
@@ -1008,11 +984,7 @@ const ServerBar = memo(function ServerBar({
           y={homeContextMenu.y}
           items={[
             {
-              icon: (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
-                </svg>
-              ),
+              icon: <AppIcon name="home" size={16} />,
               label: t('sidebar.directMessages') || 'Messages directs',
               onClick: () => {
                 setHomeContextMenu(null);

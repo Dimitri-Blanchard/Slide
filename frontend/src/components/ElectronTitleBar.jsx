@@ -93,7 +93,6 @@ export default function ElectronTitleBar() {
     if (path.includes('/channels/@me')) return 'Messages Privés';
     if (path.includes('/settings')) return 'Paramètres';
     if (path.includes('/friends')) return 'Amis';
-    if (path.includes('/shop')) return 'Boutique';
     if (path.includes('/admin')) return 'Administration';
     if (teamId && teamData) return teamData.name;
     if (teamId) return 'Serveur';

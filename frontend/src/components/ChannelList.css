@@ -448,13 +448,20 @@
   flex-shrink: 0;
 }
 
-/* Prevent stacking hover backgrounds on voice channels */
-.channel-item.voice-channel:not(.active):not(.voice-connected):has(.voice-sidebar-user:hover) {
+/* Voice channel row: no hover on the whole item — only .channel-link and .voice-sidebar-user */
+.channel-item.voice-channel:hover {
   background: transparent;
 }
 
-/* Voice-connected: persistent selected state (like .active) */
-.channel-item.voice-connected:hover {
+.channel-item.voice-channel.active:hover {
+  background: var(--accent-muted);
+}
+
+.channel-item.voice-channel.voice-connected:hover {
+  background: transparent;
+}
+
+.channel-item.voice-channel.voice-connected.active:hover {
   background: var(--accent-muted);
 }
 
@@ -484,8 +491,29 @@
   color: var(--accent);
 }
 
-.channel-item.voice-channel:not(.active):not(.voice-connected):has(.voice-sidebar-user:hover) .channel-link {
-  color: var(--text-muted, #949ba4);
+/* Voice: channel-link hover only when the pointer is on the link itself */
+.channel-item.voice-channel:hover .channel-link {
+  color: var(--text-muted);
+}
+
+.channel-item.voice-channel .channel-link {
+  border-radius: 6px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.channel-item.voice-channel .channel-link:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.channel-item.voice-channel.active .channel-link:hover {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.channel-item.voice-channel.voice-connected .channel-link:hover {
+  background: var(--accent-muted);
+  color: var(--interactive-active, #fff);
 }
 
 /* Channel hover actions (settings gear) */
@@ -591,8 +619,12 @@
   opacity: 1;
 }
 
-.channel-item.voice-channel:not(.active):not(.voice-connected):has(.voice-sidebar-user:hover) .channel-icon svg {
+.channel-item.voice-channel:hover .channel-icon svg {
   opacity: 0.7;
+}
+
+.channel-item.voice-channel .channel-link:hover .channel-icon svg {
+  opacity: 1;
 }
 
 .channel-lock {
@@ -1332,7 +1364,19 @@
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  border-radius: 4px;
+  margin: 1px 4px 1px 0;
+  cursor: pointer;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.voice-sidebar-user:hover {
+  background: var(--bg-hover);
+}
+
+.voice-sidebar-user.speaking:hover {
+  background: var(--bg-hover);
 }
 
 .voice-sidebar-avatar {
@@ -2148,7 +2192,6 @@
 /* Server header */
 [data-theme="dark"] .server-header-btn {
   background: rgba(255,255,255,0.006);
-  border-bottom: 1px solid var(--border-default);
   color: #ffffff;
 }
 [data-theme="dark"] .server-header-btn:hover {
@@ -2170,6 +2213,27 @@
 }
 [data-theme="dark"] .channel-item:hover {
   color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .channel-item.voice-channel:hover {
+  background: transparent;
+}
+
+[data-theme="dark"] .channel-item.voice-channel.active:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+[data-theme="dark"] .channel-item.voice-channel .channel-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .channel-item.voice-channel.voice-connected .channel-link:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="dark"] .voice-sidebar-user:hover {
   background: rgba(255, 255, 255, 0.08);
 }
 [data-theme="dark"] .channel-item.active,

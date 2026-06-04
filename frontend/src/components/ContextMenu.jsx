@@ -73,6 +73,12 @@ const Icons = {
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
     </svg>
   ),
+  lock: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+    </svg>
+  ),
 };
 
 const ContextMenu = memo(function ContextMenu({ x, y, items, onClose, onHoverFlyout, ignoreClickRefs = [] }) {
@@ -191,6 +197,7 @@ const ContextMenu = memo(function ContextMenu({ x, y, items, onClose, onHoverFly
   }, [x, y]);
 
   const handleItemClick = (item, event) => {
+    if (item.custom || item.keepOpen) return;
     if (item.submenu) return;
     if (item.hoverFlyout && !item.onClick) return;
     if (!item.disabled) {
@@ -200,7 +207,8 @@ const ContextMenu = memo(function ContextMenu({ x, y, items, onClose, onHoverFly
   };
 
   const handleSubmenuItemClick = (subItem) => {
-    subItem.onClick?.();
+    if (!subItem.disabled) subItem.onClick?.();
+    if (subItem.keepOpen) return;
     setSubmenuOpen(null);
     onClose();
   };
@@ -215,6 +223,10 @@ const ContextMenu = memo(function ContextMenu({ x, y, items, onClose, onHoverFly
         {items.map((item, index) => (
           item.separator ? (
             <div key={index} className="context-menu-separator" />
+          ) : item.custom ? (
+            <div key={index} className="context-menu-custom-wrap">
+              {item.custom}
+            </div>
           ) : (
             <div
               key={index}
@@ -234,7 +246,10 @@ const ContextMenu = memo(function ContextMenu({ x, y, items, onClose, onHoverFly
                 disabled={item.disabled}
               >
                 {item.icon && <span className="context-menu-icon">{item.icon}</span>}
-                <span className="context-menu-label">{item.label}</span>
+                <span className="context-menu-label">
+                  {item.label}
+                  {item.description && <span className="context-menu-item-desc">{item.description}</span>}
+                </span>
                 {(item.submenu || item.hoverFlyout) && <span className="context-menu-chevron">{Icons.chevronRight}</span>}
               </button>
               {item.submenu && submenuOpen === index && (
@@ -250,7 +265,7 @@ const ContextMenu = memo(function ContextMenu({ x, y, items, onClose, onHoverFly
                     ) : (
                       <button
                         key={si}
-                        className="context-menu-item"
+                        className={`context-menu-item${subItem.checked ? ' context-menu-item--checked' : ''}`}
                         onClick={() => handleSubmenuItemClick(subItem)}
                       >
                         {subItem.icon && <span className="context-menu-icon">{subItem.icon}</span>}
@@ -258,6 +273,9 @@ const ContextMenu = memo(function ContextMenu({ x, y, items, onClose, onHoverFly
                           {subItem.label}
                           {subItem.description && <span className="context-menu-item-desc">{subItem.description}</span>}
                         </span>
+                        {subItem.checked != null && (
+                          <span className={`context-menu-checkbox${subItem.checked ? ' checked' : ''}`} aria-hidden="true" />
+                        )}
                       </button>
                     )
                   ))}

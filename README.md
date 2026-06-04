@@ -26,17 +26,7 @@ Set `VITE_PUBLIC_SITE_URL` (and API-related `VITE_*` vars from `frontend/.env.ex
 
 ## Deploy (GitHub Pages)
 
-**Settings → Pages → Build and deployment:**
-
-- **Source:** Deploy from a branch  
-- **Branch:** `main`  
-- **Folder:** `/docs` (not `/` root)
-
-The built site lives in `docs/` (updated by `deploy-frontend-docs.yml` on each push to `frontend/`). With custom domain `sl1de.xyz`, URLs are at the root (`https://sl1de.xyz/`, not `/docs/` in the browser).
-
-If everything 404s, the `/docs` folder was missing or Pages pointed at an empty branch — fix the folder setting above, then wait 1–2 minutes.
-
-Optional Actions variables: `VITE_API_BASE_URL`, `VITE_BACKEND_ORIGIN`, `VITE_CDN_BASE_URL`, `VITE_PUBLIC_SITE_URL`.
+Pushes to `main` build and deploy the static site via `.github/workflows/deploy-frontend-pages.yml`. Set repository variables `VITE_API_BASE_URL`, `VITE_BACKEND_ORIGIN`, and `VITE_CDN_BASE_URL` in GitHub **Settings → Secrets and variables → Actions**.
 
 ---
 

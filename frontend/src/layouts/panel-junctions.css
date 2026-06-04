@@ -1,0 +1,144 @@
+/* ═══════════════════════════════════════════════════════════
+   PANEL JUNCTIONS — Discord-style rounded separators
+   - Top-left: rounded arc (server rail ↔ panel)
+   - Under header: horizontal + rounded corner into vertical below
+   - Never a full-height straight rule on server-bar
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  --panel-junction-radius: 8px;
+  --panel-divider: rgba(15, 17, 23, 0.05);
+  --panel-sidebar-header-h: 63px;
+  --panel-channel-header-h: 52px;
+}
+
+[data-theme="dark"] {
+  --panel-divider: rgba(255, 255, 255, 0.05);
+}
+
+/* ── Server rail: zero right border ── */
+.app-layout > .server-bar {
+  position: relative;
+  border: none !important;
+  border-right: none !important;
+  box-shadow: none !important;
+}
+
+/* ── Adjacent panel shape ── */
+.app-layout > .sidebar,
+.team-view > .channel-sidebar {
+  position: relative;
+  border-top-left-radius: var(--panel-junction-radius);
+  border-left: none;
+  border-right: 1px solid var(--panel-divider);
+  margin-left: -1px;
+  z-index: 2;
+  overflow: hidden;
+}
+
+/* ── TOP rounded junction (the one that must stay visible) ── */
+.app-layout > .sidebar::after,
+.team-view > .channel-sidebar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--panel-junction-radius);
+  height: var(--panel-junction-radius);
+  border-top: 1px solid var(--panel-divider);
+  border-left: 1px solid var(--panel-divider);
+  border-top-left-radius: var(--panel-junction-radius);
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* ── Vertical rule: only below header, never through the top arc ── */
+.app-layout > .sidebar::before {
+  content: '';
+  position: absolute;
+  top: var(--panel-sidebar-header-h);
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--panel-divider);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.team-view > .channel-sidebar::before {
+  content: '';
+  position: absolute;
+  top: var(--panel-channel-header-h);
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--panel-divider);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ── Header row: custom bottom junction (not a full-width straight border) ── */
+.app-layout > .sidebar .sidebar-search-btn,
+.team-view > .channel-sidebar .server-header-btn {
+  border-bottom: none !important;
+  position: relative;
+  z-index: 1;
+}
+
+.app-layout > .sidebar .sidebar-search-btn::after,
+.team-view > .channel-sidebar .server-header-btn::after {
+  content: '';
+  position: absolute;
+  left: var(--panel-junction-radius);
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--panel-divider);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.app-layout > .sidebar .sidebar-search-btn::before,
+.team-view > .channel-sidebar .server-header-btn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: var(--panel-junction-radius);
+  height: var(--panel-junction-radius);
+  border-bottom: 1px solid var(--panel-divider);
+  border-left: 1px solid var(--panel-divider);
+  border-bottom-left-radius: var(--panel-junction-radius);
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 3;
+}
+
+@media (max-width: 768px) {
+  .app-layout > .server-bar {
+    border-right: 1px solid var(--border-subtle) !important;
+  }
+
+  .app-layout > .sidebar,
+  .team-view > .channel-sidebar {
+    border-top-left-radius: 0;
+    margin-left: 0;
+  }
+
+  .app-layout > .sidebar::before,
+  .app-layout > .sidebar::after,
+  .team-view > .channel-sidebar::before,
+  .team-view > .channel-sidebar::after,
+  .app-layout > .sidebar .sidebar-search-btn::before,
+  .app-layout > .sidebar .sidebar-search-btn::after,
+  .team-view > .channel-sidebar .server-header-btn::before,
+  .team-view > .channel-sidebar .server-header-btn::after {
+    display: none;
+  }
+
+  .app-layout > .sidebar .sidebar-search-btn,
+  .team-view > .channel-sidebar .server-header-btn {
+    border-bottom: 1px solid var(--panel-divider) !important;
+  }
+}

@@ -55,11 +55,6 @@ function normalizeOptionalColor(value) {
   return trimmed;
 }
 
-const SHOP_ITEM_NAMES = {
-  1: 'Gold Ring', 2: 'Platinum Ring', 3: 'Warm Glow', 4: 'Soft Highlight', 5: 'Gold Badge',
-  6: 'Violet Ring', 7: 'Frost Glow', 8: 'Frost Ring', 9: 'Silver Badge', 10: 'Frost Edge',
-};
-
 const DEFAULT_PHONE_COUNTRY = PHONE_COUNTRIES.find((country) => country.iso2 === 'US') || PHONE_COUNTRIES[0];
 const PHONE_COUNTRIES_BY_LONGEST_CODE = [...PHONE_COUNTRIES].sort((a, b) => {
   const aLength = a.dialCode.replace(/\D/g, '').length;
@@ -2468,41 +2463,6 @@ export default function Settings() {
                 />
               )}
 
-              {/* Equipped shop items */}
-              <div className="profile-section-card">
-                <div className="profile-section-header">
-                  <h3>{t('shop.equippedItems')}</h3>
-                  <p className="profile-section-desc">{t('shop.equippedItemsDesc')}</p>
-                </div>
-                <div className="profile-section-content">
-                  <div className="profile-equipped-row">
-                    <span className="profile-equipped-label">{t('shop.avatarDecorations')}</span>
-                    <span className="profile-equipped-value">
-                      {SHOP_ITEM_NAMES[user?.equipped_avatar_decoration_id] || t('common.none')}
-                    </span>
-                  </div>
-                  <div className="profile-equipped-row">
-                    <span className="profile-equipped-label">{t('shop.profileEffects')}</span>
-                    <span className="profile-equipped-value">
-                      {SHOP_ITEM_NAMES[user?.equipped_profile_effect_id] || t('common.none')}
-                    </span>
-                  </div>
-                  <div className="profile-equipped-row">
-                    <span className="profile-equipped-label">{t('shop.nameplates')}</span>
-                    <span className="profile-equipped-value">
-                      {SHOP_ITEM_NAMES[user?.equipped_nameplate_id] || t('common.none')}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn-discord-primary profile-equipped-shop-btn"
-                    onClick={() => navigate('/shop')}
-                  >
-                    {t('shop.manageInShop')}
-                  </button>
-                </div>
-              </div>
-              
               {/* Banner color - Discord card style */}
               <div className="profile-section-card">
                 <div className="profile-section-header">

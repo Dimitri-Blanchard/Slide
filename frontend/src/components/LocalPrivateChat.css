@@ -1,0 +1,141 @@
+.local-private-chat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  background: var(--background-primary);
+}
+
+.local-private-header {
+  gap: 12px;
+}
+
+.local-private-title {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.local-private-title h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.local-private-title span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.local-private-title span.ready {
+  color: var(--green-360, #3ba55d);
+}
+
+.local-private-notice {
+  margin: 12px 16px 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(88, 101, 242, 0.28);
+  border-radius: 10px;
+  background: rgba(88, 101, 242, 0.08);
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.local-private-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 16px;
+}
+
+.local-private-empty,
+.local-private-blocked {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.local-private-empty h2,
+.local-private-blocked h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 18px;
+}
+
+.local-private-empty p,
+.local-private-blocked p {
+  max-width: 440px;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.local-private-message {
+  display: flex;
+  margin: 8px 0;
+}
+
+.local-private-message.own {
+  justify-content: flex-end;
+}
+
+.local-private-bubble {
+  max-width: min(620px, 74%);
+  padding: 10px 12px 7px;
+  border-radius: 16px;
+  background: var(--background-secondary);
+  color: var(--text-primary);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12);
+}
+
+.local-private-message.own .local-private-bubble {
+  background: var(--brand-experiment, #5865f2);
+  color: white;
+}
+
+.local-private-bubble p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.local-private-bubble span {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  opacity: 0.72;
+  text-align: right;
+}
+
+.local-private-input {
+  padding: 0 16px 16px;
+}
+
+@media (max-width: 768px) {
+  .local-private-notice {
+    margin: 8px 10px 0;
+  }
+
+  .local-private-messages {
+    padding: 14px 10px;
+  }
+
+  .local-private-bubble {
+    max-width: 86%;
+  }
+
+  .local-private-input {
+    padding: 0 10px 10px;
+  }
+}

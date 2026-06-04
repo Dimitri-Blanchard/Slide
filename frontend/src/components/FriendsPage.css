@@ -535,6 +535,7 @@
   background: transparent;
   border: none;
   color: var(--text-primary);
+  font-family: inherit;
   font-size: 0.9375rem;
   padding: 10px 0;
   outline: none;

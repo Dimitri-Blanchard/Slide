@@ -41,6 +41,10 @@ html, body, #root {
   width: 100%;
 }
 
+:root {
+  --electron-titlebar-height: 22px;
+}
+
 #root {
   position: relative;
   z-index: 0;
@@ -93,7 +97,7 @@ html.platform-mobile body {
 }
 
 .app-root.has-electron-title-bar > .app-content {
-  padding-top: 32px;
+  padding-top: var(--electron-titlebar-height);
 }
 
 .app-root > .app-content {

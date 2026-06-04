@@ -16,8 +16,8 @@ import { useNotification } from '../context/NotificationContext';
 import { useVoice } from '../context/VoiceContext';
 import { useUserContextMenuItems } from '../hooks/useUserContextMenuItems';
 import { usePrefetchOnHover } from '../context/PrefetchContext';
-import { useOrbs } from '../context/OrbsContext';
-import { Lock } from 'lucide-react';
+import { makeLocalPrivateRoute, removeLocalPrivateChat } from '../utils/localPrivateChatCrypto';
+import AppIcon from './icons/AppIcon';
 import './Sidebar.css';
 
 const MAX_PINNED = 5;
@@ -75,6 +75,8 @@ const DMItem = memo(function DMItem({ conversation, isActive, onContextMenu, onC
     ? (conversation.group_name || conversation.participants?.map(p => p.display_name).join(', ') || 'Group')
     : (other?.display_name || 'Conversation');
   const id = conversation.conversation_id;
+  const isLocalPrivate = !!conversation.is_local_private;
+  const to = isLocalPrivate ? makeLocalPrivateRoute(conversation.local_private_peer_id || other?.id) : `/channels/@me/${id}`;
   const memberCount = isGroup ? (conversation.participants?.length || 0) : 0;
 
   const handleContextMenu = (e) => {
@@ -100,8 +102,8 @@ const DMItem = memo(function DMItem({ conversation, isActive, onContextMenu, onC
   return (
     <li>
       <Link
-        to={`/channels/@me/${id}`}
-        className={`dm-item ${isActive ? 'active' : ''} ${unreadCount > 0 ? 'has-unread' : ''}`}
+        to={to}
+        className={`dm-item ${isActive ? 'active' : ''} ${unreadCount > 0 ? 'has-unread' : ''} ${isLocalPrivate ? 'local-private-dm' : ''}`}
         onContextMenu={handleContextMenu}
         onMouseEnter={!isGroup && other?.id ? () => onMouseEnter(other.id, other) : undefined}
         onMouseLeave={!isGroup ? onMouseLeave : undefined}
@@ -117,13 +119,13 @@ const DMItem = memo(function DMItem({ conversation, isActive, onContextMenu, onC
               showPresence
               position="right"
               contextMenuContext={{
-                conversationId: id,
-                lastMessageId: conversation.last_message_id || null,
+                conversationId: isLocalPrivate ? null : id,
+                lastMessageId: isLocalPrivate ? null : (conversation.last_message_id || null),
                 hasUnread: unreadCount > 0,
-                isDmList: true,
-                onPinConversation,
-                isPinned,
-                canPin,
+                isDmList: !isLocalPrivate,
+                onPinConversation: isLocalPrivate ? undefined : onPinConversation,
+                isPinned: isLocalPrivate ? false : isPinned,
+                canPin: isLocalPrivate ? false : canPin,
               }}
             />
           )}
@@ -132,6 +134,8 @@ const DMItem = memo(function DMItem({ conversation, isActive, onContextMenu, onC
           <span className="dm-item-name">{name}</span>
           {isGroup ? (
             <span className="dm-item-status">{memberCount} members</span>
+          ) : isLocalPrivate ? (
+            <span className="dm-item-status local-private-dm-status"><AppIcon name="lock" size={12} /> Local sur cet appareil</span>
           ) : (
             other?.status_message && <span className="dm-item-status">{other.status_message}</span>
           )}
@@ -140,9 +144,7 @@ const DMItem = memo(function DMItem({ conversation, isActive, onContextMenu, onC
           <span className="dm-unread-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
         )}
         <button className="dm-close-btn" onClick={handleClose} title="Close DM">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M18.4 4L12 10.4L5.6 4L4 5.6L10.4 12L4 18.4L5.6 20L12 13.6L18.4 20L20 18.4L13.6 12L20 5.6L18.4 4Z"/>
-          </svg>
+          <AppIcon name="close" size={16} weight="bold" />
         </button>
       </Link>
     </li>
@@ -153,6 +155,7 @@ const Sidebar = memo(function Sidebar({
   user,
   conversations,
   currentConversationId,
+  currentLocalPrivateUserId,
   onRefreshConversations,
   onAddConversation,
   onRemoveConversation,
@@ -178,7 +181,6 @@ const Sidebar = memo(function Sidebar({
   const socket = useSocket();
   const { user: authUser } = useAuth();
   const { voiceConversationId, voiceUsers } = useVoice();
-  const orbs = useOrbs();
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
@@ -268,6 +270,11 @@ const Sidebar = memo(function Sidebar({
       return next;
     });
     setConversationsWithPresence((prev) => prev.filter((c) => c.conversation_id !== convId));
+    if (conv.is_local_private) {
+      removeLocalPrivateChat(authUser?.id || user?.id, conv.local_private_peer_id);
+      if (location.pathname === makeLocalPrivateRoute(conv.local_private_peer_id)) navigate('/channels/@me');
+      return;
+    }
     onRemoveConversation?.(convId);
     if (currentConversationId === String(convId)) navigate('/channels/@me');
     undoToast.show(
@@ -292,7 +299,7 @@ const Sidebar = memo(function Sidebar({
         onRestoreConversation?.(conv);
       }
     );
-  }, [currentConversationId, navigate, t, onRemoveConversation, onRestoreConversation, notify]);
+  }, [authUser?.id, currentConversationId, location.pathname, navigate, onRemoveConversation, onRestoreConversation, notify, t, user?.id]);
 
   const handleDeleteConversation = useCallback(() => {
     if (contextMenu.conversation) handleCloseConversation(contextMenu.conversation);
@@ -301,19 +308,20 @@ const Sidebar = memo(function Sidebar({
 
   const conv = contextMenu.conversation;
   const isGroup = !!conv?.is_group;
+  const isLocalPrivate = !!conv?.is_local_private;
   const otherUser = conv?.participants?.[0];
   const convId = conv?.conversation_id;
   const dmCallUsers = convId ? (voiceUsers[`dm_${convId}`] || []) : [];
   const othersInCall = dmCallUsers.filter(u => u.id !== authUser?.id);
   const userContext = {
-    conversationId: convId,
+    conversationId: isLocalPrivate ? null : convId,
     lastMessageId: conv?.last_message_id || null,
     hasUnread: (conv?.unread_count || 0) > 0,
     isDmList: true,
     isInCallWaiting: convId && voiceConversationId === convId && othersInCall.length === 0,
     onPinConversation: convId ? () => { togglePinConversation(convId); closeContextMenu(); } : undefined,
     isPinned: convId ? pinnedIds.includes(convId) : false,
-    canPin: pinnedIds.length < MAX_PINNED,
+    canPin: !isLocalPrivate && pinnedIds.length < MAX_PINNED,
     onOpenNicknameModal: (u) => {
       setNicknameModalUser(u);
       closeContextMenu();
@@ -358,39 +366,22 @@ const Sidebar = memo(function Sidebar({
       <nav className="sidebar-nav">
         <div className="sidebar-top-nav">
           <Link to="/channels/@me" className={`sidebar-nav-item ${isFriendsActive ? 'active' : ''}`} draggable={false}>
-            <svg className="sidebar-nav-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
-            </svg>
+            <AppIcon name="friends" size={24} className="sidebar-nav-icon" />
             <span>{t('sidebar.friends')}</span>
           </Link>
 
           <Link to="/security" className={`sidebar-nav-item sidebar-nav-btn ${location.pathname === '/security' ? 'active' : ''}`} draggable={false}>
-            <svg className="sidebar-nav-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
+            <AppIcon name="security" size={24} className="sidebar-nav-icon" />
             <span>{t('sidebar.securityDashboard')}</span>
           </Link>
 
           <Link to="/nitro" className={`sidebar-nav-item sidebar-nav-btn ${location.pathname === '/nitro' ? 'active' : ''}`} draggable={false}>
-            <svg className="sidebar-nav-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M2.01 8.5L12 2l9.99 6.5L12 15 2.01 8.5zM12 4.31l6.22 4.04L12 12.69 5.78 8.35 12 4.31zM2 15.5l10 6.5 10-6.5-1.5-1-8.5 5.5-8.5-5.5-1.5 1z"/>
-              <path d="M2 11.5l10 6.5 10-6.5-1.5-1L12 16.5 3.5 10.5 2 11.5z"/>
-            </svg>
+            <AppIcon name="nitro" size={24} className="sidebar-nav-icon" />
             <span>{t('sidebar.nitro')}</span>
           </Link>
 
-          <Link to="/shop" className={`sidebar-nav-item sidebar-nav-btn ${location.pathname === '/shop' ? 'active' : ''}`} draggable={false}>
-            <svg className="sidebar-nav-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M18 6h-2c0-2.21-1.79-4-4-4S8 3.79 8 6H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6-2c1.1 0 2 .9 2 2h-4c0-1.1.9-2 2-2zm6 14H6V8h2v2c0 .55.45 1 1 1s1-.45 1-1V8h4v2c0 .55.45 1 1 1s1-.45 1-1V8h2v10z"/>
-            </svg>
-            <span>{t('sidebar.shop')}</span>
-            {orbs > 0 ? <span className="sidebar-nav-badge sidebar-orbs-badge">{orbs}</span> : null}
-          </Link>
-
           <Link to="/quests" className={`sidebar-nav-item sidebar-nav-btn ${location.pathname === '/quests' ? 'active' : ''}`} draggable={false}>
-            <svg className="sidebar-nav-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm-5.5-2.5l7.51-3.49L17.5 6.5 9.99 9.99 6.5 17.5zm5.5-6.6c.61 0 1.1.49 1.1 1.1s-.49 1.1-1.1 1.1-1.1-.49-1.1-1.1.49-1.1 1.1-1.1z"/>
-            </svg>
+            <AppIcon name="quests" size={24} className="sidebar-nav-icon" />
             <span>{t('sidebar.quests')}</span>
           </Link>
         </div>
@@ -405,10 +396,7 @@ const Sidebar = memo(function Sidebar({
               onClick={() => setShowCreateGroup(true)}
               title="Create Group"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
-                <path d="M20 15v-3h-2v3h-3v2h3v3h2v-3h3v-2h-3z"/>
-              </svg>
+              <AppIcon name="userPlus" size={16} />
             </button>
             <button
               type="button"
@@ -416,9 +404,7 @@ const Sidebar = memo(function Sidebar({
               onClick={() => setShowNewDM(true)}
               title={t('sidebar.newConversation')}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-              </svg>
+              <AppIcon name="plus" size={16} weight="bold" />
             </button>
           </div>
         </div>
@@ -485,7 +471,7 @@ const Sidebar = memo(function Sidebar({
                 <DMItem
                   key={c.conversation_id}
                   conversation={c}
-                  isActive={currentConversationId === String(c.conversation_id)}
+                  isActive={c.is_local_private ? currentLocalPrivateUserId === String(c.local_private_peer_id) : currentConversationId === String(c.conversation_id)}
                   onContextMenu={handleConversationContextMenu}
                   onClose={handleCloseConversation}
                   unreadCount={currentConversationId === String(c.conversation_id) ? 0 : (c.unread_count || 0)}
@@ -497,7 +483,7 @@ const Sidebar = memo(function Sidebar({
                 <DMItem
                   key={c.conversation_id}
                   conversation={c}
-                  isActive={currentConversationId === String(c.conversation_id)}
+                  isActive={c.is_local_private ? currentLocalPrivateUserId === String(c.local_private_peer_id) : currentConversationId === String(c.conversation_id)}
                   onContextMenu={handleConversationContextMenu}
                   onClose={handleCloseConversation}
                   unreadCount={currentConversationId === String(c.conversation_id) ? 0 : (c.unread_count || 0)}
@@ -513,10 +499,7 @@ const Sidebar = memo(function Sidebar({
         {user?.role === 'admin' && (
           <div className="sidebar-admin-btn-wrap">
             <Link to="/admin" className="sidebar-admin-btn" draggable={false}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-              </svg>
+              <AppIcon name="admin" size={18} />
               <span>Administration</span>
             </Link>
           </div>

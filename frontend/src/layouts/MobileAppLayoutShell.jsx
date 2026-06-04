@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import ServerBar from '../components/ServerBar';
 import TeamChat from '../components/TeamChat';
 import DirectChat from '../components/DirectChat';
+import LocalPrivateChat from '../components/LocalPrivateChat';
 import MobileBottomNav from '../components/MobileBottomNav';
 import MobileMessagesView from '../components/MobileMessagesView';
 import MobileNotificationsView from '../components/MobileNotificationsView';
@@ -42,10 +43,13 @@ export default function MobileAppLayoutShell({
   inboxItems,
 }) {
   const navigate = useNavigate();
+  const serverConversations = Array.isArray(conversations)
+    ? conversations.filter((conversation) => !conversation?.is_local_private)
+    : [];
   const isCommunityPage = pathname === '/community';
-  const inSpecificRoute = !!(params.teamId || params.conversationId || isCommunityPage);
+  const inSpecificRoute = !!(params.teamId || params.conversationId || params.localPrivateUserId || isCommunityPage);
   const contentTab = params.isSettings ? 'profile' : mobileTab;
-  const activeTab = params.conversationId || params.teamId ? 'home'
+  const activeTab = params.conversationId || params.localPrivateUserId || params.teamId ? 'home'
     : params.isSettings ? 'profile'
     : mobileTab;
 
@@ -75,7 +79,7 @@ export default function MobileAppLayoutShell({
       )}
 
       <div className={`mobile-content ${!isCommunityPage ? 'mobile-split-layout' : ''}`}>
-        {!isCommunityPage && !(params.conversationId || (params.teamId && params.channelId)) && (
+        {!isCommunityPage && !(params.conversationId || params.localPrivateUserId || (params.teamId && params.channelId)) && (
           <aside className="mobile-server-bar">
             <ServerBar
               teams={teams}
@@ -95,6 +99,7 @@ export default function MobileAppLayoutShell({
                 <MobileMessagesView
                   conversations={conversations}
                   currentConversationId={params.conversationId}
+                  currentLocalPrivateUserId={params.localPrivateUserId}
                   loading={loading}
                   onOpenSearch={() => setShowSearch(true)}
                 />
@@ -124,12 +129,21 @@ export default function MobileAppLayoutShell({
                     }
                   />
                   <Route
+                    path="/channels/@me/private-local/:peerUserId"
+                    element={(
+                      <LocalPrivateChat
+                        peerUserId={params.localPrivateUserId}
+                        isMobile={true}
+                      />
+                    )}
+                  />
+                  <Route
                     path="/channels/@me/:conversationId"
                     element={(
                       <DirectChat
                         conversationId={params.conversationId}
                         onConversationsChange={setConversations}
-                        conversations={conversations}
+                        conversations={serverConversations}
                         isMobile={true}
                       />
                     )}
@@ -143,9 +157,9 @@ export default function MobileAppLayoutShell({
         </div>
       </div>
 
-      <VoiceFullscreenOverlay isMobile={true} conversations={conversations} />
+      <VoiceFullscreenOverlay isMobile={true} conversations={serverConversations} />
 
-      {!(params.channelId || params.conversationId) && (
+      {!(params.channelId || params.conversationId || params.localPrivateUserId) && (
         <MobileBottomNav
           activeTab={activeTab}
           onTabChange={handleMobileTabChange}
@@ -160,7 +174,7 @@ export default function MobileAppLayoutShell({
       <SearchModal
         isOpen={showSearch}
         onClose={() => setShowSearch(false)}
-        conversations={conversations}
+        conversations={serverConversations}
         teams={teams}
       />
 

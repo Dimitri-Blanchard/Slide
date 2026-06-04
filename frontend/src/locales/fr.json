@@ -319,7 +319,8 @@
     "statusPromptPlaceholder": "Quel emoji décrit le mieux votre journée ?",
     "listeningTo": "Écoute",
     "listeningToSpotify": "Écoute sur Spotify",
-    "noHandleSet": "Aucun identifiant défini"
+    "noHandleSet": "Aucun identifiant défini",
+    "viewFullProfile": "Profil"
   },
   "privacyMonetization": {
     "title": "Confidentialité & Monétisation",
@@ -495,6 +496,9 @@
     "micAccessError": "Impossible d'accéder au microphone",
     "recordError": "Erreur d'enregistrement",
     "startCall": "Démarrer un appel",
+    "startCallMenu": "Commencer un appel",
+    "userVolume": "Volume utilisateur",
+    "muteUser": "Muet",
     "ring": "Sonner"
   },
   "call": {
@@ -586,9 +590,7 @@
     "teamInCommon": "groupe en commun",
     "conversationDeleted": "Discussion supprimée",
     "nitro": "Nitro",
-    "shop": "Boutique",
     "quests": "Quêtes",
-    "shopNew": "NOUVEAU",
     "comingSoon": "Bientôt disponible !"
   },
   "chat": {
@@ -616,11 +618,13 @@
     "unpin": "Désépingler",
     "closeDM": "Fermer la conversation",
     "addNote": "Ajouter une note",
+    "addNoteOnlyYou": "Visible uniquement par vous",
     "addNoteDesc": "Ajouter une note pour {name} (visible uniquement par vous)",
     "notePlaceholder": "Entrer la note",
     "addFriendNickname": "Ajouter un surnom d'ami",
     "addFriendNicknameDesc": "Définir un surnom pour {name} (visible uniquement par vous)",
     "nicknamePlaceholder": "Entrer le surnom",
+    "localPrivateChat": "Créer un chat privé local",
     "delete": "Supprimer",
     "moreOptions": "Plus d'options",
     "copyText": "Copier le texte",
@@ -653,6 +657,17 @@
     "welcomeTitle": "Bienvenue sur {name}",
     "welcomeDescription": "C'est votre tout nouveau serveur. Voici quelques étapes pour vous aider à démarrer.",
     "welcomeGettingStarted": "Guide de démarrage",
+    "welcomeChannelHints": [
+      "Bienvenue dans {channel} !",
+      "C'est le début du salon {channel}.",
+      "Vous voilà dans {channel} — bonne discussion !",
+      "{channel} vous attend. Écrivez le premier message !",
+      "C'est ici que commence l'histoire de {channel}.",
+      "Bienvenue au cœur de {channel} !",
+      "Tout commence dans {channel}.",
+      "Premier pas dans {channel} ? C'est par ici."
+    ],
+    "welcomeServerOn": "Serveur · {name}",
     "inviteFriends": "Inviter vos amis",
     "sendFirstMessage": "Envoyer votre premier message",
     "dropToSend": "Relâchez pour envoyer vers",
@@ -1063,12 +1078,6 @@
     "inviteToServerSubtitle": "Choisissez un serveur pour inviter {name}",
     "noServersToInvite": "Vous n'êtes dans aucun serveur"
   },
-  "activeNow": {
-    "title": "En ligne",
-    "empty": "C'est calme pour l'instant...",
-    "emptyDesc": "Quand un ami commence une activité, comme jouer à un jeu ou discuter en vocal, nous l'afficherons ici !",
-    "playing": "Joue à {game}"
-  },
   "nitro": {
     "title": "Nitro",
     "titleSub": "Qualité Premium",
@@ -1132,37 +1141,11 @@
     "launching": "Décollage..."
   },
   "shop": {
-    "title": "Boutique",
-    "searchPlaceholder": "Rechercher des articles...",
-    "all": "Tout",
-    "avatarDecorations": "Décorations d'avatar",
-    "profileEffects": "Effets de profil",
-    "nameplates": "Plaques de nom",
-    "purchase": "Acheter",
-    "orbs": "Orbes",
-    "noResults": "Aucun article trouvé",
-    "owned": "Possédé",
-    "notEnoughOrbs": "Pas assez d’Orbes",
-    "equip": "Équiper",
-    "equipped": "Équipé",
-    "unequipped": "Déséquipé",
-    "goldRingDesc": "Un fin anneau doré autour de votre avatar",
-    "platinumRingDesc": "Un anneau platine discret autour de votre avatar",
-    "warmGlowDesc": "Une lueur chaude en bas de votre carte de profil",
-    "softHighlightDesc": "Une légère mise en lumière en haut de votre profil",
-    "goldBadgeDesc": "Un badge doré à côté de votre nom dans les messages",
-    "violetRingDesc": "Un anneau violet doux autour de votre avatar",
-    "frostGlowDesc": "Une lueur givrée discrète sur votre profil",
-    "frostRingDesc": "Un anneau givré net autour de votre avatar",
-    "silverBadgeDesc": "Un badge argenté à côté de votre nom dans les messages",
-    "frostEdgeDesc": "Un fin liseré givré sur votre carte de profil",
-    "equippedItems": "Objets équipés",
-    "equippedItemsDesc": "Personnalisez votre avatar, votre profil et votre plaque avec des objets de la Boutique",
-    "manageInShop": "Gérer dans la Boutique"
+    "orbs": "Orbes"
   },
   "quests": {
     "title": "Quêtes",
-    "description": "Complétez des quêtes pour gagner des Orbes à dépenser dans la Boutique",
+    "description": "Complétez des quêtes pour gagner des Orbes",
     "daily": "Quotidiennes",
     "weekly": "Hebdomadaires",
     "seasonal": "Saisonnières",

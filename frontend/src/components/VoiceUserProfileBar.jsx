@@ -68,6 +68,7 @@ const VoiceUserProfileBar = memo(function VoiceUserProfileBar({ compact = false 
         <div className="vupb-ctrl-wrap">
           <button
             className={`vupb-btn ${isMuted ? 'active danger' : ''}`}
+            data-voice-mute-trigger
             onClick={toggleMute}
             title={isMuted ? 'Unmute' : 'Mute'}
           >

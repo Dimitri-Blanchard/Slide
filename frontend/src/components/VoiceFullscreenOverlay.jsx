@@ -61,6 +61,7 @@ const VoiceFullscreenOverlay = memo(function VoiceFullscreenOverlay({ isMobile, 
       <button
         type="button"
         className={`voice-fullscreen-control${isMuted ? ' is-active' : ''}`}
+        data-voice-mute-trigger
         onClick={toggleMute}
         disabled={isLeaving}
         aria-label={isMuted ? 'Unmute' : 'Mute'}

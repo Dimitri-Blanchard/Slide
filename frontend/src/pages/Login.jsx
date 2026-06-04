@@ -67,6 +67,8 @@ export default function Login() {
   const postLoginPath = resolvePostLoginPath(searchParams.get('redirect'));
   const showMfaStep = !!mfaStep;
   const clientApp = isClientApp();
+  const isElectron = typeof window !== 'undefined' && !!window.electron?.isElectron;
+  const mobileClientApp = clientApp && !isElectron;
 
   useEffect(() => {
     if (authError) {
@@ -179,7 +181,7 @@ export default function Login() {
   );
 
   useEffect(() => {
-    if (clientApp || showMfaStep || !qrToken) return;
+    if (mobileClientApp || showMfaStep || !qrToken) return;
 
     const poll = async () => {
       if (qrSettledRef.current || pollInFlightRef.current) return;
@@ -251,11 +253,11 @@ export default function Login() {
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
     };
-  }, [clientApp, qrToken, showMfaStep, finishQrLogin, tryFinishFromCheck, rotateQrSession, stopQrLoops]);
+  }, [mobileClientApp, qrToken, showMfaStep, finishQrLogin, tryFinishFromCheck, rotateQrSession, stopQrLoops]);
 
   // Start QR only when login form is shown — not when rotateQrSession identity changes
   useEffect(() => {
-    if (clientApp) return undefined;
+    if (mobileClientApp) return undefined;
     if (showMfaStep) {
       stopQrLoops();
       return;
@@ -268,18 +270,18 @@ export default function Login() {
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
     };
-  }, [showMfaStep, rotateQrSession, stopQrLoops]);
+  }, [mobileClientApp, showMfaStep, rotateQrSession, stopQrLoops]);
 
   useEffect(() => {
-    if (clientApp || showMfaStep || !qrToken) return;
+    if (mobileClientApp || showMfaStep || !qrToken) return;
     rotateRef.current = setInterval(() => rotateQrSession('scheduled'), QR_ROTATE_MS);
     return () => {
       if (rotateRef.current) clearInterval(rotateRef.current);
     };
-  }, [clientApp, qrToken, showMfaStep, rotateQrSession]);
+  }, [mobileClientApp, qrToken, showMfaStep, rotateQrSession]);
 
   useEffect(() => {
-    if (clientApp) return undefined;
+    if (mobileClientApp) return undefined;
     const onOnline = () => {
       setQrOffline(false);
       if (!showMfaStep) rotateQrSession('online');
@@ -294,7 +296,7 @@ export default function Login() {
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
     };
-  }, [clientApp, showMfaStep, rotateQrSession]); // rotateQrSession is stable ([])
+  }, [mobileClientApp, showMfaStep, rotateQrSession]); // rotateQrSession is stable ([])
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -352,11 +354,11 @@ export default function Login() {
 
   return (
     <AuthShell
-      backgroundMedia={clientApp ? null : <AuthBackdrop variant="login" />}
+      backgroundMedia={<AuthBackdrop variant="login" />}
       backdropVariant="login"
     >
       <div
-        className={`auth-card login-card${clientApp ? ' login-card--native' : ''}${showMfaStep ? ' login-card--mfa' : ''}${qrPhase === 'loading-app' ? ' login-card--qr-loading' : ''}`}
+        className={`auth-card login-card${mobileClientApp ? ' login-card--native' : ''}${showMfaStep ? ' login-card--mfa' : ''}${qrPhase === 'loading-app' ? ' login-card--qr-loading' : ''}`}
       >
         <div className="login-left">
           <div className="auth-brand">
@@ -485,7 +487,7 @@ export default function Login() {
           </form>
         </div>
 
-        {!clientApp && !showMfaStep && (
+        {!mobileClientApp && !showMfaStep && (
           <>
         <div className="login-separator" />
 

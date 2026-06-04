@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { AvatarImg } from './Avatar';
 import ClickableAvatar from './ClickableAvatar';
+import { makeLocalPrivateRoute } from '../utils/localPrivateChatCrypto';
+import { Lock } from 'lucide-react';
 import './MobileMessagesView.css';
 
 function getPinnedConversations() {
@@ -42,14 +44,16 @@ const DMItem = memo(function DMItem({ conversation, isActive, currentConversatio
     ? (conversation.group_name || conversation.participants?.map(p => p.display_name).join(', ') || 'Group')
     : (other?.display_name || 'Conversation');
   const id = conversation.conversation_id;
+  const isLocalPrivate = !!conversation.is_local_private;
+  const to = isLocalPrivate ? makeLocalPrivateRoute(conversation.local_private_peer_id || other?.id) : `/channels/@me/${id}`;
   const memberCount = isGroup ? (conversation.participants?.length || 0) : 0;
   const unreadCount = currentConversationId === String(id) ? 0 : (conversation.unread_count || 0);
   const lastPreview = conversation.last_message_preview || '';
 
   return (
     <Link
-      to={`/channels/@me/${id}`}
-      className={`mobile-dm-item ${isActive ? 'active' : ''} ${unreadCount > 0 ? 'has-unread' : ''}`}
+      to={to}
+      className={`mobile-dm-item ${isActive ? 'active' : ''} ${unreadCount > 0 ? 'has-unread' : ''} ${isLocalPrivate ? 'local-private-dm' : ''}`}
       draggable={false}
     >
       <span className="mobile-dm-avatar-wrap">
@@ -68,6 +72,8 @@ const DMItem = memo(function DMItem({ conversation, isActive, currentConversatio
         </span>
         {lastPreview ? (
           <span className="mobile-dm-preview">{lastPreview}</span>
+        ) : isLocalPrivate ? (
+          <span className="mobile-dm-preview mobile-local-private-preview"><Lock size={12} /> Local sur cet appareil</span>
         ) : isGroup ? (
           <span className="mobile-dm-preview">{memberCount} members</span>
         ) : null}
@@ -79,6 +85,7 @@ const DMItem = memo(function DMItem({ conversation, isActive, currentConversatio
 export default function MobileMessagesView({
   conversations,
   currentConversationId,
+  currentLocalPrivateUserId,
   loading,
   onOpenSearch,
 }) {
@@ -156,7 +163,7 @@ export default function MobileMessagesView({
                   <DMItem
                     key={c.conversation_id}
                     conversation={c}
-                    isActive={currentConversationId === String(c.conversation_id)}
+                    isActive={c.is_local_private ? currentLocalPrivateUserId === String(c.local_private_peer_id) : currentConversationId === String(c.conversation_id)}
                     currentConversationId={currentConversationId}
                   />
                 ))}
@@ -169,7 +176,7 @@ export default function MobileMessagesView({
                   <DMItem
                     key={c.conversation_id}
                     conversation={c}
-                    isActive={currentConversationId === String(c.conversation_id)}
+                    isActive={c.is_local_private ? currentLocalPrivateUserId === String(c.local_private_peer_id) : currentConversationId === String(c.conversation_id)}
                     currentConversationId={currentConversationId}
                   />
                 ))}

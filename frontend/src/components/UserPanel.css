@@ -37,6 +37,15 @@
   width: 32px;
   height: 32px;
   flex-shrink: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+}
+
+.user-panel-avatar.speaking {
+  border-color: var(--success, #23a55a);
+  box-shadow: 0 0 0 3px rgba(35, 165, 90, 0.15);
 }
 
 .user-panel-avatar img {
@@ -44,6 +53,10 @@
   height: 100%;
   border-radius: 50%;
   object-fit: cover;
+}
+
+.user-panel-avatar .avatar-img-wrap {
+  border-radius: 50%;
 }
 
 .user-panel-avatar > span {

@@ -20,6 +20,7 @@ import Notifications from './components/Notifications';
 import QrLoginBridge from './components/QrLoginBridge';
 import IncomingCallModal from './components/IncomingCallModal';
 import ScreenSharePicker from './components/ScreenSharePicker';
+import MicrophoneAccessNotice from './components/MicrophoneAccessNotice';
 import ErrorBoundary from './components/ErrorBoundary';
 import { startDevToolsWarning } from './utils/security';
 import './index.css';
@@ -273,6 +274,7 @@ const AppWithProviders = () => (
                       <VoiceProvider>
                         <IncomingCallModal />
                         <ScreenSharePicker />
+                        <MicrophoneAccessNotice />
                         <App />
                         <UndoToastContainer />
                       </VoiceProvider>
