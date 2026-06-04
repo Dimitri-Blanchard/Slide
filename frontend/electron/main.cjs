@@ -64,6 +64,25 @@ let updateState = {
   error: null,
 };
 app.isQuitting = false;
+/** Time for renderer to play voice-leave sound before process exit. */
+const APP_QUIT_VOICE_LEAVE_MS = 480;
+let appQuitDelayTimer = null;
+
+function scheduleAppQuit() {
+  if (appQuitDelayTimer) return;
+  appQuitDelayTimer = setTimeout(() => {
+    appQuitDelayTimer = null;
+    app.quit();
+  }, APP_QUIT_VOICE_LEAVE_MS);
+}
+
+/** Notify renderer to leave voice (with sound), then quit after a short delay. */
+function beginGracefulAppQuit() {
+  if (app.isQuitting) return;
+  app.isQuitting = true;
+  safeSend(mainWindow, 'app-before-quit');
+  scheduleAppQuit();
+}
 
 // ─── PNG badge generation (16×16 for Windows overlay icon) ────────────────────
 const CRC_TABLE = new Uint32Array(256);
@@ -356,7 +375,7 @@ function updateTrayMenu(count = currentBadgeCount) {
       menuItems.push({ type: 'separator' });
     }
 
-    menuItems.push({ label: 'Quitter Slide', click: () => { app.isQuitting = true; app.quit(); } });
+    menuItems.push({ label: 'Quitter Slide', click: () => beginGracefulAppQuit() });
     tray.setContextMenu(Menu.buildFromTemplate(menuItems));
   } catch (_) {}
 }
@@ -762,8 +781,7 @@ async function installAvailableUpdate() {
     }
 
     setUpdateState({ downloading: false });
-    app.isQuitting = true;
-    app.quit();
+    beginGracefulAppQuit();
     return updateState;
   } catch (e) {
     return setUpdateState({
@@ -1010,17 +1028,18 @@ app.on('before-quit', (e) => {
   // Clean up speaking animation interval
   if (speakingAnimInterval) { clearInterval(speakingAnimInterval); speakingAnimInterval = null; }
 
-  // First time: notify renderer to leave voice, then quit after a short delay
+  // First time: notify renderer to leave voice (with sound), then quit after a short delay
   if (!app.isQuitting) {
-    app.isQuitting = true;
     e.preventDefault();
-    safeSend(mainWindow, 'app-before-quit');
-    setTimeout(() => app.quit(), 300);
-    return;
+    beginGracefulAppQuit();
   }
 });
 
 app.on('will-quit', () => {
+  if (appQuitDelayTimer) {
+    clearTimeout(appQuitDelayTimer);
+    appQuitDelayTimer = null;
+  }
   if (updateCheckTimer) clearInterval(updateCheckTimer);
   globalShortcut.unregisterAll();
 });

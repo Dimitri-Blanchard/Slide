@@ -1,12 +1,10 @@
-import React, { useState, useCallback, memo, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
+import React, { useState, useCallback, memo, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { channels as channelsApi, servers } from '../api';
 import { useLanguage } from '../context/LanguageContext';
 import { useNotification } from '../context/NotificationContext';
 import { useVoice, sameUserId, coercePositiveInt, getRemoteStreamForUser } from '../context/VoiceContext';
-import { useSettings } from '../context/SettingsContext';
-import { useMediaDevices } from '../hooks/useMediaDevices';
 import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import { useAuth } from '../context/AuthContext';
@@ -1190,27 +1188,14 @@ const CategoryModal = ({ isOpen, onClose, onSubmit, initialName }) => {
 // ═══════════════════════════════════════════════════════════
 // VOICE STATUS BAR - Shows when connected to voice (server or DM)
 // ═══════════════════════════════════════════════════════════
-const MicIcon = ({ muted }) =>
-  <AppIcon name={muted ? 'micOff' : 'mic'} size={18} />;
-
-const HeadphoneIcon = ({ deafened }) =>
-  <AppIcon name={deafened ? 'deafenOff' : 'deafen'} size={18} />;
-
 export const VoiceStatusBar = memo(function VoiceStatusBar() {
-  const { voiceChannelId, voiceChannelName, voiceConversationId, voiceConversationName, voiceLeaveAnim, connectionState, isMuted, isDeafened, isScreenSharing, toggleMute, toggleDeafen, startScreenShare, stopScreenShare, leaveVoice, leaveVoiceDM, switchAudioInput, switchAudioOutput } = useVoice();
-  const { settings } = useSettings();
-  const { inputs, outputs } = useMediaDevices();
-  const [openDropdown, setOpenDropdown] = useState(null);
-  const [popoverRect, setPopoverRect] = useState(null);
+  const { voiceChannelId, voiceChannelName, voiceConversationId, voiceConversationName, voiceLeaveAnim, connectionState, isScreenSharing, startScreenShare, stopScreenShare, leaveVoice, leaveVoiceDM } = useVoice();
   const [showVoiceDetails, setShowVoiceDetails] = useState(false);
   const [voiceStats, setVoiceStats] = useState({ ping: 0, avgPing: 0, packetLoss: 0, server: 'c-mxp03-ff-032875', pingHistory: [] });
   const voiceDetailsRef = useRef(null);
   const voiceDetailsTriggerRef = useRef(null);
   const [vdmPosition, setVdmPosition] = useState(null);
   const pingCanvasRef = useRef(null);
-  const dropdownRef = useRef(null);
-  const micGroupRef = useRef(null);
-  const outputGroupRef = useRef(null);
 
   const isLeavingChannel = voiceLeaveAnim?.kind === 'channel';
   const isLeavingDm = voiceLeaveAnim?.kind === 'dm';
@@ -1223,31 +1208,6 @@ export const VoiceStatusBar = memo(function VoiceStatusBar() {
         ? (voiceChannelName || 'Voice Channel')
         : (voiceConversationName || 'DM Call');
   const isExitingBar = !!voiceLeaveAnim;
-
-  useLayoutEffect(() => {
-    if (!openDropdown) {
-      setPopoverRect(null);
-      return;
-    }
-    const el = openDropdown === 'mic' ? micGroupRef.current : outputGroupRef.current;
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      setPopoverRect({
-        left: rect.left + rect.width / 2,
-        bottom: window.innerHeight - rect.top + 20,
-      });
-    }
-  }, [openDropdown]);
-
-  useEffect(() => {
-    const onClick = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setOpenDropdown(null);
-      }
-    };
-    document.addEventListener('click', onClick);
-    return () => document.removeEventListener('click', onClick);
-  }, []);
 
   // Simulate ping stats (real stats would come from RTCPeerConnection.getStats())
   useEffect(() => {
@@ -1380,53 +1340,7 @@ export const VoiceStatusBar = memo(function VoiceStatusBar() {
         </div>
         <span className="vsb-channel">{displayName}</span>
       </div>
-      <div className="vsb-controls" ref={dropdownRef}>
-        {/* Microphone — split: icon | chevron for device selection */}
-        <div ref={micGroupRef} className="vsb-ctrl-group">
-          <div className={`vsb-ctrl-split ${isMuted ? 'active' : ''}`}>
-            <button className="vsb-ctrl-main" data-voice-mute-trigger onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
-              <MicIcon muted={isMuted} />
-            </button>
-            <span className="vsb-ctrl-divider" />
-            <button className="vsb-ctrl-dropdown" onClick={() => setOpenDropdown(openDropdown === 'mic' ? null : 'mic')} title="Select microphone" data-open={openDropdown === 'mic'} aria-expanded={openDropdown === 'mic'}>
-              <AppIcon name="caretDown" size={14} weight="bold" />
-            </button>
-          </div>
-          {openDropdown === 'mic' && popoverRect && createPortal(
-            <div className="vsb-device-popover vsb-device-popover-portal" style={{ left: popoverRect.left, bottom: popoverRect.bottom, transform: 'translateX(-50%)' }}>
-              {inputs.map((d) => (
-                <button key={d.value} onClick={() => { switchAudioInput(d.value); setOpenDropdown(null); }} data-selected={settings?.input_device === d.value} title={d.label}>
-                  {d.label}
-                </button>
-              ))}
-            </div>,
-            document.body
-          )}
-        </div>
-
-        {/* Headphones — split: icon | chevron for device selection */}
-        <div ref={outputGroupRef} className="vsb-ctrl-group">
-          <div className={`vsb-ctrl-split ${isDeafened ? 'active' : ''}`}>
-            <button className="vsb-ctrl-main" onClick={toggleDeafen} title={isDeafened ? 'Undeafen' : 'Deafen'}>
-              <HeadphoneIcon deafened={isDeafened} />
-            </button>
-            <span className="vsb-ctrl-divider" />
-            <button className="vsb-ctrl-dropdown" onClick={() => setOpenDropdown(openDropdown === 'output' ? null : 'output')} title="Select audio output" data-open={openDropdown === 'output'} aria-expanded={openDropdown === 'output'}>
-              <AppIcon name="caretDown" size={14} weight="bold" />
-            </button>
-          </div>
-          {openDropdown === 'output' && popoverRect && createPortal(
-            <div className="vsb-device-popover vsb-device-popover-portal" style={{ left: popoverRect.left, bottom: popoverRect.bottom, transform: 'translateX(-50%)' }}>
-              {outputs.map((d) => (
-                <button key={d.value} onClick={() => { switchAudioOutput(d.value); setOpenDropdown(null); }} data-selected={settings?.output_device === d.value} title={d.label}>
-                  {d.label}
-                </button>
-              ))}
-            </div>,
-            document.body
-          )}
-        </div>
-
+      <div className="vsb-controls">
         {voiceChannelId && (
           <>
             <button

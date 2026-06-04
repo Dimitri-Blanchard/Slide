@@ -10,10 +10,14 @@
   --panel-divider: rgba(15, 17, 23, 0.05);
   --panel-sidebar-header-h: 63px;
   --panel-channel-header-h: 52px;
+  --server-rail-bg: var(--bg-tertiary);
+  --server-rail-width: 76px;
 }
 
 [data-theme="dark"] {
   --panel-divider: rgba(255, 255, 255, 0.05);
+  --server-rail-bg: #111113;
+  --server-rail-width: 68px;
 }
 
 /* ── Server rail: zero right border ── */
@@ -22,6 +26,20 @@
   border: none !important;
   border-right: none !important;
   box-shadow: none !important;
+  overflow-x: visible !important;
+}
+
+/* Fill the rounded-corner gap above tour-search / channel header (sidebar clips TL radius) */
+.app-layout > .server-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 100%;
+  width: var(--panel-junction-radius);
+  height: var(--panel-junction-radius);
+  background: var(--server-rail-bg);
+  pointer-events: none;
+  z-index: 5;
 }
 
 /* ── Adjacent panel shape ── */
@@ -36,21 +54,10 @@
   overflow: hidden;
 }
 
-/* ── TOP rounded junction (the one that must stay visible) ── */
+/* ── TOP rounded junction: no stroke over server-rail (color fill via .server-bar::after) ── */
 .app-layout > .sidebar::after,
 .team-view > .channel-sidebar::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: var(--panel-junction-radius);
-  height: var(--panel-junction-radius);
-  border-top: 1px solid var(--panel-divider);
-  border-left: 1px solid var(--panel-divider);
-  border-top-left-radius: var(--panel-junction-radius);
-  box-sizing: border-box;
-  pointer-events: none;
-  z-index: 4;
+  display: none;
 }
 
 /* ── Vertical rule: only below header, never through the top arc ── */

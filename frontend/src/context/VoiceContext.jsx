@@ -5,6 +5,17 @@ import { useAuth } from './AuthContext';
 import { useSettings } from './SettingsContext';
 import { useSounds } from './SoundContext';
 import { randomUuidV4 } from '../utils/randomUuid';
+import {
+  isElectronVoicePrefsEnabled,
+  loadElectronVoicePrefs,
+  saveElectronVoiceMuteState,
+} from '../utils/electronVoicePrefs';
+
+function readInitialVoiceMuteState() {
+  if (!isElectronVoicePrefsEnabled()) return { isMuted: false, isDeafened: false };
+  const prefs = loadElectronVoicePrefs();
+  return { isMuted: !!prefs?.isMuted, isDeafened: !!prefs?.isDeafened };
+}
 
 const VoiceContext = createContext(null);
 
@@ -527,8 +538,9 @@ export function VoiceProvider({ children }) {
   const [incomingCall, setIncomingCall] = useState(null); // { conversationId, caller: { id, display_name, avatar_url } }
   const [voiceUsers, setVoiceUsers] = useState({});
   const [voiceChannelMeta, setVoiceChannelMeta] = useState({}); // channelId -> { channelName, teamName, teamId }
-  const [isMuted, setIsMuted] = useState(false);
-  const [isDeafened, setIsDeafened] = useState(false);
+  const initialVoiceMute = readInitialVoiceMuteState();
+  const [isMuted, setIsMuted] = useState(initialVoiceMute.isMuted);
+  const [isDeafened, setIsDeafened] = useState(initialVoiceMute.isDeafened);
   /** channelId or dm_<conversationId> -> Set of speaking user ids (visible even when not in that voice room). */
   const [speakingUsersByScope, setSpeakingUsersByScope] = useState({});
   const [connectionState, setConnectionState] = useState('disconnected');
@@ -741,8 +753,8 @@ export function VoiceProvider({ children }) {
     try { sessionStorage.setItem(VOICE_CLIENT_STORAGE_KEY, next); } catch (_) {}
     myVoiceClientIdRef.current = next;
   }, []);
-  const isMutedRef = useRef(false);
-  const isDeafenedRef = useRef(false);
+  const isMutedRef = useRef(initialVoiceMute.isMuted);
+  const isDeafenedRef = useRef(initialVoiceMute.isDeafened);
 
   useEffect(() => {
     voiceChannelIdRef.current = voiceChannelId;
@@ -756,6 +768,27 @@ export function VoiceProvider({ children }) {
     isMutedRef.current = isMuted;
     isDeafenedRef.current = isDeafened;
   }, [isMuted, isDeafened]);
+
+  useEffect(() => {
+    if (!isElectronVoicePrefsEnabled()) return;
+    saveElectronVoiceMuteState(isMuted, isDeafened);
+  }, [isMuted, isDeafened]);
+
+  const applyPersistedMuteDeafen = useCallback((hasMic) => {
+    const effectiveMuted = !hasMic || isMutedRef.current;
+    const effectiveDeafened = hasMic && isDeafenedRef.current;
+    isMutedRef.current = effectiveMuted;
+    isDeafenedRef.current = effectiveDeafened;
+    setIsMuted(effectiveMuted);
+    setIsDeafened(effectiveDeafened);
+    const setTrackEnabled = (stream) => {
+      stream?.getAudioTracks?.().forEach((t) => { t.enabled = !effectiveMuted; });
+    };
+    setTrackEnabled(localStreamRef.current);
+    setTrackEnabled(processedStreamRef.current);
+    Object.values(remoteAudioRefs.current).forEach((a) => { a.muted = effectiveDeafened; });
+    return { effectiveMuted, effectiveDeafened };
+  }, []);
 
   useEffect(() => {
     voiceConversationIdRef.current = voiceConversationId;
@@ -867,8 +900,7 @@ export function VoiceProvider({ children }) {
     });
     // When the app is actually quitting (not just minimizing to tray), leave voice
     const cleanupQuit = window.electron.onAppBeforeQuit?.(() => {
-      if (voiceChannelIdRef.current) trayActionsRef.current.leaveVoice?.();
-      else if (voiceConversationIdRef.current) trayActionsRef.current.leaveVoiceDM?.();
+      trayActionsRef.current.leaveCallOnAppExit?.();
     });
     return () => { cleanupMute?.(); cleanupLeave?.(); cleanupQuit?.(); };
   }, []);
@@ -1679,13 +1711,15 @@ export function VoiceProvider({ children }) {
       setIsMuted(true);
     }
 
+    const { effectiveMuted, effectiveDeafened } = applyPersistedMuteDeafen(hasMic);
+
     const selfUser = user?.id
       ? {
           id: user.id,
           display_name: user.display_name ?? 'User',
           avatar_url: user.avatar_url ?? null,
-          muted: !hasMic,
-          deafened: false,
+          muted: effectiveMuted,
+          deafened: effectiveDeafened,
         }
       : null;
 
@@ -1702,16 +1736,17 @@ export function VoiceProvider({ children }) {
         teamId: tId ?? 0,
         voiceClientId: myVoiceClientIdRef.current,
       });
-      if (!hasMic) {
-        socket.emit('voice_state', { channelId: chId, muted: true, deafened: false });
-      }
+      socket.emit('voice_state', {
+        channelId: chId,
+        muted: effectiveMuted,
+        deafened: effectiveDeafened,
+      });
     }
 
     setConnectionState('connected');
-    setIsDeafened(false);
     window.electron?.blockPowerSave?.();
     voiceSoundsRef.current.join();
-  }, [socket, user, acquireMicStream, startSpeakingDetection, cleanupAllConnections, rotateVoiceClientId, showMicrophoneIssue, clearMicrophoneIssue]);
+  }, [socket, user, acquireMicStream, startSpeakingDetection, cleanupAllConnections, rotateVoiceClientId, showMicrophoneIssue, clearMicrophoneIssue, applyPersistedMuteDeafen]);
 
   const finishLeaveVoice = useCallback((channelId, skipEmit) => {
     recentVoiceJoinUntilRef.current = 0;
@@ -1738,8 +1773,6 @@ export function VoiceProvider({ children }) {
     setVoiceChannelName('');
     setVoiceViewMinimized(false);
     setConnectionState('disconnected');
-    setIsMuted(false);
-    setIsDeafened(false);
     setVoiceLeaveAnim(null);
     isLeavingCallRef.current = false;
     window.electron?.unblockPowerSave?.();
@@ -1929,13 +1962,15 @@ export function VoiceProvider({ children }) {
       setIsMuted(true);
     }
 
+    const { effectiveMuted, effectiveDeafened } = applyPersistedMuteDeafen(hasMic);
+
     const selfUser = user?.id
       ? {
           id: user.id,
           display_name: user.display_name ?? 'User',
           avatar_url: user.avatar_url ?? null,
-          muted: !hasMic,
-          deafened: false,
+          muted: effectiveMuted,
+          deafened: effectiveDeafened,
         }
       : null;
 
@@ -1951,9 +1986,11 @@ export function VoiceProvider({ children }) {
         conversationId: convId,
         voiceClientId: myVoiceClientIdRef.current,
       });
-      if (!hasMic) {
-        socket.emit('voice_state_dm', { conversationId: convId, muted: true, deafened: false });
-      }
+      socket.emit('voice_state_dm', {
+        conversationId: convId,
+        muted: effectiveMuted,
+        deafened: effectiveDeafened,
+      });
     };
     emitDmJoin();
     if (socket && !socket.connected) {
@@ -1963,7 +2000,7 @@ export function VoiceProvider({ children }) {
     setConnectionState('connected');
     window.electron?.blockPowerSave?.();
     voiceSoundsRef.current.join();
-  }, [socket, user, acquireMicStream, startSpeakingDetection, cleanupAllConnections, rotateVoiceClientId, removeDeclinedDmConv, showMicrophoneIssue, clearMicrophoneIssue]);
+  }, [socket, user, acquireMicStream, startSpeakingDetection, cleanupAllConnections, rotateVoiceClientId, removeDeclinedDmConv, showMicrophoneIssue, clearMicrophoneIssue, applyPersistedMuteDeafen]);
 
   const finishLeaveVoiceDM = useCallback((conversationId, convId, skipEmit) => {
     recentVoiceJoinUntilRef.current = 0;
@@ -1980,8 +2017,6 @@ export function VoiceProvider({ children }) {
     setDmFloatingPanelCollapsed(false);
     setConnectionState('disconnected');
     setDmRemoteMediaReady(false);
-    setIsMuted(false);
-    setIsDeafened(false);
     setVoiceLeaveAnim(null);
     isLeavingCallRef.current = false;
     window.electron?.unblockPowerSave?.();
@@ -2028,6 +2063,13 @@ export function VoiceProvider({ children }) {
       finishLeaveVoiceDM(conversationId, convId, skipEmit);
     }, ms);
   }, [socket, user?.id, voiceConversationName, cleanupAllConnections, finishLeaveVoiceDM]);
+
+  /** Leave voice on app exit / crash teardown — play leave sound, skip UI animation. */
+  const leaveCallOnAppExit = useCallback(() => {
+    const exitOpts = { animate: false };
+    if (voiceChannelIdRef.current) leaveVoice(exitOpts);
+    else if (voiceConversationIdRef.current) leaveVoiceDM(exitOpts);
+  }, [leaveVoice, leaveVoiceDM]);
 
   const shouldAutoJoinChannel = useCallback((channelId) => {
     const id = coercePositiveInt(channelId);
@@ -2284,8 +2326,8 @@ export function VoiceProvider({ children }) {
 
   // Keep tray action refs in sync
   useEffect(() => {
-    trayActionsRef.current = { toggleMute, leaveVoice, leaveVoiceDM };
-  }, [toggleMute, leaveVoice, leaveVoiceDM]);
+    trayActionsRef.current = { toggleMute, leaveVoice, leaveVoiceDM, leaveCallOnAppExit };
+  }, [toggleMute, leaveVoice, leaveVoiceDM, leaveCallOnAppExit]);
 
   const startScreenShare = useCallback(async () => {
     if (!navigator.mediaDevices?.getDisplayMedia) {
@@ -2577,8 +2619,8 @@ export function VoiceProvider({ children }) {
   }, [socket, renegotiateAllPeerConnections, teardownLocalScreenCapture]);
 
   const switchAudioInput = useCallback(async (deviceId) => {
-    if (!localStreamRef.current || !navigator.mediaDevices?.getUserMedia) return;
     updateSetting?.('input_device', deviceId || 'default');
+    if (!localStreamRef.current || !navigator.mediaDevices?.getUserMedia) return;
 
     // Immediately clear speaking state while mic is switching
     wasSpeakingRef.current = false;
@@ -3387,13 +3429,11 @@ export function VoiceProvider({ children }) {
     };
 
     const handleBeforeUnload = () => {
-      if (voiceChannelIdRef.current) leaveVoice();
-      else if (voiceConversationIdRef.current) leaveVoiceDM();
+      leaveCallOnAppExit();
     };
 
     const handlePageHide = () => {
-      if (voiceChannelIdRef.current) leaveVoice();
-      else if (voiceConversationIdRef.current) leaveVoiceDM();
+      leaveCallOnAppExit();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -3405,14 +3445,18 @@ export function VoiceProvider({ children }) {
       window.removeEventListener('pagehide', handlePageHide);
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [leaveVoice, leaveVoiceDM, socket]);
+  }, [leaveCallOnAppExit, socket]);
 
   // Cleanup on unmount — tell server to drop all voice presence for this session
   useEffect(() => {
     return () => {
       if (leaveAnimTimerRef.current) clearTimeout(leaveAnimTimerRef.current);
+      const inVoice = voiceChannelIdRef.current || voiceConversationIdRef.current;
+      if (inVoice && !isLeavingCallRef.current) {
+        voiceSoundsRef.current.leave?.();
+      }
       const s = socket;
-      if (s?.connected && (voiceChannelIdRef.current || voiceConversationIdRef.current)) {
+      if (s?.connected && inVoice) {
         s.emit('voice_leave_all');
       }
       cleanupAllConnections();

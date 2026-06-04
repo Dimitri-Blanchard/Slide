@@ -2,8 +2,25 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { settings as settingsApi } from '../api';
 import { getToken } from '../utils/tokenStorage';
 import { isClientApp } from '../utils/clientApp';
+import {
+  ELECTRON_VOICE_SETTING_KEYS,
+  isElectronVoicePrefsEnabled,
+  loadElectronVoicePrefs,
+  saveElectronVoiceSettings,
+} from '../utils/electronVoicePrefs';
 import { scheduleNativeNotification } from '../utils/nativeNotifications';
 import { useLanguage } from './LanguageContext';
+
+function mergeElectronVoiceSettings(base) {
+  if (!isElectronVoicePrefsEnabled()) return base;
+  const local = loadElectronVoicePrefs();
+  if (!local?.settings || Object.keys(local.settings).length === 0) return base;
+  return { ...base, ...local.settings };
+}
+
+function getInitialSettingsState() {
+  return mergeElectronVoiceSettings({ ...DEFAULT_SETTINGS });
+}
 
 const SettingsContext = createContext(null);
 const MONO_DARK_ACCENT = 'rgb(224, 228, 234)';
@@ -167,7 +184,7 @@ function toBooleanSetting(value) {
 }
 
 export function SettingsProvider({ children }) {
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState(getInitialSettingsState);
   const [loading, setLoading] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState('default');
   const settingsInitialized = useRef(false);
@@ -178,7 +195,7 @@ export function SettingsProvider({ children }) {
   const { changeLanguage, language: contextLanguage } = languageContext || {};
 
   const resetToDefaults = useCallback(() => {
-    setSettings({ ...DEFAULT_SETTINGS });
+    setSettings(mergeElectronVoiceSettings({ ...DEFAULT_SETTINGS }));
     settingsInitialized.current = true;
     setLoading(false);
   }, []);
@@ -196,7 +213,7 @@ export function SettingsProvider({ children }) {
       if (isLegacyBlueAccent(data.accent_color)) {
         data.accent_color = MONO_DARK_ACCENT;
       }
-      setSettings(prev => ({
+      setSettings(prev => mergeElectronVoiceSettings({
         ...prev,
         ...data,
         developer_mode: toBooleanSetting(data?.developer_mode),
@@ -226,6 +243,31 @@ export function SettingsProvider({ children }) {
     window.addEventListener('slide:auth-changed', handleAuthChanged);
     return () => window.removeEventListener('slide:auth-changed', handleAuthChanged);
   }, [loadSettings]);
+
+  // Electron: persist voice device / processing settings locally
+  useEffect(() => {
+    if (!isElectronVoicePrefsEnabled() || !settingsInitialized.current) return;
+    const voiceSlice = {};
+    let hasVoice = false;
+    for (const key of ELECTRON_VOICE_SETTING_KEYS) {
+      if (settings[key] !== undefined) {
+        voiceSlice[key] = settings[key];
+        hasVoice = true;
+      }
+    }
+    if (hasVoice) saveElectronVoiceSettings(voiceSlice);
+  }, [
+    settings.input_device,
+    settings.output_device,
+    settings.video_device,
+    settings.input_volume,
+    settings.output_volume,
+    settings.screen_share_capture_volume,
+    settings.input_sensitivity,
+    settings.echo_cancellation,
+    settings.noise_suppression,
+    settings.auto_gain_control,
+  ]);
   
   // ═══════════════════════════════════════════════════════════
   // SYNC LANGUAGE WITH LANGUAGE CONTEXT

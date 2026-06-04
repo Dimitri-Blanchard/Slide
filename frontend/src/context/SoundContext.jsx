@@ -10,19 +10,20 @@ function getAudioContext() {
   return new Ctx();
 }
 
-function playTone(ctx, destination, frequency, duration, volume = 0.3, type = 'sine') {
+function playTone(ctx, destination, frequency, duration, volume = 0.3, type = 'sine', startTime = null) {
   if (!ctx || !destination) return;
   try {
+    const t0 = startTime ?? ctx.currentTime;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(destination);
     osc.frequency.value = frequency;
     osc.type = type;
-    gain.gain.setValueAtTime(volume, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + duration);
+    gain.gain.setValueAtTime(volume, t0);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+    osc.start(t0);
+    osc.stop(t0 + duration);
   } catch (_) {}
 }
 
@@ -58,8 +59,9 @@ function playVoiceJoinSound(ctx, destination, volume = 0.2) {
 
 function playVoiceLeaveSound(ctx, destination, volume = 0.2) {
   if (!ctx) return;
-  playTone(ctx, destination, 523, 0.08, volume * 0.7, 'sine');
-  setTimeout(() => playTone(ctx, destination, 392, 0.11, volume * 0.75, 'sine'), 75);
+  const t0 = ctx.currentTime;
+  playTone(ctx, destination, 523, 0.08, volume * 0.7, 'sine', t0);
+  playTone(ctx, destination, 392, 0.11, volume * 0.75, 'sine', t0 + 0.075);
 }
 
 function playVoiceMuteSound(ctx, destination, volume = 0.16) {

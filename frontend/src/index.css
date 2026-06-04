@@ -42,7 +42,7 @@ html, body, #root {
 }
 
 :root {
-  --electron-titlebar-height: 22px;
+  --electron-titlebar-height: 36px;
 }
 
 #root {

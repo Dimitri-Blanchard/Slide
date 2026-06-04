@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { teams as teamsApi } from '../api';
 import { getStaticUrl } from '../utils/staticUrl';
 import './ElectronTitleBar.css';
@@ -147,27 +148,24 @@ export default function ElectronTitleBar() {
     <div className={`electron-title-bar ${isMac ? 'electron-title-bar-mac' : ''}`}>
       {isMac && <div className="electron-title-bar-controls electron-title-bar-controls-left">{buttons}</div>}
 
-      {/* Navigation arrows */}
       <div className="electron-title-bar-nav">
         <button
+          type="button"
           className="electron-title-bar-nav-btn"
           onClick={() => navigate(-1)}
           aria-label="Retour"
           title="Retour"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
+          <ChevronLeft size={18} strokeWidth={2} aria-hidden />
         </button>
         <button
+          type="button"
           className="electron-title-bar-nav-btn"
           onClick={() => navigate(1)}
           aria-label="Suivant"
           title="Suivant"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
+          <ChevronRight size={18} strokeWidth={2} aria-hidden />
         </button>
       </div>
 
