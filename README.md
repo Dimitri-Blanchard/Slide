@@ -26,13 +26,13 @@ Set `VITE_PUBLIC_SITE_URL` (and API-related `VITE_*` vars from `frontend/.env.ex
 
 ## Deploy (GitHub Pages)
 
-**Recommended:** **Settings → Pages → Build and deployment → Source → GitHub Actions**  
-Workflow: `.github/workflows/deploy-frontend-pages.yml` (builds `frontend/dist` with `CNAME` + `404.html` for SPA routes like `/qr-login`).
+**Source:** **Settings → Pages → GitHub Actions** (workflow `deploy-frontend-pages.yml`).
 
-**Fallback (branch):** Source → **Deploy from a branch** → `main` → **`/docs`**  
-Workflow: `.github/workflows/deploy-frontend-docs.yml`. Temporary URL: `https://dimitri-blanchard.github.io/Slide/docs/`
+The workflow builds `frontend/dist`, sets `CNAME` + `404.html`, deploys, and registers **`sl1de.xyz`** as custom domain via the GitHub API.
 
-**Custom domain `sl1de.xyz`:** set it under **Settings → Pages → Custom domain**. Do **not** put `CNAME` at the repo root — only in `docs/` (branch deploy) or `frontend/public/` (Actions build).
+If `sl1de.xyz` still 404 after a green deploy: open **Settings → Pages → Custom domain**, enter `sl1de.xyz`, Save, wait ~5 min for HTTPS.
+
+Temporary URL while DNS/domain propagates: **https://dimitri-blanchard.github.io/Slide/**
 
 Optional Actions variables: `VITE_API_BASE_URL`, `VITE_BACKEND_ORIGIN`, `VITE_CDN_BASE_URL`, `VITE_PUBLIC_SITE_URL`.
 

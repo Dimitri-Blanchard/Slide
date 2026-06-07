@@ -156,12 +156,10 @@ export default function ElectronTitleBar() {
           aria-label="Retour"
           title="Retour"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M8 4L4.5 8L8 12" />
-            <line x1="3" y1="4" x2="3" y2="12" />
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M13.5 8H5M5 8L2.5 5.5M5 8L2.5 10.5" />
           </svg>
         </button>
-        <span className="electron-title-bar-nav-divider" aria-hidden />
         <button
           type="button"
           className="electron-title-bar-nav-btn"
@@ -169,9 +167,8 @@ export default function ElectronTitleBar() {
           aria-label="Suivant"
           title="Suivant"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M8 4L11.5 8L8 12" />
-            <line x1="13" y1="4" x2="13" y2="12" />
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M2.5 8H11M11 8L13.5 5.5M11 8L13.5 10.5" />
           </svg>
         </button>
       </div>
