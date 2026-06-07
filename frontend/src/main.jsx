@@ -25,6 +25,7 @@ import ScreenSharePicker from './components/ScreenSharePicker';
 import MicrophoneAccessNotice from './components/MicrophoneAccessNotice';
 import ErrorBoundary from './components/ErrorBoundary';
 import { resolvePagesBasename } from './utils/pagesBasename';
+import { startDevToolsWarning } from './utils/security';
 import './index.css';
 import './styles/voice-leave.css';
 
