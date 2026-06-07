@@ -7,6 +7,7 @@ import { auth } from '../api';
 import { checkRateLimit } from '../utils/security';
 import MfaCodeInput from '../components/MfaCodeInput';
 import AuthShell from '../components/AuthShell';
+import SlideLogo from '../components/SlideLogo';
 import AuthBackdrop from '../components/AuthBackdrop';
 import QrLoginAppLoading from '../components/QrLoginAppLoading';
 import { buildQrLoginScanUrl, normalizeQrLoginCheckResponse, prefetchSlideAppData } from '../utils/qrLoginFlow';
@@ -362,7 +363,7 @@ export default function Login() {
       >
         <div className="login-left">
           <div className="auth-brand">
-            <img src="/logo.png" alt="Slide" className="auth-logo" />
+            <SlideLogo className="auth-logo" />
             <h2>
               {showMfaStep
                 ? t('auth.mfaTitle')

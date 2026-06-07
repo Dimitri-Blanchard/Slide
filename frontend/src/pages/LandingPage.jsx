@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useInView } from 'framer-motion';
 import LandingBackdrop from '../components/landing/LandingBackdrop';
 import SwitzerlandFlag from '../components/landing/SwitzerlandFlag';
 import HeroAppPreview from '../components/landing/HeroAppPreview';
+import SlideLogo from '../components/SlideLogo';
 import SmartDownloadButton from '../components/landing/SmartDownloadButton';
 import { AndroidIcon, LinuxIcon, WindowsIcon } from '../components/landing/PlatformIcons';
 import useDownloadLinks from '../hooks/useDownloadLinks';
@@ -232,7 +233,7 @@ function Header() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         >
-          <img src="/logo.png" alt="" width={32} height={32} className="logo-img" />
+          <SlideLogo alt="" width={32} height={32} className="logo-img" />
           <span className="logo-text">Slide</span>
         </a>
 
@@ -324,7 +325,7 @@ function Header() {
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
                     >
-                      <img src="/logo.png" alt="" width={36} height={36} className="nav-mobile-brand-logo" />
+                      <SlideLogo alt="" width={36} height={36} className="nav-mobile-brand-logo" />
                       <span className="nav-mobile-brand-text">
                         <span className="nav-mobile-brand-name">Slide</span>
                         <span className="nav-mobile-brand-tag">Privacy-first messaging</span>
@@ -803,7 +804,7 @@ function Footer() {
       <div className="footer-inner">
         <div className="footer-brand">
           <Link to="/" className="logo logo-small">
-            <img src="/logo.png" alt="" width={28} height={28} className="logo-img" />
+            <SlideLogo alt="" width={28} height={28} className="logo-img" />
             <span className="logo-text">Slide</span>
           </Link>
           <p className="footer-tagline">Messaging reimagined.</p>

@@ -17,8 +17,8 @@ self.addEventListener('push', (event) => {
   const title = payload.title || APP_NAME;
   const options = {
     body: payload.body || '',
-    icon: payload.icon || '/icon.png',
-    badge: '/icon.png',
+    icon: payload.icon || 'icon.png',
+    badge: 'icon.png',
     tag: payload.tag || 'slide-notification',
     data: payload.data || {},
     renotify: true,

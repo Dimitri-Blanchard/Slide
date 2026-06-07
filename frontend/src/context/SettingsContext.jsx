@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { settings as settingsApi } from '../api';
 import { getToken } from '../utils/tokenStorage';
 import { isClientApp } from '../utils/clientApp';
+import { publicAsset } from '../utils/staticUrl';
 import {
   ELECTRON_VOICE_SETTING_KEYS,
   isElectronVoicePrefsEnabled,
@@ -528,8 +529,8 @@ export function SettingsProvider({ children }) {
         Notification.permission === 'granted') {
       
       const notifOptions = {
-        icon: '/logo.png',
-        badge: '/logo.png',
+        icon: publicAsset('logo.png'),
+        badge: publicAsset('logo.png'),
         ...options,
       };
       

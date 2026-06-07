@@ -1,4 +1,5 @@
 import React from 'react';
+import SlideLogo from './SlideLogo';
 import './QrLoginAppLoading.css';
 
 /** Post–QR-login loading screen (desktop browser). */
@@ -6,7 +7,7 @@ export default function QrLoginAppLoading({ step = 'Préparation…', title = 'C
   return (
     <div className="qr-app-loading" role="status" aria-live="polite">
       <div className="qr-app-load-logo-wrap" aria-hidden>
-        <img src="/logo.png" alt="" className="qr-app-load-logo" />
+        <SlideLogo alt="" className="qr-app-load-logo" />
         <div className="qr-app-load-ring" />
       </div>
       <h2 className="qr-app-loading-title">{title}</h2>

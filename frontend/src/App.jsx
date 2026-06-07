@@ -9,6 +9,7 @@ import ClientAppRootRedirect from './components/ClientAppRootRedirect';
 import NativeRouteGuard from './components/NativeRouteGuard';
 import { lazyRoute } from './utils/lazyRoute';
 import { isClientApp, shouldShowAppTitleBar } from './utils/clientApp';
+import SlideLogo from './components/SlideLogo';
 
 /** Compile-time: Capacitor/Electron bundles exclude the marketing site. */
 const isNativeBundle =
@@ -87,7 +88,7 @@ function SplashScreen({ onDone, quick }) {
 
   return (
     <div className={`splash-screen ${fadeOut ? 'splash-fade-out' : ''}`}>
-      <img src="/logo.png" alt="Slide" className="splash-logo" />
+      <SlideLogo className="splash-logo" />
     </div>
   );
 }

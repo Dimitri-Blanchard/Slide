@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { useAppHomePath } from '../hooks/useAppHomePath';
 import { isClientApp } from '../utils/clientApp';
+import SlideLogo from './SlideLogo';
 import './AuthShell.css';
 
 const PUBLIC_SITE_URL = (import.meta.env.VITE_PUBLIC_SITE_URL || 'https://sl1de.xyz').replace(/\/$/, '');
@@ -56,7 +57,7 @@ export default function AuthShell({
         {!isElectron && (
           <header className="auth-shell-header auth-shell-header--legal-row">
             <BrandTag {...brandProps}>
-              <img src="/logo.png" alt="" width={32} height={32} className="auth-shell-logo" />
+              <SlideLogo alt="" width={32} height={32} className="auth-shell-logo" />
               <span className="auth-shell-brand-text">{legalTitle}</span>
             </BrandTag>
             <Link to={homeTo} className="legal-back-link">{legalBackLabel}</Link>
@@ -82,7 +83,7 @@ export default function AuthShell({
       {!isElectron && (
         <header className="auth-shell-header">
           <BrandTag {...brandProps}>
-            <img src="/logo.png" alt="" width={28} height={28} className="auth-shell-logo" />
+            <SlideLogo alt="" width={28} height={28} className="auth-shell-logo" />
             <span className="auth-shell-brand-text">Slide</span>
           </BrandTag>
         </header>

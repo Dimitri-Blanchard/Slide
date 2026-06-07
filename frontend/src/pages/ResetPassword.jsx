@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { auth } from '../api';
 import { validatePassword } from '../utils/security';
 import AuthShell from '../components/AuthShell';
+import SlideLogo from '../components/SlideLogo';
 import './Auth.css';
 
 export default function ResetPassword() {
@@ -82,7 +83,7 @@ export default function ResetPassword() {
       <AuthShell>
         <div className="auth-card">
           <div className="auth-brand">
-            <img src="/logo.png" alt="Slide" className="auth-logo" />
+            <SlideLogo className="auth-logo" />
             <h2>{t('auth.resetPasswordTitle')}</h2>
             <p className="auth-error">
               {t('auth.resetLinkInvalid')}
@@ -103,7 +104,7 @@ export default function ResetPassword() {
     <AuthShell>
       <div className="auth-card">
         <div className="auth-brand">
-          <img src="/logo.png" alt="Slide" className="auth-logo" />
+          <SlideLogo className="auth-logo" />
           <h2>{t('auth.resetPasswordTitle')}</h2>
           <p>{t('auth.resetPasswordSubtitle')}</p>
         </div>

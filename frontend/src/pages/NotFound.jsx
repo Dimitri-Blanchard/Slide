@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAppHomePath } from '../hooks/useAppHomePath';
+import SlideLogo from '../components/SlideLogo';
 import './NotFound.css';
 
 export default function NotFound() {
@@ -12,7 +13,7 @@ export default function NotFound() {
     <div className="nf-page">
       <div className="nf-card">
         <Link to={appHome} className="nf-logo">
-          <img src="/logo.png" alt="Slide" className="nf-logo-img" />
+          <SlideLogo className="nf-logo-img" />
           <span>Slide</span>
         </Link>
         <h1 className="nf-title">Page not found</h1>

@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { teams as teamsApi } from '../api';
 import { getStaticUrl } from '../utils/staticUrl';
 import { shouldShowAppTitleBar } from '../utils/clientApp';
+import SlideLogo from './SlideLogo';
 import './ElectronTitleBar.css';
 
 export default function ElectronTitleBar() {
@@ -112,7 +113,7 @@ export default function ElectronTitleBar() {
       return <span className="electron-title-bar-icon-initials">{initials}</span>;
     }
     // Default: Slide logo
-    return <img src="/logo.png" alt="" className="electron-title-bar-icon" />;
+    return <SlideLogo alt="" className="electron-title-bar-icon" />;
   };
 
   const buttons = (

@@ -7,6 +7,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { validatePassword, validateDisplayName, isValidEmail, checkRateLimit } from '../utils/security';
 import { API_BASE, auth as authApi } from '../api';
 import AuthShell from '../components/AuthShell';
+import SlideLogo from '../components/SlideLogo';
 import AuthBackdrop from '../components/AuthBackdrop';
 import './Auth.css';
 
@@ -200,7 +201,7 @@ export default function Register() {
         ) : (
           <>
             <div className="register-card-header auth-brand">
-              <img src="/logo.png" alt="Slide" className="auth-logo" />
+              <SlideLogo className="auth-logo" />
               <h2>{t('auth.createAccount') || 'Create an account'}</h2>
             </div>
 

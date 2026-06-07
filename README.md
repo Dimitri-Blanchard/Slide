@@ -31,14 +31,20 @@ Le site est buildé dans `docs/` à chaque push (`deploy-frontend-docs.yml`).
 **Configuration obligatoire (1 fois) :**  
 https://github.com/Dimitri-Blanchard/Slide/settings/pages
 
-1. **Source** → **Deploy from a branch** → branche **`main`** → dossier **`/docs`**
-2. **Custom domain** → tape **`sl1de.xyz`** → **Save**
+1. **Source** → **Deploy from a branch** → branche **`main`** → dossier **`/docs`** (pas la racine `/`)
+2. **Custom domain** → **`sl1de.xyz`** → **Save**
 3. Attends 2–5 min (certificat HTTPS + propagation)
 
-Test intermédiaire : https://dimitri-blanchard.github.io/Slide/docs/  
-Si ça marche mais pas `sl1de.xyz`, c’est que l’étape 2 n’est pas faite.
+Avec `/docs` comme source, le site est servi à la racine (`sl1de.xyz/`, pas `sl1de.xyz/docs/`).
 
-DNS (déjà OK si A records GitHub) :
+Build local pour Pages : `npm run build:pages` (dans `frontend/`).
+
+**Si le site ne charge pas :**
+- `sl1de.xyz` → 404 : la source Pages n’est pas `/docs`, ou le déploiement n’a pas encore tourné.
+- Écran noir après chargement : vider le cache ou ouvrir en navigation privée (assets hashés).
+- Test intermédiaire (déploiement racine `/`) : https://dimitri-blanchard.github.io/Slide/docs/
+
+DNS (A records GitHub) :
 ```
 185.199.108.153
 185.199.109.153

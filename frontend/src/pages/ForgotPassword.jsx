@@ -5,6 +5,7 @@ import { auth } from '../api';
 import { isValidEmail } from '../utils/security';
 import MfaCodeInput from '../components/MfaCodeInput';
 import AuthShell from '../components/AuthShell';
+import SlideLogo from '../components/SlideLogo';
 import './Auth.css';
 
 export default function ForgotPassword() {
@@ -93,7 +94,7 @@ export default function ForgotPassword() {
       <div className="auth-page">
         <div className="auth-card">
           <div className="auth-brand">
-            <img src="/logo.png" alt="Slide" className="auth-logo" />
+            <SlideLogo className="auth-logo" />
             <h2>{t('auth.checkInbox')}</h2>
             <p>{t('auth.forgotSuccessMessage')}</p>
           </div>
@@ -109,7 +110,7 @@ export default function ForgotPassword() {
     <AuthShell>
       <div className="auth-card">
         <div className="auth-brand">
-          <img src="/logo.png" alt="Slide" className="auth-logo" />
+          <SlideLogo className="auth-logo" />
           <h2>{t('auth.forgotPasswordTitle')}</h2>
           <p>
             {showMfaStep

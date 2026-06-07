@@ -4,6 +4,7 @@ import { useAppHomePath } from '../hooks/useAppHomePath';
 import { useLanguage } from '../context/LanguageContext';
 import { auth } from '../api';
 import AuthShell from '../components/AuthShell';
+import SlideLogo from '../components/SlideLogo';
 import './Auth.css';
 
 export default function VerifyEmail() {
@@ -32,7 +33,7 @@ export default function VerifyEmail() {
     <AuthShell>
       <div className="auth-card">
         <div className="auth-brand">
-          <img src="/logo.png" alt="Slide" className="auth-logo" />
+          <SlideLogo className="auth-logo" />
 
           {status === 'loading' && (
             <>

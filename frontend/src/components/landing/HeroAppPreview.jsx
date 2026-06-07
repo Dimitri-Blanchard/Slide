@@ -1,4 +1,5 @@
 import React from 'react';
+import SlideLogo from '../SlideLogo';
 import './HeroAppPreview.css';
 
 /**
@@ -11,7 +12,7 @@ export default function HeroAppPreview() {
       <div className="slide-app-preview__shell">
         <aside className="slide-app-preview__server-bar">
           <div className="slide-preview-server slide-preview-server--home slide-preview-server--active">
-            <img src="/logo.png" alt="" width={28} height={28} />
+            <SlideLogo alt="" width={28} height={28} />
           </div>
           <div className="slide-preview-server-sep" />
           <div className="slide-preview-server">

@@ -13,6 +13,7 @@ import ContextMenu from './ContextMenu';
 import ConfirmModal from './ConfirmModal';
 import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import { hapticImpact } from '../utils/nativeHaptics';
+import SlideLogo from './SlideLogo';
 import { makeLocalPrivateRoute } from '../utils/localPrivateChatCrypto';
 import './ServerBar.css';
 
@@ -470,7 +471,7 @@ const HomeButton = memo(function HomeButton({ isActive, onContextMenu, homeTarge
         onPointerCancel={onHomePointerUp}
       >
         <div className={`server-icon home-icon ${isActive ? 'active' : ''}`}>
-          <img src="/logo.png" alt="Slide" className="home-logo" />
+          <SlideLogo className="home-logo" />
         </div>
         <div className={`server-indicator ${isActive ? 'active' : ''}`} />
         {pendingFriendsCount > 0 && (

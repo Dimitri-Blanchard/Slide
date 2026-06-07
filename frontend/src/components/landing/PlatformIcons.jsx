@@ -1,4 +1,5 @@
 import React from 'react';
+import { publicAsset } from '../../utils/staticUrl';
 
 function BrandIcon({ src, className = '' }) {
   return (
@@ -13,11 +14,11 @@ function BrandIcon({ src, className = '' }) {
 }
 
 export function WindowsIcon({ className = '' }) {
-  return <BrandIcon src="/assets/windows.svg" className={className} />;
+  return <BrandIcon src={publicAsset('assets/windows.svg')} className={className} />;
 }
 
 export function LinuxIcon({ className = '' }) {
-  return <BrandIcon src="/assets/linux.svg" className={className} />;
+  return <BrandIcon src={publicAsset('assets/linux.svg')} className={className} />;
 }
 
 export function AndroidIcon({ className = '' }) {

@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:pages": "cross-env VITE_GITHUB_PAGES=1 vite build",
     "preview": "vite preview",
     "build:electron": "cross-env VITE_ELECTRON=1 vite build",
     "electron": "electron .",
