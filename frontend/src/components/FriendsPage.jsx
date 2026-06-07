@@ -1,8 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
+import ProfileCard from './ProfileCard';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { friends as friendsApi, direct as directApi, invalidateCache } from '../api';
-import { useOnlineUsers, useSocket } from '../context/SocketContext';
+import { friends as friendsApi, direct as directApi } from '../api';
+import useFriendsSync from '../hooks/useFriendsSync';
+import { notifyFriendsChanged, isFriendRequestDuplicateError, refreshFriendsSyncNow } from '../utils/friendsSync';
+import { useOnlineUsers } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useNotification } from '../context/NotificationContext';
@@ -10,6 +13,10 @@ import Avatar from './Avatar';
 import ClickableAvatar from './ClickableAvatar';
 import OnboardingTour, { hasSeenOnboarding } from './OnboardingTour';
 import { useSettings } from '../context/SettingsContext';
+import { usePlatform } from '../context/PlatformContext';
+import FriendsActiveNowSidebar from './FriendsActiveNowSidebar';
+import AppIcon from './icons/AppIcon';
+import { countIncomingFriendRequests } from '../hooks/usePendingFriendsCount';
 import './FriendsPage.css';
 
 
@@ -24,11 +31,104 @@ function useIsMobile(breakpoint = 768) {
   return isMobile;
 }
 
-export default function FriendsPage() {
+const FriendCard = memo(function FriendCard({
+  friend,
+  actions,
+  isPending,
+  highlightOnline,
+  statusText,
+  isOnline,
+  t,
+  moreMenuItems,
+}) {
+  const cardRef = useRef(null);
+  const nameRef = useRef(null);
+  const [showProfile, setShowProfile] = useState(false);
+  const [profileAnchor, setProfileAnchor] = useState(null);
+
+  const openProfileAt = useCallback((anchorEl) => {
+    if (!anchorEl) return;
+    setProfileAnchor(anchorEl);
+    setShowProfile(true);
+  }, []);
+
+  const openProfileFromName = useCallback((e) => {
+    e.stopPropagation();
+    openProfileAt(nameRef.current);
+  }, [openProfileAt]);
+
+  const openProfileFromAvatar = useCallback((e) => {
+    e.stopPropagation();
+    openProfileAt(cardRef.current?.querySelector('.clickable-avatar'));
+  }, [openProfileAt]);
+
+  const closeProfile = useCallback(() => {
+    setShowProfile(false);
+  }, []);
+
+  const onlineClass = !isPending && highlightOnline
+    ? ` ${isOnline ? 'online' : 'offline'}`
+    : '';
+
+  return (
+    <>
+      <div
+        ref={cardRef}
+        className={`friend-card${isPending ? ' friend-card-pending' : ''}${onlineClass}`}
+      >
+        <div className="friend-card-info">
+          <ClickableAvatar
+            user={friend}
+            size="medium"
+            showPresence={!isPending}
+            contextMenuItems={moreMenuItems}
+            suppressProfileOpen
+            onClick={openProfileFromAvatar}
+          />
+          <div className="friend-card-text">
+            <span
+              ref={nameRef}
+              className="friend-card-name"
+              role="button"
+              tabIndex={0}
+              onClick={openProfileFromName}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  openProfileFromName(e);
+                }
+              }}
+            >
+              {friend.display_name || friend.username}
+            </span>
+            <span className="friend-card-status">
+              {isPending
+                ? statusText
+                : isOnline
+                  ? friend.status_message || t('friends.online')
+                  : 'Offline'}
+            </span>
+          </div>
+        </div>
+        <div className="friend-card-actions" onClick={(e) => e.stopPropagation()}>
+          {actions}
+        </div>
+      </div>
+      <ProfileCard
+        userId={friend.id}
+        user={friend}
+        isOpen={showProfile}
+        onClose={closeProfile}
+        anchorEl={profileAnchor}
+        position="right"
+      />
+    </>
+  );
+});
+
+export default function FriendsPage({ mobileStandalone = false }) {
   const [activeTab, setActiveTab] = useState('online');
-  const [friendsList, setFriendsList] = useState([]);
-  const [pendingList, setPendingList] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { friends: friendsList, pending: pendingList, ready: friendsReady } = useFriendsSync();
   const [searchQuery, setSearchQuery] = useState('');
   const [addFriendInput, setAddFriendInput] = useState('');
   const [addFriendStatus, setAddFriendStatus] = useState(null);
@@ -36,78 +136,36 @@ export default function FriendsPage() {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   const { isUserOnline } = useOnlineUsers();
-  const socket = useSocket();
   const { user } = useAuth();
   const { t } = useLanguage();
   const { developerMode } = useSettings();
   const { notify } = useNotification();
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
+  const { isMobileDevice } = usePlatform();
+  const isMobileViewport = useIsMobile();
+  const isMobile = isMobileDevice || isMobileViewport || mobileStandalone;
   const FUME_START_DELAY_MS = 3200;
   const FUME_STEP_DELAY_MS = 40;
   const FUME_CHAR_DURATION_MS = 650;
-  const emitFriendsChanged = useCallback(() => {
-    window.dispatchEvent(new CustomEvent('slide:friends-changed'));
-  }, []);
+  const loading = !friendsReady;
 
-  const loadFriends = useCallback(async (opts = {}) => {
-    const silent = opts.silent === true;
-    if (!silent) setLoading(true);
-    try {
-      const [all, pending] = await Promise.allSettled([
-        friendsApi.list(),
-        friendsApi.pending(),
-      ]);
-      setFriendsList(all.status === 'fulfilled' ? (all.value || []) : []);
-      setPendingList(pending.status === 'fulfilled' ? (pending.value || []) : []);
-    } catch {
-      setFriendsList([]);
-      setPendingList([]);
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadFriends(); }, [loadFriends]);
 
   useEffect(() => {
     if (!hasSeenOnboarding(user)) setShowOnboarding(true);
   }, [user]);
-
-  // Real-time: refetch on any friend relationship change
-  useEffect(() => {
-    if (!socket) return;
-    const onFriendUpdate = () => {
-      invalidateCache('/friends');
-      loadFriends({ silent: true });
-      emitFriendsChanged();
-    };
-    socket.on('friend_accepted', onFriendUpdate);
-    socket.on('friend_request', onFriendUpdate);
-    socket.on('friend_request_sent', onFriendUpdate);
-    socket.on('friend_removed', onFriendUpdate);
-    socket.on('friend_request_cancelled', onFriendUpdate);
-    return () => {
-      socket.off('friend_accepted', onFriendUpdate);
-      socket.off('friend_request', onFriendUpdate);
-      socket.off('friend_request_sent', onFriendUpdate);
-      socket.off('friend_removed', onFriendUpdate);
-      socket.off('friend_request_cancelled', onFriendUpdate);
-    };
-  }, [socket, loadFriends, emitFriendsChanged]);
 
   const onlineFriends = useMemo(
     () => friendsList.filter(f => isUserOnline(f.id)),
     [friendsList, isUserOnline]
   );
 
-  const tabs = useMemo(() => {
-    const t = ['online', 'all'];
-    if (pendingList.length > 0) t.push('pending');
-    return t;
-  }, [pendingList.length]);
+  const tabs = useMemo(() => ['online', 'all', 'pending'], []);
+  const incomingPendingCount = useMemo(
+    () => countIncomingFriendRequests(pendingList),
+    [pendingList]
+  );
 
-  // If user was on pending and list becomes empty, switch to online
+  // If user was on pending and all requests are cleared, switch to online
   useEffect(() => {
     if (activeTab === 'pending' && pendingList.length === 0) setActiveTab('online');
   }, [activeTab, pendingList.length]);
@@ -140,18 +198,19 @@ export default function FriendsPage() {
       await friendsApi.sendRequest(addFriendInput.trim());
       setAddFriendStatus({ type: 'success', message: t('friends.requestSent').replace('{name}', addFriendInput.trim()) });
       setAddFriendInput('');
-      invalidateCache('/friends');
-      loadFriends({ silent: true });
-      emitFriendsChanged();
+      notifyFriendsChanged({ action: 'request_sent' });
     } catch (err) {
       const errorMessage = err.message || '';
+      if (isFriendRequestDuplicateError(errorMessage)) {
+        notifyFriendsChanged();
+      }
       const isSelfAddError = /add yourself|yourself as a friend|cannot add yourself|can't add yourself/i.test(errorMessage);
       let msg;
       if (isSelfAddError) {
         msg = t('friends.cannotAddSelfPlayful');
       } else if (/already friends/i.test(errorMessage)) {
         msg = t('friends.errorAlreadyFriends');
-      } else if (/already pending/i.test(errorMessage)) {
+      } else if (/already pending|already sent|request already sent|friendship request already/i.test(errorMessage)) {
         msg = t('friends.errorAlreadyPending');
       } else if (/unable to send request/i.test(errorMessage)) {
         msg = t('friends.errorBlocked');
@@ -167,42 +226,39 @@ export default function FriendsPage() {
   };
 
   const handleAccept = async (requestId, otherUser) => {
+    notifyFriendsChanged({
+      action: 'accepted',
+      requestId,
+      userId: otherUser?.id,
+    });
     try {
       await friendsApi.acceptRequest(requestId);
-      invalidateCache('/friends');
-      loadFriends({ silent: true });
-      emitFriendsChanged();
+      await refreshFriendsSyncNow();
       if (otherUser?.id) {
         const conv = await directApi.createConversation(otherUser.id);
         navigate(`/channels/@me/${conv.conversation_id}`);
       }
     } catch (err) {
       notify.error(err.message);
+      await refreshFriendsSyncNow();
     }
   };
 
   const handleDecline = async (requestId) => {
-    let snapshot;
-    setPendingList((prev) => {
-      snapshot = prev;
-      return prev.filter((p) => p.id !== requestId);
-    });
+    notifyFriendsChanged({ action: 'request_declined', requestId });
     try {
       await friendsApi.declineRequest(requestId);
-      invalidateCache('/friends');
-      emitFriendsChanged();
+      await refreshFriendsSyncNow();
     } catch (err) {
-      if (snapshot) setPendingList(snapshot);
       notify.error(err.message);
+      await refreshFriendsSyncNow();
     }
   };
 
   const handleRemove = async (userId) => {
     try {
       await friendsApi.removeFriend(userId);
-      invalidateCache('/friends');
-      setFriendsList(prev => prev.filter(f => f.id !== userId));
-      emitFriendsChanged();
+      notifyFriendsChanged({ userId, action: 'removed' });
     } catch (err) {
       notify.error(err.message);
     }
@@ -211,10 +267,7 @@ export default function FriendsPage() {
   const handleBlock = async (userId) => {
     try {
       await friendsApi.block(userId);
-      invalidateCache('/friends');
-      setFriendsList(prev => prev.filter(f => f.id !== userId));
-      loadFriends({ silent: true });
-      emitFriendsChanged();
+      notifyFriendsChanged({ userId, action: 'blocked' });
     } catch (err) {
       notify.error(err.message);
     }
@@ -243,7 +296,11 @@ export default function FriendsPage() {
       }
     };
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+    };
   }, [openMoreFor]);
 
   const renderEmptyState = (message) => (
@@ -261,29 +318,18 @@ export default function FriendsPage() {
     </div>
   );
 
-  const renderFriendCard = (friend, actions, { onCardTap, moreMenuItems } = {}) => (
-    <div key={friend.id} className={`friend-card ${isUserOnline(friend.id) ? 'online' : 'offline'}`}>
-      <div
-        className="friend-card-info"
-        onClick={isMobile && onCardTap ? () => onCardTap(friend) : undefined}
-        role={isMobile && onCardTap ? 'button' : undefined}
-        tabIndex={isMobile && onCardTap ? 0 : undefined}
-        onKeyDown={isMobile && onCardTap ? (e) => e.key === 'Enter' && onCardTap(friend) : undefined}
-      >
-        <ClickableAvatar user={friend} size="medium" showPresence contextMenuItems={moreMenuItems} />
-        <div className="friend-card-text">
-          <span className="friend-card-name">{friend.display_name || friend.username}</span>
-          <span className="friend-card-status">
-            {isUserOnline(friend.id)
-              ? friend.status_message || t('friends.online')
-              : 'Offline'}
-          </span>
-        </div>
-      </div>
-      <div className="friend-card-actions" onClick={(e) => e.stopPropagation()}>
-        {actions}
-      </div>
-    </div>
+  const renderFriendCard = (friend, actions, { moreMenuItems, highlightOnline = true, variant, statusText } = {}) => (
+    <FriendCard
+      key={friend.id}
+      friend={friend}
+      actions={actions}
+      isPending={variant === 'pending'}
+      highlightOnline={highlightOnline}
+      statusText={statusText}
+      isOnline={isUserOnline(friend.id)}
+      t={t}
+      moreMenuItems={moreMenuItems}
+    />
   );
 
   const renderContent = () => {
@@ -366,15 +412,30 @@ export default function FriendsPage() {
             renderFriendCard(req.user || req, (
               <>
                 {req.type === 'incoming' && (
-                  <button className="friend-action-btn accept" onClick={() => handleAccept(req.id, req.user || req)} title={t('friends.accept')}>
+                  <button
+                    type="button"
+                    className="friend-action-btn accept"
+                    onClick={() => handleAccept(req.id, req.user || req)}
+                    title={t('friends.accept')}
+                  >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
                   </button>
                 )}
-                <button className="friend-action-btn decline" onClick={() => handleDecline(req.id)} title={t('friends.decline')}>
+                <button
+                  type="button"
+                  className="friend-action-btn decline"
+                  onClick={() => handleDecline(req.id)}
+                  title={req.type === 'incoming' ? t('friends.decline') : t('friends.cancelRequest')}
+                >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>
                 </button>
               </>
-            ))
+            ), {
+              variant: 'pending',
+              statusText: req.type === 'incoming'
+                ? t('friends.incomingRequest')
+                : t('friends.outgoingRequest'),
+            })
           )}
         </div>
       );
@@ -390,16 +451,19 @@ export default function FriendsPage() {
     return (
       <div className="friends-list">
         <div className="friends-search-bar">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder={t('common.search')}
-            className="friends-search-input"
-          />
-          <svg className="friends-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" opacity="0.5">
-            <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-          </svg>
+          <div className="friends-search-field">
+            <svg className="friends-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder={t('common.search')}
+              className="friends-search-input"
+              aria-label={t('common.search')}
+            />
+          </div>
         </div>
         <div className="friends-list-header">
           {(activeTab === 'online' ? t('friends.online') : t('friends.all')).toUpperCase()} — {count}
@@ -444,7 +508,7 @@ export default function FriendsPage() {
                   </div>
                 </>
               ),
-              { onCardTap: handleMessage, moreMenuItems }
+              { moreMenuItems }
             );
           })
         )}
@@ -452,14 +516,27 @@ export default function FriendsPage() {
     );
   };
 
+  const showActiveNowSidebar = !isMobile && activeTab !== 'addFriend' && activeTab !== 'pending';
+
   return (
     <div className={`friends-page ${isMobile ? 'friends-page-mobile' : ''}`}>
+      <div className="friends-page-main">
       <div className="friends-header" data-tour-id="tour-friends">
         <div className="friends-header-left">
+          {mobileStandalone && (
+            <button
+              type="button"
+              className="friends-mobile-back dc-mobile-back"
+              onClick={() => navigate('/channels/@me')}
+              aria-label={t('common.back')}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+              </svg>
+            </button>
+          )}
           <div className="friends-header-brand">
-            <svg className="friends-header-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-            </svg>
+            <AppIcon name="friends" size={24} className="friends-header-icon" />
             <h1 className="friends-header-title">{t('friends.title')}</h1>
             {!isMobile && <div className="friends-header-divider" />}
           </div>
@@ -472,6 +549,9 @@ export default function FriendsPage() {
                   onClick={() => { setActiveTab(tab); setSearchQuery(''); }}
                 >
                   {t(`friends.${tab}`)}
+                  {tab === 'pending' && incomingPendingCount > 0 && (
+                    <span className="friends-tab-badge">{incomingPendingCount > 99 ? '99+' : incomingPendingCount}</span>
+                  )}
                 </button>
               ))}
               <button
@@ -514,6 +594,9 @@ export default function FriendsPage() {
                 onClick={() => { setActiveTab(tab); setSearchQuery(''); }}
               >
                 {t(`friends.${tab}`)}
+                {tab === 'pending' && incomingPendingCount > 0 && (
+                  <span className="friends-tab-badge">{incomingPendingCount > 99 ? '99+' : incomingPendingCount}</span>
+                )}
               </button>
             ))}
           </div>
@@ -529,6 +612,13 @@ export default function FriendsPage() {
       <div className="friends-content">
         {renderContent()}
       </div>
+      </div>
+      {showActiveNowSidebar && (
+        <FriendsActiveNowSidebar
+          onlineFriends={onlineFriends}
+          onMessage={handleMessage}
+        />
+      )}
       {showOnboarding && (
         <OnboardingTour onClose={() => setShowOnboarding(false)} />
       )}

@@ -8,7 +8,7 @@ import DevelopmentBanner from './components/DevelopmentBanner';
 import ClientAppRootRedirect from './components/ClientAppRootRedirect';
 import NativeRouteGuard from './components/NativeRouteGuard';
 import { lazyRoute } from './utils/lazyRoute';
-import { isClientApp } from './utils/clientApp';
+import { isClientApp, shouldShowAppTitleBar } from './utils/clientApp';
 
 /** Compile-time: Capacitor/Electron bundles exclude the marketing site. */
 const isNativeBundle =
@@ -32,6 +32,9 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 
 function RootRoute() {
   if (isClientApp()) {
+    return <ClientAppRootRedirect />;
+  }
+  if (LandingPage == null) {
     return <ClientAppRootRedirect />;
   }
   return (
@@ -90,8 +93,10 @@ function SplashScreen({ onDone, quick }) {
 }
 
 export default function App() {
+  const location = useLocation();
   const isElectron = typeof window !== 'undefined' && !!window.electron?.isElectron;
   const isCapacitor = typeof window !== 'undefined' && !!window.Capacitor?.isNativePlatform?.();
+  const showTitleBar = shouldShowAppTitleBar(location.pathname);
   const [showSplash, setShowSplash] = useState(isElectron || isCapacitor);
   const dismissSplash = useCallback(() => {
     setShowSplash(false);
@@ -104,16 +109,16 @@ export default function App() {
 
   if (showSplash) {
     return (
-      <div className={`app-root ${isElectron ? 'has-electron-title-bar' : ''}`}>
-        {isElectron && <ElectronTitleBar />}
+      <div className={`app-root ${showTitleBar ? 'has-electron-title-bar' : ''}`}>
+        {showTitleBar && <ElectronTitleBar />}
         <SplashScreen onDone={dismissSplash} quick={isCapacitor} />
       </div>
     );
   }
 
   return (
-    <div className={`app-root ${isElectron ? 'has-electron-title-bar' : ''}`}>
-      <ElectronTitleBar />
+    <div className={`app-root ${showTitleBar ? 'has-electron-title-bar' : ''}`}>
+      {showTitleBar && <ElectronTitleBar />}
       {(import.meta.env.DEV || import.meta.env.VITE_SHOW_DEV_BANNER === 'true') && (
         <DevelopmentBanner />
       )}

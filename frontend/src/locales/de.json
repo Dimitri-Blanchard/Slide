@@ -640,6 +640,7 @@
     "requestError": "Freundschaftsanfrage konnte nicht gesendet werden. Bitte versuche es später erneut.",
     "noFriends": "Noch keine Freunde",
     "noOnline": "Keine Freunde online",
+    "activeNow": "Jetzt aktiv",
     "noPending": "Keine ausstehenden Anfragen",
     "noBlocked": "Keine blockierten Benutzer",
     "incomingCall": "Eingehender Anruf...",

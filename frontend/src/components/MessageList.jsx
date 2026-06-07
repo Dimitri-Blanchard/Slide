@@ -33,6 +33,31 @@ import './MentionSuggestions.css';
 
 const EMPTY_REACTIONS = [];
 
+function formatContextualTimestamp(dateInput, t, formatTime) {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dayDiff = Math.round((startOfToday - startOfDate) / 86400000);
+  const time = formatTime(date, { hour: 'numeric', minute: '2-digit' });
+
+  if (dayDiff === 0) {
+    return `${t('activity.today', 'Today at')} ${time}`;
+  }
+  if (dayDiff === 1) {
+    return `${t('activity.yesterday', 'Yesterday at')} ${time}`;
+  }
+
+  const dateLabel = date.toLocaleDateString(undefined, {
+    month: 'long',
+    day: 'numeric',
+    ...(date.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}),
+  });
+  return `${dateLabel} at ${time}`;
+}
+
 function buildMessagePermalink(surface, msg) {
   if (!surface || msg?.id == null) return '';
   const o = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2070,7 +2095,7 @@ const MessageContent = memo(function MessageContent({ msg, isEditing, editConten
 });
 
 // Message context menu
-const MessageMenu = memo(function MessageMenu({ x, y, msg, isOwn, isDM, reactions, onViewReactions, onClose, onEdit, onCopy, onDeleteForMe, onDeleteForAll, onReply, onReact, onPin, onUnpin, isPinned, onReport, t }) {
+const MessageMenu = memo(function MessageMenu({ x, y, msg, isOwn, isDM, canDeleteOthersMessages = false, reactions, onViewReactions, onClose, onEdit, onCopy, onDeleteForMe, onDeleteForAll, onReply, onReact, onPin, onUnpin, isPinned, onReport, t }) {
   const tx = (key, fallback) => {
     const value = t(key);
     return value === key ? fallback : value;
@@ -2191,7 +2216,7 @@ const MessageMenu = memo(function MessageMenu({ x, y, msg, isOwn, isDM, reaction
       }
     );
   }
-  if (isOwn || isDM) {
+  if (isOwn || isDM || canDeleteOthersMessages) {
     items.push(
       { separator: true },
       {
@@ -2348,12 +2373,12 @@ const CommandResultRow = memo(function CommandResultRow({ msg, t }) {
 });
 
 // System message row (call ended, etc.)
-const SystemMessageRow = memo(function SystemMessageRow({ msg, currentUserId, onDismissSystemMessage, t }) {
+const SystemMessageRow = memo(function SystemMessageRow({ msg, currentUserId, onDismissSystemMessage, t, formatTime }) {
   if ((msg.subtype === 'call_ended' || msg.subtype === 'call_started') && msg.call_ended) {
     const { startedByName, durationText, reason, disconnectedUserIds = [] } = msg.call_ended;
     const isCallStarted = msg.subtype === 'call_started' || !durationText;
     const formattedTime = msg.created_at
-      ? new Date(msg.created_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+      ? formatContextualTimestamp(msg.created_at, t, formatTime)
       : '';
 
     // Clyde-style message when call ended due to 3-min alone timeout
@@ -2401,14 +2426,16 @@ const SystemMessageRow = memo(function SystemMessageRow({ msg, currentUserId, on
 
     // Regular call message: "X started a call" (in progress) or "X started a call that lasted Y" (ended)
     return (
-      <div className={`message-system-row message-system-row--call ${isCallStarted ? 'call-in-progress' : ''}`} data-message-id={msg.id}>
-        <Phone className="message-system-call-icon" size={14} strokeWidth={2} />
+      <div className={`message-system-row message-system-row--call ${isCallStarted ? 'call-in-progress' : ''}${msg.callAfterMessage ? ' message-system-row--call-after-message' : ''}`} data-message-id={msg.id}>
+        <div className="message-system-call-icon-col" aria-hidden>
+          <Phone className="message-system-call-icon" strokeWidth={2} />
+        </div>
         <span className="message-system-call-name">{startedByName}</span>
         <span className="message-system-call-text">
-          {isCallStarted ? ' started a call.' : ` started a call that lasted ${durationText}.`}
+          {isCallStarted ? 'started a call.' : `started a call that lasted ${durationText}.`}
         </span>
         {formattedTime && (
-          <span className="message-system-call-time">{formattedTime}</span>
+          <time className="message-system-call-time" dateTime={msg.created_at}>{formattedTime}</time>
         )}
       </div>
     );
@@ -2511,7 +2538,7 @@ const MessageItem = memo(function MessageItem({
   readByUsers, onUserClick, replyToMessage, onScrollToMessage,
   reactions, currentUserId, currentUserName, onToggleReaction, onViewAllReactions, isPinned, onStickerClick,
   onReply, onReact, onEdit,
-  isShiftHeld, onDeleteForMe, onDeleteForAll, isDM, t,
+  isShiftHeld, onDeleteForMe, onDeleteForAll, isDM, canDeleteOthersMessages = false, t,
   recentEmojis,
   isBlocked = false, isRevealed = false, onReveal,
   onRetryFailedMessage = null,
@@ -2593,7 +2620,7 @@ const MessageItem = memo(function MessageItem({
   
   return (
     <div 
-      className={`message-item ${isFirst ? 'first' : ''} ${isLast ? 'last' : ''} ${isSelected ? 'selected' : ''} ${msg._pending ? 'pending' : ''} ${isDeleting ? 'deleting' : ''} ${reduceMotion ? 'reduce-motion' : ''} ${isReplyToCurrentUser ? 'reply-to-me' : ''}`}
+      className={`message-item ${isFirst ? 'first' : ''} ${isLast ? 'last' : ''} ${isSelected ? 'selected' : ''} ${isPinned ? 'is-pinned' : ''} ${msg._pending ? 'pending' : ''} ${isDeleting ? 'deleting' : ''} ${reduceMotion ? 'reduce-motion' : ''} ${isReplyToCurrentUser ? 'reply-to-me' : ''}`}
       onContextMenu={handleContextMenu}
       onMouseEnter={compactTouchUi ? undefined : () => setIsMessageHovered(true)}
       onMouseLeave={compactTouchUi ? undefined : () => setIsMessageHovered(false)}
@@ -2640,7 +2667,7 @@ const MessageItem = memo(function MessageItem({
                   <AppIcon name="edit" size={20} />
                 </button>
               )}
-              {isShiftHeld && (isOwn || isDM) && (
+              {isShiftHeld && (isOwn || isDM || canDeleteOthersMessages) && (
                 <button className="hover-action-btn hover-action-delete-all" title={t('chat.delete')} onClick={() => onDeleteForAll(msg, true)}>
                   <AppIcon name="delete" size={20} />
                 </button>
@@ -2669,7 +2696,7 @@ const MessageItem = memo(function MessageItem({
             <time className="message-time">{formattedTime}</time>
             {isPinned && (
               <span className="message-pinned-indicator" title={t('chat.pinned')}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                   <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
                 </svg>
               </span>
@@ -2753,6 +2780,7 @@ const MessageList = memo(forwardRef(function MessageList({
   memberRolesMap = null,
   members = null,
   canModerateReactions = false,
+  canDeleteOthersMessages = false,
   onAtBottomChange = null,
   onLoadMore = null,
   hasMore = false,
@@ -2789,7 +2817,7 @@ const MessageList = memo(forwardRef(function MessageList({
   const contextMenuRef = useRef(null);
 
   const { settings, isCompactMode, showAvatars, showEmbeds, animateEmoji } = useSettings();
-  const { t, formatDate } = useLanguage();
+  const { t, formatDate, formatTime } = useLanguage();
   const { notify } = useNotification();
   const { blockedIds } = useBlockedUsers();
   const [revealedBlockedIds, setRevealedBlockedIds] = useState(() => new Set());
@@ -3431,6 +3459,11 @@ const MessageList = memo(forwardRef(function MessageList({
       const sameWebhookKindNext = !!next?.is_webhook === !!msg.is_webhook;
       const sameSenderAsNext = !isSystem && next && next.sender_id === msg.sender_id && next.type !== 'system' && !tooFarFromNext && sameWebhookKindNext;
       
+      const isCallNotification = isSystem && !isMemberJoin && (
+        msg.subtype === 'call_ended' || msg.subtype === 'call_started' || msg.call_ended
+      );
+      const callAfterMessage = isCallNotification && prev && prev.type !== 'system';
+      
       const formattedTime = isNaN(msgDate.getTime()) ? '' : msgDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
       
       const showTime = nextGapMinutes >= 3;
@@ -3455,6 +3488,8 @@ const MessageList = memo(forwardRef(function MessageList({
         renderKey: msg._clientKey || msg.id,
         isSystem,
         isMemberJoin,
+        isCallNotification,
+        callAfterMessage,
         isOwn,
         sender: msg.sender || {},
         formattedTime,
@@ -3517,7 +3552,11 @@ const MessageList = memo(forwardRef(function MessageList({
       if (item?.rowType === 'channelWelcome') return 112;
       if (!item || item.rowType !== 'message') return ESTIMATED_MESSAGE_HEIGHT;
       let est = ESTIMATED_MESSAGE_HEIGHT;
-      if (item.isSystem) return 48;
+      if (item.isSystem) {
+        let h = 48;
+        if (item.callAfterMessage) h += 14;
+        return h;
+      }
       if (item.showDateSeparator) est += 36;
       if (item.showUnreadDivider && !item.showDateSeparator) est += 32;
       if (item.type === 'image' || item.type === 'file') est += 80;
@@ -3685,6 +3724,7 @@ const MessageList = memo(forwardRef(function MessageList({
                           currentUserId={currentUserId}
                           onDismissSystemMessage={onDismissSystemMessage}
                           t={t}
+                          formatTime={formatTime}
                         />
                       ) : (
                       <MessageItem
@@ -3721,6 +3761,7 @@ const MessageList = memo(forwardRef(function MessageList({
                         onDeleteForMe={onDeleteForMe}
                         onDeleteForAll={onDeleteForAll}
                         isDM={isDM}
+                        canDeleteOthersMessages={canDeleteOthersMessages}
                         t={t}
                         recentEmojis={cachedRecentEmojis}
                         isBlocked={!msg.isOwn && blockedIds.has(Number(msg.sender_id) || msg.sender_id)}
@@ -3766,6 +3807,7 @@ const MessageList = memo(forwardRef(function MessageList({
                           currentUserId={currentUserId}
                           onDismissSystemMessage={onDismissSystemMessage}
                           t={t}
+                          formatTime={formatTime}
                         />
                       ) : (
                       <MessageItem
@@ -3802,6 +3844,7 @@ const MessageList = memo(forwardRef(function MessageList({
                         onDeleteForMe={onDeleteForMe}
                         onDeleteForAll={onDeleteForAll}
                         isDM={isDM}
+                        canDeleteOthersMessages={canDeleteOthersMessages}
                         t={t}
                         recentEmojis={cachedRecentEmojis}
                         isBlocked={!msg.isOwn && blockedIds.has(Number(msg.sender_id) || msg.sender_id)}
@@ -3855,7 +3898,7 @@ const MessageList = memo(forwardRef(function MessageList({
           onReport={handleReport}
           onEdit={handleStartEdit}
           onDelete={
-            onDeleteForAll && (isDM || String(mobileActionSheetMsg.sender_id) === String(currentUserId))
+            onDeleteForAll && (isDM || canDeleteOthersMessages || String(mobileActionSheetMsg.sender_id) === String(currentUserId))
               ? (m) => onDeleteForAll(m, false)
               : null
           }
@@ -3874,6 +3917,7 @@ const MessageList = memo(forwardRef(function MessageList({
           msg={contextMenu.msg}
           isOwn={contextMenu.msg.sender_id === currentUserId}
           isDM={isDM}
+          canDeleteOthersMessages={canDeleteOthersMessages}
           reactions={messageReactions[contextMenu.msg.id] || EMPTY_REACTIONS}
           onViewReactions={handleViewReactions}
           onClose={closeContextMenu}

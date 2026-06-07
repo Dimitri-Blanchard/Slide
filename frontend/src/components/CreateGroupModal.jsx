@@ -1,11 +1,14 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { direct as directApi, users as usersApi } from '../api';
+import { useLanguage } from '../context/LanguageContext';
 import Avatar from './Avatar';
+import AppIcon from './icons/AppIcon';
 import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import './CreateGroupModal.css';
 
-export default function CreateGroupModal({ isOpen, onClose, onGroupCreated, currentUser }) {
+export default function CreateGroupModal({ isOpen, onClose, onGroupCreated, currentUser, initialSelected = [] }) {
+  const { t } = useLanguage();
   const [step, setStep] = useState(1);
   const [search, setSearch] = useState('');
   const [results, setResults] = useState([]);
@@ -21,12 +24,12 @@ export default function CreateGroupModal({ isOpen, onClose, onGroupCreated, curr
       setStep(1);
       setSearch('');
       setResults([]);
-      setSelected([]);
+      setSelected(Array.isArray(initialSelected) ? initialSelected.filter(Boolean) : []);
       setGroupName('');
       setCreating(false);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [isOpen]);
+  }, [isOpen, initialSelected]);
 
   const handleSearch = useCallback((q) => {
     setSearch(q);
@@ -80,17 +83,20 @@ export default function CreateGroupModal({ isOpen, onClose, onGroupCreated, curr
 
   if (!isOpen) return null;
 
+  const defaultGroupName = selected.map(u => u.display_name).join(', ');
+
   const modal = (
     <div className={`cg-overlay${enterInstant ? ' modal-enter-instant' : ''}`} onClick={onClose}>
       <div className="cg-modal" onClick={e => e.stopPropagation()}>
+        <button className="cg-close" onClick={onClose} aria-label={t('common.close')}>
+          <AppIcon name="close" size={20} />
+        </button>
+
         <div className="cg-header">
-          <h2>Create Group</h2>
-          <p className="cg-subtitle">Select friends to add to your group</p>
-          <button className="cg-close" onClick={onClose}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M18.4 4L12 10.4L5.6 4L4 5.6L10.4 12L4 18.4L5.6 20L12 13.6L18.4 20L20 18.4L13.6 12L20 5.6L18.4 4Z"/>
-            </svg>
-          </button>
+          <h2>{t('groupModal.title')}</h2>
+          <p className="cg-subtitle">
+            {step === 1 ? t('groupModal.subtitle') : t('groupModal.nameSubtitle')}
+          </p>
         </div>
 
         {step === 1 && (
@@ -99,11 +105,9 @@ export default function CreateGroupModal({ isOpen, onClose, onGroupCreated, curr
               <div className="cg-selected-tags">
                 {selected.map(u => (
                   <span key={u.id} className="cg-tag">
-                    {u.display_name}
-                    <button onClick={() => removeSelected(u.id)}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M18.4 4L12 10.4L5.6 4L4 5.6L10.4 12L4 18.4L5.6 20L12 13.6L18.4 20L20 18.4L13.6 12L20 5.6L18.4 4Z"/>
-                      </svg>
+                    <span className="cg-tag-name">{u.display_name}</span>
+                    <button type="button" onClick={() => removeSelected(u.id)} aria-label={t('common.close')}>
+                      <AppIcon name="close" size={12} weight="bold" />
                     </button>
                   </span>
                 ))}
@@ -112,47 +116,55 @@ export default function CreateGroupModal({ isOpen, onClose, onGroupCreated, curr
                   type="text"
                   value={search}
                   onChange={e => handleSearch(e.target.value)}
-                  placeholder={selected.length === 0 ? "Search for friends..." : "Add more..."}
+                  placeholder={selected.length === 0 ? t('groupModal.searchPlaceholder') : t('groupModal.searchPlaceholderMore')}
                   className="cg-search-input"
                 />
               </div>
             </div>
 
             <div className="cg-results">
-              {searching && <div className="cg-loading">Searching...</div>}
-              {results.map(user => (
-                <button
-                  key={user.id}
-                  className={`cg-user-item ${selected.some(u => u.id === user.id) ? 'selected' : ''}`}
-                  onClick={() => toggleUser(user)}
-                >
-                  <Avatar user={user} size="small" showPresence />
-                  <div className="cg-user-info">
-                    <span className="cg-user-name">{user.display_name}</span>
-                    {user.username && <span className="cg-user-tag">@{user.username}</span>}
-                  </div>
-                  <div className={`cg-checkbox ${selected.some(u => u.id === user.id) ? 'checked' : ''}`}>
-                    {selected.some(u => u.id === user.id) && (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
-                      </svg>
-                    )}
-                  </div>
-                </button>
-              ))}
+              {searching && (
+                <div className="cg-loading">
+                  <span className="cg-spinner" />
+                  {t('groupModal.searching')}
+                </div>
+              )}
+              {!searching && results.map(user => {
+                const isSelected = selected.some(u => u.id === user.id);
+                return (
+                  <button
+                    key={user.id}
+                    type="button"
+                    className={`cg-user-item ${isSelected ? 'selected' : ''}`}
+                    onClick={() => toggleUser(user)}
+                  >
+                    <Avatar user={user} size="small" showPresence />
+                    <div className="cg-user-info">
+                      <span className="cg-user-name">{user.display_name}</span>
+                      {user.username && <span className="cg-user-tag">@{user.username}</span>}
+                    </div>
+                    <div className={`cg-checkbox ${isSelected ? 'checked' : ''}`}>
+                      {isSelected && <AppIcon name="check" size={12} weight="bold" />}
+                    </div>
+                  </button>
+                );
+              })}
               {search.length >= 2 && !searching && results.length === 0 && (
-                <div className="cg-no-results">No users found</div>
+                <div className="cg-no-results">{t('groupModal.noResults')}</div>
               )}
             </div>
 
             <div className="cg-footer">
-              <span className="cg-count">{selected.length}/9 members selected</span>
+              <span className="cg-count">
+                {t('groupModal.membersSelected', { count: selected.length })}
+              </span>
               <button
-                className="cg-next-btn"
+                type="button"
+                className="cg-primary-btn"
                 disabled={selected.length < 2}
                 onClick={() => setStep(2)}
               >
-                Next
+                {t('groupModal.next')}
               </button>
             </div>
           </>
@@ -174,23 +186,27 @@ export default function CreateGroupModal({ isOpen, onClose, onGroupCreated, curr
                 </div>
               </div>
 
-              <label className="cg-label">Group Name (optional)</label>
+              <label className="cg-label" htmlFor="cg-group-name">
+                {t('groupModal.groupName')}
+                <span className="cg-label-optional">{t('groupModal.groupNameOptional')}</span>
+              </label>
               <input
+                id="cg-group-name"
                 type="text"
                 value={groupName}
                 onChange={e => setGroupName(e.target.value)}
-                placeholder={selected.map(u => u.display_name).join(', ')}
+                placeholder={defaultGroupName}
                 className="cg-name-input"
                 maxLength={100}
                 autoFocus
               />
 
               <div className="cg-members-preview">
-                <span className="cg-label">Members ({selected.length + 1})</span>
+                <span className="cg-label">{t('groupModal.members', { count: selected.length + 1 })}</span>
                 <div className="cg-members-list">
                   <div className="cg-member-row">
                     <Avatar user={currentUser} size="tiny" />
-                    <span>{currentUser?.display_name} (you)</span>
+                    <span>{currentUser?.display_name} <em>({t('groupModal.you')})</em></span>
                   </div>
                   {selected.map(u => (
                     <div key={u.id} className="cg-member-row">
@@ -203,13 +219,16 @@ export default function CreateGroupModal({ isOpen, onClose, onGroupCreated, curr
             </div>
 
             <div className="cg-footer">
-              <button className="cg-back-btn" onClick={() => setStep(1)}>Back</button>
+              <button type="button" className="cg-back-btn" onClick={() => setStep(1)}>
+                {t('groupModal.back')}
+              </button>
               <button
-                className="cg-create-btn"
+                type="button"
+                className="cg-primary-btn"
                 disabled={creating}
                 onClick={handleCreate}
               >
-                {creating ? 'Creating...' : 'Create Group'}
+                {creating ? t('groupModal.creating') : t('groupModal.create')}
               </button>
             </div>
           </>

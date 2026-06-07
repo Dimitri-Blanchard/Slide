@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { useSettingsUi } from '../context/SettingsUiContext';
 import { AvatarImg } from './Avatar';
 import { useAuth } from '../context/AuthContext';
 import { useVoice } from '../context/VoiceContext';
@@ -77,6 +78,7 @@ export default function UserPanel() {
   const { user, accounts, switchAccount, updateUser } = useAuth();
   const { speakingUsers } = useVoice();
   const navigate = useNavigate();
+  const { openSettings } = useSettingsUi();
 
   const [onlineStatus, setOnlineStatus] = useState(() => {
     return getStoredOnlineStatus(user?.id);
@@ -322,7 +324,7 @@ export default function UserPanel() {
         <div className="user-panel-controls">
           <button
             className="user-panel-btn"
-            onClick={() => navigate('/settings')}
+            onClick={() => openSettings()}
             title="User Settings"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">

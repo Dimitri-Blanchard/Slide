@@ -1,18 +1,26 @@
-import React, { memo } from 'react';
-import { ChevronDown, HeadphoneOff, Headphones, Mic, MicOff, PhoneOff, Waves } from 'lucide-react';
-import { useVoice } from '../context/VoiceContext';
+import React, { memo, useMemo } from 'react';
+import { ChevronDown } from 'lucide-react';
+import { useVoice, getRemoteStreamForUser } from '../context/VoiceContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import AppIcon from './icons/AppIcon';
 import VoiceChannel from './VoiceChannel';
 import DMCallView from './DMCallView';
+import VoiceMiniIsland from './VoiceMiniIsland';
 import './VoiceFullscreenOverlay.css';
 
-/**
- * Fullscreen voice/call overlay on mobile.
- * Server voice: real VoiceChannel (stage, streams, participants) — not a static card.
- * DM: DMCallView. Minimize collapses to a compact bar.
- */
+function resolveIslandStream(preview, { remoteVideoStreams, ownScreenStream, ownCameraStream }) {
+  if (!preview?.isLive) return null;
+  const uid = preview.userId;
+  if (uid === 'self-screen') return ownScreenStream;
+  if (uid === 'self-camera') return ownCameraStream;
+  if (preview.isSelf) return ownCameraStream || ownScreenStream;
+  return getRemoteStreamForUser(remoteVideoStreams, uid);
+}
+
 const VoiceFullscreenOverlay = memo(function VoiceFullscreenOverlay({ isMobile, conversations }) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const {
     voiceChannelId,
     voiceTeamId,
@@ -23,6 +31,10 @@ const VoiceFullscreenOverlay = memo(function VoiceFullscreenOverlay({ isMobile, 
     voiceViewMinimized,
     setVoiceViewMinimized,
     expandedLiveView,
+    voiceMiniIslandPreview,
+    remoteVideoStreams,
+    ownScreenStream,
+    ownCameraStream,
     isMuted,
     isDeafened,
     toggleMute,
@@ -45,6 +57,64 @@ const VoiceFullscreenOverlay = memo(function VoiceFullscreenOverlay({ isMobile, 
   const isGroup = !!conversation?.is_group;
   const otherUserName = isGroup ? (conversation?.group_name || 'Group') : (otherUser?.display_name || 'Someone');
 
+  const islandSubject = useMemo(() => {
+    const preview = voiceMiniIslandPreview;
+    if (preview) {
+      return {
+        displayName: preview.displayName || displayName,
+        avatarUrl: preview.avatarUrl ?? null,
+        bannerColor: preview.bannerColor ?? null,
+        bannerColor2: preview.bannerColor2 ?? null,
+        isLive: !!preview.isLive,
+        isSpeaking: !!preview.isSpeaking,
+        isSelf: !!preview.isSelf,
+        stream: resolveIslandStream(preview, { remoteVideoStreams, ownScreenStream, ownCameraStream }),
+      };
+    }
+    if (voiceConversationId && otherUser && !isGroup) {
+      const remoteStream = getRemoteStreamForUser(remoteVideoStreams, otherUser.id);
+      if (remoteStream) {
+        return {
+          displayName: otherUser.display_name || displayName,
+          avatarUrl: otherUser.avatar_url ?? null,
+          bannerColor: otherUser.banner_color ?? null,
+          bannerColor2: otherUser.banner_color_2 ?? null,
+          isLive: true,
+          isSpeaking: false,
+          isSelf: false,
+          stream: remoteStream,
+        };
+      }
+      return {
+        displayName: otherUser.display_name || displayName,
+        avatarUrl: otherUser.avatar_url ?? null,
+        bannerColor: otherUser.banner_color ?? null,
+        bannerColor2: otherUser.banner_color_2 ?? null,
+        isLive: false,
+        isSpeaking: false,
+        isSelf: false,
+        stream: null,
+      };
+    }
+    return {
+      displayName,
+      avatarUrl: null,
+      isLive: false,
+      isSpeaking: false,
+      isSelf: false,
+      stream: null,
+    };
+  }, [
+    voiceMiniIslandPreview,
+    displayName,
+    voiceConversationId,
+    otherUser,
+    isGroup,
+    remoteVideoStreams,
+    ownScreenStream,
+    ownCameraStream,
+  ]);
+
   if (!isMobile || !isInVoice || expandedLiveView) return null;
 
   const isLeaving = !!voiceLeaveAnim;
@@ -66,7 +136,7 @@ const VoiceFullscreenOverlay = memo(function VoiceFullscreenOverlay({ isMobile, 
         disabled={isLeaving}
         aria-label={isMuted ? 'Unmute' : 'Mute'}
       >
-        {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
+        {isMuted ? <AppIcon name="micOff" size={20} /> : <AppIcon name="mic" size={20} />}
       </button>
       <button
         type="button"
@@ -75,7 +145,7 @@ const VoiceFullscreenOverlay = memo(function VoiceFullscreenOverlay({ isMobile, 
         disabled={isLeaving}
         aria-label={isDeafened ? 'Undeafen' : 'Deafen'}
       >
-        {isDeafened ? <HeadphoneOff size={20} /> : <Headphones size={20} />}
+        {isDeafened ? <AppIcon name="deafenOff" size={20} /> : <AppIcon name="deafen" size={20} />}
       </button>
       <button
         type="button"
@@ -84,44 +154,22 @@ const VoiceFullscreenOverlay = memo(function VoiceFullscreenOverlay({ isMobile, 
         disabled={isLeaving}
         aria-label="Leave voice"
       >
-        <PhoneOff size={21} />
+        <AppIcon name="phoneOff" size={21} />
       </button>
     </div>
   );
 
   if (voiceViewMinimized) {
     return (
-      <div className="voice-fullscreen-minimized-wrap">
-        <button
-          type="button"
-          className="voice-fullscreen-minimized"
-          onClick={() => setVoiceViewMinimized(false)}
-          aria-label="Expand voice"
-        >
-          <span className="voice-fullscreen-minimized-icon" aria-hidden>
-            <svg className="voice-fullscreen-wave-icon" viewBox="0 0 32 32" width="22" height="22" fill="none">
-              <path
-                d="M6 16c0-1.5.4-2.9 1.1-4.1M10 22c-1.8-1.7-3-4.1-3-6.9s1.2-5.2 3-6.9M14 24c-2.5-2.4-4-5.8-4-9.5s1.5-7.1 4-9.5M18 24c2.5-2.4 4-5.8 4-9.5s-1.5-7.1-4-9.5M22 22c1.8-1.7 3-4.1 3-6.9s-1.2-5.2-3-6.9M26 16c0-1.5-.4-2.9-1.1-4.1"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-              <circle cx="16" cy="16" r="2.2" fill="currentColor" />
-            </svg>
-          </span>
-          <span className="voice-fullscreen-minimized-label">{displayName}</span>
-          <ChevronDown size={18} className="voice-fullscreen-minimized-chevron" />
-        </button>
-        <button
-          type="button"
-          className="voice-fullscreen-minimized-leave"
-          onClick={leaveCurrentVoice}
-          disabled={isLeaving}
-          aria-label="Leave voice"
-        >
-          <PhoneOff size={20} />
-        </button>
-      </div>
+      <VoiceMiniIsland
+        displayName={islandSubject.displayName}
+        isLive={islandSubject.isLive}
+        avatarUrl={islandSubject.avatarUrl}
+        stream={islandSubject.stream}
+        isSpeaking={islandSubject.isSpeaking}
+        isSelf={islandSubject.isSelf}
+        onExpand={() => setVoiceViewMinimized(false)}
+      />
     );
   }
 
@@ -129,16 +177,13 @@ const VoiceFullscreenOverlay = memo(function VoiceFullscreenOverlay({ isMobile, 
     <div className={`voice-fullscreen-overlay voice-fullscreen-overlay--v2${voiceLeaveAnim ? ' voice-fullscreen-overlay--exiting' : ''}`}>
       <div className="voice-fullscreen-topbar">
         <div className="voice-fullscreen-brand">
-          <span className="voice-fullscreen-brand-icon" aria-hidden>
-            <Waves size={18} strokeWidth={2.4} />
-          </span>
           <span className="voice-fullscreen-brand-text">Voice</span>
         </div>
         <button
           type="button"
           className="voice-fullscreen-minimize"
           onClick={() => setVoiceViewMinimized(true)}
-          aria-label="Minimize"
+          aria-label={t('voice.minimizeVoice') || 'Minimize'}
         >
           <ChevronDown size={22} strokeWidth={2.5} />
         </button>

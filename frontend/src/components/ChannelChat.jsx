@@ -6,6 +6,7 @@ import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { useSettings } from '../context/SettingsContext';
+import { useSounds } from '../context/SoundContext';
 import { useLanguage } from '../context/LanguageContext';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
@@ -24,7 +25,8 @@ const ChannelChat = memo(function ChannelChat({ teamId, channelId, currentTeam, 
   const socket = useSocket();
   const { user } = useAuth();
   const { notify } = useNotification();
-  const { sendNotification, shouldNotify } = useSettings();
+  const { sendNotification, shouldNotify, settings } = useSettings();
+  const { playPing, playNotification } = useSounds();
   const { t } = useLanguage();
   const typingTimeoutRef = useRef(null);
   const messageListRef = useRef(null);
@@ -103,7 +105,7 @@ const ChannelChat = memo(function ChannelChat({ teamId, channelId, currentTeam, 
           const isMentioned = byDisplayName || byUsername || content.includes('@everyone') || content.includes('@channel');
           
           if (isMentioned && shouldNotify('channel', true)) {
-            // Only notify if window is not focused
+            playPing();
             if (!document.hasFocus()) {
               const senderName = msg.sender?.display_name || t('chat.someone');
               const channelName = channel?.name || t('chat.channel');
@@ -111,11 +113,14 @@ const ChannelChat = memo(function ChannelChat({ teamId, channelId, currentTeam, 
               sendNotification(t('notifications.mentioned', { name: senderName }), {
                 body: `#${channelName}: ${content.substring(0, 100)}`,
                 tag: `channel-mention-${channelId}`,
+                skipSound: true,
                 onClick: () => {
                   window.focus();
                 }
               });
             }
+          } else if (settings.enable_notifications && !document.hasFocus()) {
+            playNotification();
           }
         }
       }

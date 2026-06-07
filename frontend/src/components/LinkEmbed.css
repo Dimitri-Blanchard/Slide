@@ -181,7 +181,7 @@
   color: var(--text-muted);
   text-decoration: none;
   background: var(--bg-secondary);
-  border-top: 1px solid var(--border-subtle);
+  border-top: var(--hairline-width) solid var(--border-subtle);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

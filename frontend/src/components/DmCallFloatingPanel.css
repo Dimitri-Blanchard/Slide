@@ -47,8 +47,8 @@
   gap: 8px;
   flex-shrink: 0;
   padding: 8px 10px;
-  background: linear-gradient(180deg, #1a1b1e 0%, #151618 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-secondary, #1a1b1e);
+  border-bottom: var(--hairline-width) solid rgba(255, 255, 255, 0.06);
   cursor: grab;
   user-select: none;
 }
@@ -104,13 +104,13 @@
   text-align: center;
 }
 
-.dm-call-floating-root .dm-call-panel {
+.dm-call-floating-root .dm-call {
   border-bottom: none;
   border-radius: 0;
   min-height: 0;
   flex: 1;
 }
 
-.dm-call-floating-root .dm-call-panel.has-video {
+.dm-call-floating-root .dm-call.has-video {
   max-height: inherit;
 }

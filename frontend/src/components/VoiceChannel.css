@@ -196,7 +196,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at center, #2f3136 0%, #111214 100%);
+  background: #1a1b1e;
 }
 
 .vc-participant-avatar {
@@ -287,13 +287,17 @@
   opacity: 1;
 }
 
-/* Stream volume — over the livestream (stage), same fade as overlay (mouse move) */
-.vc-overlay-stage-vol {
+/* Stream listen volume — pinned on the live video (always visible for remote streams) */
+.vc-stage-stream-vol {
   pointer-events: all;
   position: absolute;
   top: 20px;
   right: 20px;
   z-index: 16;
+}
+
+html.platform-electron .vc-stage-stream-vol {
+  top: calc(var(--electron-titlebar-height, 36px) + 12px);
 }
 
 /* Bottom bar: name + badges (livestream) */

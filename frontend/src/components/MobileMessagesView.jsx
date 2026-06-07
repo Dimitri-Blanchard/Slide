@@ -60,7 +60,7 @@ const DMItem = memo(function DMItem({ conversation, isActive, currentConversatio
         {isGroup ? (
           <GroupAvatar participants={conversation.participants} size="medium" />
         ) : (
-          <ClickableAvatar user={other} size="medium" showPresence position="right" />
+          <ClickableAvatar user={other} size="medium" showPresence position="right" suppressProfileOpen />
         )}
       </span>
       <span className="mobile-dm-info">
@@ -88,6 +88,7 @@ export default function MobileMessagesView({
   currentLocalPrivateUserId,
   loading,
   onOpenSearch,
+  pendingFriendsCount = 0,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [pinnedIds] = useState(() => getPinnedConversations());
@@ -123,15 +124,26 @@ export default function MobileMessagesView({
 
   return (
     <div className="mobile-messages-view">
-      <button className="mobile-messages-search" onClick={onOpenSearch} type="button">
-        <span className="mobile-messages-search-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.35-4.35" />
+      <div className="mobile-messages-toolbar">
+        <Link to="/friends" className="mobile-messages-friends-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
           </svg>
-        </span>
-        <span className="mobile-messages-search-text">{t('mobileMessages.searchMessages')}</span>
-      </button>
+          <span>{t('friends.title')}</span>
+          {pendingFriendsCount > 0 && (
+            <span className="mobile-messages-friends-badge">{pendingFriendsCount > 99 ? '99+' : pendingFriendsCount}</span>
+          )}
+        </Link>
+        <button className="mobile-messages-search" onClick={onOpenSearch} type="button">
+          <span className="mobile-messages-search-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
+          </span>
+          <span className="mobile-messages-search-text">{t('mobileMessages.searchMessages')}</span>
+        </button>
+      </div>
 
       <div className="mobile-messages-search-inline">
         <input

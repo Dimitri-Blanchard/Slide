@@ -33,7 +33,7 @@
   width: 100vw;
   margin-top: auto;
   border-radius: 36px 36px 0 0;
-  border-top: 1px solid color-mix(in srgb, var(--border-subtle) 88%, transparent);
+  border-top: var(--hairline-width) solid color-mix(in srgb, var(--border-subtle) 88%, transparent);
   background: linear-gradient(175deg, var(--bg-secondary) 0%, color-mix(in srgb, var(--bg-primary) 84%, #000 16%) 100%);
   box-shadow: 0 -16px 42px rgba(0, 0, 0, 0.38);
   padding: 10px 0 calc(12px + env(safe-area-inset-bottom));
@@ -138,7 +138,7 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 4px 10px 6px;
-  border-top: 1px solid var(--border-subtle);
+  border-top: var(--hairline-width) solid var(--border-subtle);
 }
 
 .message-action-sheet-row {

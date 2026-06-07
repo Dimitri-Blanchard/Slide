@@ -129,6 +129,8 @@ function shouldBypassRequestCache(endpoint, options = {}) {
   if (options._noCache) return true;
   // QR login polling must always hit the server — stale cache caused ~10s delays.
   if (endpoint.includes('/qr-login/')) return true;
+  // Spotify now playing must be real-time (client polls every 5s).
+  if (endpoint.includes('/spotify/now-playing')) return true;
   return false;
 }
 
@@ -472,6 +474,7 @@ export async function api(endpoint, options = {}) {
       if (endpoint.includes('/channels')) clearCache('/channels');
       if (endpoint.includes('/friends') || endpoint.includes('/servers')) {
         clearCache('/friends');
+        clearPendingMatching('/friends');
         clearCache('/teams');
       }
       if (endpoint.includes('/quests') || endpoint.includes('/shop')) {
@@ -907,6 +910,8 @@ export const users = {
   suggestions: () => api('/users/suggestions'),
   getProfile: (userId) => api(`/users/${userId}/profile`),
   getCommonTeams: (userId) => api(`/users/${userId}/common-teams`),
+  getCommonFriends: (userId) => api(`/users/${userId}/common-friends`),
+  getSpotifyNowPlaying: (userId) => api(`/users/${userId}/spotify/now-playing`, { _noCache: true }),
   getByUsername: (username) => api(`/users/by-username/${encodeURIComponent(username)}`),
 };
 
@@ -1157,9 +1162,10 @@ export const stickers = {
 // FRIENDS API
 // ═══════════════════════════════════════════════════════════
 export const friends = {
-  list: () => api('/friends'),
+  list: (options = {}) => api('/friends', options),
+  listFresh: () => api('/friends', { _noCache: true }),
   online: () => api('/friends/online'),
-  pending: () => api('/friends/pending'),
+  pending: () => api('/friends/pending', { _noCache: true }),
   blocked: () => api('/friends/blocked'),
   sendRequest: (username) =>
     api('/friends/requests', { method: 'POST', body: JSON.stringify({ username }) }),

@@ -16,6 +16,9 @@ import { useNotification } from '../context/NotificationContext';
 import { useVoice } from '../context/VoiceContext';
 import { useUserContextMenuItems } from '../hooks/useUserContextMenuItems';
 import { usePrefetchOnHover } from '../context/PrefetchContext';
+import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
+import { useLongPress } from '../hooks/useLongPress';
+import { hapticImpact } from '../utils/nativeHaptics';
 import { makeLocalPrivateRoute, removeLocalPrivateChat } from '../utils/localPrivateChatCrypto';
 import AppIcon from './icons/AppIcon';
 import './Sidebar.css';
@@ -71,6 +74,7 @@ const DMItem = memo(function DMItem({ conversation, isActive, onContextMenu, onC
   const isGroup = !!conversation.is_group;
   const other = conversation.participants?.[0];
   const { onMouseEnter, onMouseLeave } = usePrefetchOnHover();
+  const compactTouchUi = useCompactTouchUi();
   const name = isGroup
     ? (conversation.group_name || conversation.participants?.map(p => p.display_name).join(', ') || 'Group')
     : (other?.display_name || 'Conversation');
@@ -84,6 +88,20 @@ const DMItem = memo(function DMItem({ conversation, isActive, onContextMenu, onC
     e.stopPropagation();
     onContextMenu?.(e, conversation);
   };
+
+  const { longPressProps, shouldSkipClick } = useLongPress(
+    useCallback((e) => {
+      hapticImpact('Medium');
+      onContextMenu?.(e, conversation);
+    }, [conversation, onContextMenu]),
+    { disabled: !compactTouchUi },
+  );
+
+  const handleLinkClick = useCallback((e) => {
+    if (shouldSkipClick()) {
+      e.preventDefault();
+    }
+  }, [shouldSkipClick]);
 
   const handleClose = (e) => {
     e.preventDefault();
@@ -104,12 +122,17 @@ const DMItem = memo(function DMItem({ conversation, isActive, onContextMenu, onC
       <Link
         to={to}
         className={`dm-item ${isActive ? 'active' : ''} ${unreadCount > 0 ? 'has-unread' : ''} ${isLocalPrivate ? 'local-private-dm' : ''}`}
-        onContextMenu={handleContextMenu}
+        onContextMenu={compactTouchUi ? longPressProps.onContextMenu : handleContextMenu}
+        onPointerDown={compactTouchUi ? longPressProps.onPointerDown : undefined}
+        onPointerMove={compactTouchUi ? longPressProps.onPointerMove : undefined}
+        onPointerUp={compactTouchUi ? longPressProps.onPointerUp : undefined}
+        onPointerCancel={compactTouchUi ? longPressProps.onPointerCancel : undefined}
+        onClick={compactTouchUi ? handleLinkClick : undefined}
         onMouseEnter={!isGroup && other?.id ? () => onMouseEnter(other.id, other) : undefined}
         onMouseLeave={!isGroup ? onMouseLeave : undefined}
         draggable={false}
       >
-        <span className="dm-item-avatar-wrap" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }} onContextMenu={handleAvatarContextMenu}>
+        <span className="dm-item-avatar-wrap" onContextMenu={handleAvatarContextMenu}>
           {isGroup ? (
             <GroupAvatar participants={conversation.participants} size="medium" onContextMenu={handleAvatarContextMenu} />
           ) : (
@@ -118,6 +141,7 @@ const DMItem = memo(function DMItem({ conversation, isActive, onContextMenu, onC
               size="medium"
               showPresence
               position="right"
+              suppressProfileOpen
               contextMenuContext={{
                 conversationId: isLocalPrivate ? null : id,
                 lastMessageId: isLocalPrivate ? null : (conversation.last_message_id || null),
@@ -165,6 +189,7 @@ const Sidebar = memo(function Sidebar({
   onOpenSearch,
   width,
   onResizeStart,
+  pendingFriendsCount = 0,
 }) {
   const [showNewDM, setShowNewDM] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -205,17 +230,30 @@ const Sidebar = memo(function Sidebar({
     debouncedSearch(q);
   }, [debouncedSearch]);
 
+  const closeDmSearch = useCallback(() => {
+    setShowNewDM(false);
+    setDmSearch('');
+    setDmResults([]);
+  }, []);
+
   const startDm = useCallback((otherUser) => {
     directApi.createConversation(otherUser.id).then((conv) => {
       const convWithParticipants = { ...conv, participants: conv.participants || [otherUser] };
       onAddConversation?.(convWithParticipants);
       onRefreshConversations();
-      setShowNewDM(false);
-      setDmSearch('');
-      setDmResults([]);
+      closeDmSearch();
       navigate(`/channels/@me/${conv.conversation_id}`);
     }).catch(console.error);
-  }, [onAddConversation, onRefreshConversations, navigate]);
+  }, [onAddConversation, onRefreshConversations, navigate, closeDmSearch]);
+
+  useEffect(() => {
+    if (!showNewDM) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') closeDmSearch();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showNewDM, closeDmSearch]);
 
   const handleConversationContextMenu = useCallback((e, conversation) => {
     setContextMenu({ visible: true, x: e.clientX, y: e.clientY, conversation });
@@ -357,7 +395,15 @@ const Sidebar = memo(function Sidebar({
 
   return (
     <aside className="sidebar" data-tour-id="tour-dms" style={width ? { width, minWidth: width } : undefined}>
-      {onResizeStart && <div className="sidebar-resize-handle" onMouseDown={onResizeStart} />}
+      {onResizeStart && (
+        <div
+          className="sidebar-resize-handle"
+          onMouseDown={onResizeStart}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Redimensionner la barre latérale"
+        />
+      )}
       {/* Search bar at top (Discord style) */}
       <button className="sidebar-search-btn" onClick={onOpenSearch} data-tour-id="tour-search">
         <span>Find or start a conversation</span>
@@ -368,6 +414,9 @@ const Sidebar = memo(function Sidebar({
           <Link to="/channels/@me" className={`sidebar-nav-item ${isFriendsActive ? 'active' : ''}`} draggable={false}>
             <AppIcon name="friends" size={24} className="sidebar-nav-icon" />
             <span>{t('sidebar.friends')}</span>
+            {pendingFriendsCount > 0 && (
+              <span className="sidebar-friends-badge">{pendingFriendsCount > 99 ? '99+' : pendingFriendsCount}</span>
+            )}
           </Link>
 
           <Link to="/security" className={`sidebar-nav-item sidebar-nav-btn ${location.pathname === '/security' ? 'active' : ''}`} draggable={false}>
@@ -394,17 +443,20 @@ const Sidebar = memo(function Sidebar({
               type="button"
               className="sidebar-add"
               onClick={() => setShowCreateGroup(true)}
-              title="Create Group"
+              title={t('sidebar.createGroup')}
+              aria-label={t('sidebar.createGroup')}
             >
-              <AppIcon name="userPlus" size={16} />
+              <AppIcon name="friends" size={16} />
             </button>
             <button
               type="button"
-              className="sidebar-add"
-              onClick={() => setShowNewDM(true)}
+              className={`sidebar-add ${showNewDM ? 'active' : ''}`}
+              onClick={() => (showNewDM ? closeDmSearch() : setShowNewDM(true))}
               title={t('sidebar.newConversation')}
+              aria-label={t('sidebar.newConversation')}
+              aria-expanded={showNewDM}
             >
-              <AppIcon name="plus" size={16} weight="bold" />
+              <AppIcon name="plus" size={16} />
             </button>
           </div>
         </div>
@@ -414,9 +466,10 @@ const Sidebar = memo(function Sidebar({
           <div className="sidebar-dm-search">
             <input
               type="text"
+              className="sidebar-dm-search-input"
               value={dmSearch}
               onChange={(e) => handleDmSearch(e.target.value)}
-              placeholder={t('common.search')}
+              placeholder={t('sidebar.searchUsers')}
               autoFocus
             />
             {dmSearching && (
@@ -447,9 +500,6 @@ const Sidebar = memo(function Sidebar({
                 ))}
               </ul>
             )}
-            <button type="button" className="sidebar-close-dm" onClick={() => { setShowNewDM(false); setDmSearch(''); setDmResults([]); }}>
-              {t('common.close')}
-            </button>
           </div>
         )}
 

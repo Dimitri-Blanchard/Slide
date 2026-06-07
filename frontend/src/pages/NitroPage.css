@@ -45,7 +45,7 @@
     rgba(168, 85, 247, 0.03) 50%,
     transparent 100%),
     var(--bg-primary);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
 }
 
 [data-theme="dark"] .nitro-hero {
@@ -544,7 +544,7 @@
   padding: 8px 0;
   font-size: 0.9rem;
   color: var(--text-secondary);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
 }
 
 .nitro-plan-features li:last-child { border-bottom: none; }

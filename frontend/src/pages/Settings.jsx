@@ -601,7 +601,6 @@ const getSettingsCategories = (t) => [
     label: t('settings.userSettings'),
     items: [
       { id: 'account', label: t('settings.account'), icon: 'user' },
-      { id: 'profile', label: t('settings.profile'), icon: 'profile' },
       { id: 'privacy', label: t('settings.privacy'), icon: 'shield' },
       { id: 'connections', label: t('connections.title'), icon: 'link' },
       { id: 'blocked', label: t('friends.blocked'), icon: 'blocked' },
@@ -637,13 +636,6 @@ const SettingsIcon = ({ name }) => {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
         <circle cx="12" cy="7" r="4"/>
-      </svg>
-    ),
-    profile: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-        <circle cx="8.5" cy="8.5" r="1.5"/>
-        <polyline points="21 15 16 10 5 21"/>
       </svg>
     ),
     shield: (
@@ -744,11 +736,12 @@ const SettingsIcon = ({ name }) => {
 const ToggleSwitch = ({ checked, onChange, disabled = false }) => (
   <button
     type="button"
-    className={`toggle-switch ${checked ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
+    className={`settings-toggle ${checked ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
     onClick={() => !disabled && onChange(!checked)}
     disabled={disabled}
+    aria-pressed={checked}
   >
-    <span className="toggle-slider" />
+    <span className="settings-toggle-knob" />
   </button>
 );
 
@@ -850,15 +843,99 @@ const SettingsRow = ({ label, description, children }) => (
   </div>
 );
 
+function maskEmail(email) {
+  if (!email || typeof email !== 'string') return '';
+  const at = email.indexOf('@');
+  if (at <= 0) return '••••••••';
+  const domain = email.slice(at + 1);
+  return `${'•'.repeat(Math.min(8, Math.max(4, at)))}@${domain}`;
+}
+
+function maskPhone(phone) {
+  if (!phone) return '';
+  const digits = String(phone).replace(/\D/g, '');
+  if (digits.length < 4) return '••••••';
+  const hidden = Math.max(digits.length - 4, 4);
+  return `${digits.slice(0, 2)}${'•'.repeat(hidden)}${digits.slice(-2)}`;
+}
+
+function SettingsRevealableValue({
+  masked,
+  revealed,
+  muted,
+  className = 'settings-discord-row-value',
+  revealClassName = 'settings-reveal-link',
+}) {
+  const { t } = useLanguage();
+  const [isRevealed, setIsRevealed] = useState(false);
+  const canReveal = masked != null && revealed != null && masked !== revealed;
+  const displayValue = isRevealed || !canReveal ? (revealed ?? masked) : masked;
+
+  return (
+    <span className="settings-revealable-value">
+      <span className={`${className}${muted ? ` ${className}--muted` : ''}`}>
+        {displayValue}
+      </span>
+      {canReveal && !isRevealed && (
+        <button type="button" className={revealClassName} onClick={() => setIsRevealed(true)}>
+          {t('common.reveal')}
+        </button>
+      )}
+    </span>
+  );
+}
+
+function SettingsDiscordRow({ label, value, revealedValue, revealable, muted, actionLabel, onAction, children }) {
+  return (
+    <div className="settings-discord-row">
+      <div className="settings-discord-row-body">
+        <span className="settings-discord-row-label">{label}</span>
+        {revealable ? (
+          <SettingsRevealableValue masked={value} revealed={revealedValue} muted={muted} />
+        ) : value != null && value !== '' && (
+          <span className={`settings-discord-row-value${muted ? ' settings-discord-row-value--muted' : ''}`}>
+            {value}
+          </span>
+        )}
+        {children}
+      </div>
+      {onAction && (
+        <button type="button" className="settings-discord-row-action" onClick={onAction}>
+          {actionLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // Settings Divider
-const SettingsDivider = ({ title }) => (
+const SettingsDivider = ({ title, description }) => (
   <div className="settings-divider">
-    {title && <span className="settings-divider-title">{title}</span>}
+    <div className="settings-divider-heading">
+      {title && <span className="settings-divider-title">{title}</span>}
+      {description && <p className="settings-divider-description">{description}</p>}
+    </div>
     <div className="settings-divider-line" />
   </div>
 );
 
-export default function Settings() {
+export default function Settings({
+  presentation = 'fullscreen',
+  onRequestClose,
+  initialSection = null,
+  initialQuery = '',
+}) {
+  const isModal = presentation === 'modal';
+
+  useEffect(() => {
+    document.body.classList.add('settings-open');
+    if (isModal) document.body.classList.add('settings-modal-open');
+    return () => {
+      document.body.classList.remove('settings-open');
+      document.body.classList.remove('settings-modal-open');
+    };
+  }, [isModal]);
+
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -873,6 +950,12 @@ export default function Settings() {
   
   // Active section state
   const [activeSection, setActiveSection] = useState('account');
+  const [headerCompact, setHeaderCompact] = useState(false);
+  const contentScrollRef = useRef(null);
+  const [mobileView, setMobileView] = useState('hub');
+  const isMobileFullscreen = !isModal;
+  const isMobileHub = isMobileFullscreen && mobileView === 'hub';
+  const isMobileSection = isMobileFullscreen && mobileView === 'section';
   
   // Loading states
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -1169,31 +1252,69 @@ export default function Settings() {
     }
   }, [activeSection, activityLog.length, loadingActivity]);
   
-  // Open section from URL (?section=connections etc.)
+  // Open section from URL (?section=connections etc.) — mobile route only
   useEffect(() => {
+    if (isModal) return;
     const section = searchParams.get('section');
-    if (section && SETTINGS_CATEGORIES.some(cat => cat.items?.some(i => i.id === section))) {
+    if (section && (section === 'profile' || SETTINGS_CATEGORIES.some(cat => cat.items?.some(i => i.id === section)))) {
       setActiveSection(section);
+      setMobileView('section');
+      return;
     }
-  }, [searchParams.get('section')]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!searchParams.get('spotify')) {
+      setMobileView('hub');
+    }
+  }, [isModal, searchParams, SETTINGS_CATEGORIES]);
 
-  // Handle Spotify OAuth callback from URL (?spotify=connected or ?spotify=error)
   useEffect(() => {
-    const spotify = searchParams.get('spotify');
+    if (!isMobileFullscreen || mobileView !== 'section') return;
+    const current = searchParams.get('section');
+    if (current === activeSection) return;
+    const next = new URLSearchParams(searchParams);
+    next.set('section', activeSection);
+    setSearchParams(next, { replace: true });
+  }, [activeSection, isMobileFullscreen, mobileView, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!isModal || !initialSection) return;
+    if (initialSection === 'profile' || SETTINGS_CATEGORIES.some(cat => cat.items?.some(i => i.id === initialSection))) {
+      setActiveSection(initialSection);
+    }
+  }, [isModal, initialSection, SETTINGS_CATEGORIES]);
+
+  const applySpotifyCallback = useCallback((params) => {
+    const spotify = params.get('spotify');
     if (!spotify) return;
     setActiveSection('connections');
-    const next = new URLSearchParams(searchParams);
-    next.delete('spotify');
-    next.delete('reason');
-    setSearchParams(next, { replace: true });
     if (spotify === 'connected') {
       notify.success(t('connections.spotifyConnected') || 'Spotify connected!');
       settingsApi.getConnections().then(list => setConnections(list || []));
     } else if (spotify === 'error') {
-      const reason = searchParams.get('reason') || 'unknown';
+      const reason = params.get('reason') || 'unknown';
       notify.error(reason === 'not_configured' ? 'Spotify is not configured on this server.' : `Spotify connection failed: ${reason}`);
     }
-  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [notify, t]);
+
+  // Handle Spotify OAuth callback from URL (?spotify=connected or ?spotify=error)
+  useEffect(() => {
+    if (isModal) {
+      if (!initialQuery) return;
+      const params = new URLSearchParams(initialQuery);
+      if (!params.get('spotify')) return;
+      applySpotifyCallback(params);
+      return;
+    }
+    const spotify = searchParams.get('spotify');
+    if (!spotify) return;
+    setActiveSection('connections');
+    setMobileView('section');
+    const next = new URLSearchParams(searchParams);
+    next.set('section', 'connections');
+    next.delete('spotify');
+    next.delete('reason');
+    setSearchParams(next, { replace: true });
+    applySpotifyCallback(searchParams);
+  }, [isModal, initialQuery, searchParams, setSearchParams, applySpotifyCallback]);
 
   // Load connections when viewing that section
   useEffect(() => {
@@ -1937,8 +2058,23 @@ export default function Settings() {
       setUnsavedBarShake(true);
       return;
     }
-    navigate(-1);
-  }, [navigate, hasAnyUnsavedChanges]);
+    if (isMobileFullscreen && mobileView === 'section') {
+      setMobileView('hub');
+      const next = new URLSearchParams(searchParams);
+      next.delete('section');
+      setSearchParams(next, { replace: true });
+      return;
+    }
+    if (onRequestClose) {
+      onRequestClose();
+      return;
+    }
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/channels/@me', { replace: true });
+    }
+  }, [navigate, hasAnyUnsavedChanges, onRequestClose, isMobileFullscreen, mobileView, searchParams, setSearchParams]);
 
   // Keyboard shortcut to close (Escape closes modals first, then settings)
   useEffect(() => {
@@ -2143,12 +2279,59 @@ export default function Settings() {
       case 'account':
         return (
           <div className="settings-content-section">
-            <h2 className="settings-content-title">{t('account.title')}</h2>
+            {!isModal && <h2 className="settings-content-title">{t('account.title')}</h2>}
             
             {loadingProfile ? (
               <div className="settings-skeleton">
                 {[1, 2, 3, 4].map((i) => <div key={i} className="settings-skeleton-row" />)}
               </div>
+            ) : isModal ? (
+              <>
+                <div className="settings-discord-rows">
+                  <SettingsDiscordRow
+                    label={t('account.username')}
+                    value={`@${username || profile?.email?.split('@')[0]}`}
+                    actionLabel={t('common.edit')}
+                    onAction={() => { setNewUsername(username); setShowUsernameModal(true); }}
+                  />
+                  <SettingsDiscordRow
+                    label={t('account.email')}
+                    value={maskEmail(profile?.email || user?.email)}
+                    revealedValue={profile?.email || user?.email}
+                    revealable
+                    actionLabel={t('common.edit')}
+                    onAction={() => {
+                      setNewEmail('');
+                      setEmailPassword('');
+                      setEmailChangeMfaCode('');
+                      setEmailChangeStep('form');
+                      setShowEmailModal(true);
+                    }}
+                  />
+                  <SettingsDiscordRow
+                    label={t('account.phone')}
+                    value={phone ? maskPhone(phone) : t('account.notSet')}
+                    revealedValue={phone || undefined}
+                    revealable={!!phone}
+                    muted={!phone}
+                    actionLabel={phone ? t('common.edit') : t('common.add')}
+                    onAction={openPhoneModal}
+                  />
+                  <SettingsDiscordRow
+                    label={t('auth.password')}
+                    value="••••••••"
+                    actionLabel={t('common.edit')}
+                    onAction={() => {
+                      setCurrentPassword('');
+                      setNewPassword('');
+                      setConfirmPassword('');
+                      setPasswordChangeMfaCode('');
+                      setPasswordChangeStep('form');
+                      setShowPasswordModal(true);
+                    }}
+                  />
+                </div>
+              </>
             ) : (
               <>
                 <div className="account-info-card">
@@ -2160,8 +2343,7 @@ export default function Settings() {
                         <div className="user-account-status-badge online" />
                       </div>
                       <div className="account-info-card-user">
-                        <h3 className="account-info-card-name">{displayName || profile?.display_name || t('chat.user')}</h3>
-                        <div className="account-info-card-tag">@{username || profile?.email?.split('@')[0]}</div>
+                        <h3 className="account-info-card-name">@{username || profile?.email?.split('@')[0]}</h3>
                       </div>
                     </div>
                     <button className="btn-edit-profile" onClick={() => setActiveSection('profile')}>
@@ -2169,15 +2351,6 @@ export default function Settings() {
                     </button>
                   </div>
                   <div className="account-info-card-body">
-                    <div className="account-info-row">
-                      <div className="account-info-row-main">
-                        <label>{t('profile.displayName')}</label>
-                        <span>{displayName || profile?.display_name || t('chat.user')}</span>
-                      </div>
-                      <button className="btn-field-edit" type="button" onClick={() => setActiveSection('profile')}>
-                        {t('common.edit')}
-                      </button>
-                    </div>
                     <div className="account-info-row">
                       <div className="account-info-row-main">
                         <label>{t('account.username')}</label>
@@ -2190,7 +2363,12 @@ export default function Settings() {
                     <div className="account-info-row">
                       <div className="account-info-row-main">
                         <label>{t('account.email')}</label>
-                        <span>{profile?.email || user?.email}</span>
+                        <SettingsRevealableValue
+                          masked={maskEmail(profile?.email || user?.email)}
+                          revealed={profile?.email || user?.email}
+                          className=""
+                          revealClassName="settings-reveal-link"
+                        />
                       </div>
                       <button className="btn-field-edit" type="button" onClick={() => {
                         setNewEmail('');
@@ -2205,36 +2383,41 @@ export default function Settings() {
                     <div className="account-info-row">
                       <div className="account-info-row-main">
                         <label>{t('account.phone')}</label>
-                        <span className={phone ? '' : 'text-muted'}>{phone || t('account.notSet')}</span>
+                        {phone ? (
+                          <SettingsRevealableValue
+                            masked={maskPhone(phone)}
+                            revealed={phone}
+                            className=""
+                            revealClassName="settings-reveal-link"
+                          />
+                        ) : (
+                          <span className="text-muted">{t('account.notSet')}</span>
+                        )}
                       </div>
                       <button className="btn-field-edit" type="button" onClick={openPhoneModal}>
                         {phone ? t('common.edit') : t('common.add')}
                       </button>
                     </div>
+                    <div className="account-info-row">
+                      <div className="account-info-row-main">
+                        <label>{t('auth.password')}</label>
+                        <span>••••••••</span>
+                      </div>
+                      <button type="button" className="btn-field-edit" onClick={() => {
+                        setCurrentPassword('');
+                        setNewPassword('');
+                        setConfirmPassword('');
+                        setPasswordChangeMfaCode('');
+                        setPasswordChangeStep('form');
+                        setShowPasswordModal(true);
+                      }}>
+                        {t('account.changePassword')}
+                      </button>
+                    </div>
                   </div>
                 </div>
-                
               </>
             )}
-            
-            <SettingsDivider title={t('account.passwordSecurity')} />
-            
-            <div className="settings-field">
-              <label>{t('auth.password')}</label>
-              <div className="settings-field-value">
-                <span>••••••••</span>
-                <button type="button" className="btn-field-edit" onClick={() => {
-                  setCurrentPassword('');
-                  setNewPassword('');
-                  setConfirmPassword('');
-                  setPasswordChangeMfaCode('');
-                  setPasswordChangeStep('form');
-                  setShowPasswordModal(true);
-                }}>
-                  {t('account.changePassword')}
-                </button>
-              </div>
-            </div>
             
             <SettingsDivider title={t('account.twoFactor')} />
             
@@ -3795,68 +3978,315 @@ export default function Settings() {
     }
   };
 
-  const settingsOverlay = (
-    <div className="settings-page" onClick={(e) => e.target.classList.contains('settings-page') && handleClose()}>
-      {/* Modal container */}
-      <div className="settings-modal-container">
-        {/* Sidebar Navigation */}
-        <nav className="settings-nav">
-        <div className="settings-nav-header">
-          <input
-            type="text"
-            placeholder={t('common.search')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="settings-search"
-          />
-        </div>
-        
-        <div className="settings-nav-content">
-          {SETTINGS_CATEGORIES.map(category => (
-            <div key={category.id} className="settings-nav-category">
-              <h3 className="settings-nav-category-title">{category.label}</h3>
-              {category.items
-                .filter(item => 
-                  item.label.toLowerCase().includes(searchQuery.toLowerCase())
-                )
-                .map(item => (
+  const filteredMobileCategories = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return SETTINGS_CATEGORIES;
+    return SETTINGS_CATEGORIES.map((category) => ({
+      ...category,
+      items: category.items.filter((item) => item.label.toLowerCase().includes(query)),
+    })).filter((category) => category.items.length > 0);
+  }, [SETTINGS_CATEGORIES, searchQuery]);
+
+  const activeSectionCategoryLabel = useMemo(() => {
+    if (activeSection === 'profile') return SETTINGS_CATEGORIES[0]?.label || t('settings.userSettings');
+    for (const category of SETTINGS_CATEGORIES) {
+      if (category.items?.some((item) => item.id === activeSection)) {
+        return category.label;
+      }
+    }
+    return t('settings.title');
+  }, [SETTINGS_CATEGORIES, activeSection, t]);
+
+  const activeSectionLabel = useMemo(() => {
+    if (activeSection === 'profile') return t('settings.profile');
+    for (const category of SETTINGS_CATEGORIES) {
+      const match = category.items?.find((item) => item.id === activeSection);
+      if (match) return match.label;
+    }
+    return t('settings.title');
+  }, [SETTINGS_CATEGORIES, activeSection, t]);
+
+  useEffect(() => {
+    if (!isModal) return undefined;
+    const scrollEl = contentScrollRef.current;
+    if (!scrollEl) return undefined;
+
+    scrollEl.scrollTop = 0;
+    setHeaderCompact(false);
+
+    let rafId = 0;
+    const SCROLL_COMPACT = 48;
+    const SCROLL_EXPAND = 8;
+
+    const onScroll = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const y = scrollEl.scrollTop;
+        const atBottom = y + scrollEl.clientHeight >= scrollEl.scrollHeight - 4;
+
+        setHeaderCompact((prev) => {
+          if (atBottom || y > SCROLL_COMPACT) return true;
+          if (y < SCROLL_EXPAND) return false;
+          return prev;
+        });
+      });
+    };
+
+    scrollEl.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      scrollEl.removeEventListener('scroll', onScroll);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [isModal, activeSection]);
+
+  const navigateToSection = useCallback((sectionId) => {
+    setActiveSection(sectionId);
+    if (!isMobileFullscreen) return;
+    setMobileView('section');
+    const next = new URLSearchParams(searchParams);
+    next.set('section', sectionId);
+    setSearchParams(next, { replace: true });
+  }, [isMobileFullscreen, searchParams, setSearchParams]);
+
+  const backToMobileHub = useCallback(() => {
+    if (hasAnyUnsavedChanges) {
+      setUnsavedBarShake(true);
+      return;
+    }
+    setMobileView('hub');
+    const next = new URLSearchParams(searchParams);
+    next.delete('section');
+    setSearchParams(next, { replace: true });
+  }, [hasAnyUnsavedChanges, searchParams, setSearchParams]);
+
+  const mobileProfileName = displayName || profile?.display_name || user?.display_name || t('chat.user');
+  const mobileProfileTag = `@${username || profile?.username || profile?.email?.split('@')[0] || user?.username || 'user'}`;
+
+  const settingsMain = (
+    <>
+        {isMobileHub ? (
+          <>
+            <header className="settings-mobile-header">
+              <button
+                type="button"
+                className="settings-mobile-header-btn"
+                onClick={handleClose}
+                aria-label={t('common.close')}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+              <h1 className="settings-mobile-header-title">{t('settings.title')}</h1>
+              <span className="settings-mobile-header-spacer" aria-hidden />
+            </header>
+
+            <div className="settings-mobile-hub-body">
+              <button
+                type="button"
+                className="settings-mobile-profile-card"
+                onClick={() => navigateToSection('account')}
+              >
+                <div className="settings-mobile-profile-avatar">
+                  <Avatar user={{ ...user, avatar_url: selectedAvatar || user?.avatar_url }} size="large" />
+                </div>
+                <div className="settings-mobile-profile-info">
+                  <span className="settings-mobile-profile-name">{mobileProfileName}</span>
+                  <span className="settings-mobile-profile-tag">{mobileProfileTag}</span>
+                </div>
+                <svg className="settings-mobile-row-chevron" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                  <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z" />
+                </svg>
+              </button>
+
+              <div className="settings-mobile-search-wrap">
+                <svg className="settings-mobile-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <circle cx="11" cy="11" r="8"/>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input
+                  type="search"
+                  placeholder={t('common.search')}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="settings-mobile-search"
+                  enterKeyHint="search"
+                />
+              </div>
+
+              {filteredMobileCategories.map((category) => (
+                <section key={category.id} className="settings-mobile-group">
+                  <h2 className="settings-mobile-group-label">{category.label}</h2>
+                  <div className="settings-mobile-group-card">
+                    {category.items.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className="settings-mobile-row"
+                        onClick={() => navigateToSection(item.id)}
+                      >
+                        <span className="settings-mobile-row-icon">
+                          <SettingsIcon name={item.icon} />
+                        </span>
+                        <span className="settings-mobile-row-label">{item.label}</span>
+                        <svg className="settings-mobile-row-chevron" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                          <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z" />
+                        </svg>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ))}
+
+              <button type="button" className="settings-mobile-row settings-mobile-row--logout" onClick={handleLogout}>
+                <span className="settings-mobile-row-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                  </svg>
+                </span>
+                <span className="settings-mobile-row-label">{t('auth.logout')}</span>
+              </button>
+
+              <div className="settings-mobile-version">
+                <span>{t('settings.version')}</span>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {isMobileSection && (
+              <header className="settings-mobile-header">
+                <button
+                  type="button"
+                  className="settings-mobile-header-btn"
+                  onClick={backToMobileHub}
+                  aria-label={t('common.back')}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6"/>
+                  </svg>
+                </button>
+                <h1 className="settings-mobile-header-title">{activeSectionLabel}</h1>
+                <span className="settings-mobile-header-spacer" aria-hidden />
+              </header>
+            )}
+
+            {!isMobileFullscreen && (
+              <nav className="settings-nav settings-nav--cosmic">
+                <div className="settings-nav-top">
                   <button
-                    key={item.id}
-                    className={`settings-nav-item ${activeSection === item.id ? 'active' : ''}`}
-                    onClick={() => setActiveSection(item.id)}
+                    type="button"
+                    className={`settings-nav-profile${activeSection === 'profile' ? ' is-active' : ''}`}
+                    onClick={() => setActiveSection('profile')}
                   >
-                    <SettingsIcon name={item.icon} />
-                    <span>{item.label}</span>
+                    <div className="settings-nav-profile-avatar">
+                      <Avatar user={{ ...user, avatar_url: selectedAvatar || user?.avatar_url }} size="medium" />
+                    </div>
+                    <div className="settings-nav-profile-info">
+                      <span className="settings-nav-profile-name">{mobileProfileName}</span>
+                      <span className="settings-nav-profile-edit">{t('account.editProfile')}</span>
+                    </div>
+                    <span className="settings-nav-profile-chevron" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 18l6-6-6-6"/>
+                      </svg>
+                    </span>
                   </button>
-                ))}
-            </div>
-          ))}
-          
-          <div className="settings-nav-footer">
-            <button className="settings-nav-item logout" onClick={handleLogout}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16 17 21 12 16 7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
-              <span>{t('auth.logout')}</span>
-            </button>
-            
-            <div className="settings-version">
-              <span>{t('settings.version')}</span>
-            </div>
-          </div>
-        </div>
-      </nav>
-      
-        {/* Main Content */}
-        <main className={`settings-content ${activeSection === 'profile' ? 'settings-content--profile' : ''}`}>
-          <div className={`settings-content-wrapper ${activeSection === 'profile' ? 'settings-content-wrapper--profile' : ''}`}>
-            {renderSectionContent()}
-          </div>
-        </main>
-        
-        {/* Barre du bas – sauvegardez avant de quitter */}
+
+                  <div className="settings-nav-search-wrap">
+                    <svg className="settings-nav-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                      <circle cx="11" cy="11" r="8"/>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                    <input
+                      type="search"
+                      placeholder={t('common.search')}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="settings-search"
+                    />
+                  </div>
+                </div>
+
+                <div className="settings-nav-scroll">
+                  {SETTINGS_CATEGORIES.map(category => (
+                    <div key={category.id} className="settings-nav-category">
+                      <h3 className="settings-nav-category-title">{category.label}</h3>
+                      {category.items
+                        .filter(item =>
+                          item.label.toLowerCase().includes(searchQuery.toLowerCase())
+                        )
+                        .map(item => (
+                          <button
+                            key={item.id}
+                            className={`settings-nav-item ${activeSection === item.id ? 'active' : ''}`}
+                            onClick={() => setActiveSection(item.id)}
+                          >
+                            <SettingsIcon name={item.icon} />
+                            <span>{item.label}</span>
+                          </button>
+                        ))}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="settings-nav-bottom">
+                  <button className="settings-nav-item logout" onClick={handleLogout}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                      <polyline points="16 17 21 12 16 7"/>
+                      <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                    <span>{t('auth.logout')}</span>
+                  </button>
+                  <div className="settings-version">
+                    <span>{t('settings.version')}</span>
+                  </div>
+                </div>
+              </nav>
+            )}
+
+            <main className={`settings-content ${activeSection === 'profile' ? 'settings-content--profile' : ''}${isModal ? ' settings-content--cosmic-modal' : ''}`}>
+              {isModal && (
+                <header
+                  className={`settings-modal-content-header${headerCompact ? ' settings-modal-content-header--compact' : ''}`}
+                  key={`hdr-${activeSection}`}
+                >
+                  <div className="settings-modal-content-header-inner">
+                    <span className="settings-modal-content-account-label">{activeSectionCategoryLabel}</span>
+                    <h2 className="settings-modal-content-title">{activeSectionLabel}</h2>
+                  </div>
+                  <div className="settings-close-cluster">
+                    <span className="settings-close-hint" aria-hidden="true">ESC</span>
+                    <button
+                      type="button"
+                      className="settings-close settings-close--header"
+                      onClick={handleClose}
+                      title={`${t('common.close')} (ESC)`}
+                      aria-label={t('common.close')}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  </div>
+                </header>
+              )}
+              <div
+                ref={contentScrollRef}
+                key={isModal ? activeSection : 'settings-static'}
+                className={`settings-content-wrapper ${activeSection === 'profile' ? 'settings-content-wrapper--profile' : ''}${isModal ? ' settings-content-wrapper--swap' : ''}`}
+              >
+                {renderSectionContent()}
+              </div>
+            </main>
+          </>
+        )}
+
         {(hasAnyUnsavedChanges || saveBarExiting) && (
           <div
             className={`settings-unsaved-bar ${unsavedBarShake ? 'settings-unsaved-bar--shake' : ''} ${saveBarExiting ? 'settings-unsaved-bar--exiting' : ''}`}
@@ -3902,14 +4332,41 @@ export default function Settings() {
           </div>
         )}
 
-        {/* Close Button */}
-        <button className="settings-close" onClick={handleClose} title={`${t('common.close')} (ESC)`} aria-label={t('common.close')}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
+        {!isMobileFullscreen && !isModal && (
+          <div className="settings-close-cluster settings-close-cluster--floating">
+            <span className="settings-close-hint" aria-hidden="true">ESC</span>
+            <button className="settings-close" onClick={handleClose} title={`${t('common.close')} (ESC)`} aria-label={t('common.close')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        )}
+    </>
+  );
+
+  const settingsOverlay = (
+    <div
+      className={[
+        'settings-page',
+        isModal ? 'settings-page--modal' : 'settings-page--fullscreen',
+        isMobileHub ? 'settings-page--mobile-hub' : '',
+        isMobileSection ? 'settings-page--mobile-section' : '',
+      ].filter(Boolean).join(' ')}
+      onClick={(e) => e.target.classList.contains('settings-page') && handleClose()}
+    >
+      {isModal ? (
+        <div className="settings-modal-shell">
+          <div className="settings-modal-container">
+            {settingsMain}
+          </div>
+        </div>
+      ) : (
+        <div className="settings-modal-container">
+          {settingsMain}
+        </div>
+      )}
 
       {showDeleteConfirm && (
         <div className="mfa-disable-modal-overlay" onClick={() => { setShowDeleteConfirm(false); setDeleteAccountPassword(''); }}>

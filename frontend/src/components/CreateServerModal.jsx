@@ -144,7 +144,7 @@ const TEMPLATE_LIST = [
   )},
 ];
 
-export default function CreateServerModal({ isOpen, onClose, onServerCreated, initialTemplate, onBackToHub, exiting }) {
+export default function CreateServerModal({ isOpen, embedded, onClose, onServerCreated, initialTemplate, onBackToHub, exiting }) {
   const [step, setStep] = useState(initialTemplate ? 2 : 1);
   const [serverName, setServerName] = useState('');
   const [description, setDescription] = useState('');
@@ -154,7 +154,7 @@ export default function CreateServerModal({ isOpen, onClose, onServerCreated, in
   const [progressPercent, setProgressPercent] = useState(0);
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const enterInstant = useModalEnterAnimation('create-server-modal', isOpen);
+  const enterInstant = useModalEnterAnimation('create-server-modal', isOpen && !embedded);
 
   useEffect(() => {
     if (isOpen) {
@@ -246,11 +246,10 @@ export default function CreateServerModal({ isOpen, onClose, onServerCreated, in
 
   if (!isOpen) return null;
 
-  const modal = (
-    <div className={`csm-overlay ${exiting ? 'csm-exiting' : ''}${enterInstant && !exiting ? ' modal-enter-instant' : ''}`} onClick={exiting ? undefined : handleClose}>
-      <div className={`csm-modal ${exiting ? 'csm-exiting' : ''}`} onClick={(e) => e.stopPropagation()}>
-        {step === 1 && (
-          <>
+  const panel = (
+    <>
+      {step === 1 && (
+        <div key="step-1" className="csm-step-panel">
             <div className="csm-header">
               <h2>Create a Server</h2>
               <p>Your server is where you and your friends hang out. Create yours and start talking.</p>
@@ -279,11 +278,11 @@ export default function CreateServerModal({ isOpen, onClose, onServerCreated, in
               <button className="csm-btn-cancel" onClick={handleClose}>Cancel</button>
               <button className="csm-btn-next" onClick={() => setStep(2)}>Next</button>
             </div>
-          </>
+          </div>
         )}
 
         {step === 2 && (
-          <>
+          <div key="step-2" className="csm-step-panel">
             <div className="csm-header">
               <h2>Customize your server</h2>
               <p>Give your server a personality with a name and description. You can always change this later.</p>
@@ -356,8 +355,23 @@ export default function CreateServerModal({ isOpen, onClose, onServerCreated, in
                 {creating ? 'Creating...' : 'Create'}
               </button>
             </div>
-          </>
+          </div>
         )}
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <div className="csm-embedded" data-step={step}>
+        {panel}
+      </div>
+    );
+  }
+
+  const modal = (
+    <div className={`csm-overlay ${exiting ? 'csm-exiting' : ''}${enterInstant && !exiting ? ' modal-enter-instant' : ''}`} onClick={exiting ? undefined : handleClose}>
+      <div className={`csm-modal ${exiting ? 'csm-exiting' : ''}`} data-step={step} onClick={(e) => e.stopPropagation()}>
+        {panel}
       </div>
     </div>
   );

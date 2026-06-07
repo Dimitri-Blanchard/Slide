@@ -11,7 +11,6 @@ import DmCallFloatingPanel from '../components/DmCallFloatingPanel';
 import ServerErrorBoundary from '../components/ServerErrorBoundary';
 import ErrorBoundary from '../components/ErrorBoundary';
 import UserStatusAndSettings from '../components/UserStatusAndSettings';
-import Settings from '../pages/Settings';
 import NotFound from '../pages/NotFound';
 
 import '../pages/SecurityDashboard.css';
@@ -55,6 +54,7 @@ export default function DesktopAppLayoutShell({
   handleTouchStart,
   handleTouchMove,
   handleTouchEnd,
+  pendingFriendsCount = 0,
 }) {
   const serverConversations = Array.isArray(conversations)
     ? conversations.filter((conversation) => !conversation?.is_local_private)
@@ -84,11 +84,14 @@ export default function DesktopAppLayoutShell({
       )}
       <ServerBar
         teams={teams}
+        conversations={serverConversations}
         currentTeamId={params.teamId}
         currentConversationId={params.conversationId}
+        currentLocalPrivateUserId={params.localPrivateUserId}
         lastDmConversationId={lastDmConversationId}
         onTeamsChange={handleTeamsChange}
         onLeaveServer={onLeaveServer}
+        pendingFriendsCount={pendingFriendsCount}
       />
       <UserStatusAndSettings sidebarWidth={sidebarWidth} />
       {showSidebar && (
@@ -107,6 +110,7 @@ export default function DesktopAppLayoutShell({
             onOpenSearch={() => setShowSearch(true)}
             width={sidebarWidth}
             onResizeStart={handleSidebarResizeStart}
+            pendingFriendsCount={pendingFriendsCount}
           />
         </ErrorBoundary>
       )}
@@ -161,7 +165,6 @@ export default function DesktopAppLayoutShell({
             <Route path="/security" element={<SecurityDashboard />} />
             <Route path="/quests" element={<QuestsPage />} />
             <Route path="/channels/@me" element={<FriendsPage />} />
-            <Route path="/settings" element={<FriendsPage />} />
             <Route path="/" element={<Navigate to="/channels/@me" replace />} />
             <Route path="/home" element={<Navigate to="/channels/@me" replace />} />
             <Route path="/profile/*" element={<Navigate to="/channels/@me" replace />} />
@@ -169,8 +172,6 @@ export default function DesktopAppLayoutShell({
           </Routes>
         </div>
       </main>
-      {params.isSettings && <Settings />}
-
       <SearchModal
         isOpen={showSearch}
         onClose={() => setShowSearch(false)}

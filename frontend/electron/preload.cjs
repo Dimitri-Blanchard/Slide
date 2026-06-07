@@ -70,6 +70,7 @@ contextBridge.exposeInMainWorld('electron', {
 
   // ── Badge / unread count ─────────────────────────────────────────────────────
   // Updates taskbar overlay icon (Windows), dock badge (macOS), tray tooltip
+  // data: { mentions?, friendRequests?, hasUnreadDm?, hasUnreadServer? } or number (legacy)
   setBadgeCount: (count) => ipcRenderer.invoke('set-badge-count', count),
 
   // ── Power save blocker ───────────────────────────────────────────────────────
@@ -134,4 +135,8 @@ contextBridge.exposeInMainWorld('electron', {
   secureSet:    (key, value) => ipcRenderer.invoke('secure-store-set', key, value),
   secureDelete: (key) => ipcRenderer.invoke('secure-store-delete', key),
   secureClear:  () => ipcRenderer.invoke('secure-store-clear'),
+
+  // Voice prefs (sync read/write to userData/voice-prefs.json)
+  getVoicePrefsSync: () => ipcRenderer.sendSync('voice-prefs-get-sync'),
+  setVoicePrefsSync: (data) => ipcRenderer.sendSync('voice-prefs-set-sync', data),
 });

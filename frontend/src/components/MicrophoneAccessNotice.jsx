@@ -78,6 +78,7 @@ export default function MicrophoneAccessNotice() {
 
     const onPointerDown = (e) => {
       if (tooltipRef.current?.contains(e.target)) return;
+      if (e.target?.closest?.(`[${VOICE_MUTE_TRIGGER_ATTR}]`)) return;
       scheduleDismiss();
     };
 

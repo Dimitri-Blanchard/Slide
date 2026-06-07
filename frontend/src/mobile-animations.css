@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    MOBILE ANIMATIONS — Material You motion system
    Loaded AFTER animations.css + platform-android.css (in index.css), so it wins.
-   Targets html.platform-mobile (Android + iOS Capacitor; web mobile uses
-   touch-only fallbacks below).
+   Targets html.platform-mobile (Capacitor + narrow web/Electron viewports that use
+   MobileAppLayoutShell; touch-only fallbacks below for edge cases).
 
    Principles:
    - Only `transform` / `opacity` (GPU-composited).
@@ -115,7 +115,6 @@ html.platform-mobile .mbn-badge {
    ─────────────────────────────────────────────────────────────────────────── */
 html.platform-mobile button,
 html.platform-mobile [role="button"],
-html.platform-mobile .server-icon-link,
 html.platform-mobile .channel-link,
 html.platform-mobile .channel-item,
 html.platform-mobile .mobile-dm-item,
@@ -127,9 +126,13 @@ html.platform-mobile .dm-item {
     color var(--m-dur-short) var(--m-ease-standard);
 }
 
+html.platform-mobile .server-icon-link {
+  transition: background-color var(--m-dur-short) var(--m-ease-standard),
+              filter var(--m-dur-short) var(--m-ease-standard);
+}
+
 html.platform-mobile button:active:not(:disabled),
 html.platform-mobile [role="button"]:active:not([aria-disabled="true"]),
-html.platform-mobile .server-icon-link:active,
 html.platform-mobile .channel-link:active,
 html.platform-mobile .channel-item:active,
 html.platform-mobile .mobile-dm-item:active,
@@ -141,10 +144,14 @@ html.platform-mobile .dm-item:active {
   transition: transform var(--m-dur-quick) var(--m-ease-emphasized-accel);
 }
 
+html.platform-mobile .server-icon-link:active {
+  transform: none !important;
+  opacity: 1 !important;
+}
+
 /* Keep the active scale only on direct touch; revert with normal duration */
 html.platform-android button,
 html.platform-android [role="button"],
-html.platform-android .server-icon-link,
 html.platform-android .msp-item,
 html.platform-android .mbn-tab,
 html.platform-android .dm-item,
@@ -152,13 +159,20 @@ html.platform-android .channel-item {
   /* Override the platform-android.css opacity 0.65 flash */
   opacity: 1 !important;
 }
+html.platform-android .server-icon-link {
+  opacity: 1 !important;
+}
 html.platform-android button:active:not(:disabled),
 html.platform-android [role="button"]:active:not([aria-disabled="true"]),
-html.platform-android .server-icon-link:active,
 html.platform-android .msp-item:active,
 html.platform-android .mbn-tab:active,
 html.platform-android .dm-item:active,
 html.platform-android .channel-item:active {
+  opacity: 1 !important;
+}
+
+html.platform-android .server-icon-link:active {
+  transform: none !important;
   opacity: 1 !important;
 }
 

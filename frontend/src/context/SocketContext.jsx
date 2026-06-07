@@ -8,6 +8,13 @@ const SocketContext = createContext(null);
 const OnlineUsersContext = createContext(null);
 const EMPTY_ONLINE_CTX = { onlineUsers: new Set(), isUserOnline: () => false };
 
+function normalizeUserId(userId) {
+  if (userId == null) return null;
+  if (typeof userId === 'number' && Number.isInteger(userId) && userId > 0) return userId;
+  const n = parseInt(userId, 10);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 export function SocketProvider({ children }) {
   const { user } = useAuth();
   const [socket, setSocket] = useState(null);
@@ -17,7 +24,8 @@ export function SocketProvider({ children }) {
   const pendingPresenceRef = useRef(new Map());
 
   const isUserOnline = useCallback((userId) => {
-    return onlineUsers.has(userId);
+    const id = normalizeUserId(userId);
+    return id != null && onlineUsers.has(id);
   }, [onlineUsers]);
 
   useEffect(() => {
@@ -48,12 +56,18 @@ export function SocketProvider({ children }) {
     });
 
     s.on('online_users', (userIds) => {
-      setOnlineUsers(new Set(userIds));
+      setOnlineUsers(new Set(
+        (userIds || [])
+          .map(normalizeUserId)
+          .filter((id) => id != null)
+      ));
     });
 
     // Batch presence updates: collect for 500ms then apply once
     s.on('presence', ({ userId, status }) => {
-      pendingPresenceRef.current.set(userId, status);
+      const uid = normalizeUserId(userId);
+      if (uid == null) return;
+      pendingPresenceRef.current.set(uid, status);
       if (!presenceBatchRef.current) {
         presenceBatchRef.current = setTimeout(() => {
           const batch = pendingPresenceRef.current;
@@ -61,9 +75,9 @@ export function SocketProvider({ children }) {
           presenceBatchRef.current = null;
           setOnlineUsers(prev => {
             const next = new Set(prev);
-            for (const [uid, st] of batch) {
-              if (st === 'online') next.add(uid);
-              else next.delete(uid);
+            for (const [id, st] of batch) {
+              if (st === 'online') next.add(id);
+              else next.delete(id);
             }
             return next;
           });

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { useSettingsUi } from '../context/SettingsUiContext';
 import { users as usersApi, direct as directApi } from '../api';
 import { getProfile, getCachedProfile } from '../utils/profileCache';
 import { useAuth } from '../context/AuthContext';
@@ -9,7 +10,9 @@ import { getStaticUrl } from '../utils/staticUrl';
 import { getStoredCustomStatus, getStoredOnlineStatus } from '../utils/presenceStorage';
 import { harmonizeGradientColors } from '../utils/gradientColors';
 import Avatar from './Avatar';
+import ProfileSpotifyActivity from './ProfileSpotifyActivity';
 import { useSettings } from '../context/SettingsContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import { loadUserNote, saveUserNote } from '../utils/userNotes';
 import './UserDetailModal.css';
@@ -29,9 +32,11 @@ function isGifUrl(url) {
 
 export default function UserDetailModal({ userId, user: providedUser, isOpen, onClose, containerRef }) {
   const navigate = useNavigate();
+  const { openSettings } = useSettingsUi();
   const { user: currentUser } = useAuth();
   const { isUserOnline } = useOnlineUsers();
-  const { developerMode } = useSettings();
+  const { developerMode, settings: appSettings } = useSettings();
+  const { t } = useLanguage();
 
   const [user, setUser]               = useState(providedUser || null);
   const [loading, setLoading]         = useState(!providedUser);
@@ -137,6 +142,11 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
 
   const enterInstant = useModalEnterAnimation('user-detail-modal', isOpen);
 
+  const showSpotifyListening =
+    !isOwnProfile || appSettings.show_spotify_listening !== false;
+  const spotifyEnabled =
+    showSpotifyListening && !!(user?.spotify_connected || user?.spotify_now_playing);
+
   if (!isOpen) return null;
 
   // Derived display data
@@ -192,8 +202,17 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
         <div className="udm-layout">
           <aside className="udm-side-panel udm-side-panel--activities">
             <div className="udm-section">
-              <h3 className="udm-section-title">Activities</h3>
-              <p className="udm-empty-text">User activities will appear here soon.</p>
+              <h3 className="udm-section-title">{t('profile.activities') || 'Activities'}</h3>
+              {spotifyEnabled ? (
+                <ProfileSpotifyActivity
+                  userId={resolvedId}
+                  initialTrack={user?.spotify_now_playing}
+                  enabled={spotifyEnabled && isOpen}
+                  className="udm-spotify-activity"
+                />
+              ) : (
+                <p className="udm-empty-text">{t('profile.noActivities') || 'No activities to show.'}</p>
+              )}
             </div>
           </aside>
 
@@ -225,7 +244,7 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
                       Message
                     </button>
                   ) : (
-                    <button className="udm-action-btn" onClick={() => { onClose(); navigate('/settings'); }}>
+                    <button className="udm-action-btn" onClick={() => { onClose(); openSettings(); }}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>

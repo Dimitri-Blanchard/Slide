@@ -1,12 +1,14 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { friends as friendsApi, direct as directApi, invalidateCache } from '../api';
+import { friends as friendsApi, direct as directApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useVoice } from '../context/VoiceContext';
 import { useNotification } from '../context/NotificationContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useSettings } from '../context/SettingsContext';
 import { Icons } from '../components/ContextMenu';
+import useFriendsSync from './useFriendsSync';
+import { notifyFriendsChanged, isFriendRequestDuplicateError } from '../utils/friendsSync';
 import { isLocalPrivateChatAvailable, makeLocalPrivateRoute, upsertLocalPrivateChat } from '../utils/localPrivateChatCrypto';
 
 export function useUserContextMenuItems(user, context = {}) {
@@ -17,19 +19,9 @@ export function useUserContextMenuItems(user, context = {}) {
   const { t } = useLanguage();
   const { developerMode } = useSettings();
   const navigate = useNavigate();
-  const [friendIds, setFriendIds] = useState(new Set());
-  const emitFriendsChanged = useCallback(() => {
-    window.dispatchEvent(new CustomEvent('slide:friends-changed'));
-  }, []);
+  const { isFriend } = useFriendsSync();
 
   const isOwn = currentUser?.id === user?.id;
-
-  useEffect(() => {
-    if (!user?.id || isOwn) return;
-    friendsApi.list()
-      .then((list) => setFriendIds(new Set((list || []).map((f) => f.id))))
-      .catch(() => setFriendIds(new Set()));
-  }, [user?.id, isOwn]);
 
   const copyUserId = useCallback(() => {
     if (user?.id) navigator.clipboard?.writeText(String(user.id)).then(() => notify.success(t('common.copied') || 'Copied!'));
@@ -47,8 +39,7 @@ export function useUserContextMenuItems(user, context = {}) {
     if (!user?.id || isOwn) return;
     try {
       await friendsApi.block(user.id);
-      invalidateCache('/friends');
-      emitFriendsChanged();
+      notifyFriendsChanged({ userId: user.id, action: 'blocked' });
       notify.success(t('friends.blocked') || 'Blocked');
       if (conversationId) {
         navigate('/channels/@me');
@@ -56,7 +47,7 @@ export function useUserContextMenuItems(user, context = {}) {
     } catch (err) {
       notify.error(err.message);
     }
-  }, [user?.id, isOwn, conversationId, navigate, notify, t, emitFriendsChanged]);
+  }, [user?.id, isOwn, conversationId, navigate, notify, t]);
 
   const handleAddFriend = useCallback(async () => {
     if (!user?.id || isOwn) return;
@@ -67,25 +58,21 @@ export function useUserContextMenuItems(user, context = {}) {
     }
     try {
       await friendsApi.sendRequest(username);
-      invalidateCache('/friends');
-      emitFriendsChanged();
+      notifyFriendsChanged({ action: 'request_sent' });
       notify.success((t('friends.requestSent') || 'Friend request sent to {name}').replace('{name}', username));
     } catch (err) {
+      if (isFriendRequestDuplicateError(err.message)) {
+        notifyFriendsChanged();
+      }
       notify.error(err.message);
     }
-  }, [user?.id, user?.username, user?.display_name, isOwn, notify, t, emitFriendsChanged]);
+  }, [user?.id, user?.username, user?.display_name, isOwn, notify, t]);
 
   const handleRemoveFriend = useCallback(async () => {
     if (!user?.id || isOwn) return;
     try {
       await friendsApi.removeFriend(user.id);
-      invalidateCache('/friends');
-      emitFriendsChanged();
-      setFriendIds((prev) => {
-        const next = new Set(prev);
-        next.delete(user.id);
-        return next;
-      });
+      notifyFriendsChanged({ userId: user.id, action: 'removed' });
       notify.success(t('friends.removed') || 'Friend removed');
       if (conversationId) {
         navigate('/channels/@me');
@@ -93,7 +80,7 @@ export function useUserContextMenuItems(user, context = {}) {
     } catch (err) {
       notify.error(err.message);
     }
-  }, [user?.id, isOwn, conversationId, navigate, notify, t, emitFriendsChanged]);
+  }, [user?.id, isOwn, conversationId, navigate, notify, t]);
 
   const handleStartCall = useCallback(() => {
     if (!conversationId || !user?.id) return;
@@ -189,8 +176,7 @@ export function useUserContextMenuItems(user, context = {}) {
     });
 
     if (!isOwn) {
-      const isFriend = friendIds.has(user.id);
-      if (isFriend) {
+      if (isFriend(user.id)) {
         items.push({
           label: t('friends.removeFriend') || 'Remove Friend',
           icon: Icons.delete,
@@ -246,7 +232,7 @@ export function useUserContextMenuItems(user, context = {}) {
   }, [
     user, conversationId, channelId, lastMessageId, hasUnread, isOwn,
     isDmList, onPinConversation, isPinned, canPin, isInCallWaiting,
-    friendIds,
+    isFriend,
     handleStartCall, handleRingAgain, handleMarkAsRead, handleOpenLocalPrivateChat,
     handleBlock, handleAddFriend, handleRemoveFriend,
     copyUserId, copyChannelId, copyConversationId, developerMode, onOpenNicknameModal, onOpenNoteModal, t, notify, navigate,

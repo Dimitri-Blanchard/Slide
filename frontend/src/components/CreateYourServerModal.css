@@ -1,9 +1,8 @@
-/* Create Your Server - Discord-style hub modal */
+/* Create Your Server — aligned with invite-modal */
 .cysm-overlay {
   position: fixed;
   inset: 0;
-  /* Must fully mask app chrome while server creation is open */
-  background: rgba(6, 8, 14, 0.92);
+  background: var(--modal-overlay-bg);
   backdrop-filter: blur(var(--modal-overlay-blur));
   -webkit-backdrop-filter: blur(var(--modal-overlay-blur));
   display: flex;
@@ -35,9 +34,11 @@
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   width: 90%;
-  max-width: 440px;
+  max-width: 520px;
   max-height: 90vh;
-  overflow-y: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   animation: cysmModalEnter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
 }
@@ -48,22 +49,22 @@
 
 @keyframes cysmModalEnter {
   from {
-    transform: translateY(16px) scale(0.97);
+    transform: translateX(28px);
     opacity: 0;
   }
   to {
-    transform: translateY(0) scale(1);
+    transform: translateX(0);
     opacity: 1;
   }
 }
 
 @keyframes cysmModalExit {
   from {
-    transform: translateY(0) scale(1);
+    transform: translateX(0);
     opacity: 1;
   }
   to {
-    transform: translateY(-12px) scale(0.97);
+    transform: translateX(-16px);
     opacity: 0;
   }
 }
@@ -71,55 +72,60 @@
 .cysm-header {
   text-align: center;
   padding: 24px 24px 16px;
+  flex-shrink: 0;
 }
 
 .cysm-close {
   position: absolute;
   top: 16px;
   right: 16px;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
+  background: none;
   border: none;
-  border-radius: 50%;
-  color: var(--text-muted, #949ba4);
+  border-radius: 4px;
+  color: var(--text-primary);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  opacity: 0.8;
+  transition: opacity 0.15s, background 0.15s;
 }
 
 .cysm-close:hover {
-  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
-  color: var(--text-primary, #f2f3f5);
+  opacity: 1;
+  background: var(--bg-tertiary);
 }
 
 .cysm-header h2 {
   margin: 0 0 8px;
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 700;
-  color: var(--text-primary, #f2f3f5);
+  color: var(--text-primary);
 }
 
 .cysm-header p {
   margin: 0;
   font-size: 0.9rem;
-  color: var(--text-muted, #949ba4);
-  line-height: 1.4;
+  color: var(--text-secondary);
+  line-height: 1.45;
 }
 
 .cysm-content {
-  padding: 0 16px 16px;
+  padding: 0 20px 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .cysm-templates {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 8px;
 }
 
 .cysm-row {
@@ -127,18 +133,27 @@
   align-items: center;
   gap: 12px;
   width: 100%;
-  padding: 12px;
-  background: transparent;
-  border: none;
-  border-radius: 8px;
+  padding: 12px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
   cursor: pointer;
-  transition: background 0.15s;
   text-align: left;
-  color: var(--text-primary, #f2f3f5);
+  color: var(--text-primary);
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .cysm-row:hover {
-  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+}
+
+.cysm-create-own {
+  border-color: color-mix(in srgb, var(--accent) 25%, var(--border-subtle));
+}
+
+.cysm-create-own:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-default));
 }
 
 .cysm-row-icon {
@@ -147,76 +162,94 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-tertiary, #2b2d31);
-  border-radius: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
   flex-shrink: 0;
-  color: var(--text-muted, #949ba4);
-}
-
-.cysm-create-icon {
-  color: var(--text-primary, #f2f3f5);
+  color: var(--text-muted);
+  transition: color 0.15s ease;
 }
 
 .cysm-row:hover .cysm-row-icon {
-  color: var(--text-primary, #f2f3f5);
+  color: var(--text-primary);
 }
 
-/* Template icons with distinct colors (Gaming, Friends, Study Group, School Club) */
-.cysm-templates .cysm-row:nth-child(1) .cysm-row-icon { color: #9b59b6; }
-.cysm-templates .cysm-row:nth-child(2) .cysm-row-icon { color: #e91e63; }
-.cysm-templates .cysm-row:nth-child(3) .cysm-row-icon { color: #e74c3c; }
-.cysm-templates .cysm-row:nth-child(4) .cysm-row-icon { color: #3498db; }
+.cysm-create-icon {
+  color: var(--accent);
+}
 
 .cysm-row-text {
   flex: 1;
-  font-size: 0.95rem;
-  font-weight: 500;
+  font-size: 0.9375rem;
+  font-weight: 600;
 }
 
 .cysm-row-arrow {
-  color: var(--text-muted, #949ba4);
+  color: var(--text-muted);
   display: flex;
+  flex-shrink: 0;
+  opacity: 0.75;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.cysm-row:hover .cysm-row-arrow {
+  opacity: 1;
+  transform: translateX(2px);
 }
 
 .cysm-section-label {
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 0.75rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted, #949ba4);
-  margin: 16px 0 4px;
-  padding: 0 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  margin: 12px 0 2px;
+  padding: 0 2px;
 }
 
 .cysm-join-section {
-  padding: 20px 24px 24px;
+  padding: 16px 20px 20px;
   text-align: center;
-  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  border-top: var(--hairline-width) solid var(--border-default);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
 }
 
 .cysm-join-question {
   margin: 0 0 12px;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: var(--text-primary, #f2f3f5);
+  color: var(--text-primary);
 }
 
 .cysm-join-btn {
   display: block;
   width: 100%;
   padding: 12px 20px;
-  background: var(--bg-tertiary, #2b2d31);
+  background: var(--accent-gradient, linear-gradient(135deg, #6685f9 0%, #4f6ef7 100%));
   border: none;
-  border-radius: 6px;
-  color: var(--text-primary, #f2f3f5);
+  border-radius: 8px;
+  color: var(--accent-text);
   font-size: 0.95rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: filter 0.12s ease;
 }
 
 .cysm-join-btn:hover {
-  background: var(--bg-hover, #3c3f44);
+  filter: brightness(1.06);
+}
+
+[data-theme="dark"] .cysm-join-btn {
+  background: var(--btn-primary-bg);
+  border: 1px solid var(--btn-primary-border);
+  color: rgba(255, 255, 255, 0.95);
+  filter: none;
+}
+
+[data-theme="dark"] .cysm-join-btn:hover {
+  background: var(--btn-primary-hover);
+  border-color: var(--btn-primary-border-hover);
 }
 
 .cysm-discover-btn {
@@ -225,20 +258,19 @@
   justify-content: center;
   gap: 8px;
   width: 100%;
-  margin-top: 10px;
-  padding: 10px 20px;
+  margin-top: 8px;
+  padding: 12px 20px;
   background: transparent;
-  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.15));
-  border-radius: 6px;
-  color: var(--text-secondary, #b9bbbe);
-  font-size: 0.9rem;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .cysm-discover-btn:hover {
-  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
-  border-color: var(--accent);
-  color: var(--accent);
+  background: var(--bg-tertiary);
+  text-decoration: underline;
 }

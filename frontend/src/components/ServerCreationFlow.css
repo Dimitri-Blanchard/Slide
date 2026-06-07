@@ -1,0 +1,375 @@
+/* Server creation flow — single overlay, morphing shell between views */
+.scf-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--modal-overlay-bg);
+  backdrop-filter: blur(var(--modal-overlay-blur));
+  -webkit-backdrop-filter: blur(var(--modal-overlay-blur));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000000;
+  animation: scfOverlayEnter 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scf-overlay.scf-exiting {
+  animation: scfOverlayExit 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes scfOverlayEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scfOverlayExit {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.scf-shell {
+  --scf-width: 520px;
+  --scf-max-height: 90vh;
+  width: 90%;
+  max-width: var(--scf-width);
+  max-height: var(--scf-max-height);
+  background: var(--bg-floating, var(--glass-panel-bg));
+  border: 1px solid var(--border-default, var(--modal-panel-border));
+  border-radius: var(--modal-panel-radius);
+  box-shadow: var(--modal-panel-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transform-origin: center center;
+}
+
+[data-theme="dark"] .scf-shell {
+  background: var(--bg-floating);
+  border-color: var(--border-default);
+  box-shadow:
+    var(--modal-panel-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.scf-shell--enter {
+  animation: scfShellEnter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scf-shell--morph {
+  transition:
+    max-width 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    max-height 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scf-overlay.scf-exiting .scf-shell {
+  animation: scfShellExit 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes scfShellEnter {
+  from {
+    transform: translateX(28px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scfShellExit {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-16px);
+    opacity: 0;
+  }
+}
+
+.scf-shell[data-view="hub"] {
+  --scf-width: 520px;
+  --scf-max-height: 90vh;
+}
+
+.scf-shell[data-view="create"] {
+  --scf-width: 480px;
+  --scf-max-height: 90vh;
+}
+
+.scf-shell[data-view="join"] {
+  --scf-width: 520px;
+  --scf-max-height: 90vh;
+}
+
+.scf-shell[data-view="discover"] {
+  --scf-width: 720px;
+  --scf-max-height: 88vh;
+}
+
+.scf-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.scf-shell[data-direction="forward"] .scf-view {
+  animation: scfViewForward 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scf-shell[data-direction="back"] .scf-view {
+  animation: scfViewBack 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes scfViewForward {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scfViewBack {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Embedded panels — shell owns the frame */
+.scf-shell .cysm-modal,
+.scf-shell .csm-modal,
+.scf-shell .dsm-modal {
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  animation: none;
+  box-shadow: none;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.scf-shell .cysm-modal-embedded,
+.scf-shell .csm-embedded {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.scf-shell .csm-step-panel {
+  animation: none;
+}
+
+.scf-shell .dsm-embedded {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── More contrast inside the morph shell ── */
+.scf-shell .cysm-header p,
+.scf-shell .csm-header p {
+  color: var(--text-secondary);
+}
+
+.scf-shell .cysm-section-label,
+.scf-shell .csm-field label {
+  color: var(--text-secondary);
+}
+
+.scf-shell .cysm-row,
+.scf-shell .csm-template {
+  background: var(--bg-secondary);
+  border-color: var(--border-default);
+}
+
+.scf-shell .cysm-row:hover,
+.scf-shell .csm-template:hover {
+  background: var(--bg-hover);
+  border-color: color-mix(in srgb, var(--text-primary) 12%, var(--border-default));
+}
+
+.scf-shell .cysm-row-icon,
+.scf-shell .csm-template-icon {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+}
+
+.scf-shell .cysm-template-desc,
+.scf-shell .csm-template-desc,
+.scf-shell .csm-tos-note,
+.scf-shell .csm-progress-text {
+  color: var(--text-secondary);
+}
+
+.scf-shell .cysm-join-section {
+  border-top-color: var(--border-default);
+  background: var(--bg-secondary);
+}
+
+.scf-shell .cysm-discover-btn:hover {
+  background: var(--bg-tertiary);
+}
+
+.scf-shell .csm-icon-preview {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+}
+
+.scf-shell .csm-field input,
+.scf-shell .csm-field textarea {
+  background: var(--input-bg);
+  border: 1px solid var(--border-default);
+}
+
+.scf-shell .csm-field input:focus,
+.scf-shell .csm-field textarea:focus {
+  border-color: var(--accent);
+}
+
+.scf-shell .csm-template.selected {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-default));
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-secondary));
+}
+
+.scf-shell .csm-progress-bar {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+}
+
+.scf-shell .invite-subtitle,
+.scf-shell .invite-hint {
+  color: var(--text-secondary);
+}
+
+.scf-shell .invite-input-group label {
+  color: var(--text-secondary);
+}
+
+.scf-shell .invite-input-group input {
+  background: var(--input-bg);
+  border: 1px solid var(--border-default);
+}
+
+.scf-shell .invite-input-group input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-color: var(--accent);
+}
+
+.scf-shell .invite-preview {
+  background: var(--bg-secondary);
+  border-color: var(--border-default);
+}
+
+.scf-shell .invite-server-icon {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Join view — match Create Your Server layout */
+.invite-join-embedded {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.invite-join-embedded .cysm-header {
+  position: relative;
+}
+
+.invite-join-embedded .invite-subtitle {
+  margin: 0;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.invite-join-body {
+  gap: 12px;
+}
+
+.invite-join-body .invite-input-group {
+  margin-bottom: 0;
+}
+
+.invite-join-body .invite-input-group label {
+  letter-spacing: 0.04em;
+}
+
+.invite-join-body .invite-input-group input {
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.invite-join-body .invite-preview {
+  margin-bottom: 0;
+  padding: 12px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+}
+
+.invite-join-body .invite-server-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+}
+
+.invite-join-body .invite-server-icon span {
+  font-size: 1.25rem;
+}
+
+.invite-join-body .invite-loading {
+  padding: 12px 0;
+}
+
+.invite-join-body .invite-error {
+  margin-bottom: 0;
+  border-radius: 8px;
+}
+
+.invite-join-footer {
+  border-top: var(--hairline-width) solid var(--border-default);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.invite-join-footer .invite-join-actions {
+  padding: 16px 20px 20px;
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scf-shell--morph {
+    transition: none;
+  }
+
+  .scf-shell--enter,
+  .scf-overlay,
+  .scf-shell[data-direction="forward"] .scf-view,
+  .scf-shell[data-direction="back"] .scf-view {
+    animation: none !important;
+  }
+}

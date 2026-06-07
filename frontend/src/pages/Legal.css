@@ -30,7 +30,7 @@
   justify-content: space-between;
   padding: 16px 24px;
   background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
 }
 
 .legal-topbar-brand {
@@ -236,7 +236,7 @@ html:not([data-theme="dark"]) .legal-toc a:hover {
   flex-shrink: 0;
   margin-top: 48px;
   padding-top: 24px;
-  border-top: 1px solid var(--border-subtle);
+  border-top: var(--hairline-width) solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;

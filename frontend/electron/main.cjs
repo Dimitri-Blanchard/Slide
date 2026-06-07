@@ -189,27 +189,33 @@ function getBadgeIcon(type, count) {
 }
 
 // ─── Badge ───────────────────────────────────────────────────────────────────
-// data: { mentions, hasUnreadServer, hasUnreadDm } or a plain number (legacy)
+// data: { mentions, friendRequests, hasUnreadServer, hasUnreadDm } or a plain number (legacy)
 function updateBadge(data) {
-  let mentions = 0, hasUnreadServer = false, hasUnreadDm = false;
+  let mentions = 0, friendRequests = 0, hasUnreadServer = false, hasUnreadDm = false;
   if (typeof data === 'object' && data !== null) {
     mentions = Math.min(data.mentions || 0, 9);
+    friendRequests = Math.min(data.friendRequests || 0, 9);
     hasUnreadServer = !!data.hasUnreadServer;
     hasUnreadDm = !!data.hasUnreadDm;
   } else {
-    mentions = Math.max(0, parseInt(data) || 0);
+    mentions = Math.max(0, Math.min(parseInt(data) || 0, 9));
   }
-  const totalForTray = mentions + (hasUnreadServer ? 1 : 0) + (hasUnreadDm ? 1 : 0);
-  currentBadgeCount = mentions || (hasUnreadDm ? 1 : 0) || (hasUnreadServer ? 1 : 0);
+  const redBadgeCount = Math.min(mentions + friendRequests, 9);
+  currentBadgeCount = redBadgeCount || (hasUnreadDm ? 1 : 0) || (hasUnreadServer ? 1 : 0);
 
   if (process.platform === 'darwin' || process.platform === 'linux') {
-    app.setBadgeCount(mentions || (hasUnreadDm || hasUnreadServer ? 1 : 0));
+    app.setBadgeCount(redBadgeCount || (hasUnreadDm || hasUnreadServer ? 1 : 0));
   }
   if (process.platform === 'win32' && mainWindow && !mainWindow.isDestroyed()) {
     let icon = null, tooltip = '';
-    if (mentions > 0) {
-      icon = getBadgeIcon('mention', mentions);
-      tooltip = `${mentions} mention${mentions > 1 ? 's' : ''}`;
+    if (redBadgeCount > 0) {
+      icon = getBadgeIcon('mention', redBadgeCount);
+      const parts = [];
+      if (mentions > 0) parts.push(`${mentions} mention${mentions > 1 ? 's' : ''}`);
+      if (friendRequests > 0) {
+        parts.push(`${friendRequests} demande${friendRequests > 1 ? 's' : ''} d'ami`);
+      }
+      tooltip = parts.join(', ');
     } else if (hasUnreadDm) {
       icon = getBadgeIcon('dm');
       tooltip = 'Nouveaux messages directs';
@@ -219,7 +225,7 @@ function updateBadge(data) {
     }
     mainWindow.setOverlayIcon(icon, tooltip);
   }
-  updateTrayMenu(mentions || (hasUnreadDm || hasUnreadServer ? 1 : 0));
+  updateTrayMenu(redBadgeCount || (hasUnreadDm || hasUnreadServer ? 1 : 0));
 }
 
 // ─── Tray icon generation (16×16 for system tray) ─────────────────────────────
@@ -1260,4 +1266,34 @@ ipcMain.handle('secure-store-clear', () => {
     writeSecureStore({});
     return true;
   } catch { return false; }
+});
+
+// ─── IPC: Voice prefs (sync file in userData — survives app quit) ─────────────
+const VOICE_PREFS_FILE = () => path.join(app.getPath('userData'), 'voice-prefs.json');
+
+function readVoicePrefsFile() {
+  try {
+    const raw = fs.readFileSync(VOICE_PREFS_FILE(), 'utf8');
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeVoicePrefsFile(data) {
+  try {
+    fs.writeFileSync(VOICE_PREFS_FILE(), JSON.stringify(data), 'utf8');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+ipcMain.on('voice-prefs-get-sync', (event) => {
+  event.returnValue = readVoicePrefsFile();
+});
+
+ipcMain.on('voice-prefs-set-sync', (event, data) => {
+  event.returnValue = writeVoicePrefsFile(data);
 });

@@ -5,7 +5,7 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  padding: 0 16px 20px;
+  padding: 20px 16px 20px;
   background: var(--bg-primary);
   min-width: 0;
   z-index: 10;
@@ -145,7 +145,7 @@
   gap: 6px;
   padding: 5px 10px;
   background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
   font-size: 0.7rem;
   font-weight: 600;
   color: var(--text-muted);
@@ -695,7 +695,7 @@
   gap: 8px;
   padding: 12px 14px;
   background: var(--surface-2);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
 }
 
 .command-palette-icon {
@@ -868,7 +868,7 @@
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .message-input-container {
-    padding: 0 12px;
+    padding: 16px 12px 16px;
   }
 
   .message-input-wrap {
@@ -892,7 +892,7 @@
   }
 
   .message-input-container {
-    padding: 0 10px 14px;
+    padding: 16px 10px 14px;
   }
 }
 
@@ -938,7 +938,7 @@
 [data-theme="dark"] .message-input-container {
   background: var(--bg-primary);
   border-top: none;
-  padding: 0 16px 20px;
+  padding: 20px 16px 20px;
 }
 [data-theme="dark"] .message-input-wrap {
   background: var(--surface-2, #383a40);

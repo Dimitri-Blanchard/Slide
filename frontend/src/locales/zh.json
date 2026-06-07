@@ -640,6 +640,7 @@
     "requestError": "无法发送好友请求，请稍后再试。",
     "noFriends": "还没有好友",
     "noOnline": "没有在线的好友",
+    "activeNow": "当前活跃",
     "noPending": "没有待处理的请求",
     "noBlocked": "没有被屏蔽的用户",
     "incomingCall": "来电…",

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Volume2 } from 'lucide-react';
 import { useVoice } from '../context/VoiceContext';
 import { useSettings } from '../context/SettingsContext';
+import { computeAnchoredPopoverStyle } from '../utils/popoverPlacement';
 import './ScreenShareVolumeControl.css';
 
 /**
@@ -21,10 +22,8 @@ export const ScreenShareVolumeControl = memo(function ScreenShareVolumeControl({
       return;
     }
     const rect = btnRef.current.getBoundingClientRect();
-    setPopover({
-      left: rect.left + rect.width / 2,
-      bottom: window.innerHeight - rect.top + (variant === 'dm' ? 12 : 20),
-    });
+    const gap = variant === 'dm' ? 12 : 20;
+    setPopover(computeAnchoredPopoverStyle(rect, { gap }));
   }, [open, variant]);
 
   useEffect(() => {
@@ -62,7 +61,11 @@ export const ScreenShareVolumeControl = memo(function ScreenShareVolumeControl({
       {open && popover && createPortal(
         <div
           className="ssc-vol-popover ssc-vol-popover-portal"
-          style={{ left: popover.left, bottom: popover.bottom, transform: 'translateX(-50%)' }}
+          style={{
+            left: popover.left,
+            transform: 'translateX(-50%)',
+            ...(popover.openAbove ? { bottom: popover.bottom } : { top: popover.top }),
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           <span className="ssc-vol-label">Son du stream</span>

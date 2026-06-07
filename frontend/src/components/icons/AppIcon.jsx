@@ -1,127 +1,49 @@
 import React from 'react';
 import * as PhosphorIcons from '@phosphor-icons/react';
+import { HeadphoneOff, Headphones, Mic, MicOff } from 'lucide-react';
+import { DISCORD_ICON_NAMES } from './discordIconPaths';
+import { DiscordSvgIcon } from './DiscordSvgIcon';
+import './AppIcon.css';
 
 const DEFAULT_SIZE = 20;
 
-const ICONS = {
+const LUCIDE_ICONS = {
+  mic: Mic,
+  micOff: MicOff,
+  deafen: Headphones,
+  deafenOff: HeadphoneOff,
+};
+
+const PHOSPHOR_ICONS = {
   admin: PhosphorIcons.GearSix,
   archive: PhosphorIcons.FolderPlus,
   arrowReply: PhosphorIcons.ArrowBendUpLeft,
-  bell: PhosphorIcons.Bell,
-  bellOff: PhosphorIcons.BellSlash,
-  camera: PhosphorIcons.VideoCamera,
-  cameraOff: PhosphorIcons.VideoCameraSlash,
-  caretDown: PhosphorIcons.CaretDown,
-  caretUp: PhosphorIcons.CaretUp,
   channelAnnouncement: PhosphorIcons.MegaphoneSimple,
   channelForum: PhosphorIcons.ChatsCircle,
   channelText: PhosphorIcons.Hash,
   channelVoice: PhosphorIcons.SpeakerHigh,
   chat: PhosphorIcons.ChatCircleText,
-  check: PhosphorIcons.Check,
-  close: PhosphorIcons.X,
   compass: PhosphorIcons.Compass,
-  copy: PhosphorIcons.Copy,
-  deafen: PhosphorIcons.Headphones,
-  deafenOff: PhosphorIcons.Headphones,
   delete: PhosphorIcons.Trash,
   download: PhosphorIcons.DownloadSimple,
   edit: PhosphorIcons.PencilSimple,
   emoji: PhosphorIcons.Smiley,
   eye: PhosphorIcons.Eye,
   file: PhosphorIcons.File,
-  friends: PhosphorIcons.UsersThree,
   gif: PhosphorIcons.Gif,
   gift: PhosphorIcons.Gift,
-  home: PhosphorIcons.House,
+  group: PhosphorIcons.UsersFour,
   image: PhosphorIcons.ImageSquare,
-  link: PhosphorIcons.Link,
-  lock: PhosphorIcons.LockSimple,
-  mic: PhosphorIcons.Microphone,
-  micOff: PhosphorIcons.MicrophoneSlash,
-  more: PhosphorIcons.DotsThreeVertical,
   nitro: PhosphorIcons.Sparkle,
   notification: PhosphorIcons.BellSimple,
   paperclip: PhosphorIcons.Paperclip,
   pause: PhosphorIcons.Pause,
   phone: PhosphorIcons.Phone,
-  phoneOff: PhosphorIcons.PhoneDisconnect,
   play: PhosphorIcons.Play,
-  plus: PhosphorIcons.Plus,
-  quests: PhosphorIcons.CompassRose,
-  screenShare: PhosphorIcons.Monitor,
-  search: PhosphorIcons.MagnifyingGlass,
-  security: PhosphorIcons.ShieldCheck,
   send: PhosphorIcons.PaperPlaneRight,
-  settings: PhosphorIcons.GearSix,
-  signOut: PhosphorIcons.SignOut,
   sticker: PhosphorIcons.Sticker,
   user: PhosphorIcons.UserCircle,
-  userPlus: PhosphorIcons.UserPlus,
 };
-
-function SlashedIcon({
-  Icon,
-  size,
-  weight,
-  className,
-  ariaHidden,
-  mirrored,
-  style,
-  ...props
-}) {
-  return (
-    <span
-      {...props}
-      className={className}
-      aria-hidden={ariaHidden}
-      style={{
-        position: 'relative',
-        display: 'inline-flex',
-        width: size,
-        height: size,
-        alignItems: 'center',
-        justifyContent: 'center',
-        lineHeight: 0,
-        ...(mirrored ? { transform: 'scaleX(-1)' } : null),
-        ...style,
-      }}
-    >
-      <Icon size={size} weight={weight} />
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 256 256"
-        width={size}
-        height={size}
-        style={{
-          position: 'absolute',
-          inset: 0,
-          overflow: 'visible',
-          pointerEvents: 'none',
-        }}
-      >
-        <line
-          x1="48"
-          y1="44"
-          x2="212"
-          y2="224"
-          stroke="var(--bg-primary, #1e1f22)"
-          strokeWidth={weight === 'bold' ? 34 : 26}
-          strokeLinecap="round"
-        />
-        <line
-          x1="48"
-          y1="44"
-          x2="212"
-          y2="224"
-          stroke="currentColor"
-          strokeWidth={weight === 'bold' ? 24 : 16}
-          strokeLinecap="round"
-        />
-      </svg>
-    </span>
-  );
-}
 
 export function AppIcon({
   name,
@@ -132,21 +54,46 @@ export function AppIcon({
   'aria-hidden': ariaHidden = true,
   ...props
 }) {
-  if (name === 'deafenOff') {
+  const LucideIcon = LUCIDE_ICONS[name];
+  if (LucideIcon) {
+    const strokeWidth = weight === 'bold' ? 2.5 : weight === 'regular' || weight === 'light' ? 1.75 : 2;
     return (
-      <SlashedIcon
+      <span
         {...props}
-        Icon={PhosphorIcons.Headphones}
+        className={`app-icon app-icon--lucide${className ? ` ${className}` : ''}`}
+        aria-hidden={ariaHidden}
+        style={{
+          width: size,
+          height: size,
+          ...(mirrored ? { transform: 'scaleX(-1)' } : null),
+          ...props.style,
+        }}
+      >
+        <LucideIcon
+          size={size}
+          strokeWidth={strokeWidth}
+          aria-hidden={ariaHidden}
+          className="app-icon-svg"
+        />
+      </span>
+    );
+  }
+
+  if (DISCORD_ICON_NAMES.has(name)) {
+    return (
+      <DiscordSvgIcon
+        {...props}
+        name={name}
         size={size}
         weight={weight}
         className={className}
-        ariaHidden={ariaHidden}
         mirrored={mirrored}
+        aria-hidden={ariaHidden}
       />
     );
   }
 
-  const Icon = ICONS[name] || PhosphorIcons.Question;
+  const Icon = PHOSPHOR_ICONS[name] || PhosphorIcons.Question;
 
   return (
     <Icon

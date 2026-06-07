@@ -1740,7 +1740,7 @@ export default function ServerSettings({ team, roles, members, channels, categor
   }, [isOpen, handleClose]);
 
   const { user: currentUser } = useAuth();
-  const isOwner = isOwnerProp || String(team?.owner_id) === String(currentUser?.id);
+  const isOwner = isOwnerProp || String(team?.created_by) === String(currentUser?.id);
 
   if (!isOpen || !team) return null;
 

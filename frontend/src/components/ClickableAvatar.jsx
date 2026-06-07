@@ -7,6 +7,10 @@ import ContextMenu, { Icons } from './ContextMenu';
 import AddNoteModal from './AddNoteModal';
 import FriendNicknameModal from './FriendNicknameModal';
 import { useUserContextMenuItems } from '../hooks/useUserContextMenuItems';
+import { useVoiceSidebarUserContextMenu } from '../hooks/useVoiceSidebarUserContextMenu';
+import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
+import { useLongPress } from '../hooks/useLongPress';
+import { hapticImpact } from '../utils/nativeHaptics';
 import './ClickableAvatar.css';
 
 const ClickableAvatar = memo(function ClickableAvatar({
@@ -17,6 +21,7 @@ const ClickableAvatar = memo(function ClickableAvatar({
   position = 'right',
   disabled = false,
   suppressContextMenu = false,
+  suppressProfileOpen = false,
   onClick,
   contextMenuItems = [],
   contextMenuContext = {},
@@ -30,6 +35,7 @@ const ClickableAvatar = memo(function ClickableAvatar({
   const [noteModalUser, setNoteModalUser] = useState(null);
   const avatarRef = useRef(null);
   const { developerMode } = useSettings();
+  const compactTouchUi = useCompactTouchUi();
 
   const handleContextMenuClose = useCallback(() => setContextMenu(null), []);
 
@@ -46,18 +52,9 @@ const ClickableAvatar = memo(function ClickableAvatar({
   }), [contextMenuContext, handleContextMenuClose]);
 
   const getFullContextMenuItems = useUserContextMenuItems(user, mergedContext);
+  const serverMenuItems = useVoiceSidebarUserContextMenu(user, mergedContext);
 
-  const handleClick = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (disabled) return;
-    if (onClick) { onClick(e); return; }
-    setShowProfile(true);
-  }, [disabled, onClick]);
-
-  const handleContextMenu = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const openContextMenu = useCallback((e) => {
     if (disabled || suppressContextMenu) return;
     if (onClick) return;
     if (!user?.id) return;
@@ -67,7 +64,9 @@ const ClickableAvatar = memo(function ClickableAvatar({
       onClick: () => setShowProfile(true)
     };
     let items;
-    if (contextMenuItems.length > 0 && Object.keys(contextMenuContext).length === 0) {
+    if (mergedContext.useServerMenu && mergedContext.teamId) {
+      items = [viewProfileItem, { separator: true }, ...serverMenuItems];
+    } else if (contextMenuItems.length > 0 && Object.keys(contextMenuContext).length === 0) {
       const base = [viewProfileItem, { separator: true }, ...contextMenuItems];
       if (developerMode) {
         const copyIdItem = {
@@ -83,7 +82,46 @@ const ClickableAvatar = memo(function ClickableAvatar({
       items = [viewProfileItem, { separator: true }, ...fullItems];
     }
     setContextMenu({ x: e.clientX, y: e.clientY, items });
-  }, [disabled, suppressContextMenu, onClick, contextMenuItems, contextMenuContext, getFullContextMenuItems, user?.id, developerMode]);
+  }, [disabled, suppressContextMenu, onClick, contextMenuItems, contextMenuContext, mergedContext, getFullContextMenuItems, serverMenuItems, user?.id, developerMode]);
+
+  const handleContextMenu = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openContextMenu(e);
+  }, [openContextMenu]);
+
+  const handleContextMenuEvent = useCallback((e) => {
+    if (compactTouchUi) {
+      e.preventDefault();
+      // Programmatic menu (e.g. member row long-press) uses untrusted events.
+      if (!e.isTrusted) openContextMenu(e);
+      return;
+    }
+    handleContextMenu(e);
+  }, [compactTouchUi, handleContextMenu, openContextMenu]);
+
+  const { longPressProps, shouldSkipClick } = useLongPress(
+    useCallback((e) => {
+      hapticImpact('Medium');
+      openContextMenu(e);
+    }, [openContextMenu]),
+    { disabled: disabled || suppressContextMenu || !!onClick || !user?.id },
+  );
+
+  const handleClick = useCallback((e) => {
+    if (disabled) return;
+    if (shouldSkipClick()) return;
+    if (onClick) {
+      e.preventDefault();
+      e.stopPropagation();
+      onClick(e);
+      return;
+    }
+    if (suppressProfileOpen) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setShowProfile(true);
+  }, [disabled, onClick, shouldSkipClick, suppressProfileOpen]);
 
   const handleClose = useCallback(() => {
     setShowProfile(false);
@@ -97,7 +135,11 @@ const ClickableAvatar = memo(function ClickableAvatar({
         ref={avatarRef}
         className={`clickable-avatar ${disabled ? 'disabled' : ''}`}
         onClick={handleClick}
-        onContextMenu={handleContextMenu}
+        onContextMenu={handleContextMenuEvent}
+        onPointerDown={compactTouchUi ? longPressProps.onPointerDown : undefined}
+        onPointerMove={compactTouchUi ? longPressProps.onPointerMove : undefined}
+        onPointerUp={compactTouchUi ? longPressProps.onPointerUp : undefined}
+        onPointerCancel={compactTouchUi ? longPressProps.onPointerCancel : undefined}
         onMouseEnter={() => onMouseEnter(user?.id, user)}
         onMouseLeave={onMouseLeave}
         role="button"

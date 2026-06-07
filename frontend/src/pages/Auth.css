@@ -86,7 +86,7 @@
 }
 
 .login-separator {
-  width: 1px;
+  width: var(--hairline-width);
   align-self: stretch;
   background: var(--border-subtle);
   margin: 0 32px;

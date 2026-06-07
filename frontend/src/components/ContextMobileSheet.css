@@ -1,0 +1,226 @@
+/* Mobile context menu — bottom sheet (voice-join / message-actions family) */
+.context-mobile-sheet-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 16000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: stretch;
+  pointer-events: auto;
+}
+
+.context-mobile-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: rgba(0, 0, 0, 0.52);
+  cursor: pointer;
+  animation: contextMobileSheetBackdropIn 220ms ease forwards;
+}
+
+@keyframes contextMobileSheetBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.context-mobile-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 100vw;
+  margin-top: auto;
+  border-radius: 24px 24px 0 0;
+  border-top: var(--hairline-width) solid color-mix(in srgb, var(--border-subtle) 88%, transparent);
+  background: linear-gradient(175deg, var(--bg-secondary) 0%, color-mix(in srgb, var(--bg-primary) 84%, #000 16%) 100%);
+  box-shadow: 0 -20px 48px rgba(0, 0, 0, 0.45);
+  padding: 8px 10px calc(16px + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
+  animation: contextMobileSheetUp 320ms cubic-bezier(0.05, 0.7, 0.1, 1) forwards;
+  transition: transform 280ms cubic-bezier(0.05, 0.7, 0.1, 1);
+  will-change: transform;
+  touch-action: pan-y;
+  max-height: min(88vh, 640px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.context-mobile-sheet.is-dragging {
+  transition: none;
+  animation: none;
+}
+
+@keyframes contextMobileSheetUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 100%, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.context-mobile-sheet-grab {
+  width: 44px;
+  height: 5px;
+  border-radius: 999px;
+  margin: 6px auto 12px;
+  background: color-mix(in srgb, var(--text-muted) 70%, transparent);
+  touch-action: none;
+  cursor: grab;
+  flex-shrink: 0;
+}
+
+.context-mobile-sheet-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px 10px;
+  flex-shrink: 0;
+}
+
+.context-mobile-sheet-back {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 0;
+}
+
+.context-mobile-sheet-back:active {
+  background: var(--bg-hover);
+}
+
+.context-mobile-sheet-title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-size: 1.12rem;
+  line-height: 1.3;
+  color: var(--text-primary);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-mobile-sheet-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 4px;
+}
+
+.context-mobile-sheet-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 12px;
+  margin: 2px 0;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s ease;
+}
+
+.context-mobile-sheet-row:active:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.context-mobile-sheet-row:disabled,
+.context-mobile-sheet-row.is-disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.context-mobile-sheet-row--danger {
+  color: var(--danger, #f04747);
+}
+
+.context-mobile-sheet-row-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  color: var(--text-muted);
+}
+
+.context-mobile-sheet-row--danger .context-mobile-sheet-row-icon {
+  color: var(--danger, #f04747);
+}
+
+.context-mobile-sheet-row-label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.context-mobile-sheet-row-desc {
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.context-mobile-sheet-row-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+
+.context-mobile-sheet-row-check {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 2px solid var(--border-subtle);
+}
+
+.context-mobile-sheet-row-check.is-checked {
+  background: var(--accent, #5865f2);
+  border-color: var(--accent, #5865f2);
+  box-shadow: inset 0 0 0 2px var(--bg-secondary);
+}
+
+.context-mobile-sheet-separator {
+  height: var(--hairline-width);
+  margin: 6px 12px;
+  background: var(--border-subtle);
+}
+
+.context-mobile-sheet-custom {
+  padding: 4px 8px 8px;
+}
+
+.context-mobile-sheet-custom .context-menu-custom-row {
+  padding: 10px 8px;
+}
+
+.context-mobile-sheet-custom .context-menu-item {
+  width: 100%;
+  border-radius: 14px;
+}
+
+.context-mobile-sheet-custom .context-menu-item:active {
+  background: var(--bg-hover);
+}

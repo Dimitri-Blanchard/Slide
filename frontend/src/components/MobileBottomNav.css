@@ -9,7 +9,7 @@
   height: calc(var(--mobile-nav-bar-height, 56px) + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
   padding-bottom: var(--inset-bottom, env(safe-area-inset-bottom, 0px));
   background: var(--bg-secondary);
-  border-top: 1px solid var(--border-subtle);
+  border-top: var(--hairline-width) solid var(--border-subtle);
   position: relative;
   z-index: 300;
   /* App-like: no bounce/overscroll on nav */

@@ -7,6 +7,7 @@ import { useNotification } from '../context/NotificationContext';
 import { useVoice, sameUserId, coercePositiveInt, getRemoteStreamForUser } from '../context/VoiceContext';
 import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
+import { useLongPress } from '../hooks/useLongPress';
 import { useAuth } from '../context/AuthContext';
 import { hapticImpact } from '../utils/nativeHaptics';
 import ConfirmModal from './ConfirmModal';
@@ -18,7 +19,6 @@ import UserDetailModal from './UserDetailModal';
 import AddNoteModal from './AddNoteModal';
 import { useVoiceSidebarUserContextMenu } from '../hooks/useVoiceSidebarUserContextMenu';
 import AppIcon from './icons/AppIcon';
-import { ScreenShareVolumeControl } from './ScreenShareVolumeControl';
 import './ChannelList.css';
 
 const channelIcons = {
@@ -231,7 +231,8 @@ const Category = memo(function Category({
   unreadChannels, onEditChannel, onDeleteChannel, onCopyChannelId,
   isChannelMuted, getChannelMuteKey, onMuteChannel, onUnmuteChannel,
   onChannelMove, dragOverCategoryId, setDragOverCategoryId,
-  isMobile, onActiveChannelClick, roles, memberRolesMap, onRolesChanged,
+  isMobile, onActiveChannelClick, onVoiceJoinRequest, roles, memberRolesMap, onRolesChanged,
+  isOwner = false, onKick, onBan,
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [ctxMenu, setCtxMenu] = useState(null);
@@ -240,12 +241,25 @@ const Category = memo(function Category({
   const listRef = useRef(null);
   const targetCategoryId = category?.id ?? null;
   const { voiceChannelId } = useVoice();
+  const compactTouchUi = useCompactTouchUi();
+
+  const openCategoryMenu = useCallback((clientX, clientY) => {
+    if (!canManage || !category) return;
+    setCtxMenu({ x: clientX, y: clientY });
+  }, [canManage, category]);
 
   const handleContextMenu = (e) => {
-    if (!canManage || !category) return;
     e.preventDefault();
-    setCtxMenu({ x: e.clientX, y: e.clientY });
+    openCategoryMenu(e.clientX, e.clientY);
   };
+
+  const { longPressProps } = useLongPress(
+    useCallback((e) => {
+      hapticImpact('Medium');
+      openCategoryMenu(e.clientX, e.clientY);
+    }, [openCategoryMenu]),
+    { disabled: !compactTouchUi || !canManage },
+  );
 
   const categoryChannels = useMemo(() => {
     const filtered = (channels || []).filter(c =>
@@ -353,7 +367,11 @@ const Category = memo(function Category({
       <div
         className={`category-header ${isDragOver ? 'category-header-drag-over' : ''}`}
         onClick={() => setCollapsed(!collapsed)}
-        onContextMenu={handleContextMenu}
+        onContextMenu={compactTouchUi ? longPressProps.onContextMenu : handleContextMenu}
+        onPointerDown={compactTouchUi ? longPressProps.onPointerDown : undefined}
+        onPointerMove={compactTouchUi ? longPressProps.onPointerMove : undefined}
+        onPointerUp={compactTouchUi ? longPressProps.onPointerUp : undefined}
+        onPointerCancel={compactTouchUi ? longPressProps.onPointerCancel : undefined}
         onDragOver={handleCategoryHeaderDragOver}
         onDrop={handleCategoryHeaderDrop}
       >
@@ -403,9 +421,13 @@ const Category = memo(function Category({
             isDragOverCategory={isDragOver}
             isMobile={isMobile}
             onActiveChannelClick={onActiveChannelClick}
+            onVoiceJoinRequest={onVoiceJoinRequest}
             roles={roles}
             memberRolesMap={memberRolesMap}
             onRolesChanged={onRolesChanged}
+            isOwner={isOwner}
+            onKick={onKick}
+            onBan={onBan}
           />
           );
         })}
@@ -488,6 +510,9 @@ const VoiceUserItem = memo(function VoiceUserItem({
   roles,
   memberRolesMap,
   canManage,
+  isOwner = false,
+  onKick,
+  onBan,
   onRolesChanged,
   serverRoleBadges,
   serverTeamRole,
@@ -505,9 +530,14 @@ const VoiceUserItem = memo(function VoiceUserItem({
   const menuItems = useVoiceSidebarUserContextMenu(voiceUser, {
     teamId,
     channelId,
+    voiceChannelId: channelId,
     roles,
     memberRolesMap,
     canManage,
+    isOwner,
+    onKick,
+    onBan,
+    targetTeamRole: serverTeamRole,
     onOpenProfileDetail: () => {
       setContextMenu(null);
       setShowProfileDetail(true);
@@ -518,6 +548,20 @@ const VoiceUserItem = memo(function VoiceUserItem({
     },
     onRolesChanged,
   });
+  const compactTouchUi = useCompactTouchUi();
+
+  const openVoiceUserMenu = useCallback((clientX, clientY) => {
+    if (!voiceUser?.id) return;
+    setContextMenu({ x: clientX, y: clientY });
+  }, [voiceUser?.id]);
+
+  const { longPressProps, shouldSkipClick } = useLongPress(
+    useCallback((e) => {
+      hapticImpact('Medium');
+      openVoiceUserMenu(e.clientX, e.clientY);
+    }, [openVoiceUserMenu]),
+    { disabled: !compactTouchUi || !voiceUser?.id },
+  );
 
   const clearHideTimeout = () => {
     if (hideTimeoutRef.current) {
@@ -546,14 +590,14 @@ const VoiceUserItem = memo(function VoiceUserItem({
 
   const handleRowClick = (e) => {
     e.stopPropagation();
+    if (shouldSkipClick()) return;
     setShowProfile(true);
   };
 
   const handleRowContextMenu = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!voiceUser?.id) return;
-    setContextMenu({ x: e.clientX, y: e.clientY });
+    openVoiceUserMenu(e.clientX, e.clientY);
   };
 
   return (
@@ -564,7 +608,11 @@ const VoiceUserItem = memo(function VoiceUserItem({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onClick={handleRowClick}
-        onContextMenu={handleRowContextMenu}
+        onContextMenu={compactTouchUi ? longPressProps.onContextMenu : handleRowContextMenu}
+        onPointerDown={compactTouchUi ? longPressProps.onPointerDown : undefined}
+        onPointerMove={compactTouchUi ? longPressProps.onPointerMove : undefined}
+        onPointerUp={compactTouchUi ? longPressProps.onPointerUp : undefined}
+        onPointerCancel={compactTouchUi ? longPressProps.onPointerCancel : undefined}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
@@ -653,7 +701,8 @@ const ChannelItem = memo(function ChannelItem({
   channel, teamId, isActive, hasUnread, canManage, onEdit, onDelete, onCopyId,
   isMuted, muteKey, onMute, onUnmute, onChannelMove, onDragEnd, onDragOverAtPosition,
   categoryId, position, channelCount, dropIndicatorPosition, isDragOverCategory,
-  isMobile, onActiveChannelClick, roles, memberRolesMap, onRolesChanged,
+  isMobile, onActiveChannelClick, onVoiceJoinRequest, roles, memberRolesMap, onRolesChanged,
+  isOwner = false, onKick, onBan,
 }) {
   if (!channel || channel.id == null) return null;
   const icon = channelIcons[channel.channel_type] || channelIcons.text;
@@ -699,7 +748,7 @@ const ChannelItem = memo(function ChannelItem({
 
   const onChannelRowPointerUp = useCallback(() => clearChannelLongPress(), [clearChannelLongPress]);
 
-  const { voiceUsers, isUserSpeakingInChannel, voiceChannelId, voiceLeaveAnim, remoteVideoStreams, screenSharingUserIds, isScreenSharing, ownScreenStream, setExpandedLiveView } = useVoice();
+  const { voiceUsers, isUserSpeakingInChannel, voiceChannelId, voiceLeaveAnim, remoteVideoStreams, screenSharingUserIds, isScreenSharing, ownScreenStream, setExpandedLiveView, setVoiceViewMinimized } = useVoice();
   const navigate = useNavigate();
 
   const channelVoiceUsers = isVoice
@@ -778,6 +827,14 @@ const ChannelItem = memo(function ChannelItem({
   const handleVoiceClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isMobile) {
+      if (isConnected) {
+        setVoiceViewMinimized(false);
+        return;
+      }
+      onVoiceJoinRequest?.(channel);
+      return;
+    }
     navigate(`/team/${teamId}/channel/${channel.id}`);
   };
 
@@ -880,6 +937,9 @@ const ChannelItem = memo(function ChannelItem({
               roles={roles}
               memberRolesMap={memberRolesMap}
               canManage={canManage}
+              isOwner={isOwner}
+              onKick={onKick}
+              onBan={onBan}
               onRolesChanged={onRolesChanged}
               serverRoleBadges={(roles || []).filter((r) => (memberRolesMap?.[u.id] || []).some((id) => String(id) === String(r.id))).map((r) => ({ name: r.name, color: r.color }))}
               serverTeamRole={u.role}
@@ -1350,7 +1410,6 @@ export const VoiceStatusBar = memo(function VoiceStatusBar() {
             >
               <AppIcon name="screenShare" size={18} />
             </button>
-            <ScreenShareVolumeControl variant="vsb" />
           </>
         )}
         <button
@@ -1377,11 +1436,15 @@ export default function ChannelList({
   hideUserPanel = false,
   isMobile = false,
   onActiveChannelClick,
+  onVoiceJoinRequest,
   width,
   onResizeStart,
   roles = [],
   memberRolesMap = {},
   onRolesChanged,
+  isOwner = false,
+  onKick,
+  onBan,
 }) {
   const [showChannelModal, setShowChannelModal] = useState(false);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
@@ -1545,7 +1608,15 @@ export default function ChannelList({
 
   return (
     <div className="channel-sidebar" style={width ? { width, minWidth: width } : undefined}>
-      {onResizeStart && <div className="channel-sidebar-resize-handle" onMouseDown={onResizeStart} />}
+      {onResizeStart && (
+        <div
+          className="channel-sidebar-resize-handle"
+          onMouseDown={onResizeStart}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Redimensionner la barre latérale"
+        />
+      )}
       <ServerHeader
         team={team} onOpenSettings={onOpenSettings} onInvite={onInvite}
         onCreateChannel={() => handleCreateChannel(null)}
@@ -1578,7 +1649,9 @@ export default function ChannelList({
           onChannelMove={canManage ? handleChannelMove : undefined}
           dragOverCategoryId={dragOverCategoryId} setDragOverCategoryId={setDragOverCategoryId}
           isMobile={isMobile} onActiveChannelClick={onActiveChannelClick}
+          onVoiceJoinRequest={onVoiceJoinRequest}
           roles={roles} memberRolesMap={memberRolesMap} onRolesChanged={onRolesChanged}
+          isOwner={isOwner} onKick={onKick} onBan={onBan}
         />
 
         {sortedCategories.map(category => (
@@ -1592,7 +1665,9 @@ export default function ChannelList({
             onChannelMove={canManage ? handleChannelMove : undefined}
             dragOverCategoryId={dragOverCategoryId} setDragOverCategoryId={setDragOverCategoryId}
             isMobile={isMobile} onActiveChannelClick={onActiveChannelClick}
+            onVoiceJoinRequest={onVoiceJoinRequest}
             roles={roles} memberRolesMap={memberRolesMap} onRolesChanged={onRolesChanged}
+            isOwner={isOwner} onKick={onKick} onBan={onBan}
           />
         ))}
 

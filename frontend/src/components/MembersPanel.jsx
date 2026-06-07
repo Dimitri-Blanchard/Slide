@@ -1,8 +1,10 @@
-import React, { useState, useMemo, useRef, useEffect, memo, useCallback } from 'react';
+import React, { useState, useMemo, useRef, memo, useCallback } from 'react';
 import { useOnlineUsers } from '../context/SocketContext';
-import { useLanguage } from '../context/LanguageContext';
 import { usePrefetchOnHover } from '../context/PrefetchContext';
 import ClickableAvatar from './ClickableAvatar';
+import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
+import { useLongPress } from '../hooks/useLongPress';
+import { hapticImpact } from '../utils/nativeHaptics';
 import './MembersPanel.css';
 
 const MEMBERS_PANEL_WIDTH_KEY = 'slide_members_panel_width';
@@ -27,11 +29,12 @@ function setStoredWidth(w) {
   } catch (_) {}
 }
 
-const MemberItem = memo(function MemberItem({ member, isOnline, roleColor, channelId, teamId, serverRoleBadges, serverTeamRole }) {
+const MemberItem = memo(function MemberItem({ member, isOnline, roleColor, channelId, teamId, serverRoleBadges, serverTeamRole, canManage, isOwner, roles, memberRolesMap, onKick, onBan, voiceChannelId, onRolesChanged }) {
   const memberRowRef = useRef(null);
   const { onMouseEnter, onMouseLeave } = usePrefetchOnHover();
+  const compactTouchUi = useCompactTouchUi();
 
-  const handleContextMenu = (e) => {
+  const handleContextMenu = useCallback((e) => {
     e.preventDefault();
     const avatarEl = memberRowRef.current?.querySelector('.clickable-avatar');
     if (!avatarEl) return;
@@ -44,10 +47,19 @@ const MemberItem = memo(function MemberItem({ member, isOnline, roleColor, chann
       clientX: e.clientX,
       clientY: e.clientY,
     }));
-  };
+  }, []);
+
+  const { longPressProps, shouldSkipClick } = useLongPress(
+    useCallback((e) => {
+      hapticImpact('Medium');
+      handleContextMenu(e);
+    }, [handleContextMenu]),
+    { disabled: !compactTouchUi },
+  );
 
   const handleRowClick = (e) => {
     e.stopPropagation();
+    if (shouldSkipClick()) return;
     // Single ProfileCard lives inside ClickableAvatar; opening from the row must use that
     // instance only — otherwise context menu "View Profile" + click-through opens two cards.
     const avatarEl = memberRowRef.current?.querySelector('.clickable-avatar');
@@ -60,7 +72,11 @@ const MemberItem = memo(function MemberItem({ member, isOnline, roleColor, chann
         ref={memberRowRef}
         className={`mp-member ${isOnline ? '' : 'offline'}`}
         onClick={handleRowClick}
-        onContextMenu={handleContextMenu}
+        onContextMenu={compactTouchUi ? longPressProps.onContextMenu : handleContextMenu}
+        onPointerDown={compactTouchUi ? longPressProps.onPointerDown : undefined}
+        onPointerMove={compactTouchUi ? longPressProps.onPointerMove : undefined}
+        onPointerUp={compactTouchUi ? longPressProps.onPointerUp : undefined}
+        onPointerCancel={compactTouchUi ? longPressProps.onPointerCancel : undefined}
         onMouseEnter={() => onMouseEnter(member?.id, member)}
         onMouseLeave={onMouseLeave}
       >
@@ -70,7 +86,24 @@ const MemberItem = memo(function MemberItem({ member, isOnline, roleColor, chann
             size="medium"
             showPresence
             position="right"
-            contextMenuContext={{ channelId, teamId }}
+            contextMenuContext={{
+              channelId,
+              teamId,
+              useServerMenu: true,
+              canManage,
+              isOwner,
+              roles,
+              memberRolesMap,
+              voiceChannelId,
+              onKick: onKick ? () => onKick(member) : undefined,
+              onBan: onBan ? () => onBan(member) : undefined,
+              targetTeamRole: member.role,
+              onRolesChanged,
+              onOpenProfileDetail: () => {
+                const avatarEl = memberRowRef.current?.querySelector('.clickable-avatar');
+                avatarEl?.click();
+              },
+            }}
             serverRoleBadges={serverRoleBadges}
             serverTeamRole={serverTeamRole}
           />
@@ -96,9 +129,8 @@ const MemberItem = memo(function MemberItem({ member, isOnline, roleColor, chann
   );
 });
 
-export default function MembersPanel({ teamId, channelId, members, roles, memberRolesMap, currentUserId, isOwner, canManage, onManageRoles, onKick, onBan }) {
+export default function MembersPanel({ teamId, channelId, members, roles, memberRolesMap, currentUserId, isOwner, canManage, onManageRoles, onKick, onBan, voiceChannelId = null, onRolesChanged }) {
   const { isUserOnline } = useOnlineUsers();
-  const { t } = useLanguage();
 
   const [width, setWidth] = useState(getStoredWidth);
   const widthRef = useRef(width);
@@ -120,7 +152,7 @@ export default function MembersPanel({ teamId, channelId, members, roles, member
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
-    document.body.style.cursor = 'col-resize';
+    document.body.style.cursor = 'ew-resize';
     document.body.style.userSelect = 'none';
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
@@ -176,8 +208,8 @@ export default function MembersPanel({ teamId, channelId, members, roles, member
   }, [members, roles, memberRolesMap, isUserOnline]);
 
   return (
-    <aside className="members-panel" style={{ width: width, minWidth: width }}>
-      <div className="mp-resize-handle" onMouseDown={handleResizeStart} title={t('members.resizeMembersList') || 'Redimensionner la liste des membres'} aria-label={t('members.resizeMembersList') || 'Redimensionner la liste des membres'} />
+    <aside className="members-panel" style={{ width, minWidth: width }}>
+      <div className="mp-resize-edge" onMouseDown={handleResizeStart} aria-hidden="true" />
       <div className="mp-scroll">
         {/* Role groups displayed separately */}
         {groupedMembers.roleGroups.map(group => (
@@ -198,6 +230,14 @@ export default function MembersPanel({ teamId, channelId, members, roles, member
                   teamId={teamId}
                   serverRoleBadges={serverRoleBadges}
                   serverTeamRole={member.role}
+                  canManage={canManage}
+                  isOwner={isOwner}
+                  roles={roles}
+                  memberRolesMap={memberRolesMap}
+                  onKick={onKick}
+                  onBan={onBan}
+                  voiceChannelId={voiceChannelId}
+                  onRolesChanged={onRolesChanged}
                 />
               );
             })}
@@ -222,6 +262,14 @@ export default function MembersPanel({ teamId, channelId, members, roles, member
                   teamId={teamId}
                   serverRoleBadges={serverRoleBadges}
                   serverTeamRole={member.role}
+                  canManage={canManage}
+                  isOwner={isOwner}
+                  roles={roles}
+                  memberRolesMap={memberRolesMap}
+                  onKick={onKick}
+                  onBan={onBan}
+                  voiceChannelId={voiceChannelId}
+                  onRolesChanged={onRolesChanged}
                 />
               );
             })}
@@ -246,6 +294,14 @@ export default function MembersPanel({ teamId, channelId, members, roles, member
                   teamId={teamId}
                   serverRoleBadges={serverRoleBadges}
                   serverTeamRole={member.role}
+                  canManage={canManage}
+                  isOwner={isOwner}
+                  roles={roles}
+                  memberRolesMap={memberRolesMap}
+                  onKick={onKick}
+                  onBan={onBan}
+                  voiceChannelId={voiceChannelId}
+                  onRolesChanged={onRolesChanged}
                 />
               );
             })}

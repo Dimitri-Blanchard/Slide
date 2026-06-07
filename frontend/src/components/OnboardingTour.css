@@ -191,7 +191,7 @@
   gap: 14px;
   margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px solid var(--border-subtle);
+  border-top: var(--hairline-width) solid var(--border-subtle);
 }
 
 .tour-dots {

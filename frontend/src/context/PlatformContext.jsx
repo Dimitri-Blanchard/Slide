@@ -1,4 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+
+/** Must match AppLayout useIsMobile (768 / 1024). */
+const MOBILE_SHELL_BREAKPOINT = 768;
+const WEB_TABLET_SHELL_BREAKPOINT = 1024;
 
 const PlatformContext = createContext({
   isElectron: false,
@@ -7,6 +11,7 @@ const PlatformContext = createContext({
   isIOS: false,
   isWeb: true,
   isMobileDevice: false,
+  isMobileShellViewport: false,
   isDesktop: true,
   platform: 'web',
   // 'electron' | 'android' | 'ios' | 'web'
@@ -18,7 +23,18 @@ export function usePlatform() {
 }
 
 function detectPlatform() {
-  if (typeof window === 'undefined') return { isElectron: false, isCapacitor: false, isAndroid: false, isIOS: false, isWeb: true, isMobileDevice: false, isDesktop: true, platform: 'web', deviceType: 'web' };
+  if (typeof window === 'undefined') {
+    return {
+      isElectron: false,
+      isCapacitor: false,
+      isAndroid: false,
+      isIOS: false,
+      isWeb: true,
+      isMobileDevice: false,
+      platform: 'web',
+      deviceType: 'web',
+    };
+  }
   const cap = window.Capacitor;
   const electron = window.electron;
   const isCapacitor = !!(cap?.isNativePlatform?.());
@@ -30,8 +46,6 @@ function detectPlatform() {
   const isMobileDevice = isAndroid || isIOS;
   // isWeb = running in a regular browser (not Electron, not Capacitor)
   const isWeb = !isElectron && !isCapacitor;
-  // isDesktop = Electron or web on a desktop browser (not a phone)
-  const isDesktop = isElectron || isWeb;
   // deviceType: single string for easy switches
   const deviceType = isElectron ? 'electron' : isAndroid ? 'android' : isIOS ? 'ios' : 'web';
   return {
@@ -41,19 +55,51 @@ function detectPlatform() {
     isIOS,
     isWeb,
     isMobileDevice,
-    isDesktop,
     platform: plat,
     deviceType,
   };
 }
 
+/** Same rules as AppLayout useIsMobile — mobile shell + platform-mobile CSS must stay in sync. */
+export function isMobileShellViewport(platform, width = typeof window !== 'undefined' ? window.innerWidth : WEB_TABLET_SHELL_BREAKPOINT) {
+  if (!platform) return false;
+  if (platform.isMobileDevice) return true;
+  if (width <= MOBILE_SHELL_BREAKPOINT) return true;
+  if (platform.isWeb && width <= WEB_TABLET_SHELL_BREAKPOINT) return true;
+  return false;
+}
+
 export function PlatformProvider({ children }) {
   const [platform, setPlatform] = useState(detectPlatform);
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth : WEB_TABLET_SHELL_BREAKPOINT
+  );
+
+  const syncViewportWidth = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    setViewportWidth(window.innerWidth);
+  }, []);
 
   useEffect(() => {
-    const p = detectPlatform();
-    setPlatform(p);
+    setPlatform(detectPlatform());
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    syncViewportWidth();
+    const mqMobile = window.matchMedia(`(max-width: ${MOBILE_SHELL_BREAKPOINT}px)`);
+    const mqTablet = window.matchMedia(`(max-width: ${WEB_TABLET_SHELL_BREAKPOINT}px)`);
+    mqMobile.addEventListener('change', syncViewportWidth);
+    mqTablet.addEventListener('change', syncViewportWidth);
+    window.addEventListener('resize', syncViewportWidth);
+    return () => {
+      mqMobile.removeEventListener('change', syncViewportWidth);
+      mqTablet.removeEventListener('change', syncViewportWidth);
+      window.removeEventListener('resize', syncViewportWidth);
+    };
+  }, [syncViewportWidth]);
+
+  const mobileShell = isMobileShellViewport(platform, viewportWidth);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -71,12 +117,24 @@ export function PlatformProvider({ children }) {
     // Add specific platform class
     if (platform.isAndroid) root.classList.add('platform-android', 'platform-mobile', 'client-app');
     else if (platform.isIOS) root.classList.add('platform-ios', 'platform-mobile', 'client-app');
-    else if (platform.isElectron) root.classList.add('platform-electron', 'platform-desktop', 'client-app');
-    else root.classList.add('platform-web', 'platform-desktop');
-  }, [platform]);
+    else if (platform.isElectron) {
+      root.classList.add('platform-electron', 'client-app');
+      root.classList.add(mobileShell ? 'platform-mobile' : 'platform-desktop');
+    } else {
+      root.classList.add('platform-web');
+      root.classList.add(mobileShell ? 'platform-mobile' : 'platform-desktop');
+    }
+  }, [platform, mobileShell]);
+
+  const contextValue = {
+    ...platform,
+    viewportWidth,
+    isMobileShellViewport: mobileShell,
+    isDesktop: platform.isElectron || (platform.isWeb && !mobileShell),
+  };
 
   return (
-    <PlatformContext.Provider value={platform}>
+    <PlatformContext.Provider value={contextValue}>
       {children}
     </PlatformContext.Provider>
   );

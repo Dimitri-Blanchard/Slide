@@ -640,6 +640,7 @@
     "requestError": "Não foi possível enviar o pedido de amizade. Tente novamente mais tarde.",
     "noFriends": "Nenhum amigo ainda",
     "noOnline": "Nenhum amigo online",
+    "activeNow": "Ativos agora",
     "noPending": "Nenhuma solicitação pendente",
     "noBlocked": "Nenhum usuário bloqueado",
     "incomingCall": "Incoming call...",

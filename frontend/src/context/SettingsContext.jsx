@@ -9,6 +9,7 @@ import {
   saveElectronVoiceSettings,
 } from '../utils/electronVoicePrefs';
 import { scheduleNativeNotification } from '../utils/nativeNotifications';
+import { shouldPlayNotificationSound } from '../utils/notificationFocus';
 import { useLanguage } from './LanguageContext';
 
 function mergeElectronVoiceSettings(base) {
@@ -124,25 +125,40 @@ function playNotificationSound(opts = {}) {
 
     const osc1 = ctx.createOscillator();
     const osc2 = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc1.connect(gain);
-    osc2.connect(gain);
-    gain.connect(destination);
-    gain.gain.setValueAtTime(0.2 * volume, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-    osc1.frequency.value = 880;
-    osc2.frequency.value = 1109;
-    osc1.type = osc2.type = 'sine';
-    osc1.start(ctx.currentTime);
-    osc2.start(ctx.currentTime + 0.08);
-    osc1.stop(ctx.currentTime + 0.2);
-    osc2.stop(ctx.currentTime + 0.2);
+    const gain1 = ctx.createGain();
+    const gain2 = ctx.createGain();
+    const t0 = ctx.currentTime;
+    const peak = 0.022 * volume;
+
+    osc1.type = 'sine';
+    osc2.type = 'sine';
+    osc1.frequency.value = 196;
+    osc2.frequency.value = 246.94;
+    osc1.connect(gain1);
+    osc2.connect(gain2);
+    gain1.connect(destination);
+    gain2.connect(destination);
+
+    gain1.gain.setValueAtTime(0, t0);
+    gain1.gain.linearRampToValueAtTime(peak, t0 + 0.028);
+    gain1.gain.setValueAtTime(peak * 0.88, t0 + 0.04);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
+
+    gain2.gain.setValueAtTime(0, t0 + 0.085);
+    gain2.gain.linearRampToValueAtTime(peak * 0.72, t0 + 0.115);
+    gain2.gain.setValueAtTime(peak * 0.63, t0 + 0.127);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3);
+
+    osc1.start(t0);
+    osc1.stop(t0 + 0.22);
+    osc2.start(t0 + 0.085);
+    osc2.stop(t0 + 0.32);
 
     if (routedAudio) {
       setTimeout(() => {
         routedAudio.srcObject = null;
         routedAudio.pause();
-      }, 250);
+      }, 350);
     }
   } catch (_) {}
 }
@@ -489,8 +505,8 @@ export function SettingsProvider({ children }) {
   const sendNotification = useCallback((title, options = {}) => {
     if (!settings.enable_notifications) return;
     
-    // Play sound if enabled - use selected output device
-    if (settings.notification_sound) {
+    // Play sound if enabled - use selected output device (silent when app is focused)
+    if (settings.notification_sound && !options.skipSound && shouldPlayNotificationSound({ force: options.forceSound })) {
       playNotificationSound({
         outputDevice: settings.output_device,
         outputVolume: settings.output_volume ?? 100,

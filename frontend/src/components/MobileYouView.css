@@ -4,7 +4,8 @@
 .mobile-you-view {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
   background: var(--bg-primary);
 }
@@ -15,7 +16,7 @@
   flex-direction: column;
   align-items: center;
   padding: 32px 24px 24px;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
 }
 
 .mobile-you-avatar-wrap {
@@ -90,6 +91,25 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+}
+
+.mobile-you-nav-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--danger, #ed4245);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 .mobile-you-nav-item span:not(.mobile-you-nav-icon) {

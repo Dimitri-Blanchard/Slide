@@ -4,11 +4,13 @@ import { BrowserRouter, HashRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
 import { restoreToken } from './utils/tokenStorage';
+import { applyCapacitorBootRedirect } from './utils/clientApp';
 import { SocketProvider } from './context/SocketContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { SettingsProvider } from './context/SettingsContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { PlatformProvider } from './context/PlatformContext';
+import { SettingsUiProvider } from './context/SettingsUiContext';
 import { VoiceProvider } from './context/VoiceContext';
 import { SoundProvider } from './context/SoundContext';
 import { OfflineProvider } from './context/OfflineContext';
@@ -95,18 +97,6 @@ if (typeof window !== 'undefined') {
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', scheduleViewportMetrics);
     window.visualViewport.addEventListener('scroll', scheduleViewportMetrics);
-  }
-}
-
-// Capacitor: never boot on marketing `/` — go straight to login or messages
-if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform()) {
-  const hash = window.location.hash || '';
-  const path = (hash.slice(1).split('?')[0] || '/').replace(/\/+$/, '') || '/';
-  if (path === '/' || path === '') {
-    import('./utils/tokenStorage').then(({ getToken }) => {
-      const target = getToken() ? '#/channels/@me' : '#/login';
-      if (hash !== target) window.location.replace(target);
-    });
   }
 }
 
@@ -262,6 +252,7 @@ const AppWithProviders = () => (
     <SettingsProvider>
       <Router>
         <PlatformProvider>
+          <SettingsUiProvider>
           <NotificationProvider>
             <Notifications />
             <QrLoginBridge />
@@ -285,6 +276,7 @@ const AppWithProviders = () => (
               </SoundProvider>
             </AuthProvider>
           </NotificationProvider>
+          </SettingsUiProvider>
         </PlatformProvider>
       </Router>
     </SettingsProvider>
@@ -304,5 +296,8 @@ function mountApp() {
 restoreToken()
   .catch((err) => {
     console.warn('[Auth] restoreToken failed on startup — continuing without restored token', err);
+  })
+  .then(() => {
+    applyCapacitorBootRedirect();
   })
   .finally(mountApp);

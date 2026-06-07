@@ -31,8 +31,8 @@
   height: 10px;
   margin-left: -5px;
   background: rgba(218, 55, 60, 0.72);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-right: var(--hairline-width) solid rgba(255, 255, 255, 0.08);
+  border-bottom: var(--hairline-width) solid rgba(255, 255, 255, 0.08);
   transform: rotate(45deg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);

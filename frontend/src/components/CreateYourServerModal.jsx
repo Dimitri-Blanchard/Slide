@@ -49,9 +49,9 @@ const TEMPLATES = [
   { id: 'community', name: 'School Club', icon: <SchoolClubIcon /> },
 ];
 
-export default function CreateYourServerModal({ isOpen, onClose, onCreateServer, onJoinServer, onDiscoverServers, exiting }) {
+export default function CreateYourServerModal({ isOpen, embedded, onClose, onCreateServer, onJoinServer, onDiscoverServers, exiting }) {
   const navigate = useNavigate();
-  const enterInstant = useModalEnterAnimation('create-your-server-modal', isOpen);
+  const enterInstant = useModalEnterAnimation('create-your-server-modal', isOpen && !embedded);
   if (!isOpen) return null;
 
   const handleCreateMyOwn = () => {
@@ -75,54 +75,64 @@ export default function CreateYourServerModal({ isOpen, onClose, onCreateServer,
     if (!exiting) onClose();
   };
 
+  const content = (
+    <>
+      <div className="cysm-header">
+        <button className="cysm-close" onClick={onClose} aria-label="Close">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18.4 4L12 10.4L5.6 4L4 5.6L10.4 12L4 18.4L5.6 20L12 13.6L18.4 20L20 18.4L13.6 12L20 5.6L18.4 4Z"/>
+          </svg>
+        </button>
+        <h2>Create Your Server</h2>
+        <p>Your server is where you and your friends hang out. Make yours and start talking.</p>
+      </div>
+
+      <div className="cysm-content">
+        <button className="cysm-row cysm-create-own" onClick={handleCreateMyOwn}>
+          <span className="cysm-row-icon cysm-create-icon">
+            <CreateMyOwnIcon />
+          </span>
+          <span className="cysm-row-text">Create My Own</span>
+          <span className="cysm-row-arrow"><ArrowIcon /></span>
+        </button>
+
+        <div className="cysm-section-label">START FROM A TEMPLATE</div>
+        <div className="cysm-templates">
+          {TEMPLATES.map((tmpl, idx) => (
+            <button
+              key={`${tmpl.id}-${idx}`}
+              className="cysm-row"
+              onClick={() => handleTemplate(tmpl.id)}
+            >
+              <span className="cysm-row-icon">{tmpl.icon}</span>
+              <span className="cysm-row-text">{tmpl.name}</span>
+              <span className="cysm-row-arrow"><ArrowIcon /></span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="cysm-join-section">
+        <p className="cysm-join-question">Have an invite already?</p>
+        <button className="cysm-join-btn" onClick={handleJoin}>
+          Join a Server
+        </button>
+        <button className="cysm-discover-btn" onClick={handleDiscover}>
+          <Globe size={18} strokeWidth={2} />
+          Explore Public Servers
+        </button>
+      </div>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="cysm-modal cysm-modal-embedded">{content}</div>;
+  }
+
   const modal = (
     <div className={`cysm-overlay ${exiting ? 'cysm-exiting' : ''}${enterInstant && !exiting ? ' modal-enter-instant' : ''}`} onClick={handleOverlayClick}>
       <div className={`cysm-modal ${exiting ? 'cysm-exiting' : ''}`} onClick={(e) => e.stopPropagation()}>
-        <div className="cysm-header">
-          <button className="cysm-close" onClick={onClose} aria-label="Close">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M18.4 4L12 10.4L5.6 4L4 5.6L10.4 12L4 18.4L5.6 20L12 13.6L18.4 20L20 18.4L13.6 12L20 5.6L18.4 4Z"/>
-            </svg>
-          </button>
-          <h2>Create Your Server</h2>
-          <p>Your server is where you and your friends hang out. Make yours and start talking.</p>
-        </div>
-
-        <div className="cysm-content">
-          <button className="cysm-row cysm-create-own" onClick={handleCreateMyOwn}>
-            <span className="cysm-row-icon cysm-create-icon">
-              <CreateMyOwnIcon />
-            </span>
-            <span className="cysm-row-text">Create My Own</span>
-            <span className="cysm-row-arrow"><ArrowIcon /></span>
-          </button>
-
-          <div className="cysm-section-label">START FROM A TEMPLATE</div>
-          <div className="cysm-templates">
-            {TEMPLATES.map((tmpl, idx) => (
-              <button
-                key={`${tmpl.id}-${idx}`}
-                className="cysm-row"
-                onClick={() => handleTemplate(tmpl.id)}
-              >
-                <span className="cysm-row-icon">{tmpl.icon}</span>
-                <span className="cysm-row-text">{tmpl.name}</span>
-                <span className="cysm-row-arrow"><ArrowIcon /></span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="cysm-join-section">
-          <p className="cysm-join-question">Have an invite already?</p>
-          <button className="cysm-join-btn" onClick={handleJoin}>
-            Join a Server
-          </button>
-          <button className="cysm-discover-btn" onClick={handleDiscover}>
-            <Globe size={18} strokeWidth={2} />
-            Explore Public Servers
-          </button>
-        </div>
+        {content}
       </div>
     </div>
   );

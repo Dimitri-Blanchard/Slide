@@ -27,7 +27,7 @@
   width: 248px;
   min-width: 248px;
   background: var(--bg-secondary);
-  border-right: 1px solid var(--border-subtle);
+  border-right: var(--hairline-width) solid var(--border-subtle);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -331,7 +331,7 @@
 }
 
 .ss-divider {
-  height: 1px;
+  height: var(--hairline-width);
   background: var(--border-subtle);
   margin: 28px 0;
 }
@@ -372,7 +372,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 18px 0;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
   gap: 16px;
 }
 
@@ -744,7 +744,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
 }
 
 .ss-roles-count {
@@ -861,7 +861,7 @@
   justify-content: space-between;
   padding-bottom: 16px;
   margin-bottom: 16px;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
 }
 
 .ss-role-editor-header h3 {
@@ -1385,7 +1385,7 @@
   letter-spacing: 0.05em;
   color: var(--text-muted);
   background: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
 }
 
 .ss-members-row {
@@ -1395,7 +1395,7 @@
   align-items: center;
   padding: 12px 20px;
   transition: background 0.15s;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
 }
 
 .ss-members-row:last-child {
@@ -1921,7 +1921,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  border-top: 1px solid var(--border-subtle);
+  border-top: var(--hairline-width) solid var(--border-subtle);
 }
 
 .ss-audit-actor {

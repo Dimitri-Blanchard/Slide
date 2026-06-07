@@ -67,7 +67,7 @@ function extractEmbeddableUrls(text) {
 }
 
 export function getEmbeddableUrls(text) {
-  return extractEmbeddableUrls(text);
+  return extractEmbeddableUrls(text).filter(canEmbedUrl);
 }
 
 function getDomain(url) {
@@ -92,6 +92,10 @@ function getWhitelistMatch(url) {
 
 function isDirectImageUrl(url) {
   return IMAGE_URL_RE.test(url);
+}
+
+function canEmbedUrl(url) {
+  return !!getWhitelistMatch(url) || isDirectImageUrl(url);
 }
 
 function DismissEmbedButton({ label, onDismiss }) {
@@ -120,7 +124,6 @@ function DismissEmbedButton({ label, onDismiss }) {
 
 const LinkEmbed = memo(function LinkEmbed({ url, t }) {
   const [dismissed, setDismissed] = useState(false);
-  const [faviconFailed, setFaviconFailed] = useState(false);
   const [shouldLoadIframe, setShouldLoadIframe] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   const containerRef = useRef(null);
@@ -168,8 +171,7 @@ const LinkEmbed = memo(function LinkEmbed({ url, t }) {
     return () => observer.disconnect();
   }, [isWhitelist, shouldLoadIframe]);
 
-  if (!url) return null;
-  if (dismissed) return null;
+  if (!url || dismissed || !canEmbedUrl(url)) return null;
 
   if (isImage && !imageFailed) {
     return (
@@ -245,45 +247,7 @@ const LinkEmbed = memo(function LinkEmbed({ url, t }) {
     );
   }
 
-  // Embed par défaut — carte simple avec domaine
-  const displayUrl = url.replace(/^https?:\/\//, '');
-  const truncatedUrl = displayUrl.length > 60 ? displayUrl.slice(0, 60) + '…' : displayUrl;
-
-  return (
-    <div className="link-embed-wrap link-embed-wrap--default">
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="link-embed link-embed--default"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="link-embed-default__icon">
-          {domain && !faviconFailed ? (
-            <img
-              src={`https://www.google.com/s2/favicons?sz=32&domain=${encodeURIComponent(domain)}`}
-              alt=""
-              width={20}
-              height={20}
-              loading="lazy"
-              decoding="async"
-              onError={() => setFaviconFailed(true)}
-            />
-          ) : (
-            <span className="link-embed-default__fallback-icon" aria-hidden>↗</span>
-          )}
-        </div>
-        <div className="link-embed-default__content">
-          <span className="link-embed-default__domain">{domain || 'Link'}</span>
-          <span className="link-embed-default__url">{truncatedUrl}</span>
-        </div>
-        <svg className="link-embed-default__arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M7 17L17 7M17 7h-6M17 7v6" />
-        </svg>
-      </a>
-      <DismissEmbedButton label={dismissLabel} onDismiss={() => setDismissed(true)} />
-    </div>
-  );
+  return null;
 });
 
 export default LinkEmbed;

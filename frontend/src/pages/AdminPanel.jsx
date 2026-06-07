@@ -977,7 +977,8 @@ export default function AdminPanel() {
         })}
       </nav>
 
-      <main className="admin-content">
+      <div className="admin-body">
+        <main className="admin-content">
         {activeTab === 'stats' && stats && (
           <div className="stats-section">
             <div className="stats-refresh-row">
@@ -1012,7 +1013,8 @@ export default function AdminPanel() {
         {activeTab === 'broadcast' && <BroadcastTab />}
         {activeTab === 'reports' && <ReportsTab />}
         {activeTab === 'health' && <HealthTab />}
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

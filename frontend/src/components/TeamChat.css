@@ -25,9 +25,57 @@
 }
 
 @media (max-width: 768px) {
-  .team-view.sticker-panel-open {
+  .mobile-app-layout .team-view.sticker-panel-open {
     overflow: hidden;
   }
+}
+
+/* Mobile shell (<=1024px web): channel list = full-screen overlay; chat fills viewport */
+.mobile-app-layout .team-view {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.mobile-app-layout .team-view > .channel-sidebar {
+  display: none;
+}
+
+.mobile-app-layout .team-view.mobile-channels-open > .channel-sidebar {
+  display: flex;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 200;
+  width: 100%;
+  min-width: unset;
+  transform: none;
+  box-shadow: none;
+}
+
+.mobile-app-layout:has(.mobile-bottom-nav) .team-view.mobile-channels-open > .channel-sidebar {
+  bottom: calc(var(--mobile-nav-bar-height, 56px) + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
+}
+
+.mobile-app-layout .team-view.mobile-channels-open:not(.has-active-channel) .team-chat,
+.mobile-app-layout .team-view.mobile-channels-open:not(.has-active-channel) .members-panel {
+  display: none;
+}
+
+.mobile-app-layout .team-view.has-active-channel .team-chat {
+  display: flex !important;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+.mobile-app-layout .team-view > .mobile-nav-overlay {
+  display: none;
 }
 
 .team-loading {
@@ -82,9 +130,17 @@
   display: block;
 }
 
+.live-stream-fullscreen-vol {
+  position: absolute;
+  bottom: 56px;
+  right: 84px;
+  z-index: 10;
+  pointer-events: all;
+}
+
 .live-stream-fullscreen-close {
   position: absolute;
-  top: 12px;
+  bottom: 56px;
   right: 16px;
   z-index: 10;
   width: 40px;
@@ -210,38 +266,6 @@
    chat content never sits underneath the right panel. */
 @media (max-width: 1180px) {
   .team-view .members-panel {
-    display: none;
-  }
-}
-
-@media (max-width: 768px) {
-  .team-view > .channel-sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    /* Tab bar + home indicator (aligned with MobileBottomNav + mobile-shell) */
-    bottom: calc(var(--mobile-nav-bar-height, 56px) + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
-    z-index: 200;
-    /* Full-width so it feels like a native screen, not a slide-over panel */
-    width: 100%;
-    min-width: unset;
-    transform: translateX(-100%);
-    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: none;
-  }
-
-  .team-view.mobile-channels-open > .channel-sidebar {
-    transform: translateX(0);
-  }
-
-  /* When channel list is open on mobile, fully hide chat content behind it. */
-  .team-view.mobile-channels-open .team-chat,
-  .team-view.mobile-channels-open .members-panel {
-    display: none;
-  }
-
-  /* No dark overlay needed — channel list is full-width, nothing visible behind it */
-  .team-view > .mobile-nav-overlay {
     display: none;
   }
 }

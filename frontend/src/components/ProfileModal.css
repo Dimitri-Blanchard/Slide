@@ -36,7 +36,7 @@
   max-width: 320px;
   height: 100vh;
   background: var(--bg-floating);
-  border-left: 1px solid var(--border-default);
+  border-left: var(--hairline-width) solid var(--border-default);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   display: flex;
@@ -310,7 +310,7 @@
 
 /* ── Divider ─────────────────────────────────────────────── */
 .profile-modal-divider {
-  height: 1px;
+  height: var(--hairline-width);
   background: var(--border-default);
   border: none;
   margin: 12px 0;

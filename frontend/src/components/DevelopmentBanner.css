@@ -9,7 +9,7 @@
   z-index: 9998;
   padding: 12px 20px;
   background: var(--glass-float-bg);
-  border-top: 1px solid var(--border-subtle);
+  border-top: var(--hairline-width) solid var(--border-subtle);
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
   backdrop-filter: var(--glass-blur-sm);
   -webkit-backdrop-filter: var(--glass-blur-sm);

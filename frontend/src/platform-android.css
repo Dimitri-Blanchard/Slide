@@ -58,8 +58,8 @@
   min-height: var(--mobile-nav-bar-height, 56px);
 }
 .platform-android .mobile-server-bar .server-icon-link {
-  min-width: 48px;
-  min-height: 48px;
+  min-width: 42px;
+  min-height: 42px;
 }
 
 /* ── Input fields: 16px prevents any system zoom ── */
@@ -90,14 +90,14 @@
 /* ── Server icons: slightly larger on mobile for fat fingers ── */
 @media (max-width: 768px) {
   .platform-android .server-item {
-    width: 52px;
-    height: 52px;
+    width: 46px;
+    height: 46px;
   }
 
   .platform-android .server-icon-link,
   .platform-android .server-icon {
-    width: 52px;
-    height: 52px;
+    width: 46px;
+    height: 46px;
   }
 }
 

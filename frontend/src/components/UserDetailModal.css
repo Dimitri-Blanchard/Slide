@@ -107,7 +107,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-right: 1px solid var(--border-default);
+  border-right: var(--hairline-width) solid var(--border-default);
 }
 
 .udm-main-body {
@@ -138,6 +138,10 @@
 
 .udm-side-panel--activities .udm-section-title {
   margin-bottom: 10px;
+}
+
+.udm-spotify-activity {
+  margin-bottom: 0;
 }
 .udm-close-btn:hover {
   background: rgba(0, 0, 0, 0.75);
@@ -314,7 +318,7 @@
 
 /* ── Divider ── */
 .udm-divider {
-  height: 1px;
+  height: var(--hairline-width);
   background: var(--border-default);
   border: none;
   margin: 14px 0;
@@ -604,7 +608,7 @@
   .udm-main-card {
     order: 1;
     border-right: none;
-    border-bottom: 1px solid var(--border-default);
+    border-bottom: var(--hairline-width) solid var(--border-default);
     border-left: none;
   }
   .udm-main-body {

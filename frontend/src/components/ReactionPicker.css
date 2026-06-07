@@ -72,7 +72,7 @@
   align-items: center;
   gap: 2px;
   padding: 4px 10px;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
 }
 
 .reaction-picker-tab {

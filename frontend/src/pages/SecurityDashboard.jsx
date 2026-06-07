@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useNotification } from '../context/NotificationContext';
 import { useSettings } from '../context/SettingsContext';
+import { usePlatform } from '../context/PlatformContext';
+import { useSettingsUi } from '../context/SettingsUiContext';
 import { getOrCreateDeviceId } from '../utils/tokenStorage';
 import { auth, API_BASE } from '../api';
 
@@ -49,12 +51,14 @@ function buildVerificationPayload(user, fingerprint) {
   }))}`;
 }
 
-export default function SecurityDashboard() {
+export default function SecurityDashboard({ mobileStandalone = false }) {
   const { user, updateUser } = useAuth();
   const { t } = useLanguage();
   const { notify } = useNotification();
   const { developerMode } = useSettings();
+  const { isMobileDevice } = usePlatform();
   const navigate = useNavigate();
+  const { openSettings } = useSettingsUi();
   const [fingerprint, setFingerprint] = useState('');
   const [fingerprintRaw, setFingerprintRaw] = useState({ rawHex: '', input: '' });
   const [verificationPayload, setVerificationPayload] = useState('');
@@ -114,7 +118,7 @@ export default function SecurityDashboard() {
     if (scrollRef.current) {
       sessionStorage.setItem(SECURITY_SCROLL_KEY, String(scrollRef.current.scrollTop));
     }
-    navigate('/settings?section=account');
+    openSettings({ section: 'account' });
   };
 
   // Security health metrics (2FA: use truthy check—backend may return 0/1 for boolean)
@@ -156,12 +160,29 @@ export default function SecurityDashboard() {
 
   return (
     <div ref={scrollRef} className="security-dashboard-scroll">
+      {(mobileStandalone || isMobileDevice) && (
+        <header className="mobile-sub-page-header">
+          <button
+            type="button"
+            className="dc-mobile-back"
+            onClick={() => navigate('/channels/@me', { state: { mobileTab: 'profile' } })}
+            aria-label={t('common.back')}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+            </svg>
+          </button>
+          <h1 className="mobile-sub-page-title">{t('securityDashboard.title')}</h1>
+        </header>
+      )}
       <div className="security-dashboard">
-      {/* Hero trust banner - always visible at top */}
+      {/* Hero trust banner - hidden on mobile standalone (compact header above) */}
+      {!(mobileStandalone || isMobileDevice) && (
       <div className="security-dashboard-header">
         <h1 className="security-dashboard-title">{t('securityDashboard.title')}</h1>
         <p className="security-dashboard-subtitle">{t('securityDashboard.subtitle')}</p>
       </div>
+      )}
 
       <div className="security-dashboard-content">
         {/* Security Health Score */}

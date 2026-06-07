@@ -8,6 +8,7 @@ import { randomUuidV4 } from '../utils/randomUuid';
 import {
   isElectronVoicePrefsEnabled,
   loadElectronVoicePrefs,
+  persistElectronVoiceMuteFromRefs,
   saveElectronVoiceMuteState,
 } from '../utils/electronVoicePrefs';
 
@@ -52,6 +53,13 @@ function getMicrophoneIssueFromError(err) {
   }
 
   return { type: 'access-failed', label: 'Micro indisponible' };
+}
+
+function isMicrophonePermissionError(err) {
+  const name = err?.name || '';
+  if (['NotAllowedError', 'PermissionDeniedError', 'SecurityError'].includes(name)) return true;
+  const text = `${name} ${err?.message || ''} ${err?.code ?? ''}`.toLowerCase();
+  return /permission|not allowed|notallowed|denied|dismissed|microphone.*denied/.test(text);
 }
 
 function applyScreenShareTrackHints(stream) {
@@ -522,7 +530,7 @@ export function VoiceProvider({ children }) {
   const socket = useSocket();
   const { user } = useAuth();
   const { settings, updateSetting } = useSettings();
-  const { playVoiceJoin, playVoiceLeave, playVoiceMute, playVoiceUnmute } = useSounds();
+  const { playVoiceJoin, playVoiceLeave, playVoiceMute, playVoiceUnmute, playStreamStart, playStreamStop } = useSounds();
   const hasNitroRef = useRef(!!user?.has_nitro);
   useEffect(() => {
     hasNitroRef.current = !!user?.has_nitro;
@@ -555,6 +563,8 @@ export function VoiceProvider({ children }) {
   const [remoteVideoStreams, setRemoteVideoStreams] = useState({});
   const [expandedLiveView, setExpandedLiveView] = useState(null);
   const [voiceViewMinimized, setVoiceViewMinimized] = useState(false);
+  /** Mobile minimized voice island: last focused call participant or live stream subject. */
+  const [voiceMiniIslandPreview, setVoiceMiniIslandPreview] = useState(null);
   /** Desktop floating DM call panel: user hid the expanded card (call stays active). */
   const [dmFloatingPanelCollapsed, setDmFloatingPanelCollapsed] = useState(false);
   /** DM call initiator (server); floating panel only for this user. */
@@ -569,6 +579,8 @@ export function VoiceProvider({ children }) {
   const [streamVolumeByUserId, setStreamVolumeByUserId] = useState({});
   const [microphoneIssue, setMicrophoneIssue] = useState(null);
   const lastMicrophoneIssueRef = useRef(null);
+  const serverMutedRef = useRef(false);
+  const serverDeafenedRef = useRef(false);
   const micAttemptStreamRef = useRef(null);
   const micAttemptAudioContextRef = useRef(null);
   const micAttemptAnalyserRef = useRef(null);
@@ -690,9 +702,14 @@ export function VoiceProvider({ children }) {
   const screenShareGainNodeRef = useRef(null);
   const cameraStreamRef = useRef(null);
   const peerConnectionsRef = useRef({});
-  const remoteAudioRefs = useRef({});
-  /** One MediaStream per remote peer mixing mic + screen-share audio (multiple receivers). */
-  const remoteMergedAudioStreamsRef = useRef({});
+  const remoteVoiceAudioRefs = useRef({});
+  const remoteCaptureAudioRefs = useRef({});
+  /** Mic stream per peer (WebRTC stream id of first remote audio track). */
+  const remotePeerVoiceStreamIdRef = useRef({});
+  /** One MediaStream per remote peer — mic only. */
+  const remoteVoiceAudioStreamsRef = useRef({});
+  /** Screen/tab capture audio mixed per peer (volume slider applies here). */
+  const remoteCaptureAudioStreamsRef = useRef({});
   const iceCandidateQueueRef = useRef({});
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
@@ -712,6 +729,8 @@ export function VoiceProvider({ children }) {
     leave: () => {},
     mute: () => {},
     unmute: () => {},
+    streamStart: () => {},
+    streamStop: () => {},
   });
   const voiceStateSoundBurstRef = useRef({ at: 0, count: 0 });
   const leaveAnimTimerRef = useRef(null);
@@ -723,8 +742,10 @@ export function VoiceProvider({ children }) {
       leave: playVoiceLeave,
       mute: playVoiceMute,
       unmute: playVoiceUnmute,
+      streamStart: playStreamStart,
+      streamStop: playStreamStop,
     };
-  }, [playVoiceJoin, playVoiceLeave, playVoiceMute, playVoiceUnmute]);
+  }, [playVoiceJoin, playVoiceLeave, playVoiceMute, playVoiceUnmute, playStreamStart, playStreamStop]);
 
   const playVoiceStateSound = useCallback((muted) => {
     const now = Date.now();
@@ -786,7 +807,9 @@ export function VoiceProvider({ children }) {
     };
     setTrackEnabled(localStreamRef.current);
     setTrackEnabled(processedStreamRef.current);
-    Object.values(remoteAudioRefs.current).forEach((a) => { a.muted = effectiveDeafened; });
+    Object.values(remoteVoiceAudioRefs.current).forEach((a) => { a.muted = effectiveDeafened; });
+    Object.values(remoteCaptureAudioRefs.current).forEach((a) => { a.muted = effectiveDeafened; });
+    saveElectronVoiceMuteState(effectiveMuted, effectiveDeafened);
     return { effectiveMuted, effectiveDeafened };
   }, []);
 
@@ -900,6 +923,7 @@ export function VoiceProvider({ children }) {
     });
     // When the app is actually quitting (not just minimizing to tray), leave voice
     const cleanupQuit = window.electron.onAppBeforeQuit?.(() => {
+      persistElectronVoiceMuteFromRefs(isMutedRef, isDeafenedRef);
       trayActionsRef.current.leaveCallOnAppExit?.();
     });
     return () => { cleanupMute?.(); cleanupLeave?.(); cleanupQuit?.(); };
@@ -920,16 +944,41 @@ export function VoiceProvider({ children }) {
     }
   }), [settings?.input_device, settings?.echo_cancellation, settings?.noise_suppression, settings?.auto_gain_control]);
 
-  const acquireMicStream = useCallback(async () => {
+  const acquireMicStream = useCallback(async ({ permissionRetry = false } = {}) => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       throw new Error('Microphone access not available in this context.');
     }
-    try {
-      return await navigator.mediaDevices.getUserMedia(getAudioConstraints(true));
-    } catch (err) {
-      console.warn('getUserMedia failed with saved device, retrying with default:', err.message);
-      return await navigator.mediaDevices.getUserMedia(getAudioConstraints(false));
+
+    // User-gesture retry: simplest constraint first so Chrome / Capacitor WebView show the OS prompt.
+    if (permissionRetry) {
+      try {
+        return await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err) {
+        if (isMicrophonePermissionError(err)) throw err;
+      }
     }
+
+    const attempts = permissionRetry
+      ? [
+          () => navigator.mediaDevices.getUserMedia(getAudioConstraints(false)),
+          () => navigator.mediaDevices.getUserMedia(getAudioConstraints(true)),
+        ]
+      : [
+          () => navigator.mediaDevices.getUserMedia(getAudioConstraints(true)),
+          () => navigator.mediaDevices.getUserMedia(getAudioConstraints(false)),
+          () => navigator.mediaDevices.getUserMedia({ audio: true }),
+        ];
+
+    let lastErr;
+    for (const attempt of attempts) {
+      try {
+        return await attempt();
+      } catch (err) {
+        lastErr = err;
+        if (isMicrophonePermissionError(err)) throw err;
+      }
+    }
+    throw lastErr || new Error('Microphone unavailable');
   }, [getAudioConstraints]);
 
   const hasActiveLocalMic = useCallback(() => {
@@ -1245,6 +1294,12 @@ export function VoiceProvider({ children }) {
     return typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 100;
   }, [streamVolumeByUserId]);
 
+  const getVoiceListenVolume01 = useCallback(() => {
+    const base = (settings?.output_volume ?? 100) / 100;
+    return Math.min(1, Math.max(0, base));
+  }, [settings?.output_volume]);
+
+  /** Live / screen-share listening level (per-user slider × output volume). */
   const getListenVolume01 = useCallback((userId) => {
     const base = (settings?.output_volume ?? 100) / 100;
     return Math.min(1, Math.max(0, base * (getStreamVolumePercent(userId) / 100)));
@@ -1308,23 +1363,23 @@ export function VoiceProvider({ children }) {
     }
   }, [user?.id, stopRemoteSpeakingMonitor, applyRemoteSpeakingState]);
 
-  const playRemoteStream = useCallback((peerKeyStr, stream) => {
+  const playRemoteAudio = useCallback((peerKeyStr, stream, audioRefs, getVolume01, monitorSpeaking) => {
     const { userId: rosterUserId } = parsePeerKey(peerKeyStr);
     ensurePeerInVoiceRoster(rosterUserId);
     if (voiceConversationIdRef.current) {
       setDmRemoteMediaReady(true);
     }
-    let audio = remoteAudioRefs.current[peerKeyStr];
+    let audio = audioRefs.current[peerKeyStr];
     if (!audio) {
       audio = new Audio();
       audio.autoplay = true;
       audio.playsInline = true;
       audio.style.display = 'none';
       document.body.appendChild(audio);
-      remoteAudioRefs.current[peerKeyStr] = audio;
+      audioRefs.current[peerKeyStr] = audio;
     }
     audio.srcObject = stream;
-    audio.volume = getListenVolume01(rosterUserId);
+    audio.volume = getVolume01(rosterUserId);
     if (settings?.output_device && settings.output_device !== 'default' && audio.setSinkId) {
       audio.setSinkId(settings.output_device).catch(() => {});
     }
@@ -1340,17 +1395,32 @@ export function VoiceProvider({ children }) {
         document.addEventListener('keydown', retry, { once: true });
       });
     }
-    startRemoteSpeakingMonitor(peerKeyStr, stream);
-  }, [getListenVolume01, settings?.output_device, ensurePeerInVoiceRoster, startRemoteSpeakingMonitor]);
+    if (monitorSpeaking) {
+      startRemoteSpeakingMonitor(peerKeyStr, stream);
+    }
+  }, [settings?.output_device, ensurePeerInVoiceRoster, startRemoteSpeakingMonitor]);
+
+  const playRemoteVoiceStream = useCallback((peerKeyStr, stream) => {
+    playRemoteAudio(peerKeyStr, stream, remoteVoiceAudioRefs, getVoiceListenVolume01, true);
+  }, [playRemoteAudio, getVoiceListenVolume01]);
+
+  const playRemoteCaptureStream = useCallback((peerKeyStr, stream) => {
+    playRemoteAudio(peerKeyStr, stream, remoteCaptureAudioRefs, getListenVolume01, false);
+  }, [playRemoteAudio, getListenVolume01]);
 
   useEffect(() => {
-    for (const peerKeyStr of Object.keys(remoteAudioRefs.current)) {
-      const audio = remoteAudioRefs.current[peerKeyStr];
+    for (const peerKeyStr of Object.keys(remoteVoiceAudioRefs.current)) {
+      const audio = remoteVoiceAudioRefs.current[peerKeyStr];
+      if (!audio) continue;
+      audio.volume = getVoiceListenVolume01();
+    }
+    for (const peerKeyStr of Object.keys(remoteCaptureAudioRefs.current)) {
+      const audio = remoteCaptureAudioRefs.current[peerKeyStr];
       if (!audio) continue;
       const { userId: uid } = parsePeerKey(peerKeyStr);
       audio.volume = getListenVolume01(uid);
     }
-  }, [getListenVolume01]);
+  }, [getVoiceListenVolume01, getListenVolume01]);
 
   const cleanupPeerConnection = useCallback((peerKeyStr) => {
     stopRemoteSpeakingMonitor(peerKeyStr);
@@ -1363,14 +1433,18 @@ export function VoiceProvider({ children }) {
       pc.close();
       delete peerConnectionsRef.current[peerKeyStr];
     }
-    const audio = remoteAudioRefs.current[peerKeyStr];
-    if (audio) {
-      audio.srcObject = null;
-      audio.pause();
-      audio.remove();
-      delete remoteAudioRefs.current[peerKeyStr];
+    for (const refs of [remoteVoiceAudioRefs, remoteCaptureAudioRefs]) {
+      const audio = refs.current[peerKeyStr];
+      if (audio) {
+        audio.srcObject = null;
+        audio.pause();
+        audio.remove();
+        delete refs.current[peerKeyStr];
+      }
     }
-    delete remoteMergedAudioStreamsRef.current[peerKeyStr];
+    delete remotePeerVoiceStreamIdRef.current[peerKeyStr];
+    delete remoteVoiceAudioStreamsRef.current[peerKeyStr];
+    delete remoteCaptureAudioStreamsRef.current[peerKeyStr];
     setRemoteVideoStreams(prev => {
       const next = { ...prev };
       delete next[peerKeyStr];
@@ -1428,10 +1502,21 @@ export function VoiceProvider({ children }) {
         };
         setRemoteVideoStreams(prev => ({ ...prev, [pk]: stream }));
       } else {
-        let merged = remoteMergedAudioStreamsRef.current[pk];
+        const assocStream = event.streams?.[0];
+        let voiceStreamId = remotePeerVoiceStreamIdRef.current[pk];
+        if (voiceStreamId == null) {
+          voiceStreamId = assocStream?.id ?? `track-${event.track.id}`;
+          remotePeerVoiceStreamIdRef.current[pk] = voiceStreamId;
+        }
+        const isVoiceTrack = assocStream?.id
+          ? assocStream.id === voiceStreamId
+          : voiceStreamId === `track-${event.track.id}`;
+        const streamsRef = isVoiceTrack ? remoteVoiceAudioStreamsRef : remoteCaptureAudioStreamsRef;
+        const playFn = isVoiceTrack ? playRemoteVoiceStream : playRemoteCaptureStream;
+        let merged = streamsRef.current[pk];
         if (!merged) {
           merged = new MediaStream();
-          remoteMergedAudioStreamsRef.current[pk] = merged;
+          streamsRef.current[pk] = merged;
         }
         if (!merged.getTracks().includes(event.track)) {
           merged.addTrack(event.track);
@@ -1441,10 +1526,10 @@ export function VoiceProvider({ children }) {
             merged.removeTrack(event.track);
           } catch (_) {}
           if (merged.getTracks().length === 0) {
-            delete remoteMergedAudioStreamsRef.current[pk];
+            delete streamsRef.current[pk];
           }
         };
-        playRemoteStream(pk, merged);
+        playFn(pk, merged);
       }
     };
 
@@ -1502,7 +1587,7 @@ export function VoiceProvider({ children }) {
     }
 
     return pc;
-  }, [socket, cleanupPeerConnection, playRemoteStream, ensurePeerInVoiceRoster, emitVoiceSignal]);
+  }, [socket, cleanupPeerConnection, playRemoteVoiceStream, playRemoteCaptureStream, ensurePeerInVoiceRoster, emitVoiceSignal]);
 
   useEffect(() => {
     if (!user?.has_nitro) return;
@@ -1529,15 +1614,20 @@ export function VoiceProvider({ children }) {
     setVideoEnabledUserIds(new Set());
     setRemoteVideoStreams({});
     setExpandedLiveView(null);
+    setVoiceMiniIslandPreview(null);
 
     stopSpeakingDetection();
-    Object.values(remoteAudioRefs.current).forEach(a => {
-      a.srcObject = null;
-      a.pause();
-      a.remove();
-    });
-    remoteAudioRefs.current = {};
-    remoteMergedAudioStreamsRef.current = {};
+    for (const refs of [remoteVoiceAudioRefs, remoteCaptureAudioRefs]) {
+      Object.values(refs.current).forEach(a => {
+        a.srcObject = null;
+        a.pause();
+        a.remove();
+      });
+      refs.current = {};
+    }
+    remotePeerVoiceStreamIdRef.current = {};
+    remoteVoiceAudioStreamsRef.current = {};
+    remoteCaptureAudioStreamsRef.current = {};
     setStreamVolumeByUserId({});
     setDmRemoteMediaReady(false);
   }, [cleanupPeerConnection, stopSpeakingDetection, teardownLocalScreenCapture]);
@@ -1558,12 +1648,12 @@ export function VoiceProvider({ children }) {
         localStreamRef.current = stream;
         await startSpeakingDetection(stream);
         clearMicrophoneIssue();
-        isMutedRef.current = false;
-        setIsMuted(false);
+        applyPersistedMuteDeafen(true);
       } catch (err) {
         showMicrophoneIssue(err);
         isMutedRef.current = true;
         setIsMuted(true);
+        saveElectronVoiceMuteState(true, isDeafenedRef.current);
       }
 
       if (ch != null) {
@@ -1593,7 +1683,7 @@ export function VoiceProvider({ children }) {
     };
     socket.io.on('reconnect', onReconnect);
     return () => socket.io.off('reconnect', onReconnect);
-  }, [socket, rotateVoiceClientId, cleanupAllConnections, acquireMicStream, startSpeakingDetection, showMicrophoneIssue, clearMicrophoneIssue]);
+  }, [socket, rotateVoiceClientId, cleanupAllConnections, acquireMicStream, startSpeakingDetection, showMicrophoneIssue, clearMicrophoneIssue, applyPersistedMuteDeafen]);
 
   const joinVoice = useCallback(async (channelId, teamId, channelName) => {
     const chId = coercePositiveInt(channelId);
@@ -1766,6 +1856,7 @@ export function VoiceProvider({ children }) {
     setSpeakingUsersByScope((prev) =>
       clearSelfFromScopes(prev, channelScopeLookupKeys(channelId), user?.id),
     );
+    const disconnectedTeamId = voiceTeamIdRef.current;
     setVoiceChannelId(null);
     voiceChannelIdRef.current = null;
     setVoiceTeamId(null);
@@ -1777,7 +1868,9 @@ export function VoiceProvider({ children }) {
     isLeavingCallRef.current = false;
     window.electron?.unblockPowerSave?.();
     if (!skipEmit) {
-      window.dispatchEvent(new CustomEvent('slide:voice-channel-disconnect'));
+      window.dispatchEvent(new CustomEvent('slide:voice-channel-disconnect', {
+        detail: { teamId: disconnectedTeamId },
+      }));
       if (socket?.connected) socket.emit('voice_sync');
     }
   }, [socket, user?.id]);
@@ -2160,54 +2253,84 @@ export function VoiceProvider({ children }) {
     }
   }, [emitVoiceSignal]);
 
-  const toggleMute = useCallback(async () => {
-    const currentlyMuted = isMuted;
-    if (currentlyMuted) {
-      // User wants to unmute — check if we have a mic
-      if (!hasActiveLocalMic()) {
-        try {
-          const stream = await acquireMicStream();
-          localStreamRef.current = stream;
-          await startSpeakingDetection(stream);
-          clearMicrophoneIssue();
-          isMutedRef.current = false;
-          setIsMuted(false);
-          playVoiceStateSound(false);
-          if (isDeafened) {
-            setIsDeafened(false);
-            isDeafenedRef.current = false;
-            Object.values(remoteAudioRefs.current).forEach(a => { a.muted = false; });
-          }
-          if (socket) {
-            if (voiceChannelIdRef.current) {
-              socket.emit('voice_state', { channelId: voiceChannelIdRef.current, muted: false, deafened: false });
-            } else if (voiceConversationIdRef.current) {
-              socket.emit('voice_state_dm', { conversationId: voiceConversationIdRef.current, muted: false, deafened: false });
-            }
-          }
-          setVoiceUsers(prev2 => {
-            const chId = voiceChannelIdRef.current || (voiceConversationIdRef.current ? `dm_${voiceConversationIdRef.current}` : null);
-            if (!chId || !prev2[chId]) return prev2;
-            return { ...prev2, [chId]: prev2[chId].map(u => sameUserId(u.id, user?.id) ? { ...u, muted: false, deafened: false } : u) };
-          });
-          // Add our audio tracks to existing peer connections that were created without
-          const audioStream = processedStreamRef.current || localStreamRef.current;
-          if (audioStream) {
-            Object.keys(peerConnectionsRef.current).forEach(targetUserId => {
-              const pc = peerConnectionsRef.current[targetUserId];
-              if (!pc || pc.signalingState === 'closed') return;
-              const hasAudio = pc.getSenders().some(s => s.track?.kind === 'audio');
-              if (!hasAudio) {
-                audioStream.getAudioTracks().forEach(track => pc.addTrack(track, audioStream));
-              }
-            });
-          }
-          renegotiateAllPeerConnections();
-        } catch (err) {
-          showMicrophoneIssue(err);
-        }
-        return;
+  const releaseLocalMicForRetry = useCallback(() => {
+    stopMicSpeechAttemptMonitor();
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((t) => t.stop());
+      localStreamRef.current = null;
+    }
+    stopSpeakingDetection();
+  }, [stopMicSpeechAttemptMonitor, stopSpeakingDetection]);
+
+  const retryMicrophoneAccess = useCallback(async () => {
+    releaseLocalMicForRetry();
+    const stream = await acquireMicStream({ permissionRetry: true });
+    localStreamRef.current = stream;
+    await startSpeakingDetection(stream);
+    clearMicrophoneIssue();
+    isMutedRef.current = false;
+    setIsMuted(false);
+    saveElectronVoiceMuteState(false, false);
+    playVoiceStateSound(false);
+    if (isDeafened) {
+      setIsDeafened(false);
+      isDeafenedRef.current = false;
+      Object.values(remoteVoiceAudioRefs.current).forEach((a) => { a.muted = false; });
+      Object.values(remoteCaptureAudioRefs.current).forEach((a) => { a.muted = false; });
+    }
+    if (socket) {
+      if (voiceChannelIdRef.current) {
+        socket.emit('voice_state', { channelId: voiceChannelIdRef.current, muted: false, deafened: false });
+      } else if (voiceConversationIdRef.current) {
+        socket.emit('voice_state_dm', { conversationId: voiceConversationIdRef.current, muted: false, deafened: false });
       }
+    }
+    setVoiceUsers((prev2) => {
+      const chId = voiceChannelIdRef.current || (voiceConversationIdRef.current ? `dm_${voiceConversationIdRef.current}` : null);
+      if (!chId || !prev2[chId]) return prev2;
+      return { ...prev2, [chId]: prev2[chId].map((u) => sameUserId(u.id, user?.id) ? { ...u, muted: false, deafened: false } : u) };
+    });
+    const audioStream = processedStreamRef.current || localStreamRef.current;
+    if (audioStream) {
+      Object.keys(peerConnectionsRef.current).forEach((targetUserId) => {
+        const pc = peerConnectionsRef.current[targetUserId];
+        if (!pc || pc.signalingState === 'closed') return;
+        const hasAudio = pc.getSenders().some((s) => s.track?.kind === 'audio');
+        if (!hasAudio) {
+          audioStream.getAudioTracks().forEach((track) => pc.addTrack(track, audioStream));
+        }
+      });
+    }
+    renegotiateAllPeerConnections();
+    return true;
+  }, [
+    releaseLocalMicForRetry,
+    acquireMicStream,
+    startSpeakingDetection,
+    clearMicrophoneIssue,
+    isDeafened,
+    socket,
+    user?.id,
+    renegotiateAllPeerConnections,
+    playVoiceStateSound,
+  ]);
+
+  const toggleMute = useCallback(async () => {
+    if (serverMutedRef.current) return;
+
+    const permissionBlocked =
+      microphoneIssue?.type === 'permission-denied'
+      || lastMicrophoneIssueRef.current?.type === 'permission-denied';
+    const wantsMic = isMuted || permissionBlocked;
+    const shouldRetryMic = wantsMic && (permissionBlocked || !hasActiveLocalMic());
+
+    if (shouldRetryMic) {
+      try {
+        await retryMicrophoneAccess();
+      } catch (err) {
+        showMicrophoneIssue(err);
+      }
+      return;
     }
 
     setIsMuted(prev => {
@@ -2233,7 +2356,8 @@ export function VoiceProvider({ children }) {
       if (!newMuted && isDeafened) {
         setIsDeafened(false);
         isDeafenedRef.current = false;
-        Object.values(remoteAudioRefs.current).forEach(a => { a.muted = false; });
+        Object.values(remoteVoiceAudioRefs.current).forEach(a => { a.muted = false; });
+        Object.values(remoteCaptureAudioRefs.current).forEach(a => { a.muted = false; });
       }
       if (socket) {
         if (voiceChannelIdRef.current) {
@@ -2259,14 +2383,17 @@ export function VoiceProvider({ children }) {
         };
       });
       playVoiceStateSound(newMuted);
+      saveElectronVoiceMuteState(newMuted, newDeafened);
       return newMuted;
     });
-  }, [socket, user?.id, isDeafened, isMuted, acquireMicStream, hasActiveLocalMic, startSpeakingDetection, renegotiateAllPeerConnections, playVoiceStateSound, showMicrophoneIssue, clearMicrophoneIssue]);
+  }, [socket, user?.id, isDeafened, isMuted, microphoneIssue, hasActiveLocalMic, retryMicrophoneAccess, showMicrophoneIssue]);
 
   const toggleDeafen = useCallback(() => {
+    if (serverDeafenedRef.current) return;
     setIsDeafened(prev => {
       const newDeafened = !prev;
-      Object.values(remoteAudioRefs.current).forEach(a => { a.muted = newDeafened; });
+      Object.values(remoteVoiceAudioRefs.current).forEach(a => { a.muted = newDeafened; });
+      Object.values(remoteCaptureAudioRefs.current).forEach(a => { a.muted = newDeafened; });
 
       let newMuted = isMuted;
       if (newDeafened && !isMuted) {
@@ -2320,6 +2447,7 @@ export function VoiceProvider({ children }) {
           [chId]: prev2[chId].map(u => sameUserId(u.id, user?.id) ? { ...u, muted: newMuted, deafened: newDeafened } : u),
         };
       });
+      saveElectronVoiceMuteState(newMuted, newDeafened);
       return newDeafened;
     });
   }, [socket, user?.id, isMuted, hasActiveLocalMic]);
@@ -2674,11 +2802,13 @@ export function VoiceProvider({ children }) {
 
   const switchAudioOutput = useCallback((deviceId) => {
     updateSetting?.('output_device', deviceId || 'default');
-    Object.values(remoteAudioRefs.current).forEach(audio => {
-      if (audio?.setSinkId) {
-        audio.setSinkId(deviceId && deviceId !== 'default' ? deviceId : 'default').catch(() => {});
-      }
-    });
+    for (const refs of [remoteVoiceAudioRefs, remoteCaptureAudioRefs]) {
+      Object.values(refs.current).forEach(audio => {
+        if (audio?.setSinkId) {
+          audio.setSinkId(deviceId && deviceId !== 'default' ? deviceId : 'default').catch(() => {});
+        }
+      });
+    }
   }, [updateSetting]);
 
   const switchVideoInput = useCallback(async (deviceId) => {
@@ -2705,6 +2835,15 @@ export function VoiceProvider({ children }) {
       console.warn('switchVideoInput failed:', err);
     }
   }, [updateSetting, getVideoConstraints]);
+
+  const applyLocalMicMuteState = useCallback((muted) => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getAudioTracks().forEach((t) => { t.enabled = !muted; });
+    }
+    if (processedStreamRef.current) {
+      processedStreamRef.current.getAudioTracks().forEach((t) => { t.enabled = !muted; });
+    }
+  }, []);
 
   // Socket event handlers
   useEffect(() => {
@@ -2886,6 +3025,10 @@ export function VoiceProvider({ children }) {
         else next.delete(userId);
         return next;
       });
+      if (!sameUserId(userId, user?.id) && !isDeafenedRef.current) {
+        if (sharing) voiceSoundsRef.current.streamStart?.();
+        else voiceSoundsRef.current.streamStop?.();
+      }
     };
 
     const dmKey = (convId) => `dm_${convId}`;
@@ -3063,6 +3206,10 @@ export function VoiceProvider({ children }) {
         else next.delete(userId);
         return next;
       });
+      if (!sameUserId(userId, user?.id) && !isDeafenedRef.current) {
+        if (sharing) voiceSoundsRef.current.streamStart?.();
+        else voiceSoundsRef.current.streamStop?.();
+      }
     };
 
     const onVoiceVideoDm = ({ conversationId, userId, enabled }) => {
@@ -3176,11 +3323,15 @@ export function VoiceProvider({ children }) {
     };
     socket.on('dm_call_ended', onDmCallEnded);
 
-    const onVoiceYouLeft = ({ kind, channelId, conversationId }) => {
+    const onVoiceYouLeft = ({ kind, channelId, conversationId, reason }) => {
       if (kind === 'channel') {
         const ch = coercePositiveInt(channelId);
         if (ch != null && coercePositiveInt(voiceChannelIdRef.current) === ch) {
           if (isLeavingCallRef.current) return;
+          if (reason === 'moderated') {
+            leaveVoice();
+            return;
+          }
           if (Date.now() < recentVoiceJoinUntilRef.current && socket?.connected) {
             const tid = coercePositiveInt(voiceTeamIdRef.current);
             socket.emit('voice_join', {
@@ -3213,6 +3364,25 @@ export function VoiceProvider({ children }) {
         }
       }
     };
+    const onVoiceModerated = ({ channelId, muted, deafened, server_muted, server_deafened }) => {
+      if (server_muted !== undefined) serverMutedRef.current = !!server_muted;
+      if (server_deafened !== undefined) serverDeafenedRef.current = !!server_deafened;
+      const ch = coercePositiveInt(channelId);
+      if (ch == null || coercePositiveInt(voiceChannelIdRef.current) !== ch) return;
+      if (muted !== undefined) {
+        isMutedRef.current = !!muted;
+        setIsMuted(!!muted);
+        applyLocalMicMuteState(!!muted);
+      }
+      if (deafened !== undefined) {
+        isDeafenedRef.current = !!deafened;
+        setIsDeafened(!!deafened);
+        Object.values(remoteVoiceAudioRefs.current).forEach((a) => { a.muted = !!deafened; });
+        Object.values(remoteCaptureAudioRefs.current).forEach((a) => { a.muted = !!deafened; });
+      }
+    };
+
+    socket.on('voice_moderated', onVoiceModerated);
     socket.on('voice_you_left', onVoiceYouLeft);
 
     const onVoicePresenceSync = ({ channels = [], dmConversations = [] }) => {
@@ -3388,11 +3558,12 @@ export function VoiceProvider({ children }) {
       socket.off('voice_call_ended_time_limit', onVoiceCallEndedTimeLimit);
       socket.off('voice_ring_sent', onVoiceRingSent);
       socket.off('dm_call_ended', onDmCallEnded);
+      socket.off('voice_moderated', onVoiceModerated);
       socket.off('voice_you_left', onVoiceYouLeft);
       socket.off('voice_presence_sync', onVoicePresenceSync);
       socket.off('connect', requestVoiceSync);
     };
-  }, [socket, user?.id, createPeerConnection, cleanupPeerConnection, leaveVoice, leaveVoiceDM, emitVoiceSignal, hasDeclinedDmConv, removeDeclinedDmConv, playVoiceStateSound]);
+  }, [socket, user?.id, createPeerConnection, cleanupPeerConnection, leaveVoice, leaveVoiceDM, emitVoiceSignal, hasDeclinedDmConv, removeDeclinedDmConv, playVoiceStateSound, applyLocalMicMuteState]);
 
   // In Electron: stay in voice when minimized to tray, only leave on real quit.
   // In browser: leave voice after 2 minutes hidden (long absence / tab forgotten).
@@ -3429,10 +3600,12 @@ export function VoiceProvider({ children }) {
     };
 
     const handleBeforeUnload = () => {
+      persistElectronVoiceMuteFromRefs(isMutedRef, isDeafenedRef);
       leaveCallOnAppExit();
     };
 
     const handlePageHide = () => {
+      persistElectronVoiceMuteFromRefs(isMutedRef, isDeafenedRef);
       leaveCallOnAppExit();
     };
 
@@ -3463,6 +3636,17 @@ export function VoiceProvider({ children }) {
     };
   }, [socket, cleanupAllConnections]);
 
+  const moderateVoiceUser = useCallback((teamId, channelId, targetUserId, action, durationMinutes) => {
+    if (!socket?.connected) return;
+    socket.emit('voice_moderate', {
+      teamId: parseInt(teamId, 10),
+      channelId: parseInt(channelId, 10),
+      targetUserId: parseInt(targetUserId, 10),
+      action,
+      durationMinutes,
+    });
+  }, [socket]);
+
   const value = useMemo(() => ({
     voiceChannelId,
     voiceTeamId,
@@ -3491,6 +3675,8 @@ export function VoiceProvider({ children }) {
     remoteVideoStreams,
     expandedLiveView,
     setExpandedLiveView,
+    voiceMiniIslandPreview,
+    setVoiceMiniIslandPreview,
     voiceViewMinimized,
     setVoiceViewMinimized,
     dmFloatingPanelCollapsed,
@@ -3527,6 +3713,7 @@ export function VoiceProvider({ children }) {
     microphoneIssue,
     clearMicrophoneIssue,
     dismissMicrophoneIssue,
+    moderateVoiceUser,
   }), [
     voiceChannelId, voiceTeamId, voiceChannelName,
     voiceConversationId, voiceConversationName, voiceLeaveAnim, dmCallCallerId,
@@ -3534,7 +3721,7 @@ export function VoiceProvider({ children }) {
     voiceUsers, voiceChannelMeta, isMuted, isDeafened, speakingUsers, isUserSpeakingInChannel, connectionState, dmRemoteMediaReady,
     isScreenSharing, isCameraOn, ownScreenStream, ownCameraStream,
     screenSharingUserIds, videoEnabledUserIds, remoteVideoStreams,
-    expandedLiveView, voiceViewMinimized, dmFloatingPanelCollapsed,
+    expandedLiveView, voiceMiniIslandPreview, voiceViewMinimized, dmFloatingPanelCollapsed,
     joinVoice, leaveVoice, shouldAutoJoinChannel, clearSuppressAutoJoin, suppressAutoJoin, resumeVoiceSession,
     joinVoiceDM, leaveVoiceDM, ringVoiceDM, ringAgainTrigger,
     toggleMute, toggleDeafen, startScreenShare, stopScreenShare,
@@ -3543,7 +3730,7 @@ export function VoiceProvider({ children }) {
     screenSharePicker, resolveScreenSharePicker,
     screenShareCaptureAudioActive, setScreenShareCaptureVolume,
     streamVolumeByUserId, setStreamVolumeForUser, getStreamVolumePercent, getListenVolume01,
-    microphoneIssue, clearMicrophoneIssue, dismissMicrophoneIssue,
+    microphoneIssue, clearMicrophoneIssue, dismissMicrophoneIssue, moderateVoiceUser,
   ]);
 
   return (

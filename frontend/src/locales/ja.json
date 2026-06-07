@@ -640,6 +640,7 @@
     "requestError": "フレンドリクエストを送信できませんでした。後でもう一度お試しください。",
     "noFriends": "まだフレンドがいません",
     "noOnline": "オンラインのフレンドがいません",
+    "activeNow": "アクティブ",
     "noPending": "保留中のリクエストはありません",
     "noBlocked": "ブロックしているユーザーはいません",
     "incomingCall": "Incoming call...",

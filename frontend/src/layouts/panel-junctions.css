@@ -11,13 +11,13 @@
   --panel-sidebar-header-h: 63px;
   --panel-channel-header-h: 52px;
   --server-rail-bg: var(--bg-tertiary);
-  --server-rail-width: 76px;
+  --server-rail-width: 92px;
 }
 
 [data-theme="dark"] {
   --panel-divider: rgba(255, 255, 255, 0.05);
   --server-rail-bg: #111113;
-  --server-rail-width: 68px;
+  --server-rail-width: 84px;
 }
 
 /* ── Server rail: zero right border ── */
@@ -44,42 +44,89 @@
 
 /* ── Adjacent panel shape ── */
 .app-layout > .sidebar,
-.team-view > .channel-sidebar {
+.app-layout .team-view > .channel-sidebar {
   position: relative;
   border-top-left-radius: var(--panel-junction-radius);
   border-left: none;
-  border-right: 1px solid var(--panel-divider);
   margin-left: -1px;
   z-index: 2;
   overflow: hidden;
 }
 
-/* ── TOP rounded junction: no stroke over server-rail (color fill via .server-bar::after) ── */
-.app-layout > .sidebar::after,
+.app-layout > .sidebar {
+  border-right: none;
+}
+
+.app-layout .team-view > .channel-sidebar {
+  margin-left: 0;
+  flex-shrink: 0;
+  border-right: var(--hairline-width) solid var(--panel-divider);
+}
+
+/* Server view: channel list lives inside app-main — align flush with server rail */
+.app-layout:has(.team-view) > .app-main,
+.app-layout:has(.friends-page) > .app-main,
+.app-layout:has(.community-page) > .app-main {
+  border-left: none !important;
+  box-shadow: none !important;
+}
+
+/* ── TOP rounded junction: arc only (horizontal rule = title bar / panel top edge) ── */
 .team-view > .channel-sidebar::after {
   display: none;
 }
 
-/* ── Vertical rule: only below header, never through the top arc ── */
+.app-layout > .sidebar::after,
+.app-layout .team-view > .channel-sidebar .server-header::before,
+.app-layout > .app-main .community-hero::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--panel-junction-radius);
+  height: var(--panel-junction-radius);
+  border-top: var(--hairline-width) solid var(--panel-divider);
+  border-left: var(--hairline-width) solid var(--panel-divider);
+  border-top-left-radius: var(--panel-junction-radius);
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.app-root.has-electron-title-bar .app-layout > .sidebar::after,
+.app-root.has-electron-title-bar .app-layout .team-view > .channel-sidebar .server-header::before,
+.app-root.has-electron-title-bar .app-layout > .app-main .community-hero::after {
+  border-top-color: var(--border-subtle, rgba(255, 255, 255, 0.06));
+}
+
+/* Community page: no sidebar — hero carries the top-left junction */
+.app-layout > .app-main .community-hero {
+  position: relative;
+  border-top-left-radius: var(--panel-junction-radius);
+  overflow: hidden;
+  z-index: 2;
+}
+
+/* ── Vertical rule: below top arc ── */
 .app-layout > .sidebar::before {
   content: '';
   position: absolute;
-  top: var(--panel-sidebar-header-h);
+  top: var(--panel-junction-radius);
   left: 0;
   bottom: 0;
-  width: 1px;
+  width: var(--hairline-width);
   background: var(--panel-divider);
   pointer-events: none;
   z-index: 2;
 }
 
-.team-view > .channel-sidebar::before {
+.app-layout .team-view > .channel-sidebar::before {
   content: '';
   position: absolute;
-  top: var(--panel-channel-header-h);
+  top: var(--panel-junction-radius);
   left: 0;
   bottom: 0;
-  width: 1px;
+  width: var(--hairline-width);
   background: var(--panel-divider);
   pointer-events: none;
   z-index: 2;
@@ -87,65 +134,86 @@
 
 /* ── Header row: custom bottom junction (not a full-width straight border) ── */
 .app-layout > .sidebar .sidebar-search-btn,
-.team-view > .channel-sidebar .server-header-btn {
+.app-layout .team-view > .channel-sidebar .server-header-btn {
   border-bottom: none !important;
+  border-top-left-radius: var(--panel-junction-radius);
   position: relative;
   z-index: 1;
 }
 
+.app-layout > .app-main .friends-header {
+  border-bottom: none !important;
+  box-shadow: none !important;
+  position: relative;
+  z-index: 1;
+}
+
+.app-layout .team-view > .channel-sidebar .server-header {
+  position: relative;
+}
+
 .app-layout > .sidebar .sidebar-search-btn::after,
-.team-view > .channel-sidebar .server-header-btn::after {
+.app-layout > .app-main .friends-header::after {
   content: '';
   position: absolute;
-  left: var(--panel-junction-radius);
+  left: 0;
   right: 0;
   bottom: 0;
-  height: 1px;
+  height: var(--hairline-width);
   background: var(--panel-divider);
   pointer-events: none;
   z-index: 2;
 }
 
-.app-layout > .sidebar .sidebar-search-btn::before,
-.team-view > .channel-sidebar .server-header-btn::before {
+.app-layout .team-view > .channel-sidebar .server-header-btn::after {
   content: '';
   position: absolute;
   left: 0;
+  right: 0;
   bottom: 0;
-  width: var(--panel-junction-radius);
-  height: var(--panel-junction-radius);
-  border-bottom: 1px solid var(--panel-divider);
-  border-left: 1px solid var(--panel-divider);
-  border-bottom-left-radius: var(--panel-junction-radius);
-  box-sizing: border-box;
+  height: var(--hairline-width);
+  background: var(--panel-divider);
   pointer-events: none;
-  z-index: 3;
+  z-index: 2;
+}
+
+.app-layout > .sidebar .sidebar-search-btn::before {
+  display: none;
+}
+
+.app-layout .team-view > .channel-sidebar .server-header-btn::before {
+  display: none;
 }
 
 @media (max-width: 768px) {
   .app-layout > .server-bar {
-    border-right: 1px solid var(--border-subtle) !important;
+    border-right: var(--hairline-width) solid var(--border-subtle) !important;
   }
 
   .app-layout > .sidebar,
-  .team-view > .channel-sidebar {
+  .app-layout .team-view > .channel-sidebar,
+  .app-layout > .app-main .community-hero {
     border-top-left-radius: 0;
     margin-left: 0;
   }
 
   .app-layout > .sidebar::before,
   .app-layout > .sidebar::after,
-  .team-view > .channel-sidebar::before,
-  .team-view > .channel-sidebar::after,
+  .app-layout .team-view > .channel-sidebar::before,
+  .app-layout .team-view > .channel-sidebar::after,
+  .app-layout > .app-main .community-hero::after,
+  .app-layout .team-view > .channel-sidebar .server-header::before,
   .app-layout > .sidebar .sidebar-search-btn::before,
   .app-layout > .sidebar .sidebar-search-btn::after,
-  .team-view > .channel-sidebar .server-header-btn::before,
-  .team-view > .channel-sidebar .server-header-btn::after {
+  .app-layout .team-view > .channel-sidebar .server-header-btn::before,
+  .app-layout .team-view > .channel-sidebar .server-header-btn::after,
+  .app-layout > .app-main .friends-header::after {
     display: none;
   }
 
   .app-layout > .sidebar .sidebar-search-btn,
-  .team-view > .channel-sidebar .server-header-btn {
-    border-bottom: 1px solid var(--panel-divider) !important;
+  .app-layout .team-view > .channel-sidebar .server-header-btn,
+  .app-layout > .app-main .friends-header {
+    border-bottom: var(--hairline-width) solid var(--panel-divider) !important;
   }
 }

@@ -640,6 +640,7 @@
     "requestError": "친구 요청을 보낼 수 없습니다. 나중에 다시 시도해 주세요.",
     "noFriends": "아직 친구가 없습니다",
     "noOnline": "온라인 친구가 없습니다",
+    "activeNow": "지금 활동 중",
     "noPending": "대기 중인 요청이 없습니다",
     "noBlocked": "차단된 사용자가 없습니다",
     "incomingCall": "Incoming call...",

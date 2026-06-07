@@ -4,6 +4,9 @@
 .mobile-app-layout {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
   height: var(--app-height, 100dvh);
   overflow: hidden;
   background: var(--bg-primary);
@@ -39,7 +42,7 @@
   display: flex;
   flex-direction: column;
   background: var(--bg-tertiary);
-  border-right: 1px solid var(--border-subtle);
+  border-right: var(--hairline-width) solid var(--border-subtle);
   overflow: visible;
   padding-top: 0;
 }
@@ -65,14 +68,14 @@
 }
 
 .mobile-server-bar .server-item {
-  width: 44px;
-  height: 44px;
+  width: var(--server-icon-size, 42px);
+  height: var(--server-icon-size, 42px);
 }
 
 .mobile-server-bar .server-icon-link,
 .mobile-server-bar .server-icon {
-  width: 44px;
-  height: 44px;
+  width: var(--server-icon-size, 42px);
+  height: var(--server-icon-size, 42px);
 }
 
 .mobile-server-bar .server-list {
@@ -86,6 +89,51 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.mobile-full-page-route {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mobile-full-page-route .content-phase-in {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mobile-full-page-route .friends-page,
+.mobile-full-page-route .security-dashboard-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.mobile-sub-page-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 48px;
+  padding: 0 8px 0 4px;
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
+  background: var(--bg-primary);
+}
+
+.mobile-sub-page-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Sidebar shown full-width in DMs tab on mobile */
@@ -110,6 +158,36 @@
   background: var(--bg-primary);
 }
 
+.mobile-app-layout .mobile-content-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mobile-app-layout .mobile-messages-view,
+.mobile-app-layout .mobile-notifications-view,
+.mobile-app-layout .mobile-you-view {
+  flex: 1;
+  min-height: 0;
+}
+
+.mobile-app-layout .app-main > .content-phase-in > .team-view,
+.mobile-app-layout .app-main > .content-phase-in > .direct-chat,
+.mobile-app-layout .app-main > .content-phase-in > .local-private-chat {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.mobile-app-layout .app-main > .content-phase-in > .team-view .team-chat,
+.mobile-app-layout .app-main > .content-phase-in > .direct-chat .chat-main {
+  flex: 1;
+  min-height: 0;
+}
+
 /* Mobile chat page motion: mobile-gestures.css (.mobile-swipe-host on Capacitor) */
 html:not(.platform-mobile) .mobile-app-layout .direct-chat,
 html:not(.platform-mobile) .mobile-app-layout .team-chat {
@@ -121,7 +199,9 @@ html:not(.platform-mobile) .mobile-app-layout .team-chat {
    ═══════════════════════════════════════════════════════════ */
 .app-layout {
   display: flex;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
   overflow: hidden;
   background:
     var(--cosmic-surface-soft),
@@ -181,7 +261,7 @@ html:not(.platform-mobile) .mobile-app-layout .team-chat {
     var(--cosmic-surface-flat),
     var(--bg-primary);
   /* Subtle top edge — reads as a finished panel, not a flat div */
-  box-shadow: inset 0 1px 0 rgba(15, 17, 23, 0.05);
+  box-shadow: inset 0 var(--hairline-width) 0 rgba(15, 17, 23, 0.05);
   transition:
     box-shadow var(--dur-slow, 520ms) var(--ease-flow, cubic-bezier(0.2, 0.8, 0.2, 1)),
     background var(--dur-slow, 520ms) ease;
@@ -264,7 +344,7 @@ html:not(.platform-mobile) .mobile-app-layout .team-chat {
     touch-action: none; /* capture all touches so our gesture isn't stolen by scroll */
   }
 
-  .app-main {
+  .app-layout > .app-main {
     contain: none;
     min-height: 100vh;
     min-height: 100dvh;
@@ -290,11 +370,11 @@ html:not(.platform-mobile) .mobile-app-layout .team-chat {
 }
 [data-theme="dark"] .app-main {
   background: var(--bg-primary);
-  border-left: 1px solid var(--border-subtle);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  border-left: var(--hairline-width) solid var(--border-subtle);
+  box-shadow: inset 0 var(--hairline-width) 0 rgba(255, 255, 255, 0.045);
 }
 [data-theme="dark"] .mobile-app-layout .app-main {
   background: var(--bg-primary);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 var(--hairline-width) 0 rgba(255, 255, 255, 0.04);
 }
 

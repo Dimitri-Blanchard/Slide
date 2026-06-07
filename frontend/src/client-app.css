@@ -117,6 +117,36 @@ html.client-app.platform-mobile .voice-fullscreen-overlay--v2 {
   z-index: 600;
 }
 
-html.client-app.platform-mobile .voice-fullscreen-minimized {
+html.client-app.platform-mobile .voice-mini-island {
   z-index: 550;
+}
+
+/* Friends page fills mobile shell */
+html.client-app.platform-mobile .friends-page {
+  height: 100%;
+  min-height: 0;
+}
+
+html.client-app.platform-mobile .friends-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Settings: scrollable content, no horizontal clip */
+html.client-app.platform-mobile .settings-modal-container > .settings-content {
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+html.client-app.platform-mobile .settings-section,
+html.client-app.platform-mobile .settings-card,
+html.client-app.platform-mobile .settings-row {
+  max-width: 100%;
+}
+
+html.client-app.platform-mobile .settings-unsaved-bar {
+  z-index: 20;
 }

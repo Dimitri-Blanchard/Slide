@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { teams as teamsApi } from '../api';
 import { getStaticUrl } from '../utils/staticUrl';
+import { shouldShowAppTitleBar } from '../utils/clientApp';
 import './ElectronTitleBar.css';
 
 export default function ElectronTitleBar() {
@@ -84,9 +85,9 @@ export default function ElectronTitleBar() {
       });
   };
 
-  if (!hasElectron) return null;
+  if (!shouldShowAppTitleBar(location.pathname)) return null;
 
-  const isMac = window.electron?.platform === 'darwin';
+  const isMac = hasElectron && window.electron?.platform === 'darwin';
 
   // Derive page title from current route
   const getPageTitle = () => {
@@ -144,7 +145,7 @@ export default function ElectronTitleBar() {
     </>
   );
 
-  const titleBar = (
+  const titleBar = hasElectron ? (
     <div className={`electron-title-bar ${isMac ? 'electron-title-bar-mac' : ''}`}>
       {isMac && <div className="electron-title-bar-controls electron-title-bar-controls-left">{buttons}</div>}
 
@@ -169,10 +170,8 @@ export default function ElectronTitleBar() {
         </button>
       </div>
 
-      {/* Double-click drag area to maximize/restore */}
       <div className="electron-title-bar-drag" onDoubleClick={handleMaximize} />
 
-      {/* Icon + Title (absolutely centered) */}
       <div className="electron-title-bar-info">
         {getIconElement()}
         <span className="electron-title-bar-title">{getPageTitle()}</span>
@@ -192,9 +191,15 @@ export default function ElectronTitleBar() {
 
       {!isMac && <div className="electron-title-bar-controls">{buttons}</div>}
     </div>
+  ) : (
+    <div className="electron-title-bar electron-title-bar-web">
+      <div className="electron-title-bar-info">
+        {getIconElement()}
+        <span className="electron-title-bar-title">{getPageTitle()}</span>
+      </div>
+    </div>
   );
 
-  // Render via portal to escape #root stacking context (z-index: 0)
-  // so the title bar always stays above modals portaled to document.body
+  // Portal to document.body so the bar spans the full window width
   return createPortal(titleBar, document.body);
 }

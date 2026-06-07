@@ -40,7 +40,8 @@
 }
 
 .modal-enter-instant.csm-overlay:not(.csm-exiting),
-.modal-enter-instant.csm-overlay:not(.csm-exiting) .csm-modal:not(.csm-exiting) {
+.modal-enter-instant.csm-overlay:not(.csm-exiting) .csm-modal:not(.csm-exiting),
+.modal-enter-instant.csm-overlay:not(.csm-exiting) .csm-step-panel {
   animation: none !important;
   opacity: 1 !important;
   transform: none !important;

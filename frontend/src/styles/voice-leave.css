@@ -159,19 +159,11 @@
 }
 
 /* ─── DM call panel (embedded + floating) ─── */
+.dm-call--exiting,
 .dm-call-panel--exiting {
   animation: voiceLeaveDmPanel 0.52s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   overflow: hidden;
   pointer-events: none;
-}
-
-.dm-call-panel--exiting .dm-call-panel-bg {
-  animation: voiceLeaveDmBg 0.4s ease-out forwards;
-}
-
-.dm-call-panel--exiting .dm-call-controls {
-  opacity: 0;
-  transition: opacity 0.2s ease;
 }
 
 .dm-call-floating-root--exiting {
@@ -180,17 +172,13 @@
 }
 
 /* ─── Direct chat layout ─── */
+.chat-container.dm-chat.leaving-call .dm-call--embedded,
 .chat-container.dm-chat.leaving-call .dm-call-panel--embedded {
   animation: voiceLeaveDmPanel 0.52s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .chat-container.dm-chat.leaving-call .chat-main-content {
   transition: gap 0.52s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* ─── Sidebar ─── */
-.channel-item.voice-connected--leaving {
-  animation: voiceLeaveChannelGlow 0.52s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .voice-sidebar-user--exiting {
@@ -230,6 +218,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .voice-status-bar--exiting,
+  .dm-call--exiting,
   .dm-call-panel--exiting,
   .dm-call-floating-root--exiting,
   .voice-sidebar-user--exiting,

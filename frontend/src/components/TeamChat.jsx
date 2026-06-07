@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { messages as messagesApi, channels as channelsApi, teams as teamsApi, reactions as reactionsApi, servers, invalidateCache, direct as directApi } from '../api';
 import { useSocket } from '../context/SocketContext';
@@ -6,6 +6,7 @@ import { useOffline, OFFLINE_SENT_EVENT } from '../context/OfflineContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { useSounds } from '../context/SoundContext';
+import { useSettings } from '../context/SettingsContext';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import ConfirmModal from './ConfirmModal';
@@ -26,6 +27,7 @@ import { useSwipeBack } from '../hooks/useSwipeBack';
 import { MESSAGE_SEND_BACKPRESSURE_LIMIT, MESSAGE_SEND_QUEUE_GAP_MS, getRateLimitDelayMs, isRateLimitError, notifyRateLimit, wait } from '../utils/rateLimitRetry';
 import FileDropOverlay from './FileDropOverlay';
 import VoiceChannel from './VoiceChannel';
+import { RemoteStreamVolumeControl } from './RemoteStreamVolumeControl';
 import './Chat.css';
 import './TeamChat.css';
 
@@ -108,8 +110,11 @@ function setCachedTeamData(userId, teamId, data) {
   } catch (_) {}
 }
 
-const LiveStreamFullscreenVideo = memo(function LiveStreamFullscreenVideo({ stream, displayName, onClose }) {
+const LiveStreamFullscreenVideo = memo(function LiveStreamFullscreenVideo({ stream, displayName, userId, isSelf, onClose }) {
+  const { getListenVolume01 } = useVoice();
   const videoRef = React.useRef(null);
+  const showStreamVol = userId != null && !isSelf;
+
   React.useEffect(() => {
     if (videoRef.current && stream) {
       try {
@@ -120,9 +125,23 @@ const LiveStreamFullscreenVideo = memo(function LiveStreamFullscreenVideo({ stre
       }
     }
   }, [stream]);
+
+  React.useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !stream) return;
+    if (isSelf) {
+      el.muted = true;
+      el.volume = 0;
+      return;
+    }
+    el.muted = false;
+    el.volume = getListenVolume01(userId);
+  }, [stream, isSelf, userId, getListenVolume01]);
+
   React.useEffect(() => {
     if (!stream) onClose();
   }, [stream, onClose]);
+
   return (
     <div className="live-stream-fullscreen-inner">
       <button className="live-stream-fullscreen-close" onClick={onClose} aria-label="Fermer">
@@ -130,7 +149,18 @@ const LiveStreamFullscreenVideo = memo(function LiveStreamFullscreenVideo({ stre
           <path d="M18.4 4L12 10.4L5.6 4L4 5.6L10.4 12L4 18.4L5.6 20L12 13.6L18.4 20L20 18.4L13.6 12L20 5.6L18.4 4Z"/>
         </svg>
       </button>
-      <video ref={videoRef} autoPlay playsInline muted className="live-stream-fullscreen-video" />
+      {showStreamVol && (
+        <div className="live-stream-fullscreen-vol">
+          <RemoteStreamVolumeControl userId={userId} variant="vc-stage" />
+        </div>
+      )}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={isSelf}
+        className="live-stream-fullscreen-video"
+      />
       <span className="live-stream-fullscreen-name">{displayName}</span>
     </div>
   );
@@ -162,7 +192,7 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   const [unreadChannels, setUnreadChannels] = useState(new Set());
   const [channelReadStates, setChannelReadStates] = useState({});
   const [currentLastRead, setCurrentLastRead] = useState(null);
-  const [mobileChannelListOpen, setMobileChannelListOpen] = useState(!initialChannelId);
+  const [mobileChannelListOpen, setMobileChannelListOpen] = useState(() => isMobile && !initialChannelId);
   const [editingTopic, setEditingTopic] = useState(false);
   const [topicDraft, setTopicDraft] = useState('');
   const [showTopicModal, setShowTopicModal] = useState(false);
@@ -171,6 +201,7 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   const [loadingMore, setLoadingMore] = useState(false);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [voiceJoining, setVoiceJoining] = useState(false);
+  const [pendingVoiceJoin, setPendingVoiceJoin] = useState(null);
   const [sendQueueDepth, setSendQueueDepth] = useState(0);
 
   const socket = useSocket();
@@ -190,7 +221,8 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
     resumeVoiceSession,
   } = useVoice();
   const { notify, addInboxItem } = useNotification();
-  const { playPing } = useSounds();
+  const { playPing, playNotification } = useSounds();
+  const { settings } = useSettings();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const typingTimeoutRef = useRef(null);
@@ -226,13 +258,14 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   }, [currentChannel]);
 
   useEffect(() => {
+    if (isMobile) return undefined;
     const onVoiceDisconnect = () => {
       const fallback = lastTextChannelIdRef.current || channels.find(c => c?.channel_type !== 'voice')?.id;
       if (fallback) navigate(`/team/${teamId}/channel/${fallback}`);
     };
     window.addEventListener('slide:voice-channel-disconnect', onVoiceDisconnect);
     return () => window.removeEventListener('slide:voice-channel-disconnect', onVoiceDisconnect);
-  }, [channels, teamId, navigate]);
+  }, [isMobile, channels, teamId, navigate]);
 
   // ═══════════════════════════════════════════════════════════
   // LOAD TEAM DATA - only when teamId changes
@@ -367,11 +400,14 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   }, [teamId, onLeaveServer, navigate, isMobile, initialChannelId, user?.id]);
 
   // ═══════════════════════════════════════════════════════════
-  // SYNC channelId from URL when initialChannelId changes
+  // SYNC channelId from URL when initialChannelId changes (before paint)
   // ═══════════════════════════════════════════════════════════
-  useEffect(() => {
-    if (initialChannelId && initialChannelId !== channelId) {
-      setChannelId(initialChannelId);
+  useLayoutEffect(() => {
+    if (initialChannelId) {
+      if (String(initialChannelId) !== String(channelId ?? '')) {
+        setChannelId(initialChannelId);
+      }
+      if (isMobile) setMobileChannelListOpen(false);
     } else if (!initialChannelId && channelId && isMobile) {
       // Navigated to /team/:id (no channel) — show channel list
       setChannelId(null);
@@ -379,8 +415,23 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
     }
   }, [initialChannelId, channelId, isMobile]);
 
-  // ═══════════════════════════════════════════════════════════
-  // Voice channels are now viewable — no redirect needed
+  // Mobile: never land on a voice channel URL — show join prompt, stay on text/list
+  useLayoutEffect(() => {
+    if (!isMobile || !initialChannelId || teamLoading || channels.length === 0) return;
+    const voiceCh = channels.find((c) => String(c.id) === String(initialChannelId));
+    if (!voiceCh || voiceCh.channel_type !== 'voice') return;
+    if (String(voiceChannelId ?? '') === String(voiceCh.id)) return;
+
+    suppressAutoJoin(voiceCh.id);
+    setPendingVoiceJoin(voiceCh);
+    const fallback = lastTextChannelIdRef.current
+      || channels.find((c) => c?.channel_type !== 'voice')?.id;
+    if (fallback) {
+      navigate(`/team/${teamId}/channel/${fallback}`, { replace: true });
+    } else {
+      navigate(`/team/${teamId}`, { replace: true });
+    }
+  }, [isMobile, initialChannelId, channels, voiceChannelId, teamLoading, teamId, navigate, suppressAutoJoin]);
 
   // Old servers: if channelId points to deleted/missing channel, redirect to first available
   useEffect(() => {
@@ -674,6 +725,14 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
           return next;
         });
 
+        if (!isOwnMessage && settings?.enable_notifications) {
+          const mentionRegex = mentionNames.length > 0 && msg?.content && (msg.type === 'text' || msg.type === undefined)
+            ? new RegExp(`@(${mentionNames.join('|')})`, 'i')
+            : null;
+          const isMentioned = mentionRegex?.test(msg.content);
+          if (!isMentioned) playNotification();
+        }
+
         // Still check for mentions in other channels
         if (!isOwnMessage && mentionNames.length > 0 && msg?.content && (msg.type === 'text' || msg.type === undefined)) {
           const mentionRegex = new RegExp(`@(${mentionNames.join('|')})`, 'i');
@@ -747,7 +806,7 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
       socket.off('reaction_added', onReactionAdded);
       socket.off('reaction_removed', onReactionRemoved);
     };
-  }, [socket, channelId, user?.id, user?.display_name, teamId, channels, addInboxItem, playPing]);
+  }, [socket, channelId, user?.id, user?.display_name, teamId, channels, addInboxItem, playPing, playNotification, settings?.enable_notifications]);
 
   // Typing events
   useEffect(() => {
@@ -1157,10 +1216,11 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
     const isSelf = userId === user?.id;
     setConfirmModal({ isOpen: false, userId: null, displayName: '' });
     try {
-      await teamsApi.removeMember(teamId, userId);
       if (isSelf) {
+        await teamsApi.removeMember(teamId, userId);
         onLeaveServer?.(teamId);
       } else {
+        await servers.kickMember(teamId, userId);
         setMembers(prev => prev.filter(m => m.id !== userId));
       }
     } catch (err) {
@@ -1182,8 +1242,8 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   );
   const memberRole = currentMember?.role || currentMember?.team_role || null;
   const isOwner = useMemo(
-    () => memberRole === 'owner' || String(team?.owner_id) === String(user?.id),
-    [memberRole, team?.owner_id, user?.id]
+    () => memberRole === 'owner' || String(team?.created_by) === String(user?.id),
+    [memberRole, team?.created_by, user?.id]
   );
   const isTeamAdmin = useMemo(() => memberRole === 'admin', [memberRole]);
   const canManage = useMemo(() => isOwner || isTeamAdmin, [isOwner, isTeamAdmin]);
@@ -1231,35 +1291,35 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   // ═══════════════════════════════════════════════════════════
   const displayTeam = team || (teamId ? { id: parseInt(teamId, 10), name: '' } : null);
   const displayChannel = currentChannel || (channelId && channels.find(c => String(c.id) === String(channelId))) || null;
+  const showInlineVoiceChannel = displayChannel?.channel_type === 'voice' && !isMobile;
 
-  const needsVoiceJoinPrompt = useMemo(() => {
-    if (!isMobile || !displayChannel || displayChannel.channel_type !== 'voice' || !teamId) return false;
-    return String(voiceChannelId ?? '') !== String(displayChannel.id);
-  }, [isMobile, displayChannel?.id, displayChannel?.channel_type, teamId, voiceChannelId]);
-
-  useEffect(() => {
-    if (needsVoiceJoinPrompt && displayChannel?.id) {
-      suppressAutoJoin(displayChannel.id);
+  const handleVoiceJoinRequest = useCallback((channel) => {
+    if (!channel || channel.channel_type !== 'voice' || !teamId) return;
+    if (String(voiceChannelId ?? '') === String(channel.id)) {
+      setVoiceViewMinimized(false);
+      return;
     }
-  }, [needsVoiceJoinPrompt, displayChannel?.id, suppressAutoJoin]);
+    suppressAutoJoin(channel.id);
+    setPendingVoiceJoin(channel);
+  }, [teamId, voiceChannelId, suppressAutoJoin, setVoiceViewMinimized]);
 
   const handleVoiceJoinConfirm = useCallback(async () => {
-    if (!displayChannel || displayChannel.channel_type !== 'voice' || !teamId || voiceJoining) return;
+    const ch = pendingVoiceJoin;
+    if (!ch || ch.channel_type !== 'voice' || !teamId || voiceJoining) return;
     setVoiceJoining(true);
     try {
       await resumeVoiceSession();
-      await joinVoice(displayChannel.id, parseInt(teamId, 10), displayChannel.name);
+      await joinVoice(ch.id, parseInt(teamId, 10), ch.name);
       setVoiceViewMinimized(false);
+      setPendingVoiceJoin(null);
     } finally {
       setVoiceJoining(false);
     }
-  }, [displayChannel, teamId, joinVoice, voiceJoining, resumeVoiceSession, setVoiceViewMinimized]);
+  }, [pendingVoiceJoin, teamId, joinVoice, voiceJoining, resumeVoiceSession, setVoiceViewMinimized]);
 
   const handleVoiceJoinCancel = useCallback(() => {
-    const fallback = lastTextChannelIdRef.current || channels.find(c => c?.channel_type !== 'voice')?.id;
-    if (fallback) navigate(`/team/${teamId}/channel/${fallback}`);
-    else navigate(`/team/${teamId}`);
-  }, [channels, teamId, navigate]);
+    setPendingVoiceJoin(null);
+  }, []);
 
   const handleSwipeBack = useCallback(() => {
     if (mobileChannelListOpen) {
@@ -1285,17 +1345,21 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
     { edgeOnly: true }
   );
 
+  // URL is source of truth — avoid hiding chat while channelId state is still catching up
+  const activeChannelId = channelId || initialChannelId || null;
+  const showMobileChannelList = isMobile && mobileChannelListOpen && !activeChannelId;
+
   return (
     <div
       ref={isMobile && teamId ? swipe.hostRef : undefined}
-      className={`team-view mobile-swipe-host ${mobileChannelListOpen ? 'mobile-channels-open' : ''} ${showStickerPanel ? 'sticker-panel-open' : ''} ${isMobile && swipe.isDragging ? 'is-swipe-dragging' : ''}`}
+      className={`team-view mobile-swipe-host ${activeChannelId ? 'has-active-channel' : ''} ${showMobileChannelList ? 'mobile-channels-open' : ''} ${showStickerPanel ? 'sticker-panel-open' : ''} ${isMobile && swipe.isDragging ? 'is-swipe-dragging' : ''}`}
     >
-      {isMobile && channelId && (
+      {isMobile && activeChannelId && (
         <div className="swipe-back-indicator" aria-hidden>
           <div className="swipe-back-chevron" />
         </div>
       )}
-      {isMobile && mobileChannelListOpen && (
+      {showMobileChannelList && (
         <div className="mobile-nav-overlay" onClick={() => setMobileChannelListOpen(false)} />
       )}
       <ChannelList
@@ -1304,7 +1368,7 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
         categories={categories}
         width={sidebarWidth}
         onResizeStart={onSidebarResizeStart}
-        currentChannelId={String(channelId)}
+        currentChannelId={String(activeChannelId || '')}
         onChannelsChange={setChannels}
         onCategoriesChange={setCategories}
         onOpenSettings={() => setShowServerSettings(true)}
@@ -1317,9 +1381,13 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
         hideUserPanel={isMobile && mobileChannelListOpen}
         isMobile={isMobile}
         onActiveChannelClick={isMobile ? () => setMobileChannelListOpen(false) : undefined}
+        onVoiceJoinRequest={isMobile ? handleVoiceJoinRequest : undefined}
         roles={roles}
         memberRolesMap={memberRolesMap}
         onRolesChanged={handleVoiceUserRolesChanged}
+        isOwner={isOwner}
+        onKick={(m) => handleRemoveMember(m.id, m.display_name)}
+        onBan={(m) => handleBanMember(m.id)}
       />
 
       {expandedLiveView ? (
@@ -1327,6 +1395,8 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
           <LiveStreamFullscreenVideo
             stream={expandedLiveView.userId === user?.id ? ownScreenStream : getRemoteStreamForUser(remoteVideoStreams, expandedLiveView.userId)}
             displayName={expandedLiveView.displayName}
+            userId={expandedLiveView.userId}
+            isSelf={String(expandedLiveView.userId) === String(user?.id)}
             onClose={() => setExpandedLiveView(null)}
           />
         </div>
@@ -1346,7 +1416,7 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
           onCancelEdit={() => setEditingTopic(false)}
           onTopicChange={setTopicDraft}
           isMobile={isMobile}
-          showMobileBack={!!channelId}
+          showMobileBack={!!activeChannelId}
           onToggleMobileChannelList={() => {
             if (channelId) {
               lastChannelIdRef.current = channelId;
@@ -1360,13 +1430,9 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
           onToggleInbox={() => setShowInbox(v => !v)}
         />
 
-        {displayChannel?.channel_type === 'voice' ? (
-          isMobile && !voiceViewMinimized ? (
-            <div className="voice-mobile-overlay-placeholder" aria-hidden />
-          ) : (
-            <VoiceChannel channel={displayChannel} teamId={teamId} />
-          )
-        ) : (
+        {showInlineVoiceChannel ? (
+          <VoiceChannel channel={displayChannel} teamId={teamId} />
+        ) : displayChannel?.channel_type !== 'voice' ? (
           <div className="chat-main">
             <FileDropOverlay
               uploadTarget={`#${displayChannel?.name || 'general'}`}
@@ -1389,6 +1455,7 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
                   onEdit={handleEdit}
                   onDeleteForMe={handleDeleteForMe}
                   onDeleteForAll={handleDeleteForAll}
+                  canDeleteOthersMessages={canModerateReactions}
                   onRequestDeleteCaption={handleRequestDeleteCaption}
                   onReply={handleReply}
                   onAddReaction={handleAddReaction}
@@ -1453,7 +1520,7 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
               />
             )}
           </div>
-        )}
+        ) : null}
       </div>
 
       {!isMobile && (
@@ -1467,7 +1534,9 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
 
       {showMembers && displayChannel?.channel_type !== 'voice' && (
         <MembersPanel teamId={teamId} channelId={channelId} members={members} roles={roles} memberRolesMap={memberRolesMap} currentUserId={user?.id} isOwner={isOwner} canManage={canManage}
-          onManageRoles={m => { setSelectedMember(m); setShowRolesModal(true); }} onKick={m => handleRemoveMember(m.id, m.display_name)} onBan={m => handleBanMember(m.id)} />
+          onManageRoles={m => { setSelectedMember(m); setShowRolesModal(true); }} onKick={m => handleRemoveMember(m.id, m.display_name)} onBan={m => handleBanMember(m.id)}
+          voiceChannelId={displayChannel?.channel_type === 'voice' ? displayChannel?.id : null}
+          onRolesChanged={handleVoiceUserRolesChanged} />
       )}
       </>
       )}
@@ -1498,10 +1567,10 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
       {showInbox && <InboxPanel onClose={() => setShowInbox(false)} />}
 
       <VoiceJoinSheet
-        isOpen={needsVoiceJoinPrompt && !!displayChannel}
-        channelName={displayChannel?.name}
+        isOpen={isMobile && !!pendingVoiceJoin}
+        channelName={pendingVoiceJoin?.name}
         kicker={t('chat.voiceChannelKicker')}
-        title={t('chat.voiceJoinTitle', { name: displayChannel?.name || '' })}
+        title={t('chat.voiceJoinTitle', { name: pendingVoiceJoin?.name || '' })}
         description={t('chat.voiceJoinDesc')}
         confirmLabel={t('chat.voiceJoinConfirm')}
         joiningLabel={t('chat.voiceJoining')}

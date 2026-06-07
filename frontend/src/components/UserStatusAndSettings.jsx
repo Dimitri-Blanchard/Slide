@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useSettingsUi } from '../context/SettingsUiContext';
 import { VoiceStatusBar } from './ChannelList';
 import UserPanel from './UserPanel';
 import AppIcon from './icons/AppIcon';
@@ -10,7 +10,7 @@ import { useMediaDevices } from '../hooks/useMediaDevices';
 import './UserStatusAndSettings.css';
 
 export default function UserStatusAndSettings({ sidebarWidth }) {
-  const navigate = useNavigate();
+  const { openSettings } = useSettingsUi();
   const { isMuted, isDeafened, toggleMute, toggleDeafen, voiceChannelId, voiceConversationId, voiceLeaveAnim, switchAudioInput, switchAudioOutput } = useVoice();
   const { settings } = useSettings();
   const { inputs, outputs } = useMediaDevices();
@@ -128,7 +128,7 @@ export default function UserStatusAndSettings({ sidebarWidth }) {
 
           <button
             className="usas-ctrl-btn usas-settings-btn"
-            onClick={() => navigate('/settings')}
+            onClick={() => openSettings()}
             title="User Settings"
           >
             <AppIcon name="settings" size={20} />

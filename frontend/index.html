@@ -127,6 +127,22 @@
       })(window.location);
     </script>
     <script>
+      // Capacitor: skip marketing `/` — login (or messages if token already in WebView storage)
+      (function () {
+        var cap = window.Capacitor;
+        if (!cap || !cap.isNativePlatform || !cap.isNativePlatform()) return;
+        var hash = window.location.hash || '';
+        var path = (hash.slice(1).split('?')[0] || '/').replace(/\/+$/, '') || '/';
+        if (path !== '/' && path !== '') return;
+        var token = null;
+        try { token = localStorage.getItem('slide_token'); } catch (e) {}
+        var target = token ? '#/channels/@me' : '#/login';
+        if (hash !== target) {
+          window.location.replace(window.location.pathname + window.location.search + target);
+        }
+      })();
+    </script>
+    <script>
       (function () {
         var theme = 'dark';
         try {

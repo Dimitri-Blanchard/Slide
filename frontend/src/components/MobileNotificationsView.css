@@ -4,7 +4,8 @@
 .mobile-notifications-view {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
   background: var(--bg-primary);
 }
@@ -15,7 +16,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px 16px 12px;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
 }
 
 .mobile-notifications-title {
@@ -85,7 +86,7 @@
   padding: 16px;
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
   cursor: pointer;
   text-align: left;
   transition: background 0.15s ease;

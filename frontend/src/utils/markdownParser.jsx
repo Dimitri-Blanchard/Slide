@@ -101,6 +101,28 @@ export const HAS_MARKDOWN_RE = /```|`[^`\n]|\|\|[^|]|~~[^~]|\*\*[^*]|\*[^*\s]|__
 
 const MESSAGE_URL_RE = /https?:\/\/[^\s<>'"]+/g;
 
+function getUrlRanges(text) {
+  const ranges = [];
+  const re = new RegExp(MESSAGE_URL_RE.source, 'g');
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    ranges.push({ start: m.index, end: m.index + m[0].length });
+  }
+  return ranges;
+}
+
+function overlapsUrl(start, end, urlRanges) {
+  return urlRanges.some(({ start: s, end: e }) => start < e && end > s);
+}
+
+// Groups 3–9: spoiler, bold, italic, strike — not code blocks (1–2) or mentions (10).
+function isEmphasisMarkdownMatch(match) {
+  for (let i = 3; i <= 9; i++) {
+    if (match[i] !== undefined) return true;
+  }
+  return false;
+}
+
 function processPlainTextWithAranja(text, keyRef) {
   const processed = processTextWithAranjaEmojis(text);
   const nodes = [];
@@ -147,9 +169,13 @@ export function parseInlineMarkdown(text, currentUserName = '', baseKey = 0, men
   const parts = [];
   let lastIndex = 0;
   const keyRef = { current: baseKey };
+  const urlRanges = getUrlRanges(text);
   let match;
   const re = new RegExp(MD_REGEX.source, 'g');
   while ((match = re.exec(text)) !== null) {
+    const matchStart = match.index;
+    const matchEnd = match.index + match[0].length;
+    if (isEmphasisMarkdownMatch(match) && overlapsUrl(matchStart, matchEnd, urlRanges)) continue;
     if (match.index > lastIndex) {
       parts.push(...processPlainTextWithAranja(text.substring(lastIndex, match.index), keyRef));
     }

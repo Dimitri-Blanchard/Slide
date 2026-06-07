@@ -98,8 +98,8 @@
 
 .invite-embed__meta-sep {
   display: inline-block;
-  width: 1px;
-  height: 1px;
+  width: var(--hairline-width);
+  height: var(--hairline-width);
 }
 
 .invite-embed__meta-item {

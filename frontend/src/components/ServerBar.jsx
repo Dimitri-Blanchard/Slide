@@ -7,16 +7,29 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { teams as teamsApi, servers as serversApi, friends as friendsApi, direct as directApi } from '../api';
-import CreateServerModal from './CreateServerModal';
-import CreateYourServerModal from './CreateYourServerModal';
-import DiscoverServersModal from './DiscoverServersModal';
-import InviteModal from './InviteModal';
+import ServerCreationFlow from './ServerCreationFlow';
 import { ShareInviteModal } from './InviteModal';
 import ContextMenu from './ContextMenu';
 import ConfirmModal from './ConfirmModal';
 import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import { hapticImpact } from '../utils/nativeHaptics';
+import { makeLocalPrivateRoute } from '../utils/localPrivateChatCrypto';
 import './ServerBar.css';
+
+function getDisplayInitials(name) {
+  if (!name) return '?';
+  const words = name.trim().split(/\s+/);
+  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+function isConversationActive(conversation, currentConversationId, currentLocalPrivateUserId) {
+  if (conversation.is_local_private) {
+    const peerId = conversation.local_private_peer_id || conversation.participants?.[0]?.id;
+    return peerId != null && String(peerId) === String(currentLocalPrivateUserId);
+  }
+  return currentConversationId === String(conversation.conversation_id);
+}
 
 const MUTED_SERVERS_KEY = 'slide_muted_servers';
 
@@ -334,8 +347,55 @@ const ServerIcon = memo(function ServerIcon({ team, isActive, hasUnread = false,
   );
 });
 
+// Unread DM shortcut — avatar styled like a server icon
+const DmUnreadIcon = memo(function DmUnreadIcon({ conversation, isActive, hideTooltip = false }) {
+  const [hovered, setHovered] = useState(false);
+  const tooltipRef = useRef(null);
+
+  const isGroup = !!conversation.is_group;
+  const other = conversation.participants?.[0];
+  const isLocalPrivate = !!conversation.is_local_private;
+  const id = conversation.conversation_id;
+  const to = isLocalPrivate
+    ? makeLocalPrivateRoute(conversation.local_private_peer_id || other?.id)
+    : `/channels/@me/${id}`;
+  const name = isGroup
+    ? (conversation.group_name || conversation.participants?.map((p) => p.display_name).join(', ') || 'Group')
+    : (other?.display_name || 'Conversation');
+  const unreadCount = conversation.unread_count || 0;
+  const displayCount = unreadCount > 9 ? '9+' : unreadCount;
+  const avatarUrl = other?.avatar_url;
+
+  return (
+    <li
+      className="server-item dm-unread-item"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      ref={tooltipRef}
+    >
+      <Link
+        to={to}
+        className={`server-icon-link ${isActive ? 'active' : ''}`}
+        title={name}
+        draggable={false}
+      >
+        <div className={`server-icon ${isActive ? 'active' : ''}`}>
+          {avatarUrl ? (
+            <AvatarImg src={avatarUrl} alt={name} />
+          ) : (
+            <span className="server-initials">{getDisplayInitials(name)}</span>
+          )}
+        </div>
+        <div className={`server-indicator ${isActive ? 'active' : ''}`} />
+        <span className="dm-server-unread-badge">{displayCount}</span>
+      </Link>
+      {!hideTooltip && hovered && <ServerBarTooltip text={name} anchorRef={tooltipRef} />}
+    </li>
+  );
+});
+
 // Home button (DMs)
-const HomeButton = memo(function HomeButton({ isActive, onContextMenu, homeTarget }) {
+const HomeButton = memo(function HomeButton({ isActive, onContextMenu, homeTarget, pendingFriendsCount = 0 }) {
   const { t } = useLanguage();
   const compactTouchUi = useCompactTouchUi();
   const [hovered, setHovered] = useState(false);
@@ -413,6 +473,11 @@ const HomeButton = memo(function HomeButton({ isActive, onContextMenu, homeTarge
           <img src="/logo.png" alt="Slide" className="home-logo" />
         </div>
         <div className={`server-indicator ${isActive ? 'active' : ''}`} />
+        {pendingFriendsCount > 0 && (
+          <span className="home-friends-badge">
+            {pendingFriendsCount > 9 ? '9+' : pendingFriendsCount}
+          </span>
+        )}
       </Link>
       {hovered && <ServerBarTooltip text={t('sidebar.directMessages')} anchorRef={tooltipRef} />}
     </li>
@@ -438,7 +503,7 @@ const AddServerButton = memo(function AddServerButton({ onClick }) {
         title="Add or join a server"
       >
         <div className="server-icon add-icon">
-          <AppIcon name="plus" size={24} weight="bold" />
+          <AppIcon name="plus" size={22} weight="bold" />
         </div>
       </button>
       {hovered && <ServerBarTooltip text="Créer un serveur" anchorRef={tooltipRef} />}
@@ -467,7 +532,7 @@ const DiscoverButton = memo(function DiscoverButton() {
         title={t('sidebar.discover') || 'Explore Communities'}
       >
         <div className={`server-icon discover-icon ${isActive ? 'active' : ''}`}>
-          <AppIcon name="compass" size={22} />
+          <AppIcon name="compass" size={20} />
         </div>
         <div className={`server-indicator ${isActive ? 'active' : ''}`} />
       </Link>
@@ -478,26 +543,20 @@ const DiscoverButton = memo(function DiscoverButton() {
 
 const ServerBar = memo(function ServerBar({
   teams,
+  conversations = [],
   currentTeamId,
   currentConversationId,
+  currentLocalPrivateUserId,
   lastDmConversationId,
   onTeamsChange,
   onLeaveServer,
   isMobile = false,
+  pendingFriendsCount = 0,
 }) {
-  const [showHubModal, setShowHubModal] = useState(false);
-  const [showCreateServer, setShowCreateServer] = useState(false);
+  const [showServerCreationFlow, setShowServerCreationFlow] = useState(false);
   const [friendsList, setFriendsList] = useState([]);
   const [invitePanelData, setInvitePanelData] = useState(null);
   const [inviteSentIds, setInviteSentIds] = useState(new Set());
-  const [createServerTemplate, setCreateServerTemplate] = useState(null);
-  const [showJoinServer, setShowJoinServer] = useState(false);
-  const [showDiscoverServers, setShowDiscoverServers] = useState(false);
-  const [hubExiting, setHubExiting] = useState(false);
-  const [createExiting, setCreateExiting] = useState(false);
-  const [joinExiting, setJoinExiting] = useState(false);
-  const [discoverExiting, setDiscoverExiting] = useState(false);
-  const transitionRef = useRef(null);
   const serverBarRef = useRef(null);
   const [serverContextMenu, setServerContextMenu] = useState(null);
   const [homeContextMenu, setHomeContextMenu] = useState(null);
@@ -707,6 +766,15 @@ const ServerBar = memo(function ServerBar({
     return teams || [];
   }, [teams]);
 
+  const unreadDmConversations = useMemo(() => {
+    return (conversations || [])
+      .filter((c) => {
+        if (!(c.unread_count > 0)) return false;
+        return !isConversationActive(c, currentConversationId, currentLocalPrivateUserId);
+      })
+      .sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
+  }, [conversations, currentConversationId, currentLocalPrivateUserId]);
+
   const handleServerDragStart = useCallback((teamId) => setDraggedId(teamId), []);
   const handleServerDragOver = useCallback((teamId) => setDragOverId(teamId), []);
   const handleServerDragLeave = useCallback(() => setDragOverId(null), []);
@@ -739,111 +807,6 @@ const ServerBar = memo(function ServerBar({
     [sortedTeams, onTeamsChange, notify]
   );
 
-  const MODAL_TRANSITION_MS = 250;
-
-  const closeHubWithTransition = useCallback(() => {
-    if (hubExiting) return;
-    if (transitionRef.current) clearTimeout(transitionRef.current);
-    setHubExiting(true);
-    transitionRef.current = setTimeout(() => {
-      setShowHubModal(false);
-      setHubExiting(false);
-      transitionRef.current = null;
-    }, MODAL_TRANSITION_MS);
-  }, [hubExiting]);
-
-  const transitionHubToCreate = useCallback((template) => {
-    if (hubExiting) return;
-    if (transitionRef.current) clearTimeout(transitionRef.current);
-    setHubExiting(true);
-    setCreateServerTemplate(template);
-    setShowCreateServer(true);
-    transitionRef.current = setTimeout(() => {
-      setShowHubModal(false);
-      setHubExiting(false);
-      transitionRef.current = null;
-    }, MODAL_TRANSITION_MS);
-  }, [hubExiting]);
-
-  const transitionHubToJoin = useCallback(() => {
-    if (hubExiting) return;
-    if (transitionRef.current) clearTimeout(transitionRef.current);
-    setHubExiting(true);
-    setShowJoinServer(true);
-    transitionRef.current = setTimeout(() => {
-      setShowHubModal(false);
-      setHubExiting(false);
-      transitionRef.current = null;
-    }, MODAL_TRANSITION_MS);
-  }, [hubExiting]);
-
-  const transitionCreateToHub = useCallback(() => {
-    if (createExiting) return;
-    if (transitionRef.current) clearTimeout(transitionRef.current);
-    setCreateExiting(true);
-    setShowHubModal(true);
-    transitionRef.current = setTimeout(() => {
-      setShowCreateServer(false);
-      setCreateServerTemplate(null);
-      setCreateExiting(false);
-      transitionRef.current = null;
-    }, MODAL_TRANSITION_MS);
-  }, [createExiting]);
-
-  const transitionJoinToHub = useCallback(() => {
-    if (joinExiting) return;
-    if (transitionRef.current) clearTimeout(transitionRef.current);
-    setJoinExiting(true);
-    setShowHubModal(true);
-    transitionRef.current = setTimeout(() => {
-      setShowJoinServer(false);
-      setJoinExiting(false);
-      transitionRef.current = null;
-    }, MODAL_TRANSITION_MS);
-  }, [joinExiting]);
-
-  const transitionHubToDiscover = useCallback(() => {
-    if (hubExiting) return;
-    if (transitionRef.current) clearTimeout(transitionRef.current);
-    setHubExiting(true);
-    setShowDiscoverServers(true);
-    transitionRef.current = setTimeout(() => {
-      setShowHubModal(false);
-      setHubExiting(false);
-      transitionRef.current = null;
-    }, MODAL_TRANSITION_MS);
-  }, [hubExiting]);
-
-  const transitionDiscoverToHub = useCallback(() => {
-    if (discoverExiting) return;
-    if (transitionRef.current) clearTimeout(transitionRef.current);
-    setDiscoverExiting(true);
-    setShowHubModal(true);
-    transitionRef.current = setTimeout(() => {
-      setShowDiscoverServers(false);
-      setDiscoverExiting(false);
-      transitionRef.current = null;
-    }, MODAL_TRANSITION_MS);
-  }, [discoverExiting]);
-
-  const closeCreateWithTransition = useCallback(() => {
-    if (createExiting) return;
-    if (transitionRef.current) clearTimeout(transitionRef.current);
-    setCreateExiting(true);
-    transitionRef.current = setTimeout(() => {
-      setShowCreateServer(false);
-      setCreateServerTemplate(null);
-      setCreateExiting(false);
-      transitionRef.current = null;
-    }, MODAL_TRANSITION_MS);
-  }, [createExiting]);
-
-  useEffect(() => {
-    return () => {
-      if (transitionRef.current) clearTimeout(transitionRef.current);
-    };
-  }, []);
-
   return (
     <aside
       ref={serverBarRef}
@@ -853,7 +816,20 @@ const ServerBar = memo(function ServerBar({
       <nav className="server-bar-nav">
         {/* Home (DMs) button */}
         <ul className="server-list home-section">
-          <HomeButton isActive={homeButtonActive} onContextMenu={handleHomeContextMenu} homeTarget={homeTarget} />
+          <HomeButton
+            isActive={homeButtonActive}
+            onContextMenu={handleHomeContextMenu}
+            homeTarget={homeTarget}
+            pendingFriendsCount={pendingFriendsCount}
+          />
+          {unreadDmConversations.map((conversation) => (
+            <DmUnreadIcon
+              key={conversation.conversation_id ?? conversation.local_private_peer_id}
+              conversation={conversation}
+              isActive={isConversationActive(conversation, currentConversationId, currentLocalPrivateUserId)}
+              hideTooltip={isMobile}
+            />
+          ))}
         </ul>
 
         {/* Separator */}
@@ -880,54 +856,16 @@ const ServerBar = memo(function ServerBar({
               hideTooltip={isMobile}
             />
           ))}
-          <AddServerButton onClick={() => setShowHubModal(true)} />
+          <AddServerButton onClick={() => setShowServerCreationFlow(true)} />
           <DiscoverButton />
         </ul>
       </nav>
 
-      {/* Create Your Server hub modal */}
-      <CreateYourServerModal
-        isOpen={showHubModal}
-        onClose={closeHubWithTransition}
-        onCreateServer={transitionHubToCreate}
-        onJoinServer={transitionHubToJoin}
-        onDiscoverServers={transitionHubToDiscover}
-        exiting={hubExiting}
-      />
-
-      {/* Create Server Modal */}
-      <CreateServerModal
-        isOpen={showCreateServer}
-        onClose={closeCreateWithTransition}
-        onServerCreated={(team) => {
-          onTeamsChange?.([...(teams || []), team]);
-          navigate(`/team/${team.id}`);
-        }}
-        initialTemplate={createServerTemplate}
-        onBackToHub={transitionCreateToHub}
-        exiting={createExiting}
-      />
-
-      {/* Join Server Modal */}
-      <InviteModal
-        isOpen={showJoinServer}
-        onClose={() => setShowJoinServer(false)}
-        onBack={transitionJoinToHub}
-        onServerJoined={(team) => {
-          onTeamsChange?.([...(teams || []), team]);
-        }}
-        exiting={joinExiting}
-      />
-
-      {/* Discover Servers Modal */}
-      <DiscoverServersModal
-        isOpen={showDiscoverServers}
-        onClose={() => setShowDiscoverServers(false)}
-        onBack={transitionDiscoverToHub}
-        onServerJoined={(team) => {
-          onTeamsChange?.([...(teams || []), team]);
-        }}
-        exiting={discoverExiting}
+      <ServerCreationFlow
+        isOpen={showServerCreationFlow}
+        onClose={() => setShowServerCreationFlow(false)}
+        teams={teams}
+        onTeamsChange={onTeamsChange}
       />
 
       {/* Share Invite Modal (from context menu) */}

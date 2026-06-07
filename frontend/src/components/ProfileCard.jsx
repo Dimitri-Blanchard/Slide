@@ -12,6 +12,7 @@ function useIsMobile(breakpoint = 768) {
 }
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { useSettingsUi } from '../context/SettingsUiContext';
 import { direct as directApi } from '../api';
 import { getProfile, getCachedProfile } from '../utils/profileCache';
 import { useAuth } from '../context/AuthContext';
@@ -21,6 +22,7 @@ import { getStaticUrl } from '../utils/staticUrl';
 import { getStoredCustomStatus, getStoredOnlineStatus } from '../utils/presenceStorage';
 import { harmonizeGradientColors, lightenHex, isLightGradient, isHighContrastGradient, areMatchingBannerColors } from '../utils/gradientColors';
 import Avatar from './Avatar';
+import ProfileSpotifyActivity from './ProfileSpotifyActivity';
 import UserDetailModal from './UserDetailModal';
 import { useSettings } from '../context/SettingsContext';
 import { loadUserNote, saveUserNote } from '../utils/userNotes';
@@ -148,55 +150,6 @@ function computeProfileCardPosition({
   return { top: Math.round(top), left: Math.round(left) };
 }
 
-const SPOTIFY_ICON_PATH =
-  'M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z';
-
-function ProfileSpotifyActivity({ track, t }) {
-  const progressPct =
-    track.duration_ms > 0 && track.progress_ms != null
-      ? Math.min(100, (track.progress_ms / track.duration_ms) * 100)
-      : null;
-  const href = track.external_url || '#';
-
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="profile-card-spotify"
-      title={track.name}
-      onClick={!track.external_url ? (e) => e.preventDefault() : undefined}
-    >
-      <div className="profile-card-spotify-art-wrap">
-        {track.album_art ? (
-          <img src={track.album_art} alt="" className="profile-card-spotify-art" />
-        ) : (
-          <div className="profile-card-spotify-art-fallback" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d={SPOTIFY_ICON_PATH} />
-            </svg>
-          </div>
-        )}
-      </div>
-      <div className="profile-card-spotify-info">
-        <div className="profile-card-spotify-header">
-          <svg className="profile-card-spotify-logo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d={SPOTIFY_ICON_PATH} />
-          </svg>
-          <span>{t('profile.listeningToSpotify') || 'Listening to Spotify'}</span>
-        </div>
-        <span className="profile-card-spotify-song">{track.name}</span>
-        {track.artists && <span className="profile-card-spotify-artist">{track.artists}</span>}
-        {progressPct != null && (
-          <div className="profile-card-spotify-progress" aria-hidden="true">
-            <div className="profile-card-spotify-progress-fill" style={{ width: `${progressPct}%` }} />
-          </div>
-        )}
-      </div>
-    </a>
-  );
-}
-
 const ProfileCard = memo(function ProfileCard({
   userId,
   user: providedUser,
@@ -211,6 +164,7 @@ const ProfileCard = memo(function ProfileCard({
   keepRightOfSelector = null,
 }) {
   const navigate   = useNavigate();
+  const { openSettings } = useSettingsUi();
   const { user: currentUser } = useAuth();
   const { t }      = useLanguage();
   const { isUserOnline } = useOnlineUsers();
@@ -234,9 +188,10 @@ const ProfileCard = memo(function ProfileCard({
   const detailModalRef = useRef(null);
   const isMobile = useIsMobile();
   const isOwnProfile = currentUser?.id === resolvedId || currentUser?.id === providedUser?.id;
-  const showSpotifyOnCard =
-    !!user?.spotify_now_playing &&
-    (!isOwnProfile || appSettings.show_spotify_listening !== false);
+  const showSpotifyListening =
+    !isOwnProfile || appSettings.show_spotify_listening !== false;
+  const spotifyEnabled =
+    showSpotifyListening && !!(user?.spotify_connected || user?.spotify_now_playing);
 
   // Load note
   useEffect(() => {
@@ -343,7 +298,7 @@ const ProfileCard = memo(function ProfileCard({
     placeCard,
     loading,
     user,
-    showSpotifyOnCard,
+    spotifyEnabled,
     note,
     noteEditing,
     isOwnProfile,
@@ -525,7 +480,7 @@ const ProfileCard = memo(function ProfileCard({
             ) : (
               <button
                 className="profile-card-action-btn"
-                onClick={() => { onClose(); navigate('/settings'); }}
+                onClick={() => { onClose(); openSettings(); }}
                 title={t('profile.editProfile')}
                 aria-label={t('profile.editProfile')}
               >
@@ -638,8 +593,12 @@ const ProfileCard = memo(function ProfileCard({
                   )}
                 </div>
 
-                {showSpotifyOnCard && (
-                  <ProfileSpotifyActivity track={user.spotify_now_playing} t={t} />
+                {spotifyEnabled && (
+                  <ProfileSpotifyActivity
+                    userId={resolvedId}
+                    initialTrack={user.spotify_now_playing}
+                    enabled={spotifyEnabled && isOpen}
+                  />
                 )}
 
                 {/* Custom status */}

@@ -1,50 +1,31 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { teams as teamsApi, direct as directApi, invalidateCache } from '../api';
+import { bindFriendsSyncSocket } from '../utils/friendsSync';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useSettings } from '../context/SettingsContext';
+import { useSounds } from '../context/SoundContext';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useOffline } from '../context/OfflineContext';
 import { useScene } from '../context/SceneContext';
 import { useNotification } from '../context/NotificationContext';
 import { usePlatform } from '../context/PlatformContext';
+import { useSettingsUi } from '../context/SettingsUiContext';
 import MobileAppLayoutShell from './MobileAppLayoutShell';
 import DesktopAppLayoutShell from './DesktopAppLayoutShell';
 import NotFound from '../pages/NotFound';
-import { isAuthenticatedAppPath } from './appPaths';
+import Settings from '../pages/Settings';
+import { isAuthenticatedAppPath, isSettingsRoute } from './appPaths';
 import {
   getLocalPrivateChats,
   LOCAL_PRIVATE_CHATS_CHANGED_EVENT,
   toLocalPrivateConversation,
   upsertLocalPrivateChat,
 } from '../utils/localPrivateChatCrypto';
+import usePendingFriendsCount from '../hooks/usePendingFriendsCount';
 import './AppLayout.css';
 import './panel-junctions.css';
-
-function useIsMobile(breakpoint = 768, webTabletBreakpoint = 1024) {
-  const { isMobileDevice, isWeb } = usePlatform();
-  const evalNarrow = useCallback(() => {
-    if (typeof window === 'undefined') return false;
-    const w = window.innerWidth;
-    return w <= breakpoint || (isWeb && w <= webTabletBreakpoint);
-  }, [breakpoint, webTabletBreakpoint, isWeb]);
-  const [isSmallScreen, setIsSmallScreen] = useState(evalNarrow);
-  useEffect(() => {
-    const onChange = () => setIsSmallScreen(evalNarrow());
-    const mqMobile = window.matchMedia(`(max-width: ${breakpoint}px)`);
-    const mqTablet = window.matchMedia(`(max-width: ${webTabletBreakpoint}px)`);
-    mqMobile.addEventListener('change', onChange);
-    mqTablet.addEventListener('change', onChange);
-    window.addEventListener('resize', onChange);
-    return () => {
-      mqMobile.removeEventListener('change', onChange);
-      mqTablet.removeEventListener('change', onChange);
-      window.removeEventListener('resize', onChange);
-    };
-  }, [evalNarrow, breakpoint, webTabletBreakpoint]);
-  return isMobileDevice || isSmallScreen;
-}
 
 // ═══════════════════════════════════════════════════════════
 // CACHE SYSTEM - Silent background sync
@@ -132,7 +113,7 @@ function useAppParams() {
     const channelMatch = pathname.match(/\/team\/\d+\/channel\/(\d+)/);
     const localPrivateMatch = pathname.match(/\/channels\/@me\/private-local\/([^/]+)/);
     const dmMatch = pathname.match(/\/channels\/@me\/(\d+)/);
-    const isSettings = pathname === '/settings';
+    const isSettings = isSettingsRoute(pathname);
     return {
       teamId: teamMatch?.[1] || null,
       channelId: channelMatch?.[1] || null,
@@ -160,13 +141,26 @@ function useSidebarWidth() {
     e.preventDefault();
     const startX = e.clientX;
     const startW = widthRef.current;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyUserSelect = document.body.style.userSelect;
+    const prevBodyCursor = document.body.style.cursor;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'ew-resize';
     const onMove = (ev) => {
+      ev.preventDefault();
       const next = Math.min(SIDEBAR_MAX_W, Math.max(SIDEBAR_MIN_W, startW + (ev.clientX - startX)));
       setWidth(next);
     };
     const onUp = () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.userSelect = prevBodyUserSelect;
+      document.body.style.cursor = prevBodyCursor;
       try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(widthRef.current)); } catch {}
     };
     window.addEventListener('mousemove', onMove);
@@ -192,14 +186,31 @@ function AppLayout() {
   const [mobileTab, setMobileTab] = useState('home');
   const { inboxItems } = useNotification();
   const socket = useSocket();
-  const { registerKeybindHandler } = useSettings();
+  const { registerKeybindHandler, shouldNotify, settings } = useSettings();
+  const { playNotification, playPing } = useSounds();
+  const {
+    openSettings,
+    closeSettings,
+    settingsUseModal,
+    desktopSettingsOpen,
+    desktopInitialSection,
+    desktopQuery,
+    isMobileSettingsRoute,
+  } = useSettingsUi();
   const navigate = useNavigate();
   const params = useAppParams();
-  const isMobile = useIsMobile();
+  const { pathname, state: locationState } = useLocation();
+  const { isMobileShellViewport: isMobile } = usePlatform();
+  const isFriendsView = (
+    (pathname === '/channels/@me' && !params.conversationId && !params.localPrivateUserId) ||
+    pathname === '/friends'
+  );
+  const pendingFriendsCount = usePendingFriendsCount(isFriendsView);
   const syncIntervalRef = useRef(null);
   const mutationSyncTimeoutRef = useRef(null);
   const swipeRef = useRef({ startX: 0, tracking: false });
   const isWindowFocusedRef = useRef(true);
+  const recentMentionTeamRef = useRef(null);
 
   useEffect(() => {
     if (!user?.id) {
@@ -311,7 +322,7 @@ function AppLayout() {
       // Ctrl+, → Settings (only on explicit comma key, never on Escape)
       if (ctrlOrMeta && e.key === ',') {
         e.preventDefault();
-        navigate('/settings');
+        openSettings();
         return;
       }
 
@@ -329,7 +340,7 @@ function AppLayout() {
       unregisterMarkAsRead();
       window.removeEventListener('keydown', handleExtraKeys);
     };
-  }, [registerKeybindHandler, navigate]);
+  }, [registerKeybindHandler, openSettings]);
 
   // Silent background sync — fetch teams and conversations in parallel.
   // Set loading false as soon as conversations arrive so sidebar appears progressively.
@@ -416,8 +427,13 @@ function AppLayout() {
     const mentions = teamList.reduce((n, t) => n + (t.mention_count || 0), 0);
     const hasUnreadDm = convList.some((c) => (c.unread_count || 0) > 0);
     const hasUnreadServer = teamList.some((t) => (t.unread_count || 0) > 0 && !(t.mention_count > 0));
-    window.electron.setBadgeCount({ mentions: Math.min(mentions, 9), hasUnreadDm, hasUnreadServer });
-  }, [conversations, teams]);
+    window.electron.setBadgeCount({
+      mentions: Math.min(mentions, 9),
+      friendRequests: Math.min(pendingFriendsCount, 9),
+      hasUnreadDm,
+      hasUnreadServer,
+    });
+  }, [conversations, teams, pendingFriendsCount]);
 
   // Electron: track window focus so we know when to fire native notifications
   useEffect(() => {
@@ -512,6 +528,12 @@ function AppLayout() {
         return t;
       }));
 
+      if (settings.enable_notifications) {
+        const recentMention = recentMentionTeamRef.current;
+        const mentionJustPlayed = recentMention?.teamId === teamId && Date.now() - recentMention.at < 400;
+        if (!mentionJustPlayed) playNotification();
+      }
+
       // Native notification when window is not focused
       if (!isWindowFocusedRef.current) {
         window.electron?.showNotification?.({ title: 'Slide', body: 'Nouveau message dans un serveur' });
@@ -534,6 +556,10 @@ function AppLayout() {
         }
         return t;
       }));
+      if (shouldNotify('channel', true)) {
+        recentMentionTeamRef.current = { teamId, at: Date.now() };
+        playPing();
+      }
     };
 
     // Team deleted by owner
@@ -565,7 +591,7 @@ function AppLayout() {
       socket.off('team_unread_update', onTeamUnreadUpdate);
       socket.off('team_mention_update', onTeamMentionUpdate);
     };
-  }, [socket, params.teamId, navigate]);
+  }, [socket, params.teamId, navigate, settings.enable_notifications, shouldNotify, playNotification, playPing]);
 
   // Listen to real-time conversation events
   useEffect(() => {
@@ -600,6 +626,9 @@ function AppLayout() {
       });
 
       // Native notification when window is not focused
+      if (shouldIncrementUnread && shouldNotify('dm')) {
+        playNotification();
+      }
       if (shouldIncrementUnread && !isWindowFocusedRef.current) {
         window.electron?.showNotification?.({
           title: 'Slide',
@@ -645,7 +674,7 @@ function AppLayout() {
       socket.off('group_member_removed', onGroupMemberRemoved);
       socket.off('group_removed', onGroupRemoved);
     };
-  }, [socket, params.conversationId, user?.id]);
+  }, [socket, params.conversationId, user?.id, shouldNotify, playNotification]);
 
   useEffect(() => {
     if (!socket || !user?.id) return;
@@ -662,7 +691,6 @@ function AppLayout() {
   }, [socket, user?.id]);
 
   // Close mobile nav when route changes
-  const { pathname, state: locationState } = useLocation();
   useEffect(() => {
     setMobileNavOpen(false);
   }, [pathname]);
@@ -756,35 +784,19 @@ function AppLayout() {
     return () => window.removeEventListener('slide:friends-changed', handleFriendsChanged);
   }, [refreshConversations]);
 
-  // Always-on friend cache invalidation — runs even when FriendsPage is unmounted.
-  // This ensures navigating to /channels/@me always shows fresh data.
+  // Always-on friends + pending sync — runs even when FriendsPage is unmounted.
   useEffect(() => {
-    if (!socket) return;
-    const invalidateFriends = () => {
-      invalidateCache('/friends');
-    };
-    const onFriendAccepted = (data) => {
-      invalidateCache('/friends');
-      // Add the auto-created DM conversation to sidebar
-      if (data?.conversation) {
-        setConversations((prev) => {
-          if (prev.some((c) => c.conversation_id === data.conversation.conversation_id)) return prev;
-          return [{ ...data.conversation, unread_count: 0 }, ...prev];
-        });
-      }
-    };
-    socket.on('friend_request', invalidateFriends);
-    socket.on('friend_request_sent', invalidateFriends);
-    socket.on('friend_accepted', onFriendAccepted);
-    socket.on('friend_removed', invalidateFriends);
-    socket.on('friend_request_cancelled', invalidateFriends);
-    return () => {
-      socket.off('friend_request', invalidateFriends);
-      socket.off('friend_request_sent', invalidateFriends);
-      socket.off('friend_accepted', onFriendAccepted);
-      socket.off('friend_removed', invalidateFriends);
-      socket.off('friend_request_cancelled', invalidateFriends);
-    };
+    bindFriendsSyncSocket(socket, {
+      onFriendAccepted: (data) => {
+        if (data?.conversation) {
+          setConversations((prev) => {
+            if (prev.some((c) => c.conversation_id === data.conversation.conversation_id)) return prev;
+            return [{ ...data.conversation, unread_count: 0 }, ...prev];
+          });
+        }
+      },
+    });
+    return () => bindFriendsSyncSocket(null);
   }, [socket]);
 
   // Global revalidation after any mutation API call.
@@ -889,6 +901,15 @@ function AppLayout() {
       new Date(b.last_message_at || b.updated_at || b.created_at) - new Date(a.last_message_at || a.updated_at || a.created_at)
     );
   }, [conversations, localPrivateConversations]);
+  const showSettings = settingsUseModal ? desktopSettingsOpen : isMobileSettingsRoute;
+  const settingsOverlay = showSettings ? (
+    <Settings
+      presentation={settingsUseModal ? 'modal' : 'fullscreen'}
+      onRequestClose={settingsUseModal ? closeSettings : undefined}
+      initialSection={settingsUseModal ? desktopInitialSection : null}
+      initialQuery={settingsUseModal ? desktopQuery : ''}
+    />
+  ) : null;
 
   if (!isAuthenticatedAppPath(pathname)) {
     return <NotFound />;
@@ -896,7 +917,8 @@ function AppLayout() {
 
   if (isMobile) {
     return (
-      <MobileAppLayoutShell
+      <>
+        <MobileAppLayoutShell
         pathname={pathname}
         params={params}
         scene={scene}
@@ -919,14 +941,18 @@ function AppLayout() {
         setShowCreateServer={setShowCreateServer}
         setTeams={setTeams}
         inboxItems={inboxItems}
+        pendingFriendsCount={pendingFriendsCount}
       />
+        {settingsOverlay}
+      </>
     );
   }
 
   const showSidebar = !params.teamId && pathname !== '/community';
 
   return (
-    <DesktopAppLayoutShell
+    <>
+      <DesktopAppLayoutShell
       params={params}
       scene={scene}
       isMobile={isMobile}
@@ -958,7 +984,10 @@ function AppLayout() {
       handleTouchStart={handleTouchStart}
       handleTouchMove={handleTouchMove}
       handleTouchEnd={handleTouchEnd}
+      pendingFriendsCount={pendingFriendsCount}
     />
+      {settingsOverlay}
+    </>
   );
 }
 

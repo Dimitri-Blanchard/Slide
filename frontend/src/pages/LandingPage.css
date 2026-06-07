@@ -1,4 +1,4 @@
-﻿/* Uses global [data-theme="dark"] tokens from index.css (see LandingPage.jsx root). */
+/* Uses global [data-theme="dark"] tokens from index.css (see LandingPage.jsx root). */
 .landing-page {
   scroll-behavior: smooth;
   min-height: 100vh;
@@ -9,7 +9,7 @@
   position: relative;
 }
 
-/* â”€â”€ Ambient backdrop â”€â”€ */
+/* ── Ambient backdrop ── */
 .landing-backdrop {
   position: fixed;
   inset: 0;
@@ -103,7 +103,7 @@
   background: color-mix(in srgb, var(--bg-floating) 72%, transparent);
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border-bottom: 1px solid transparent;
+  border-bottom: var(--hairline-width) solid transparent;
   transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
@@ -415,7 +415,7 @@ body.landing-nav-open .landing-page > *:not(.header):not(.landing-backdrop):not(
 
 .trust-bar {
   text-align: center;
-  border-bottom: 1px solid var(--border-default);
+  border-bottom: var(--hairline-width) solid var(--border-default);
 }
 
 .trust-stats {
@@ -583,7 +583,7 @@ body.landing-nav-open .landing-page > *:not(.header):not(.landing-backdrop):not(
   background: rgba(0, 120, 215, 0.2);
 }
 
-/* Windows brand SVG — tint to match card accent */
+/* Windows brand SVG � tint to match card accent */
 .download-card--windows .platform-brand-icon {
   filter: brightness(0) saturate(100%) invert(48%) sepia(79%) saturate(2476%) hue-rotate(189deg);
 }
@@ -598,7 +598,7 @@ body.landing-nav-open .landing-page > *:not(.header):not(.landing-backdrop):not(
   color: #fcc624;
 }
 
-/* Linux brand SVG — warm gold tint */
+/* Linux brand SVG � warm gold tint */
 .download-card--linux .platform-brand-icon {
   filter: brightness(0) saturate(100%) invert(78%) sepia(52%) saturate(640%) hue-rotate(358deg);
 }
@@ -924,7 +924,7 @@ body.landing-nav-open .landing-page > *:not(.header):not(.landing-backdrop):not(
 .footer {
   padding: 28px 24px;
   background: var(--bg-secondary);
-  border-top: 1px solid var(--border-default);
+  border-top: var(--hairline-width) solid var(--border-default);
 }
 
 .footer-inner {
@@ -985,7 +985,7 @@ body.landing-nav-open .landing-page > *:not(.header):not(.landing-backdrop):not(
   max-width: 1400px;
   margin: 0 auto;
   padding-top: 20px;
-  border-top: 1px solid var(--border-subtle);
+  border-top: var(--hairline-width) solid var(--border-subtle);
   text-align: center;
   color: var(--text-muted);
   font-size: 0.8125rem;
@@ -1084,7 +1084,7 @@ body.landing-nav-open .landing-page > *:not(.header):not(.landing-backdrop):not(
       color-mix(in srgb, var(--bg-floating) 98%, #1a1d28) 0%,
       var(--bg-primary) 48%,
       var(--bg-void, #060608) 100%);
-  border-left: 1px solid color-mix(in srgb, var(--border-default) 80%, var(--accent) 12%);
+  border-left: var(--hairline-width) solid color-mix(in srgb, var(--border-default) 80%, var(--accent) 12%);
   box-shadow:
     -24px 0 64px rgba(0, 0, 0, 0.5),
     inset 1px 0 0 rgba(255, 255, 255, 0.04);
@@ -1114,7 +1114,7 @@ body.landing-nav-open .landing-page > *:not(.header):not(.landing-backdrop):not(
   gap: 12px;
   margin-bottom: 28px;
   padding-bottom: 20px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 90%, transparent);
+  border-bottom: var(--hairline-width) solid color-mix(in srgb, var(--border-subtle) 90%, transparent);
 }
 
 .nav-mobile-brand {
@@ -1271,7 +1271,7 @@ body.landing-nav-open .landing-page > *:not(.header):not(.landing-backdrop):not(
   border-radius: 16px;
   background: color-mix(in srgb, var(--bg-secondary) 55%, transparent);
   border: 1px solid var(--border-subtle);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 var(--hairline-width) 0 rgba(255, 255, 255, 0.04);
 }
 
 .nav-mobile-actions-label {

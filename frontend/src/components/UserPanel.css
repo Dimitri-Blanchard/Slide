@@ -12,7 +12,7 @@
   height: 54px;
   min-height: 54px;
   background: var(--bg-secondary);
-  border-top: 1px solid var(--border-subtle);
+  border-top: var(--hairline-width) solid var(--border-subtle);
 }
 
 /* ── Identity (avatar + name + status) ── */
@@ -179,7 +179,7 @@
 }
 
 .status-picker-separator {
-  height: 1px;
+  height: var(--hairline-width);
   margin: 4px 0;
   background: var(--border-subtle);
 }
@@ -457,7 +457,7 @@
    ═══════════════════════════════════════════════════════════ */
 [data-theme="dark"] .user-panel {
   background: var(--bg-secondary);
-  border-top: 1px solid var(--border-subtle);
+  border-top: var(--hairline-width) solid var(--border-subtle);
 }
 [data-theme="dark"] .user-panel-name {
   color: #ffffff;

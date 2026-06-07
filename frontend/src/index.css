@@ -5,7 +5,7 @@
 @import './mobile-gestures.css';
 @import './client-app.css';
 /* Mobile motion overrides — must come AFTER platform-android.css and animations.css
-   so its rules win on html.platform-mobile (Capacitor Android/iOS + small web). */
+   so its rules win on html.platform-mobile (Capacitor + narrow browser viewports). */
 @import './mobile-animations.css';
 @import './design-quality.css';
 
@@ -43,6 +43,7 @@ html, body, #root {
 
 :root {
   --electron-titlebar-height: 36px;
+  --hairline-width: 0.5px;
 }
 
 #root {
@@ -92,6 +93,10 @@ html.platform-mobile body {
   min-width: 0;
 }
 
+html.platform-mobile .app-root.has-electron-title-bar > .app-content {
+  padding-top: 0;
+}
+
 .app-root > .electron-title-bar {
   flex-shrink: 0;
 }
@@ -106,6 +111,16 @@ html.platform-mobile body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* AppLayout / MobileAppLayout / AdminPanel must fill .app-content (flex column child) */
+.app-root > .app-content > .app-layout,
+.app-root > .app-content > .mobile-app-layout,
+.app-root > .app-content > .slide-loading-screen,
+.app-root > .app-content > .admin-panel {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
 }
 
 /* ── Splash Screen ── */
@@ -584,6 +599,8 @@ textarea:-webkit-autofill:active {
 [data-theme="dark"] .search-modal,
 [data-theme="dark"] .confirm-modal,
 [data-theme="dark"] .invite-modal,
+[data-theme="dark"] .cysm-modal,
+[data-theme="dark"] .csm-modal,
 [data-theme="dark"] .profile-card-popup,
 [data-theme="dark"] .profile-modal {
   backdrop-filter: none !important;
@@ -607,6 +624,8 @@ textarea:-webkit-autofill:active {
 :root .confirm-modal,
 :root .search-modal,
 :root .invite-modal,
+:root .cysm-modal,
+:root .csm-modal,
 :root .profile-card-popup,
 :root .status-picker,
 :root .account-flyout,
@@ -663,7 +682,10 @@ button:active:not(:disabled),
 button:focus-visible:not(:disabled),
 [role="button"]:hover:not(:disabled),
 [role="button"]:active:not(:disabled),
-[role="button"]:focus-visible:not(:disabled) {
+[role="button"]:focus-visible:not(:disabled),
+.server-icon-link:hover,
+.server-icon-link:active,
+.server-drag-wrapper:active .server-icon-link {
   transform: none !important;
 }
 
@@ -715,21 +737,6 @@ button:focus-visible:not(:disabled),
 @keyframes aurora-drift {
   0%   { transform: translate3d(-1%, 0, 0) scale(1); }
   100% { transform: translate3d(1.5%, -1.5%, 0) scale(1.03); }
-}
-
-[data-theme="dark"] .server-icon-link:not(.active):hover,
-[data-theme="dark"] .server-drag-wrapper:hover .server-icon-link:not(.active) {
-  box-shadow: none;
-}
-
-[data-theme="dark"] .server-icon-link.active .server-icon,
-[data-theme="dark"] .server-icon.active {
-  background: #222226;
-}
-
-[data-theme="dark"] .server-icon-link:not(.active):hover .server-icon,
-[data-theme="dark"] .server-drag-wrapper:hover .server-icon-link:not(.active) .server-icon {
-  background: #1e1e22;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -909,6 +916,6 @@ button:focus-visible:not(:disabled),
 }
 
 [data-theme="dark"] .message-list::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 4px;
+  height: 4px;
 }

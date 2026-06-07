@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Phone, PhoneOff, PhoneIncoming, Pin, Users, Info, ChevronLeft } from 'lucide-react';
-import { direct as directApi, reactions as reactionsApi, pinned as pinnedApi, friends as friendsApi, invalidateCache } from '../api';
+import { direct as directApi, reactions as reactionsApi, pinned as pinnedApi, friends as friendsApi } from '../api';
+import useFriendsSync from '../hooks/useFriendsSync';
+import { notifyFriendsChanged, isFriendRequestDuplicateError } from '../utils/friendsSync';
 import { useSocket, useOnlineUsers } from '../context/SocketContext';
 import { useOffline, OFFLINE_SENT_EVENT } from '../context/OfflineContext';
 import { useAuth } from '../context/AuthContext';
 import { useVoice, sameUserId } from '../context/VoiceContext';
 import { useNotification } from '../context/NotificationContext';
 import { useSettings } from '../context/SettingsContext';
+import { useSounds } from '../context/SoundContext';
 import { useLanguage } from '../context/LanguageContext';
 import { usePrefetchOnHover } from '../context/PrefetchContext';
 import { useSwipeBack } from '../hooks/useSwipeBack';
@@ -15,11 +17,11 @@ import { prefetchProfile } from '../utils/profileCache';
 import { MESSAGE_SEND_BACKPRESSURE_LIMIT, MESSAGE_SEND_QUEUE_GAP_MS, getRateLimitDelayMs, isRateLimitError, notifyRateLimit, wait } from '../utils/rateLimitRetry';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
-import PinnedMessages from './PinnedMessages';
 import Avatar from './Avatar';
-import ClickableAvatar from './ClickableAvatar';
-import ProfileCard from './ProfileCard';
 import UserDetailModal from './UserDetailModal';
+import DMProfileSidebar from './DMProfileSidebar';
+import DMChatHeader from './DMChatHeader';
+import CreateGroupModal from './CreateGroupModal';
 import StickerPicker from './StickerPicker';
 import FileDropOverlay from './FileDropOverlay';
 import ConfirmModal from './ConfirmModal';
@@ -36,6 +38,8 @@ const GM_SIDEBAR_WIDTH_KEY = 'slide_gm_sidebar_width';
 const GM_MIN_W = 160;
 const GM_MAX_W = 400;
 const GM_DEFAULT_W = 240;
+
+const DPS_VISIBLE_KEY = 'slide_dm_profile_sidebar_visible';
 
 const GroupMembersSidebar = memo(function GroupMembersSidebar({ members, ownerId, currentUserId, isUserOnline, onClose }) {
   const [width, setWidth] = useState(() => {
@@ -62,7 +66,7 @@ const GroupMembersSidebar = memo(function GroupMembersSidebar({ members, ownerId
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
-    document.body.style.cursor = 'col-resize';
+    document.body.style.cursor = 'ew-resize';
     document.body.style.userSelect = 'none';
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
@@ -86,7 +90,7 @@ const GroupMembersSidebar = memo(function GroupMembersSidebar({ members, ownerId
 
   return (
     <aside className="gm-sidebar members-panel" style={{ width, minWidth: width }}>
-      <div className="gm-resize-handle mp-resize-handle" onMouseDown={handleResizeStart} />
+      <div className="gm-resize-edge" onMouseDown={handleResizeStart} aria-hidden="true" />
       <div className="gm-header">
         <h3>Members — {members.length}</h3>
         <button className="gm-close" onClick={onClose}>
@@ -124,8 +128,14 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
   const [messageReactions, setMessageReactions] = useState({});
   const [pinnedMessageIds, setPinnedMessageIds] = useState([]);
   const [pinnedMessages, setPinnedMessages] = useState([]);
-  const [showProfileCard, setShowProfileCard] = useState(false);
   const [showExtendedProfile, setShowExtendedProfile] = useState(false);
+  const [showProfileSidebar, setShowProfileSidebar] = useState(() => {
+    try {
+      const v = localStorage.getItem(DPS_VISIBLE_KEY);
+      return v === null ? true : v === '1';
+    } catch { return true; }
+  });
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
   const headerInfoRef = useRef(null);
   const [showPinnedPanel, setShowPinnedPanel] = useState(false);
   const [showStickerPanel, setShowStickerPanel] = useState(false);
@@ -133,15 +143,16 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleteCaptionConfirm, setDeleteCaptionConfirm] = useState(null);
   const [showGroupMembers, setShowGroupMembers] = useState(false);
-  const [isFriend, setIsFriend] = useState(false);
+  const { isFriend } = useFriendsSync();
   const [sendQueueDepth, setSendQueueDepth] = useState(0);
   const socket = useSocket();
   const { isUserOnline } = useOnlineUsers();
   const { isOnline, addToQueue: addToOfflineQueue } = useOffline();
-  const { voiceConversationId, voiceLeaveAnim, voiceUsers, joinVoiceDM, leaveVoiceDM, resumeVoiceSession, setVoiceViewMinimized } = useVoice();
+  const { voiceConversationId, voiceLeaveAnim, voiceUsers, joinVoiceDM, leaveVoiceDM, resumeVoiceSession, setVoiceViewMinimized, isCameraOn, startCamera, stopCamera } = useVoice();
   const { user } = useAuth();
   const { notify } = useNotification();
   const { sendNotification, shouldNotify } = useSettings();
+  const { playNotification } = useSounds();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const typingTimeoutRef = useRef(null);
@@ -279,15 +290,17 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
           return;
         }
         setMessages((prev) => {
-          if (prev.some((m) => m.id === payload.message?.id)) return prev;
-          return [...prev, payload.message];
+          const inProgressId = `call_in_progress_${conversationId}`;
+          const next = prev.filter((m) => m.id !== inProgressId);
+          if (next.some((m) => m.id === payload.message?.id)) return next;
+          return [...next, payload.message];
         });
         
         // Send desktop notification for new messages from others
         const msg = payload.message;
-        if (msg && msg.sender_id !== user?.id && shouldNotify('dm')) {
-          // Only notify if window is not focused
+        if (msg && msg.type !== 'system' && msg.sender_id !== user?.id && shouldNotify('dm')) {
           if (!document.hasFocus()) {
+            playNotification();
             const senderName = msg.sender?.display_name || t('chat.someone');
             const messagePreview = msg.type === 'text' 
               ? msg.content?.substring(0, 100) 
@@ -296,6 +309,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
             sendNotification(senderName, {
               body: messagePreview,
               tag: `dm-${payload.conversationId}`,
+              skipSound: true,
               onClick: () => {
                 window.focus();
               }
@@ -359,37 +373,11 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
       });
     };
 
-    const onCallEnded = ({ conversationId: cId, callerDisplayName, durationSeconds, reason, disconnectedUserIds = [] }) => {
+    const onCallEnded = ({ conversationId: cId }) => {
       if (cId !== parseInt(conversationId, 10)) return;
       messageListRef.current?.preserveScroll?.();
-      const durationText = durationSeconds < 60
-        ? 'less than a minute'
-        : durationSeconds < 120
-          ? 'a minute'
-          : `${Math.floor(durationSeconds / 60)} minutes`;
       const inProgressId = `call_in_progress_${conversationId}`;
-      setMessages((prev) => {
-        const idx = prev.findIndex((m) => m.id === inProgressId);
-        const callEndedData = { startedByName: callerDisplayName, durationSeconds, durationText, reason, disconnectedUserIds };
-        if (idx >= 0) {
-          return prev.map((m, i) =>
-            i === idx
-              ? { ...m, subtype: 'call_ended', call_ended: callEndedData }
-              : m
-          );
-        }
-        return [...prev, {
-          id: `system_call_ended_${Date.now()}`,
-          conversation_id: parseInt(conversationId, 10),
-          sender_id: null,
-          content: null,
-          type: 'system',
-          subtype: 'call_ended',
-          call_ended: callEndedData,
-          created_at: new Date().toISOString(),
-          sender: null,
-        }];
-      });
+      setMessages((prev) => prev.filter((m) => m.id !== inProgressId));
     };
 
     socket.on('dm_message', onMessage);
@@ -407,7 +395,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
       socket.off('dm_call_started', onCallStarted);
       socket.off('dm_call_ended', onCallEnded);
     };
-  }, [socket, conversationId, user?.id]);
+  }, [socket, conversationId, user?.id, shouldNotify, sendNotification, playNotification, t]);
 
   useEffect(() => {
     if (!socket) return;
@@ -798,6 +786,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
   const isGroup = !!conversation?.is_group;
   const other = isGroup ? null : conversation?.participants?.[0];
   const otherUsers = useMemo(() => conversation?.participants || [], [conversation?.participants]);
+  const otherIsFriend = !isGroup && other?.id ? isFriend(other.id) : false;
 
   const messageSurfaceContext = useMemo(
     () => (conversationId ? { kind: 'dm', conversationId, isGroup: !!isGroup } : null),
@@ -809,12 +798,6 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
     if (other?.id && !isGroup) prefetchProfile(other.id, other);
   }, [other?.id, isGroup]);
 
-  useEffect(() => {
-    if (!other?.id || isGroup) { setIsFriend(false); return; }
-    friendsApi.list().then(friends => {
-      setIsFriend(Array.isArray(friends) && friends.some(f => f.id === other.id));
-    }).catch(() => setIsFriend(false));
-  }, [other?.id, isGroup]);
   const title = isGroup 
     ? (conversation?.group_name || otherUsers.map(u => u.display_name).join(', ') || 'Group')
     : (other?.display_name || 'Conversation');
@@ -1041,13 +1024,60 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
     };
   }, [socket, conversationId]);
 
-  const handleHeaderClick = useCallback((e) => {
-    if (isGroup) {
-      setShowGroupMembers(prev => !prev);
-    } else if (other?.id) {
-      setShowExtendedProfile(prev => !prev);
+  const toggleProfileSidebar = useCallback(() => {
+    setShowProfileSidebar((prev) => {
+      const next = !prev;
+      try { localStorage.setItem(DPS_VISIBLE_KEY, next ? '1' : '0'); } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleVoiceCall = useCallback(() => {
+    const convId = parseInt(conversationId, 10);
+    if (voiceConversationId === convId) {
+      leaveVoiceDM();
+    } else {
+      messageListRef.current?.preserveScroll?.();
+      resumeVoiceSession().then(() => {
+        setVoiceViewMinimized(false);
+        joinVoiceDM(convId, title);
+      });
     }
-  }, [isGroup, other?.id]);
+  }, [conversationId, voiceConversationId, leaveVoiceDM, resumeVoiceSession, setVoiceViewMinimized, joinVoiceDM, title]);
+
+  const handleVideoCall = useCallback(async () => {
+    const convId = parseInt(conversationId, 10);
+    if (voiceConversationId === convId && isCameraOn) {
+      await stopCamera();
+      return;
+    }
+    if (voiceConversationId !== convId) {
+      messageListRef.current?.preserveScroll?.();
+      try {
+        await resumeVoiceSession();
+        setVoiceViewMinimized(false);
+        await joinVoiceDM(convId, title);
+      } catch (err) {
+        notify.error(err?.message || t('call.startCall'));
+        return;
+      }
+    }
+    if (!isCameraOn) {
+      try {
+        await startCamera();
+      } catch (err) {
+        notify.error(err?.message || t('dmHeader.cameraError', 'Camera unavailable'));
+      }
+    }
+  }, [conversationId, voiceConversationId, isCameraOn, stopCamera, resumeVoiceSession, setVoiceViewMinimized, joinVoiceDM, title, startCamera, notify, t]);
+
+  const handleGroupCreated = useCallback((conv) => {
+    const id = conv?.conversation_id ?? conv?.id;
+    if (id) {
+      onConversationsChange?.();
+      navigate(`/channels/@me/${id}`);
+    }
+  }, [navigate, onConversationsChange]);
 
   const swipe = useSwipeBack(
     isMobile ? () => navigate('/channels/@me') : undefined,
@@ -1095,111 +1125,40 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
           <div className="swipe-back-chevron" />
         </div>
       )}
-      <header className="chat-header chat-header-dm">
-        {isMobile && (
-          <button className="dc-mobile-back" onClick={() => navigate('/channels/@me')} aria-label="Retour">
-            <ChevronLeft size={22} strokeWidth={2} />
-          </button>
-        )}
-        {showPlaceholderHeader ? (
-          <>
-            <div className="chat-header-skeleton-avatar" />
-            <div className="chat-header-info">
-              <div className="chat-header-skeleton-title" />
-            </div>
-          </>
-        ) : isGroup ? (
-          <div className="group-header-icon" onClick={handleHeaderClick}>
-            <Users size={18} strokeWidth={2} />
-          </div>
-        ) : (
-          <ClickableAvatar
-            user={other}
-            size="medium"
-            showPresence
-            position="bottom"
-            contextMenuContext={{
-              conversationId,
-              lastMessageId: messages.length ? messages[messages.length - 1]?.id : null,
-              hasUnread: false,
-              isInCallWaiting: isInCall && othersInCall.length === 0,
-            }}
-          />
-        )}
-        {!showPlaceholderHeader && (
-          <>
-            <div
-              ref={headerInfoRef}
-              className="chat-header-info chat-header-clickable"
-              onClick={handleHeaderClick}
-              onMouseEnter={!isGroup && other?.id ? () => onMouseEnter(other.id, other) : undefined}
-              onMouseLeave={!isGroup ? onMouseLeave : undefined}
-            >
-              <h1 className="chat-header-title">{title}</h1>
-            </div>
-            <div className="dm-header-actions">
-          <button
-            className={`dm-action-btn ${isInCall ? 'active' : ''} ${canJoinCall ? 'join-call' : ''}`}
-            onClick={() => {
-              const convId = parseInt(conversationId, 10);
-              if (voiceConversationId === convId) {
-                leaveVoiceDM();
-              } else {
-                messageListRef.current?.preserveScroll?.();
-                resumeVoiceSession().then(() => {
-                  setVoiceViewMinimized(false);
-                  joinVoiceDM(convId, title);
-                });
-              }
-            }}
-            title={isInCall ? t('call.endCall', 'End Call') : canJoinCall ? t('call.joinCall', 'Join Call') : t('call.startCall', 'Start Voice Call')}
-          >
-            {isInCall ? <PhoneOff size={18} strokeWidth={2} /> : canJoinCall ? <PhoneIncoming size={18} strokeWidth={2} /> : <Phone size={18} strokeWidth={2} />}
-          </button>
-          <button 
-            className={`dm-action-btn ${showPinnedPanel ? 'active' : ''}`}
-            onClick={() => setShowPinnedPanel(!showPinnedPanel)}
-            title={t('pinned.viewPinned')}
-          >
-            <Pin size={18} strokeWidth={2} />
-            {pinnedMessageIds.length > 0 && (
-              <span className="dm-action-badge">{pinnedMessageIds.length}</span>
-            )}
-          </button>
-          {isGroup && (
-            <button 
-              className={`dm-action-btn ${showGroupMembers ? 'active' : ''}`}
-              onClick={() => setShowGroupMembers(!showGroupMembers)}
-              title="Members"
-            >
-              <Users size={18} strokeWidth={2} />
-            </button>
-          )}
-          <button 
-            className="dm-action-btn"
-            onClick={handleHeaderClick}
-            title={isGroup ? 'Group info' : t('friends.message')}
-          >
-            <Info size={18} strokeWidth={2} />
-          </button>
-        </div>
-          </>
-        )}
-      </header>
+      <DMChatHeader
+        isMobile={isMobile}
+        showPlaceholder={showPlaceholderHeader}
+        isGroup={isGroup}
+        other={other}
+        otherUsers={otherUsers}
+        title={title}
+        conversationId={conversationId}
+        messages={messages}
+        pinnedMessageIds={pinnedMessageIds}
+        pinnedMessages={pinnedMessages}
+        showPinnedPanel={showPinnedPanel}
+        onTogglePinnedPanel={(next) => {
+          if (next === true || next === false) setShowPinnedPanel(next);
+          else setShowPinnedPanel((prev) => !prev);
+        }}
+        onScrollToMessage={handleScrollToMessage}
+        isInCall={isInCall}
+        canJoinCall={canJoinCall}
+        onVoiceCall={handleVoiceCall}
+        isCameraOn={isCameraOn}
+        onVideoCall={handleVideoCall}
+        showProfileSidebar={showProfileSidebar}
+        onToggleProfileSidebar={toggleProfileSidebar}
+        showGroupMembers={showGroupMembers}
+        onToggleGroupMembers={() => setShowGroupMembers(prev => !prev)}
+        onOpenCreateGroup={() => setShowCreateGroup(true)}
+        headerInfoRef={headerInfoRef}
+        onPrefetchEnter={!isGroup && other?.id ? () => onMouseEnter(other.id, other) : undefined}
+        onPrefetchLeave={!isGroup ? onMouseLeave : undefined}
+        lastMessageId={messages.length ? messages[messages.length - 1]?.id : null}
+        isInCallWaiting={isInCall && othersInCall.length === 0}
+      />
 
-      {!showPlaceholderHeader && showCallPanel && !isMobile && (
-        <DMCallView embedded otherUserName={title} otherUser={other} isGroup={isGroup} groupMembers={otherUsers} />
-      )}
-
-      {showPinnedPanel && (
-        <PinnedMessages
-          pinnedMessages={pinnedMessages}
-          onClose={() => setShowPinnedPanel(false)}
-          onScrollToMessage={handleScrollToMessage}
-          onUnpin={handleUnpin}
-        />
-      )}
-      
       <div className="chat-main">
         <FileDropOverlay
           uploadTarget={`@${title}`}
@@ -1208,6 +1167,9 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
           onUploadDirect={(file) => uploadFile(file)}
         >
           <div className={`chat-main-content ${inputDocked ? 'input-docked' : 'input-floating'}`}>
+            {!showPlaceholderHeader && showCallPanel && !isMobile && (
+              <DMCallView embedded otherUserName={title} otherUser={other} isGroup={isGroup} groupMembers={otherUsers} />
+            )}
             <MessageList
               ref={messageListRef}
               messages={messages}
@@ -1260,7 +1222,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
                       return <>{parts[0]}<strong>{name}</strong>{parts[1]}</>;
                     })()}
                   </p>
-                  {!isGroup && !isFriend && (
+                  {!isGroup && !otherIsFriend && (
                     <div className="dm-empty-action-row">
                       <button
                         className="dm-add-friend-btn"
@@ -1269,10 +1231,12 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
                           if (!username) return;
                           try {
                             await friendsApi.sendRequest(username);
-                            invalidateCache('/friends');
-                            window.dispatchEvent(new CustomEvent('slide:friends-changed'));
+                            notifyFriendsChanged({ action: 'request_sent' });
                             notify.success((t('friends.requestSent') || 'Friend request sent to {name}').replace('{name}', username));
                           } catch (err) {
+                            if (isFriendRequestDuplicateError(err.message)) {
+                              notifyFriendsChanged();
+                            }
                             notify.error(err.message);
                           }
                         }}
@@ -1285,8 +1249,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
                           if (!other?.id) return;
                           try {
                             await friendsApi.block(other.id);
-                            invalidateCache('/friends');
-                            window.dispatchEvent(new CustomEvent('slide:friends-changed'));
+                            notifyFriendsChanged({ userId: other.id, action: 'blocked' });
                             notify.success(t('friends.userBlocked') || 'User blocked');
                           } catch (err) {
                             notify.error(err.message);
@@ -1354,14 +1317,20 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
             onClose={() => setShowGroupMembers(false)}
           />
         )}
+        {!isGroup && !isMobile && other?.id && showProfileSidebar && !showCallPanel && (
+          <DMProfileSidebar
+            userId={other.id}
+            user={other}
+            onViewFullProfile={() => setShowExtendedProfile(true)}
+          />
+        )}
       </div>
-      <ProfileCard
-        userId={other?.id}
-        user={other}
-        isOpen={showProfileCard}
-        onClose={() => setShowProfileCard(false)}
-        anchorEl={headerInfoRef.current}
-        position="bottom"
+      <CreateGroupModal
+        isOpen={showCreateGroup}
+        onClose={() => setShowCreateGroup(false)}
+        onGroupCreated={handleGroupCreated}
+        currentUser={user}
+        initialSelected={other ? [other] : []}
       />
       {showExtendedProfile && other?.id && (
         <UserDetailModal

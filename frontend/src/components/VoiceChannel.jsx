@@ -33,6 +33,7 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId, className, de
     clearSuppressAutoJoin,
     voiceLeaveAnim,
     getListenVolume01,
+    setVoiceMiniIslandPreview,
   } = useVoice();
 
   // Navigating to this channel again (fresh mount) clears the post-disconnect guard
@@ -131,11 +132,11 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId, className, de
   const focusedData = useMemo(() => {
     if (effectiveFocusedId === 'self-screen') {
       const self = channelUsers.find(u => sameUserId(u.id, user?.id));
-      return { id: 'self-screen', stream: ownScreenStream, displayName: 'Your Screen', avatarUrl: self?.avatar_url, isSelf: true, isSpeaking: false, type: 'screen' };
+      return { id: 'self-screen', stream: ownScreenStream, displayName: 'Your Screen', avatarUrl: self?.avatar_url, bannerColor: self?.banner_color, bannerColor2: self?.banner_color_2, isSelf: true, isSpeaking: false, type: 'screen' };
     }
     if (effectiveFocusedId === 'self-camera') {
       const self = channelUsers.find(u => sameUserId(u.id, user?.id));
-      return { id: 'self-camera', stream: ownCameraStream, displayName: 'You', avatarUrl: self?.avatar_url, isSelf: true, isSpeaking: userIsSpeaking(self), type: 'camera' };
+      return { id: 'self-camera', stream: ownCameraStream, displayName: 'You', avatarUrl: self?.avatar_url, bannerColor: self?.banner_color, bannerColor2: self?.banner_color_2, isSelf: true, isSpeaking: userIsSpeaking(self), type: 'camera' };
     }
     const u = channelUsers.find(u => sameUserId(u.id, effectiveFocusedId));
     if (!u) return null;
@@ -145,6 +146,8 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId, className, de
       stream: isSelf ? null : getRemoteStreamForUser(remoteVideoStreams, u.id) || null,
       displayName: isSelf ? 'You' : u.display_name,
       avatarUrl: u.avatar_url,
+      bannerColor: u.banner_color,
+      bannerColor2: u.banner_color_2,
       isSelf,
       isSpeaking: userIsSpeaking(u),
       type: getRemoteStreamForUser(remoteVideoStreams, u.id) ? 'stream' : 'user',
@@ -203,11 +206,27 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId, className, de
     const el = stageVideoRef.current;
     if (!el || !focusedData?.stream) return;
     if (focusedData.isSelf || focusedData.id === 'self-screen' || focusedData.id === 'self-camera') {
-      el.volume = 1;
+      el.muted = true;
+      el.volume = 0;
       return;
     }
+    el.muted = false;
     el.volume = getListenVolume01(focusedData.id);
   }, [focusedData?.stream, focusedData?.isSelf, focusedData?.id, getListenVolume01]);
+
+  useEffect(() => {
+    if (!isMobileOverlay || !isConnected || !focusedData) return;
+    setVoiceMiniIslandPreview({
+      userId: focusedData.id,
+      displayName: focusedData.displayName,
+      avatarUrl: focusedData.avatarUrl ?? null,
+      bannerColor: focusedData.bannerColor ?? null,
+      bannerColor2: focusedData.bannerColor2 ?? null,
+      isLive: !!focusedData.stream,
+      isSelf: !!focusedData.isSelf,
+      isSpeaking: !!focusedData.isSpeaking,
+    });
+  }, [focusedData, isMobileOverlay, isConnected, setVoiceMiniIslandPreview]);
 
   const showRemoteStreamVol =
     focusedData &&
@@ -251,6 +270,13 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId, className, de
 
             {/* Speaking border on the stage */}
             {focusedData?.isSpeaking && <div className="vc-stage-speak-border" />}
+
+            {/* Stream listen volume — on the live itself, not the bottom bar island */}
+            {showRemoteStreamVol && (
+              <div className="vc-stage-stream-vol" onMouseEnter={clearHideTimer}>
+                <RemoteStreamVolumeControl userId={focusedData.id} variant="vc-stage" />
+              </div>
+            )}
           </div>
 
           {/* Participants strip */}
@@ -300,11 +326,6 @@ const VoiceChannel = memo(function VoiceChannel({ channel, teamId, className, de
 
           {/* Hover overlay — fades with mouse idle; volume only on main livestream, not in participant strip */}
           <div className={`vc-overlay ${overlayVisible ? 'visible' : ''}`}>
-            {focusedData && hasFocusedStream && showRemoteStreamVol && (
-              <div className="vc-overlay-stage-vol" onMouseEnter={clearHideTimer}>
-                <RemoteStreamVolumeControl userId={focusedData.id} variant="vc-stage" />
-              </div>
-            )}
             {focusedData && hasFocusedStream && focusedData.id !== 'self-screen' && (
               <div className="vc-overlay-bottom-bar">
                 <div className="vc-overlay-username">

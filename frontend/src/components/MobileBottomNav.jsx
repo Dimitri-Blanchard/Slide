@@ -37,7 +37,7 @@ export default function MobileBottomNav({ activeTab, onTabChange, unreadCounts =
               ) : (
                 <AppIcon name={icon} size={24} />
               )}
-              {count > 0 && !isProfile && (
+              {count > 0 && (
                 <span className="mbn-badge">{count > 99 ? '99+' : count}</span>
               )}
             </span>

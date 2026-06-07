@@ -1,0 +1,200 @@
+/* ═══════════════════════════════════════════════════════════
+   FRIENDS ACTIVE NOW — Discord Active Now card clone
+   ═══════════════════════════════════════════════════════════ */
+
+.friends-active-now-sidebar {
+  --fans-ease: cubic-bezier(0.2, 0, 0, 1);
+  --fans-card-bg: color-mix(in srgb, var(--surface-3, var(--bg-tertiary)) 38%, var(--bg-secondary));
+  --fans-card-bg-hover: color-mix(in srgb, var(--surface-3, var(--bg-tertiary)) 48%, var(--bg-secondary));
+  --fans-card-bg-active: color-mix(in srgb, var(--surface-3, var(--bg-tertiary)) 54%, var(--bg-secondary));
+
+  align-self: stretch;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  border-left: var(--hairline-width) solid var(--border-subtle);
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.fans-resize-edge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  transform: translateX(-50%);
+  cursor: ew-resize;
+  z-index: 5;
+  background: transparent;
+  touch-action: none;
+}
+
+.fans-header {
+  flex-shrink: 0;
+  padding: 20px 16px 12px;
+}
+
+.fans-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  line-height: 1.2;
+}
+
+.fans-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 12px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.fans-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.fans-empty {
+  margin: 12px 4px 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── Card — Discord pill row ── */
+.fans-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 16px;
+  background: var(--fans-card-bg);
+  cursor: pointer;
+  text-align: left;
+  flex-shrink: 0;
+  font: inherit;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.22s var(--fans-ease);
+}
+
+.fans-card:hover {
+  background: var(--fans-card-bg-hover);
+}
+
+.fans-card:active {
+  background: var(--fans-card-bg-active);
+}
+
+.fans-card-avatar-wrap {
+  flex-shrink: 0;
+  --avatar-status-ring: var(--fans-card-bg);
+}
+
+.fans-card-avatar-wrap .avatar {
+  width: 40px !important;
+  height: 40px !important;
+}
+
+.fans-card:hover .fans-card-avatar-wrap {
+  --avatar-status-ring: var(--fans-card-bg-hover);
+}
+
+.fans-card-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fans-card-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--text-primary) 90%, var(--text-muted));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.25;
+}
+
+.fans-card-subtitle {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  opacity: 0.82;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+/* App / album icon — right side, like Discord rich presence */
+.fans-card-app {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--bg-secondary) 70%, var(--fans-card-bg));
+}
+
+.fans-card-app-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.fans-card-app-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, #121214 85%, var(--bg-secondary));
+  color: color-mix(in srgb, #1db954 75%, var(--text-muted));
+}
+
+.fans-card-app-fallback svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* ── Light theme ── */
+[data-theme="light"] .friends-active-now-sidebar {
+  --fans-card-bg: color-mix(in srgb, var(--bg-tertiary) 55%, var(--bg-secondary));
+  --fans-card-bg-hover: color-mix(in srgb, var(--bg-tertiary) 65%, var(--bg-secondary));
+  --fans-card-bg-active: color-mix(in srgb, var(--bg-tertiary) 72%, var(--bg-secondary));
+}
+
+[data-theme="light"] .fans-card-avatar-wrap {
+  --avatar-status-ring: var(--fans-card-bg);
+}
+
+[data-theme="light"] .fans-card:hover .fans-card-avatar-wrap {
+  --avatar-status-ring: var(--fans-card-bg-hover);
+}
+
+@media (max-width: 768px) {
+  .friends-active-now-sidebar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fans-card {
+    transition: none;
+  }
+}

@@ -5,7 +5,6 @@ import {
   direct as directApi,
   teams as teamsApi,
   servers,
-  invalidateCache,
 } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useVoice } from '../context/VoiceContext';
@@ -13,6 +12,8 @@ import { useNotification } from '../context/NotificationContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useSettings } from '../context/SettingsContext';
 import { Icons } from '../components/ContextMenu';
+import useFriendsSync from './useFriendsSync';
+import { notifyFriendsChanged, isFriendRequestDuplicateError } from '../utils/friendsSync';
 import { ContextMenuVoiceControls } from '../components/ContextMenuVoiceControls';
 
 export function useVoiceSidebarUserContextMenu(user, context = {}) {
@@ -22,29 +23,27 @@ export function useVoiceSidebarUserContextMenu(user, context = {}) {
     roles = [],
     memberRolesMap = {},
     canManage = false,
+    isOwner = false,
+    voiceChannelId = null,
+    onKick,
+    onBan,
+    targetTeamRole = null,
     onOpenProfileDetail,
     onOpenNoteModal,
     onRolesChanged,
   } = context;
 
   const { user: currentUser } = useAuth();
-  const { joinVoiceDM, streamVolumeByUserId } = useVoice();
+  const { joinVoiceDM, streamVolumeByUserId, moderateVoiceUser, voiceUsers } = useVoice();
   const { notify } = useNotification();
   const { t } = useLanguage();
   const { developerMode } = useSettings();
   const navigate = useNavigate();
 
-  const [friendIds, setFriendIds] = useState(new Set());
   const [inviteTeams, setInviteTeams] = useState([]);
+  const { isFriend } = useFriendsSync();
 
   const isOwn = currentUser?.id != null && user?.id != null && String(currentUser.id) === String(user.id);
-
-  useEffect(() => {
-    if (!user?.id || isOwn) return;
-    friendsApi.list()
-      .then((list) => setFriendIds(new Set((list || []).map((f) => f.id))))
-      .catch(() => setFriendIds(new Set()));
-  }, [user?.id, isOwn]);
 
   useEffect(() => {
     if (!user?.id || isOwn) return;
@@ -52,10 +51,6 @@ export function useVoiceSidebarUserContextMenu(user, context = {}) {
       .then((list) => setInviteTeams(Array.isArray(list) ? list : []))
       .catch(() => setInviteTeams([]));
   }, [user?.id, isOwn]);
-
-  const emitFriendsChanged = useCallback(() => {
-    window.dispatchEvent(new CustomEvent('slide:friends-changed'));
-  }, []);
 
   const handleInviteToServer = useCallback(async (targetTeam) => {
     if (!user?.id || !targetTeam?.id) return;
@@ -94,9 +89,37 @@ export function useVoiceSidebarUserContextMenu(user, context = {}) {
     }
   }, [teamId, user?.id, user?.roles, memberRolesMap, onRolesChanged, notify]);
 
+  const resolveVoiceChannelId = useCallback(() => {
+    if (voiceChannelId) return voiceChannelId;
+    if (!teamId || !user?.id) return null;
+    for (const [chId, users] of Object.entries(voiceUsers || {})) {
+      if ((users || []).some((u) => String(u.id) === String(user.id))) return chId;
+    }
+    return null;
+  }, [voiceChannelId, teamId, user?.id, voiceUsers]);
+
+  const runVoiceModeration = useCallback((action, durationMinutes) => {
+    const chId = resolveVoiceChannelId();
+    if (!teamId || !chId || !user?.id) {
+      notify.error(t('server.voiceModerationNotInChannel') || 'Member is not in a voice channel');
+      return;
+    }
+    moderateVoiceUser(teamId, chId, user.id, action, durationMinutes);
+    const labels = {
+      kick: t('server.voiceKickDone') || 'Disconnected from voice',
+      server_mute: t('server.voiceServerMuteDone') || 'Server muted',
+      server_unmute: t('server.voiceServerUnmuteDone') || 'Server unmuted',
+      server_deafen: t('server.voiceServerDeafenDone') || 'Server deafened',
+      server_undeafen: t('server.voiceServerUndeafenDone') || 'Server undeafened',
+      temp_mute: t('server.voiceTempMuteDone') || 'Temporarily muted',
+    };
+    notify.success(labels[action] || 'Done');
+  }, [resolveVoiceChannelId, teamId, user?.id, moderateVoiceUser, notify, t]);
+
   const buildItems = useCallback(() => {
     if (!user?.id) return [];
 
+    const memberTeamRole = targetTeamRole || user.role || user.team_role;
     const items = [];
 
     items.push({
@@ -161,8 +184,7 @@ export function useVoiceSidebarUserContextMenu(user, context = {}) {
         });
       }
 
-      const isFriend = friendIds.has(user.id);
-      if (!isFriend) {
+      if (!isFriend(user.id)) {
         items.push({
           label: t('friends.addFriend') || 'Add Friend',
           icon: Icons.invite,
@@ -174,12 +196,14 @@ export function useVoiceSidebarUserContextMenu(user, context = {}) {
             }
             try {
               await friendsApi.sendRequest(username);
-              invalidateCache('/friends');
-              emitFriendsChanged();
+              notifyFriendsChanged({ action: 'request_sent' });
               notify.success(
                 (t('friends.requestSent') || 'Friend request sent to {name}').replace('{name}', username)
               );
             } catch (err) {
+              if (isFriendRequestDuplicateError(err.message)) {
+                notifyFriendsChanged();
+              }
               notify.error(err.message);
             }
           },
@@ -193,8 +217,7 @@ export function useVoiceSidebarUserContextMenu(user, context = {}) {
         onClick: async () => {
           try {
             await friendsApi.block(user.id);
-            invalidateCache('/friends');
-            emitFriendsChanged();
+            notifyFriendsChanged({ userId: user.id, action: 'blocked' });
             notify.success(t('friends.blocked') || 'Blocked');
           } catch (err) {
             notify.error(err.message);
@@ -203,7 +226,54 @@ export function useVoiceSidebarUserContextMenu(user, context = {}) {
         danger: true,
       });
 
-      if (canManage && teamId) {
+      if (canManage && teamId && memberTeamRole !== 'owner') {
+        items.push({ separator: true });
+        items.push({
+          label: t('server.moderation') || 'Moderation',
+          icon: Icons.profile,
+          submenu: [
+            {
+              label: t('server.kickFromVoice') || 'Disconnect from voice',
+              onClick: () => runVoiceModeration('kick'),
+            },
+            {
+              label: t('server.serverMute') || 'Server mute',
+              onClick: () => runVoiceModeration('server_mute'),
+            },
+            {
+              label: t('server.serverUnmute') || 'Remove server mute',
+              onClick: () => runVoiceModeration('server_unmute'),
+            },
+            {
+              label: t('server.serverDeafen') || 'Server deafen',
+              onClick: () => runVoiceModeration('server_deafen'),
+            },
+            {
+              label: t('server.serverUndeafen') || 'Remove server deafen',
+              onClick: () => runVoiceModeration('server_undeafen'),
+            },
+            {
+              label: t('server.tempMute') || 'Timeout (temp mute)',
+              submenu: [
+                { label: '1 min', onClick: () => runVoiceModeration('temp_mute', 1) },
+                { label: '5 min', onClick: () => runVoiceModeration('temp_mute', 5) },
+                { label: '10 min', onClick: () => runVoiceModeration('temp_mute', 10) },
+                { label: '1 h', onClick: () => runVoiceModeration('temp_mute', 60) },
+              ],
+            },
+            ...(onKick ? [{
+              label: t('team.remove') || 'Kick from server',
+              danger: true,
+              onClick: () => onKick(user),
+            }] : []),
+            ...(onBan ? [{
+              label: t('admin.banUser') || 'Ban',
+              danger: true,
+              onClick: () => onBan(user),
+            }] : []),
+          ],
+        });
+
         const memberRoleIds = memberRolesMap[user.id] || user.roles || [];
         const assignableRoles = (roles || []).filter((r) => !r.is_default);
         if (assignableRoles.length > 0) {
@@ -255,7 +325,15 @@ export function useVoiceSidebarUserContextMenu(user, context = {}) {
     roles,
     memberRolesMap,
     canManage,
-    friendIds,
+    isOwner,
+    voiceChannelId,
+    onKick,
+    onBan,
+    targetTeamRole,
+    voiceUsers,
+    runVoiceModeration,
+    moderateVoiceUser,
+    isFriend,
     inviteTeams,
     developerMode,
     onOpenProfileDetail,
@@ -266,7 +344,6 @@ export function useVoiceSidebarUserContextMenu(user, context = {}) {
     navigate,
     notify,
     t,
-    emitFriendsChanged,
   ]);
 
   return useMemo(

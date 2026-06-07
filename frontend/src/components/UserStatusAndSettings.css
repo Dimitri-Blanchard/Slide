@@ -165,7 +165,7 @@
 }
 
 .user-status-and-settings.usas-status-menu-open .usas-bottom-bar {
-  border-top: 1px solid var(--border-subtle);
+  border-top: var(--hairline-width) solid var(--border-subtle);
 }
 
 .usas-bottom-bar {
@@ -182,7 +182,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
   flex-shrink: 0;
   animation: usas-expand 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }

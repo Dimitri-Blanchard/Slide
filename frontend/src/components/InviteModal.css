@@ -459,7 +459,7 @@
 
 .share-invite-divider {
   padding: 12px 20px;
-  border-top: 1px solid var(--bg-tertiary, rgba(79, 84, 92, 0.48));
+  border-top: var(--hairline-width) solid var(--bg-tertiary, rgba(79, 84, 92, 0.48));
 }
 
 .share-invite-divider span {
@@ -597,3 +597,234 @@
   text-decoration: underline;
 }
 
+/* ─── Mobile share-invite bottom sheet ─── */
+.share-invite-sheet.mobile-sheet {
+  max-height: min(92vh, 780px);
+  padding-bottom: calc(20px + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
+}
+
+.share-invite-sheet .mobile-sheet-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+  margin-top: 8px;
+}
+
+.share-invite-sheet-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 2px 16px;
+}
+
+.share-invite-sheet-server-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1px solid var(--border-subtle);
+}
+
+.share-invite-sheet-server-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.share-invite-sheet-server-icon span {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.share-invite-sheet-server-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.share-invite-sheet-server-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.share-invite-sheet-server-channel {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.share-invite-sheet-link-block {
+  padding-bottom: 4px;
+}
+
+.share-invite-sheet-link-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.share-invite-sheet-link-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+}
+
+.share-invite-sheet-link-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.share-invite-sheet-btn {
+  width: 100%;
+  min-height: 50px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.share-invite-sheet-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.share-invite-sheet-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.share-invite-sheet-btn-primary {
+  background: var(--accent-gradient, linear-gradient(135deg, #6685f9 0%, #4f6ef7 100%));
+  color: var(--accent-text, #fff);
+}
+
+.share-invite-sheet-btn-primary.is-copied {
+  background: var(--success, #23a559);
+}
+
+.share-invite-sheet-btn-secondary {
+  background: var(--bg-tertiary);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.share-invite-sheet-divider {
+  margin: 16px 0 12px;
+  padding-top: 14px;
+  border-top: var(--hairline-width) solid var(--border-subtle);
+}
+
+.share-invite-sheet-divider span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.share-invite-search--sheet {
+  padding: 0 0 10px;
+}
+
+.share-invite-search--sheet .share-invite-search-icon {
+  left: 12px;
+}
+
+.share-invite-search--sheet input {
+  border-radius: 12px;
+  min-height: 46px;
+  padding-left: 38px;
+}
+
+.share-invite-friends--sheet {
+  flex: 1;
+  min-height: 120px;
+  max-height: 36vh;
+  padding: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.share-invite-friends--sheet .share-invite-friend-row {
+  padding: 10px 4px;
+}
+
+.share-invite-friends--sheet .share-invite-friend-invite-btn {
+  min-height: 36px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 1024px) {
+  .invite-modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .invite-modal {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 24px 24px 0 0;
+    margin-bottom: 0;
+    max-height: 92vh;
+    overflow-y: auto;
+    animation: inviteSheetUp 320ms cubic-bezier(0.05, 0.7, 0.1, 1);
+  }
+
+  @keyframes inviteSheetUp {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .share-invite-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 24px 24px 0 0;
+  }
+}
+
+/* ── Join server (embedded in ServerCreationFlow) ── */
+.invite-join-embedded .invite-subtitle {
+  color: var(--text-secondary);
+}
+
+.invite-join-body .invite-hint {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.invite-join-body .invite-member-count {
+  color: var(--text-secondary);
+}

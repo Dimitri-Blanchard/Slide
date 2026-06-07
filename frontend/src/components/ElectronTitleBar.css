@@ -9,7 +9,7 @@
   min-height: var(--electron-titlebar-height, 36px) !important;
   z-index: 2147483647 !important;
   background: var(--server-rail-bg, var(--bg-tertiary));
-  --electron-titlebar-server-fade: calc(var(--server-rail-width, 76px) + var(--panel-junction-radius, 8px));
+  --electron-titlebar-server-fade: calc(var(--server-rail-width, 92px) + var(--panel-junction-radius, 8px));
   border-bottom: none;
   -webkit-app-region: drag;
   user-select: none;
@@ -27,7 +27,7 @@
   left: var(--electron-titlebar-server-fade);
   right: 0;
   bottom: 0;
-  height: 1px;
+  height: var(--hairline-width);
   background: var(--border-subtle, rgba(255, 255, 255, 0.06));
   pointer-events: none;
 }
@@ -195,4 +195,24 @@
 
 .electron-title-bar-mac .electron-title-bar-nav {
   margin-left: 6px;
+}
+
+/* Browser: icon + title only (no window controls or nav).
+   z-index below every modal overlay (lowest app modal: 1000) so the bar never stacks on top. */
+.electron-title-bar-web {
+  justify-content: center;
+  -webkit-app-region: no-drag;
+  z-index: 999 !important;
+}
+
+/* Mobile shell — no custom title bar (native safe area / bottom nav) */
+html.platform-mobile .electron-title-bar {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Settings overlay (z-index 180000) covers the title bar while open */
+body.settings-open .electron-title-bar {
+  z-index: 179000 !important;
 }

@@ -26,7 +26,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px 16px;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
   flex-shrink: 0;
 }
 
@@ -147,7 +147,7 @@
   display: flex;
   justify-content: flex-end;
   padding: 16px 24px;
-  border-top: 1px solid var(--border-subtle);
+  border-top: var(--hairline-width) solid var(--border-subtle);
   flex-shrink: 0;
 }
 

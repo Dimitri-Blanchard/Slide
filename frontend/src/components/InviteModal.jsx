@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { AvatarImg } from './Avatar';
@@ -6,9 +6,11 @@ import { servers, friends as friendsApi, direct as directApi } from '../api';
 import { useLanguage } from '../context/LanguageContext';
 import { useNotification } from '../context/NotificationContext';
 import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
+import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
+import MobileSheet from './MobileSheet';
 import './InviteModal.css';
 
-export default function InviteModal({ isOpen, onClose, initialCode = '', onServerJoined, onBack, exiting }) {
+export default function InviteModal({ isOpen, embedded, onClose, initialCode = '', onServerJoined, onBack, exiting }) {
   const [code, setCode] = useState(initialCode);
   const [inviteInfo, setInviteInfo] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -16,7 +18,7 @@ export default function InviteModal({ isOpen, onClose, initialCode = '', onServe
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const enterInstant = useModalEnterAnimation('invite-modal', isOpen);
+  const enterInstant = useModalEnterAnimation('invite-modal', isOpen && !embedded);
 
   useEffect(() => {
     if (initialCode) {
@@ -103,77 +105,312 @@ export default function InviteModal({ isOpen, onClose, initialCode = '', onServe
     if (!exiting) onClose();
   };
 
+  const content = (
+    <>
+      <h2>Rejoindre un serveur</h2>
+      <p className="invite-subtitle">
+        Entrez un lien d'invitation ci-dessous pour rejoindre un serveur existant
+      </p>
+
+      <div className="invite-input-group">
+        <label>Lien d'invitation</label>
+        <input
+          type="text"
+          value={code}
+          onChange={handleCodeChange}
+          onPaste={handlePaste}
+          placeholder="https://slide.app/invite/abc123 ou abc123"
+          autoFocus
+        />
+        <span className="invite-hint">
+          Les invitations ressemblent à : https://slide.app/invite/abc123
+        </span>
+      </div>
+
+      {loading && (
+        <div className="invite-loading">
+          <div className="loading-spinner" />
+          <span>Vérification de l'invitation...</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="invite-error">
+          {error}
+        </div>
+      )}
+
+      {inviteInfo && !loading && (
+        <div className="invite-preview">
+          <div className="invite-server-icon">
+            {inviteInfo.icon_url ? (
+              <AvatarImg src={inviteInfo.icon_url} alt={inviteInfo.team_name} />
+            ) : (
+              <span>{inviteInfo.team_name?.charAt(0).toUpperCase()}</span>
+            )}
+          </div>
+          <div className="invite-server-info">
+            <h3>{inviteInfo.team_name}</h3>
+            <span className="invite-member-count">
+              {inviteInfo.member_count || 0} membre{inviteInfo.member_count !== 1 ? 's' : ''}
+            </span>
+          </div>
+        </div>
+      )}
+
+      <div className="invite-actions">
+        <button className="cancel-btn" onClick={onBack || onClose}>
+          Retour
+        </button>
+        <button
+          className="join-btn"
+          onClick={handleJoin}
+          disabled={!inviteInfo || joining}
+        >
+          {joining ? 'Connexion...' : 'Rejoindre le serveur'}
+        </button>
+      </div>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <div className="invite-join-embedded cysm-modal-embedded">
+        <div className="cysm-header">
+          <button className="cysm-close" onClick={onClose} aria-label="Close">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M18.4 4L12 10.4L5.6 4L4 5.6L10.4 12L4 18.4L5.6 20L12 13.6L18.4 20L20 18.4L13.6 12L20 5.6L18.4 4Z"/>
+            </svg>
+          </button>
+          <h2>Rejoindre un serveur</h2>
+          <p className="invite-subtitle">
+            Entrez un lien d&apos;invitation ci-dessous pour rejoindre un serveur existant
+          </p>
+        </div>
+
+        <div className="cysm-content invite-join-body">
+          <div className="invite-input-group">
+            <label>Lien d&apos;invitation</label>
+            <input
+              type="text"
+              value={code}
+              onChange={handleCodeChange}
+              onPaste={handlePaste}
+              placeholder="https://slide.app/invite/abc123 ou abc123"
+              autoFocus
+            />
+            <span className="invite-hint">
+              Les invitations ressemblent à : https://slide.app/invite/abc123
+            </span>
+          </div>
+
+          {loading && (
+            <div className="invite-loading">
+              <div className="loading-spinner" />
+              <span>Vérification de l&apos;invitation...</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="invite-error">{error}</div>
+          )}
+
+          {inviteInfo && !loading && (
+            <div className="invite-preview">
+              <div className="invite-server-icon">
+                {inviteInfo.icon_url ? (
+                  <AvatarImg src={inviteInfo.icon_url} alt={inviteInfo.team_name} />
+                ) : (
+                  <span>{inviteInfo.team_name?.charAt(0).toUpperCase()}</span>
+                )}
+              </div>
+              <div className="invite-server-info">
+                <h3>{inviteInfo.team_name}</h3>
+                <span className="invite-member-count">
+                  {inviteInfo.member_count || 0} membre{inviteInfo.member_count !== 1 ? 's' : ''}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="invite-join-footer">
+          <div className="csm-actions invite-join-actions">
+            <button type="button" className="csm-btn-back" onClick={onBack || onClose}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+              </svg>
+              Retour
+            </button>
+            <button
+              type="button"
+              className="csm-btn-create invite-join-submit"
+              onClick={handleJoin}
+              disabled={!inviteInfo || joining}
+            >
+              {joining ? 'Connexion...' : 'Rejoindre le serveur'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const modal = (
     <div className={`invite-modal-overlay ${exiting ? 'invite-exiting' : ''}${enterInstant && !exiting ? ' modal-enter-instant' : ''}`} onClick={handleOverlayClick}>
       <div className={`invite-modal ${exiting ? 'invite-exiting' : ''}`} onClick={(e) => e.stopPropagation()}>
-        <h2>Rejoindre un serveur</h2>
-        <p className="invite-subtitle">
-          Entrez un lien d'invitation ci-dessous pour rejoindre un serveur existant
-        </p>
-        
-        <div className="invite-input-group">
-          <label>Lien d'invitation</label>
-          <input
-            type="text"
-            value={code}
-            onChange={handleCodeChange}
-            onPaste={handlePaste}
-            placeholder="https://slide.app/invite/abc123 ou abc123"
-            autoFocus
-          />
-          <span className="invite-hint">
-            Les invitations ressemblent à : https://slide.app/invite/abc123
-          </span>
-        </div>
-
-        {loading && (
-          <div className="invite-loading">
-            <div className="loading-spinner" />
-            <span>Vérification de l'invitation...</span>
-          </div>
-        )}
-
-        {error && (
-          <div className="invite-error">
-            {error}
-          </div>
-        )}
-
-        {inviteInfo && !loading && (
-          <div className="invite-preview">
-            <div className="invite-server-icon">
-              {inviteInfo.icon_url ? (
-                <AvatarImg src={inviteInfo.icon_url} alt={inviteInfo.team_name} />
-              ) : (
-                <span>{inviteInfo.team_name?.charAt(0).toUpperCase()}</span>
-              )}
-            </div>
-            <div className="invite-server-info">
-              <h3>{inviteInfo.team_name}</h3>
-              <span className="invite-member-count">
-                {inviteInfo.member_count || 0} membre{inviteInfo.member_count !== 1 ? 's' : ''}
-              </span>
-            </div>
-          </div>
-        )}
-
-        <div className="invite-actions">
-          <button className="cancel-btn" onClick={onBack || onClose}>
-            Retour
-          </button>
-          <button 
-            className="join-btn" 
-            onClick={handleJoin}
-            disabled={!inviteInfo || joining}
-          >
-            {joining ? 'Connexion...' : 'Rejoindre le serveur'}
-          </button>
-        </div>
+        {content}
       </div>
     </div>
   );
 
   return createPortal(modal, document.body);
+}
+
+function ShareInviteBody({
+  team,
+  channels,
+  activeInvite,
+  loading,
+  friendsLoading,
+  filteredFriends,
+  searchQuery,
+  setSearchQuery,
+  copied,
+  sendingFriendId,
+  sentFriendId,
+  onCopy,
+  onShare,
+  onInviteFriend,
+  canNativeShare,
+  t,
+}) {
+  const defaultChannelName = (channels || []).find(c => c?.channel_type === 'text')?.name || 'general';
+  const inviteUrl = activeInvite ? `${window.location.origin}/invite/${activeInvite.code}` : '';
+
+  return (
+    <>
+      <div className="share-invite-sheet-hero">
+        <div className="share-invite-sheet-server-icon">
+          {team?.avatar_url ? (
+            <AvatarImg src={team.avatar_url} alt="" />
+          ) : (
+            <span>{(team?.name || '?').charAt(0).toUpperCase()}</span>
+          )}
+        </div>
+        <div className="share-invite-sheet-server-meta">
+          <span className="share-invite-sheet-server-name">{team?.name}</span>
+          <span className="share-invite-sheet-server-channel">
+            #{defaultChannelName}
+          </span>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="share-invite-link-loading">
+          <div className="loading-spinner" />
+          <span>{t('invite.generatingLink') || 'Generating invite link...'}</span>
+        </div>
+      ) : (
+        <div className="share-invite-sheet-link-block">
+          <label className="share-invite-sheet-link-label" htmlFor="share-invite-url">
+            {t('invite.orSendLink') || 'Invite link'}
+          </label>
+          <input
+            id="share-invite-url"
+            className="share-invite-sheet-link-input"
+            type="text"
+            value={inviteUrl}
+            readOnly
+          />
+          <div className="share-invite-sheet-link-actions">
+            <button
+              type="button"
+              className={`share-invite-sheet-btn share-invite-sheet-btn-primary${copied ? ' is-copied' : ''}`}
+              onClick={onCopy}
+              disabled={!activeInvite}
+            >
+              {copied ? (t('invite.copied') || 'Copied!') : (t('invite.copy') || 'Copy link')}
+            </button>
+            {canNativeShare && (
+              <button
+                type="button"
+                className="share-invite-sheet-btn share-invite-sheet-btn-secondary"
+                onClick={onShare}
+                disabled={!activeInvite}
+              >
+                {t('invite.shareLink') || 'Share'}
+              </button>
+            )}
+          </div>
+          <p className="share-invite-expiry">
+            {activeInvite?.expires_at
+              ? (t('invite.linkExpiresIn') || 'Your invite link expires in 7 days.')
+              : (t('invite.linkNeverExpires') || 'Your invite link never expires.')}
+          </p>
+        </div>
+      )}
+
+      <div className="share-invite-sheet-divider">
+        <span>{t('invite.inviteFriends') || 'Invite friends'}</span>
+      </div>
+
+      <div className="share-invite-search share-invite-search--sheet">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="share-invite-search-icon" aria-hidden>
+          <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+        </svg>
+        <input
+          type="search"
+          placeholder={t('invite.searchFriends') || 'Search for friends'}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
+      <div className="share-invite-friends share-invite-friends--sheet">
+        {friendsLoading ? (
+          <div className="share-invite-loading">
+            <div className="loading-spinner" />
+            <span>{t('common.loading') || 'Loading...'}</span>
+          </div>
+        ) : filteredFriends.length === 0 ? (
+          <p className="share-invite-empty">{t('invite.noFriendsToInvite') || 'No friends to invite'}</p>
+        ) : (
+          <div className="share-invite-friend-list">
+            {filteredFriends.map(friend => (
+              <div key={friend.id} className="share-invite-friend-row">
+                <div className="share-invite-friend-avatar">
+                  {friend.avatar_url ? (
+                    <AvatarImg src={friend.avatar_url} alt="" />
+                  ) : (
+                    <span>{(friend.display_name || friend.username || '?').charAt(0).toUpperCase()}</span>
+                  )}
+                </div>
+                <div className="share-invite-friend-info">
+                  <span className="share-invite-friend-name">{friend.display_name || friend.username || 'Unknown'}</span>
+                  {friend.username && (
+                    <span className="share-invite-friend-username">.{friend.username}</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className={`share-invite-friend-invite-btn ${sentFriendId === friend.id ? 'sent' : ''}`}
+                  onClick={() => onInviteFriend(friend)}
+                  disabled={!activeInvite || loading || !!sendingFriendId}
+                >
+                  {sendingFriendId === friend.id
+                    ? (t('invite.sending') || 'Sending...')
+                    : sentFriendId === friend.id
+                      ? (t('invite.sent') || 'Sent!')
+                      : (t('invite.invite') || 'Invite')}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  );
 }
 
 // Quick invite share modal - Discord-style: auto-creates link on open, friend list, copy link
@@ -188,7 +425,9 @@ export function ShareInviteModal({ isOpen, onClose, team, channels = [] }) {
   const [sentFriendId, setSentFriendId] = useState(null);
   const { t } = useLanguage();
   const { notify } = useNotification();
+  const compactTouchUi = useCompactTouchUi();
   const enterInstant = useModalEnterAnimation('share-invite-modal', isOpen);
+  const canNativeShare = typeof navigator !== 'undefined' && !!navigator.share;
 
   // Get default channel name (first text channel)
   const defaultChannelName = (channels || []).find(c => c?.channel_type === 'text')?.name || 'general';
@@ -270,6 +509,24 @@ export function ShareInviteModal({ isOpen, onClose, team, channels = [] }) {
     }
   };
 
+  const shareInviteLink = useCallback(async () => {
+    if (!activeInvite || !team) return;
+    const url = `${window.location.origin}/invite/${activeInvite.code}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: team.name,
+          text: t('invite.shareMessage', { server: team.name }) || `Join ${team.name} on Slide`,
+          url,
+        });
+        return;
+      } catch (err) {
+        if (err?.name === 'AbortError') return;
+      }
+    }
+    copyInvite(activeInvite.code);
+  }, [activeInvite, team, t]);
+
   const handleInviteFriend = async (friend) => {
     if (!activeInvite) return;
     setSendingFriendId(friend.id);
@@ -291,6 +548,42 @@ export function ShareInviteModal({ isOpen, onClose, team, channels = [] }) {
   };
 
   if (!isOpen || !team) return null;
+
+  const shareBody = (
+    <ShareInviteBody
+      team={team}
+      channels={channels}
+      activeInvite={activeInvite}
+      loading={loading}
+      friendsLoading={friendsLoading}
+      filteredFriends={filteredFriends}
+      searchQuery={searchQuery}
+      setSearchQuery={setSearchQuery}
+      copied={copied}
+      sendingFriendId={sendingFriendId}
+      sentFriendId={sentFriendId}
+      onCopy={() => copyInvite(activeInvite?.code)}
+      onShare={shareInviteLink}
+      onInviteFriend={handleInviteFriend}
+      canNativeShare={canNativeShare}
+      t={t}
+    />
+  );
+
+  if (compactTouchUi) {
+    return (
+      <MobileSheet
+        isOpen={isOpen}
+        onClose={onClose}
+        title={t('invite.inviteFriendsTo') || 'Invite friends to'}
+        description={team.name}
+        className="share-invite-sheet"
+        closeLabel={t('common.close') || 'Close'}
+      >
+        {shareBody}
+      </MobileSheet>
+    );
+  }
 
   const inviteUrl = activeInvite ? `${window.location.origin}/invite/${activeInvite.code}` : '';
 

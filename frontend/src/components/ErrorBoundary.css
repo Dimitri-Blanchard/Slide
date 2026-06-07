@@ -89,7 +89,7 @@
 .eb-details {
   margin-top: 1.35rem;
   padding-top: 1.1rem;
-  border-top: 1px solid var(--border-subtle);
+  border-top: var(--hairline-width) solid var(--border-subtle);
 }
 
 .eb-details-bar {
@@ -168,7 +168,7 @@
 .eb-pre + .eb-pre {
   margin-top: 0.75rem;
   padding-top: 0.75rem;
-  border-top: 1px dashed var(--border-subtle);
+  border-top: var(--hairline-width) dashed var(--border-subtle);
 }
 
 .eb-pre--message {

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useCallback, useRef, useMemo, useEffect } from 'react';
 import SettingsContext from './SettingsContext';
+import { shouldPlayNotificationSound } from '../utils/notificationFocus';
 
 const SoundContext = createContext(null);
 
@@ -27,16 +28,41 @@ function playTone(ctx, destination, frequency, duration, volume = 0.3, type = 's
   } catch (_) {}
 }
 
-function playChime(ctx, destination, volume = 0.25) {
-  if (!ctx) return;
-  playTone(ctx, destination, 880, 0.08, volume, 'sine');
-  setTimeout(() => playTone(ctx, destination, 1109, 0.12, volume * 0.9, 'sine'), 80);
+function playSoftNote(ctx, destination, frequency, duration, peakVolume, attack = 0.028, type = 'sine', startTime = null) {
+  if (!ctx || !destination) return;
+  try {
+    const t0 = startTime ?? ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(destination);
+    osc.frequency.value = frequency;
+    osc.type = type;
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(peakVolume, t0 + attack);
+    gain.gain.setValueAtTime(peakVolume * 0.88, t0 + attack + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+    osc.start(t0);
+    osc.stop(t0 + duration + 0.02);
+  } catch (_) {}
 }
 
+/** Message notification — soft but clear two-note chime. */
+function playChime(ctx, destination, volume = 0.25) {
+  if (!ctx) return;
+  const v = volume * 0.09;
+  const t0 = ctx.currentTime;
+  playSoftNote(ctx, destination, 196, 0.2, v, 0.028, 'sine', t0);
+  playSoftNote(ctx, destination, 246.94, 0.22, v * 0.72, 0.03, 'sine', t0 + 0.085);
+}
+
+/** @mention ping — slightly higher, same gentle envelope. */
 function playPingSound(ctx, destination, volume = 0.3) {
   if (!ctx) return;
-  playTone(ctx, destination, 1319, 0.06, volume, 'sine');
-  setTimeout(() => playTone(ctx, destination, 1661, 0.08, volume * 0.8, 'sine'), 60);
+  const v = volume * 0.085;
+  const t0 = ctx.currentTime;
+  playSoftNote(ctx, destination, 220, 0.17, v, 0.026, 'sine', t0);
+  playSoftNote(ctx, destination, 277.18, 0.19, v * 0.68, 0.028, 'sine', t0 + 0.078);
 }
 
 function playMessageSentSound(ctx, destination, volume = 0.15) {
@@ -76,21 +102,21 @@ function playVoiceUnmuteSound(ctx, destination, volume = 0.16) {
   setTimeout(() => playTone(ctx, destination, 520, 0.08, volume, 'triangle'), 55);
 }
 
+function playStreamStartSound(ctx, destination, volume = 0.22) {
+  if (!ctx) return;
+  playTone(ctx, destination, 440, 0.06, volume, 'sine');
+  setTimeout(() => playTone(ctx, destination, 554, 0.07, volume * 0.9, 'sine'), 55);
+  setTimeout(() => playTone(ctx, destination, 659, 0.09, volume * 0.85, 'sine'), 110);
+}
+
+function playStreamStopSound(ctx, destination, volume = 0.18) {
+  if (!ctx) return;
+  playTone(ctx, destination, 523, 0.07, volume * 0.8, 'sine');
+  setTimeout(() => playTone(ctx, destination, 392, 0.1, volume * 0.75, 'sine'), 70);
+}
+
 function playSoftTone(ctx, destination, frequency, duration, volume, attack = 0.03) {
-  if (!ctx || !destination) return;
-  try {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(destination);
-    osc.frequency.value = frequency;
-    osc.type = 'sine';
-    gain.gain.setValueAtTime(0, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(volume, ctx.currentTime + attack);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + duration);
-  } catch (_) {}
+  playSoftNote(ctx, destination, frequency, duration, volume, attack, 'sine');
 }
 
 function createRingtone(ctx, destination, volume = 0.35) {
@@ -173,12 +199,14 @@ export function SoundProvider({ children }) {
 
   const playNotification = useCallback(({ force = false } = {}) => {
     if (!force && settings?.notification_sound === false) return;
+    if (!shouldPlayNotificationSound({ force })) return;
     const { ctx, dest } = getDestination();
     if (ctx && dest) playChime(ctx, dest, soundVolume);
   }, [settings?.notification_sound, getDestination, soundVolume]);
 
-  const playPing = useCallback(() => {
+  const playPing = useCallback(({ force = false } = {}) => {
     if (settings?.notification_sound === false) return;
+    if (!shouldPlayNotificationSound({ force })) return;
     const { ctx, dest } = getDestination();
     if (ctx && dest) playPingSound(ctx, dest, soundVolume);
   }, [settings?.notification_sound, getDestination, soundVolume]);
@@ -218,6 +246,18 @@ export function SoundProvider({ children }) {
     if (ctx && dest) playVoiceUnmuteSound(ctx, dest, soundVolume * 0.7);
   }, [settings?.notification_sound, getDestination, soundVolume]);
 
+  const playStreamStart = useCallback(() => {
+    if (settings?.notification_sound === false) return;
+    const { ctx, dest } = getDestination();
+    if (ctx && dest) playStreamStartSound(ctx, dest, soundVolume * 0.8);
+  }, [settings?.notification_sound, getDestination, soundVolume]);
+
+  const playStreamStop = useCallback(() => {
+    if (settings?.notification_sound === false) return;
+    const { ctx, dest } = getDestination();
+    if (ctx && dest) playStreamStopSound(ctx, dest, soundVolume * 0.75);
+  }, [settings?.notification_sound, getDestination, soundVolume]);
+
   const startRingtone = useCallback(({ force = false } = {}) => {
     if (!force && settings?.notification_sound === false) return;
     const { ctx, dest } = getDestination();
@@ -242,9 +282,11 @@ export function SoundProvider({ children }) {
     playVoiceLeave,
     playVoiceMute,
     playVoiceUnmute,
+    playStreamStart,
+    playStreamStop,
     startRingtone,
     stopRingtone,
-  }), [playNotification, playPing, playMessageSent, playCallEnd, playVoiceJoin, playVoiceLeave, playVoiceMute, playVoiceUnmute, startRingtone, stopRingtone]);
+  }), [playNotification, playPing, playMessageSent, playCallEnd, playVoiceJoin, playVoiceLeave, playVoiceMute, playVoiceUnmute, playStreamStart, playStreamStop, startRingtone, stopRingtone]);
 
   return (
     <SoundContext.Provider value={value}>
@@ -264,6 +306,8 @@ export function useSounds() {
     playVoiceLeave: () => {},
     playVoiceMute: () => {},
     playVoiceUnmute: () => {},
+    playStreamStart: () => {},
+    playStreamStop: () => {},
     startRingtone: () => {},
     stopRingtone: () => {},
   };
