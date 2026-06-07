@@ -49,6 +49,9 @@ jobs:
       - name: SPA fallback
         run: cp dist/index.html dist/404.html
 
+      - name: Ensure CNAME for custom domain
+        run: echo 'sl1de.xyz' > dist/CNAME
+
       - name: Deploy to docs/ on main
         uses: JamesIves/github-pages-deploy-action@v4
         with:
