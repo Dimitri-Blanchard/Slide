@@ -5,11 +5,12 @@
  * - Absolute URLs (http/https) are returned as-is
  */
 
-/** Public folder asset (logo, icons) — respects Vite base on GitHub Pages subpaths. */
+import { resolvePublicPathPrefix } from './pagesBasename';
+
+/** Public folder asset (logo, icons) — absolute path from deploy root (not document-relative ./). */
 export function publicAsset(path) {
   const clean = String(path || '').replace(/^\//, '');
-  const base = import.meta.env.BASE_URL || '/';
-  return `${base}${clean}`;
+  return `${resolvePublicPathPrefix()}${clean}`;
 }
 
 const FIXED_BACKEND_ORIGIN = 'https://api.sl1de.xyz';

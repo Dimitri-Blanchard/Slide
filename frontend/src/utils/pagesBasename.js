@@ -13,3 +13,9 @@ export function resolvePagesBasename() {
   if (path === '/Slide' || path.startsWith('/Slide/')) return '/Slide';
   return '/';
 }
+
+/** Absolute URL prefix for public/ assets (logo.png, icon.png). */
+export function resolvePublicPathPrefix() {
+  const basename = resolvePagesBasename();
+  return basename === '/' ? '/' : `${basename}/`;
+}

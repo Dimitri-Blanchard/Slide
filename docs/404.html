@@ -2,6 +2,19 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Absolute base for favicon/manifest on deep routes (/docs/channels/…).
+      (function () {
+        var p = location.pathname;
+        var base = '/';
+        if (p === '/docs' || p.indexOf('/docs/') === 0) base = '/docs/';
+        else if (p === '/Slide/docs' || p.indexOf('/Slide/docs/') === 0) base = '/Slide/docs/';
+        else if (p === '/Slide' || p.indexOf('/Slide/') === 0) base = '/Slide/';
+        var el = document.createElement('base');
+        el.href = base;
+        document.head.appendChild(el);
+      })();
+    </script>
     <!-- index.html cache hint (browsers honor this only when the server doesn't
          set its own Cache-Control; GH Pages does, but it doesn't hurt). The
          actual fix for stale-deploy 404s is the script just below. -->
@@ -163,10 +176,10 @@
         document.documentElement.style.backgroundColor = theme === 'light' ? '#ffffff' : '#000000';
       })();
     </script>
-    <script type="module" crossorigin src="./assets/index-Bx9QYNg6.js"></script>
+    <script type="module" crossorigin src="./assets/index-3C29y_Y7.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/react-vendor-BiYigAzB.js">
     <link rel="modulepreload" crossorigin href="./assets/socket-vendor-DNoO1m3r.js">
-    <link rel="stylesheet" crossorigin href="./assets/style-9w_njHFE.css">
+    <link rel="stylesheet" crossorigin href="./assets/style-ClJwrss3.css">
   </head>
   <body>
     <div id="root"></div>
