@@ -45,8 +45,17 @@ const isElectronBuild = !!process.env.VITE_ELECTRON;
 const DEV_BACKEND_TARGET = process.env.VITE_DEV_BACKEND_TARGET || 'http://127.0.0.1:3000';
 const DEV_HTTPS_ENABLED = process.env.VITE_DEV_HTTPS === '1';
 
+function resolveWebBase() {
+  if (isNativeBuild) return './';
+  const explicit = (process.env.VITE_BASE || '').trim();
+  if (explicit) return explicit.endsWith('/') ? explicit : `${explicit}/`;
+  // Relative assets: works on sl1de.xyz (root) and github.io/Slide/docs/
+  if (process.env.VITE_GITHUB_PAGES === '1') return './';
+  return '/';
+}
+
 export default defineConfig(({ mode }) => ({
-  base: isNativeBuild ? './' : '/',
+  base: resolveWebBase(),
   plugins: [
     slidePublicSitePlugin(mode),
     react(),

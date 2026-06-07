@@ -24,7 +24,7 @@ import IncomingCallModal from './components/IncomingCallModal';
 import ScreenSharePicker from './components/ScreenSharePicker';
 import MicrophoneAccessNotice from './components/MicrophoneAccessNotice';
 import ErrorBoundary from './components/ErrorBoundary';
-import { startDevToolsWarning } from './utils/security';
+import { resolvePagesBasename } from './utils/pagesBasename';
 import './index.css';
 import './styles/voice-leave.css';
 
@@ -243,7 +243,7 @@ const Router = ({ children }) =>
   isNativePlatform || isElectron ? (
     <HashRouter>{children}</HashRouter>
   ) : (
-    <BrowserRouter basename={import.meta.env.BASE_URL}>{children}</BrowserRouter>
+    <BrowserRouter basename={resolvePagesBasename()}>{children}</BrowserRouter>
   );
 
 const AppWithProviders = () => (
