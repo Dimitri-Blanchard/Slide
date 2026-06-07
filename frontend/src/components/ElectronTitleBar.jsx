@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { teams as teamsApi } from '../api';
 import { getStaticUrl } from '../utils/staticUrl';
 import { shouldShowAppTitleBar } from '../utils/clientApp';
@@ -157,8 +156,12 @@ export default function ElectronTitleBar() {
           aria-label="Retour"
           title="Retour"
         >
-          <ChevronLeft size={18} strokeWidth={2} aria-hidden />
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M8 4L4.5 8L8 12" />
+            <line x1="3" y1="4" x2="3" y2="12" />
+          </svg>
         </button>
+        <span className="electron-title-bar-nav-divider" aria-hidden />
         <button
           type="button"
           className="electron-title-bar-nav-btn"
@@ -166,7 +169,10 @@ export default function ElectronTitleBar() {
           aria-label="Suivant"
           title="Suivant"
         >
-          <ChevronRight size={18} strokeWidth={2} aria-hidden />
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M8 4L11.5 8L8 12" />
+            <line x1="13" y1="4" x2="13" y2="12" />
+          </svg>
         </button>
       </div>
 

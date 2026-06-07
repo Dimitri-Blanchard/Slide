@@ -734,7 +734,9 @@ export function VoiceProvider({ children }) {
   });
   const voiceStateSoundBurstRef = useRef({ at: 0, count: 0 });
   const leaveAnimTimerRef = useRef(null);
+  const pendingLeaveFinishRef = useRef(null);
   const isLeavingCallRef = useRef(false);
+  const socketRef = useRef(socket);
 
   useEffect(() => {
     voiceSoundsRef.current = {
@@ -766,6 +768,7 @@ export function VoiceProvider({ children }) {
       clearTimeout(leaveAnimTimerRef.current);
       leaveAnimTimerRef.current = null;
     }
+    pendingLeaveFinishRef.current = null;
     isLeavingCallRef.current = false;
     setVoiceLeaveAnim(null);
   }, []);
@@ -1632,10 +1635,19 @@ export function VoiceProvider({ children }) {
     setDmRemoteMediaReady(false);
   }, [cleanupPeerConnection, stopSpeakingDetection, teardownLocalScreenCapture]);
 
+  const cleanupAllConnectionsRef = useRef(cleanupAllConnections);
+  useEffect(() => {
+    socketRef.current = socket;
+  }, [socket]);
+  useEffect(() => {
+    cleanupAllConnectionsRef.current = cleanupAllConnections;
+  }, [cleanupAllConnections]);
+
   // After Socket.IO reconnect: new voice client id + full media/WebRTC refresh (multi-device safe).
   useEffect(() => {
     if (!socket) return;
     const onReconnect = async () => {
+      if (isLeavingCallRef.current) return;
       const ch = coercePositiveInt(voiceChannelIdRef.current);
       const dm = voiceConversationIdRef.current;
       if (ch == null && dm == null) return;
@@ -1892,7 +1904,11 @@ export function VoiceProvider({ children }) {
 
     isLeavingCallRef.current = true;
     voiceSoundsRef.current.leave();
-    if (leaveAnimTimerRef.current) clearTimeout(leaveAnimTimerRef.current);
+    if (leaveAnimTimerRef.current) {
+      clearTimeout(leaveAnimTimerRef.current);
+      leaveAnimTimerRef.current = null;
+    }
+    pendingLeaveFinishRef.current = null;
 
     setVoiceLeaveAnim({
       kind: 'channel',
@@ -1904,13 +1920,16 @@ export function VoiceProvider({ children }) {
     cleanupAllConnections();
 
     const ms = getVoiceLeaveAnimMs(skipEmit, animate);
+    const finish = () => finishLeaveVoice(channelId, skipEmit);
     if (ms <= 0) {
-      finishLeaveVoice(channelId, skipEmit);
+      finish();
       return;
     }
+    pendingLeaveFinishRef.current = finish;
     leaveAnimTimerRef.current = setTimeout(() => {
       leaveAnimTimerRef.current = null;
-      finishLeaveVoice(channelId, skipEmit);
+      pendingLeaveFinishRef.current = null;
+      finish();
     }, ms);
   }, [socket, user?.id, voiceChannelName, cleanupAllConnections, finishLeaveVoice]);
 
@@ -2135,7 +2154,11 @@ export function VoiceProvider({ children }) {
 
     isLeavingCallRef.current = true;
     voiceSoundsRef.current.leave();
-    if (leaveAnimTimerRef.current) clearTimeout(leaveAnimTimerRef.current);
+    if (leaveAnimTimerRef.current) {
+      clearTimeout(leaveAnimTimerRef.current);
+      leaveAnimTimerRef.current = null;
+    }
+    pendingLeaveFinishRef.current = null;
 
     setVoiceLeaveAnim({
       kind: 'dm',
@@ -2147,13 +2170,16 @@ export function VoiceProvider({ children }) {
     cleanupAllConnections();
 
     const ms = getVoiceLeaveAnimMs(skipEmit, animate);
+    const finish = () => finishLeaveVoiceDM(conversationId, convId, skipEmit);
     if (ms <= 0) {
-      finishLeaveVoiceDM(conversationId, convId, skipEmit);
+      finish();
       return;
     }
+    pendingLeaveFinishRef.current = finish;
     leaveAnimTimerRef.current = setTimeout(() => {
       leaveAnimTimerRef.current = null;
-      finishLeaveVoiceDM(conversationId, convId, skipEmit);
+      pendingLeaveFinishRef.current = null;
+      finish();
     }, ms);
   }, [socket, user?.id, voiceConversationName, cleanupAllConnections, finishLeaveVoiceDM]);
 
@@ -3623,18 +3649,25 @@ export function VoiceProvider({ children }) {
   // Cleanup on unmount — tell server to drop all voice presence for this session
   useEffect(() => {
     return () => {
-      if (leaveAnimTimerRef.current) clearTimeout(leaveAnimTimerRef.current);
+      if (leaveAnimTimerRef.current) {
+        clearTimeout(leaveAnimTimerRef.current);
+        leaveAnimTimerRef.current = null;
+      }
+      if (pendingLeaveFinishRef.current) {
+        pendingLeaveFinishRef.current();
+        pendingLeaveFinishRef.current = null;
+      }
       const inVoice = voiceChannelIdRef.current || voiceConversationIdRef.current;
       if (inVoice && !isLeavingCallRef.current) {
         voiceSoundsRef.current.leave?.();
       }
-      const s = socket;
+      const s = socketRef.current;
       if (s?.connected && inVoice) {
         s.emit('voice_leave_all');
       }
-      cleanupAllConnections();
+      cleanupAllConnectionsRef.current();
     };
-  }, [socket, cleanupAllConnections]);
+  }, []);
 
   const moderateVoiceUser = useCallback((teamId, channelId, targetUserId, action, durationMinutes) => {
     if (!socket?.connected) return;

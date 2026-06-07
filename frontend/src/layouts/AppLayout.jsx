@@ -106,6 +106,22 @@ function sanitizeTeamsList(list) {
   return list.filter((team) => team && team.id != null);
 }
 
+function applyViewingUnreadClear(convos, activeConversationId) {
+  if (!Array.isArray(convos) || !activeConversationId) return convos;
+  const cid = parseInt(activeConversationId, 10);
+  if (Number.isNaN(cid)) return convos;
+  return convos.map((c) => (c.conversation_id === cid ? { ...c, unread_count: 0 } : c));
+}
+
+function applyViewingTeamUnreadClear(teams, activeTeamId) {
+  if (!Array.isArray(teams) || !activeTeamId) return teams;
+  const tid = parseInt(activeTeamId, 10);
+  if (Number.isNaN(tid)) return teams;
+  return teams.map((t) => (
+    t.id === tid ? { ...t, unread_count: 0, mention_count: 0, has_unread: false } : t
+  ));
+}
+
 function useAppParams() {
   const { pathname } = useLocation();
   return useMemo(() => {
@@ -211,6 +227,14 @@ function AppLayout() {
   const swipeRef = useRef({ startX: 0, tracking: false });
   const isWindowFocusedRef = useRef(true);
   const recentMentionTeamRef = useRef(null);
+  const activeRouteRef = useRef({ conversationId: null, teamId: null, channelId: null });
+  useEffect(() => {
+    activeRouteRef.current = {
+      conversationId: params.conversationId,
+      teamId: params.teamId,
+      channelId: params.channelId,
+    };
+  }, [params.conversationId, params.teamId, params.channelId]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -351,8 +375,10 @@ function AppLayout() {
       .then((teamsList) => {
         if (Array.isArray(teamsList)) {
           const safeTeams = sanitizeTeamsList(teamsList);
-          setTeams(safeTeams);
-          setCachedTeams(uid, safeTeams);
+          const { teamId } = activeRouteRef.current;
+          const clearedTeams = applyViewingTeamUnreadClear(safeTeams, teamId);
+          setTeams(clearedTeams);
+          setCachedTeams(uid, clearedTeams);
         }
       })
       .catch((err) => { console.warn('Teams sync failed:', err); });
@@ -360,7 +386,8 @@ function AppLayout() {
     const convosPromise = directApi.conversations()
       .then((convos) => {
         if (Array.isArray(convos)) {
-          setConversations(convos);
+          const { conversationId } = activeRouteRef.current;
+          setConversations(applyViewingUnreadClear(convos, conversationId));
           setConversationsLoaded(true);
         }
         setLoading(false);
@@ -419,20 +446,19 @@ function AppLayout() {
     setCachedTeams(user.id, sanitizeTeamsList(teams));
   }, [teams, user?.id]);
 
-  // Electron: sync OS taskbar badge with structured unread data
+  // Electron: sync OS taskbar badge (red 1–9+ overlay on Windows)
   useEffect(() => {
     if (!window.electron?.setBadgeCount) return;
     const convList = Array.isArray(conversations) ? conversations : [];
     const teamList = Array.isArray(teams) ? teams : [];
-    const mentions = teamList.reduce((n, t) => n + (t.mention_count || 0), 0);
-    const hasUnreadDm = convList.some((c) => (c.unread_count || 0) > 0);
-    const hasUnreadServer = teamList.some((t) => (t.unread_count || 0) > 0 && !(t.mention_count > 0));
-    window.electron.setBadgeCount({
-      mentions: Math.min(mentions, 9),
-      friendRequests: Math.min(pendingFriendsCount, 9),
-      hasUnreadDm,
-      hasUnreadServer,
-    });
+    const dmUnread = convList.reduce((n, c) => n + (c.unread_count || 0), 0);
+    const serverUnread = teamList.reduce((n, t) => {
+      const unread = t.unread_count || 0;
+      const mentions = t.mention_count || 0;
+      return n + Math.max(unread, mentions);
+    }, 0);
+    const total = dmUnread + serverUnread + pendingFriendsCount;
+    window.electron.setBadgeCount(total);
   }, [conversations, teams, pendingFriendsCount]);
 
   // Electron: track window focus so we know when to fire native notifications
@@ -732,15 +758,17 @@ function AppLayout() {
         return prev.map((t) => t.id === tid ? { ...t, unread_count: 0, mention_count: 0, has_unread: false } : t);
       });
     }
-  }, [params.teamId]);
+  }, [params.teamId, params.channelId]);
 
   const refreshConversations = useCallback(() => {
     if (!user?.id) return;
     directApi.conversations()
       .then((convos) => {
         if (Array.isArray(convos)) {
-          setConversations(convos);
-          setCachedConversations(user.id, convos);
+          const { conversationId } = activeRouteRef.current;
+          const cleared = applyViewingUnreadClear(convos, conversationId);
+          setConversations(cleared);
+          setCachedConversations(user.id, cleared);
           setConversationsLoaded(true);
         }
       })
@@ -755,8 +783,10 @@ function AppLayout() {
       .then((teamsList) => {
         if (Array.isArray(teamsList)) {
           const safeTeams = sanitizeTeamsList(teamsList);
-          setTeams(safeTeams);
-          setCachedTeams(user.id, safeTeams);
+          const { teamId } = activeRouteRef.current;
+          const clearedTeams = applyViewingTeamUnreadClear(safeTeams, teamId);
+          setTeams(clearedTeams);
+          setCachedTeams(user.id, clearedTeams);
         }
       })
       .catch((err) => {

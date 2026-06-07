@@ -4048,11 +4048,11 @@ body.settings-modal-open {
   background: var(--bg-hover);
 }
 
-/* Banner crop modal — above settings overlay (z-index 12000) */
+/* Banner crop modal — above settings overlay (z-index 180000) */
 .banner-crop-overlay {
   position: fixed;
   inset: 0;
-  z-index: 13050;
+  z-index: 190010;
   background: rgba(0, 0, 0, 0.75);
   display: flex;
   align-items: center;

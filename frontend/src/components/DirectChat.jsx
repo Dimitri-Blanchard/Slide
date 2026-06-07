@@ -738,38 +738,54 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
       .catch(() => {});
   }, [conversationId]);
 
+  useEffect(() => {
+    if (!conversationId) return;
+    lastReadRef.current = null;
+  }, [conversationId]);
+
+  const convLastMessageId = useMemo(() => {
+    const conv = conversations?.find((c) => String(c.conversation_id) === String(conversationId));
+    const id = conv?.last_message_id;
+    if (typeof id === 'number') return id;
+    if (typeof id === 'string' && /^\d+$/.test(id)) return Number.parseInt(id, 10);
+    return null;
+  }, [conversations, conversationId]);
+
   const lastMessageId = messages.length ? messages[messages.length - 1]?.id : null;
-  const lastMessageSenderId = messages.length ? messages[messages.length - 1]?.sender_id : null;
   const numericLastMessageId = typeof lastMessageId === 'number'
     ? lastMessageId
     : (typeof lastMessageId === 'string' && /^\d+$/.test(lastMessageId)
       ? Number.parseInt(lastMessageId, 10)
       : null);
+  const effectiveLastMessageId = numericLastMessageId ?? convLastMessageId;
 
   useEffect(() => {
-    if (!numericLastMessageId || !conversationId) return;
-    
+    if (!effectiveLastMessageId || !conversationId) return;
+
     const markAsRead = () => {
-      if (document.hidden || !document.hasFocus()) return;
-      if (numericLastMessageId !== lastReadRef.current && lastMessageSenderId !== user?.id) {
-        lastReadRef.current = numericLastMessageId;
-        directApi.markRead(conversationId, numericLastMessageId).catch(() => {});
-      }
+      if (document.hidden) return;
+      if (effectiveLastMessageId === lastReadRef.current) return;
+      lastReadRef.current = effectiveLastMessageId;
+      directApi.markRead(conversationId, effectiveLastMessageId).catch(() => {});
+      onConversationsChange?.((prev) => {
+        const cid = parseInt(conversationId, 10);
+        return prev.map((c) => (c.conversation_id === cid ? { ...c, unread_count: 0 } : c));
+      });
     };
-    
+
     markAsRead();
-    
+
     const handleVisibilityChange = () => { if (!document.hidden) markAsRead(); };
     const handleFocus = () => markAsRead();
-    
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
-    
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [numericLastMessageId, lastMessageSenderId, conversationId, user?.id]);
+  }, [effectiveLastMessageId, conversationId, onConversationsChange]);
 
   // Listen for read receipts from socket
   useEffect(() => {
@@ -1263,14 +1279,6 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
                 </div>
               )}
             />
-            {typingUser && (
-              <div className="chat-typing">
-                <div className="chat-typing-dots">
-                  <span></span><span></span><span></span>
-                </div>
-                {typingUser.displayName} {t('chat.typing')}...
-              </div>
-            )}
             {!hasMessages && !loading && (
               <div className="dm-wave-prompt">
                 <div className="dm-wave-prompt-emoji">👋</div>
@@ -1282,24 +1290,34 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
                 </button>
               </div>
             )}
-            <MessageInput
-              ref={messageInputRef}
-              onSend={sendMessage}
-              onUpload={uploadFile}
-              onTyping={onTyping}
-              placeholder={`${t('chat.messageTo')} ${title}`}
-              lastOwnMessage={lastOwnMessage}
-              onEditLastMessage={handleEditLastMessage}
-              draftKey={`dm_${conversationId}`}
-              replyTo={replyTo}
-              onCancelReply={handleCancelReply}
-              mentionUsers={otherUsers}
-              onToggleStickerPanel={handleToggleStickerPanel}
-              stickerPanelOpen={showStickerPanel}
-              isAdmin={user?.role === 'admin'}
-              isSendBackpressured={sendQueueDepth >= MESSAGE_SEND_BACKPRESSURE_LIMIT}
-              onInputFocus={isMobile ? () => messageListRef.current?.scrollToBottom?.() : undefined}
-            />
+            <div className="chat-composer-stack">
+              {typingUser && (
+                <div className="chat-typing">
+                  <div className="chat-typing-dots">
+                    <span></span><span></span><span></span>
+                  </div>
+                  {typingUser.displayName} {t('chat.typing')}...
+                </div>
+              )}
+              <MessageInput
+                ref={messageInputRef}
+                onSend={sendMessage}
+                onUpload={uploadFile}
+                onTyping={onTyping}
+                placeholder={`${t('chat.messageTo')} ${title}`}
+                lastOwnMessage={lastOwnMessage}
+                onEditLastMessage={handleEditLastMessage}
+                draftKey={`dm_${conversationId}`}
+                replyTo={replyTo}
+                onCancelReply={handleCancelReply}
+                mentionUsers={otherUsers}
+                onToggleStickerPanel={handleToggleStickerPanel}
+                stickerPanelOpen={showStickerPanel}
+                isAdmin={user?.role === 'admin'}
+                isSendBackpressured={sendQueueDepth >= MESSAGE_SEND_BACKPRESSURE_LIMIT}
+                onInputFocus={isMobile ? () => messageListRef.current?.scrollToBottom?.() : undefined}
+              />
+            </div>
           </div>
         </FileDropOverlay>
         <StickerPicker

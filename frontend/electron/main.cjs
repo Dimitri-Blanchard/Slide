@@ -13,6 +13,26 @@ const { exec, spawn } = require('child_process');
 
 try { require('dotenv').config({ path: path.join(__dirname, '.env') }); } catch (_) {}
 
+const APP_ID = 'com.slide.messenger';
+
+/** Windows shell icon — .ico in resources/ for Start Menu / taskbar integration. */
+function getAppIconPath() {
+  if (process.platform === 'win32') {
+    const icoCandidates = [
+      path.join(process.resourcesPath, 'icon.ico'),
+      path.join(__dirname, '../build/icon.ico'),
+    ];
+    for (const candidate of icoCandidates) {
+      if (fs.existsSync(candidate)) return candidate;
+    }
+  }
+  return path.join(__dirname, '../public/icon.png');
+}
+
+if (process.platform === 'win32') {
+  app.setAppUserModelId(APP_ID);
+}
+
 // ─── Config ───────────────────────────────────────────────────────────────────
 const isDev = process.env.NODE_ENV === 'development';
 /** Electron app MUST always use this backend (no override) */
@@ -31,16 +51,16 @@ app.commandLine.appendSwitch('disable-quic');
 app.commandLine.appendSwitch('disable-http2-server-push');
 
 // ─── GPU / rendering ─────────────────────────────────────────────────────────
+// SharedArrayBuffer only — avoid experimental GPU flags (gpu-rasterization,
+// zero-copy, accelerated-video-decode) that crash Chromium on many Windows GPUs.
 app.commandLine.appendSwitch('enable-features', 'SharedArrayBuffer');
-// Enable hardware acceleration — let Chromium pick the best GPU backend
-app.commandLine.appendSwitch('enable-gpu-rasterization');
-app.commandLine.appendSwitch('enable-zero-copy');
-// Use hardware-accelerated video decode when available
-app.commandLine.appendSwitch('enable-accelerated-video-decode');
 
 // ─── Single instance lock ─────────────────────────────────────────────────────
 const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) { app.quit(); process.exit(0); }
+if (!gotLock) {
+  app.quit();
+  process.exit(0);
+}
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let splashWindow = null;
@@ -128,104 +148,111 @@ function buildPng(size, drawFn) {
   ]);
 }
 
-// 3×5 digit bitmaps for numbers 1-9
-const DIGIT_FONT = {
-  1: [0,1,0, 1,1,0, 0,1,0, 0,1,0, 1,1,1],
-  2: [1,1,1, 0,0,1, 1,1,1, 1,0,0, 1,1,1],
-  3: [1,1,1, 0,0,1, 1,1,1, 0,0,1, 1,1,1],
-  4: [1,0,1, 1,0,1, 1,1,1, 0,0,1, 0,0,1],
-  5: [1,1,1, 1,0,0, 1,1,1, 0,0,1, 1,1,1],
-  6: [1,1,1, 1,0,0, 1,1,1, 1,0,1, 1,1,1],
-  7: [1,1,1, 0,0,1, 0,1,0, 0,1,0, 0,1,0],
-  8: [1,1,1, 1,0,1, 1,1,1, 1,0,1, 1,1,1],
-  9: [1,1,1, 1,0,1, 1,1,1, 0,0,1, 1,1,1],
-};
-
-// Red circle with white digit (mentions/pings)
-function createMentionBadge(count) {
-  const digit = DIGIT_FONT[Math.min(count, 9)];
-  return buildPng(16, (x, y) => {
-    const dx = x - 7.5, dy = y - 7.5;
-    if (dx * dx + dy * dy > 56) return null; // radius ~7.5
-    // Check if pixel is part of the digit
-    const gx = x - 7, gy = y - 6; // center the 3×5 glyph
-    if (digit && gx >= 0 && gx < 3 && gy >= 0 && gy < 5 && digit[gy * 3 + gx]) {
-      return [255, 255, 255, 255]; // white text
-    }
-    return [237, 66, 69, 255]; // Discord red
-  });
-}
-
-// White filled circle (unread server messages, no mentions)
-function createUnreadBadge() {
-  return buildPng(16, (x, y) => {
-    const dx = x - 7.5, dy = y - 7.5;
-    if (dx * dx + dy * dy <= 36) return [255, 255, 255, 255]; // radius 6
-    return null;
-  });
-}
-
-// Small white dot (DM/group unread)
-function createDmDotBadge() {
-  return buildPng(16, (x, y) => {
-    const dx = x - 7.5, dy = y - 7.5;
-    if (dx * dx + dy * dy <= 20) return [255, 255, 255, 255]; // radius ~4.5
-    return null;
-  });
-}
-
+// ─── Badge overlay (Windows taskbar) — rendered with system UI font ───────────
+const BADGE_OVERLAY_SIZE = 16;
+const BADGE_RENDER_SIZE = 128;
 const _badgeCache = {};
-function getBadgeIcon(type, count) {
-  const key = `${type}_${count || 0}`;
-  if (!_badgeCache[key]) {
-    let buf;
-    if (type === 'mention') buf = createMentionBadge(count);
-    else if (type === 'unread') buf = createUnreadBadge();
-    else if (type === 'dm') buf = createDmDotBadge();
-    else return null;
-    _badgeCache[key] = nativeImage.createFromBuffer(buf);
+let _badgeRenderer = null;
+
+const BADGE_FONT_STACK = process.platform === 'win32'
+  ? '"Segoe UI Semibold", "Segoe UI", system-ui, sans-serif'
+  : process.platform === 'darwin'
+    ? '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif'
+    : 'system-ui, sans-serif';
+
+async function ensureBadgeRenderer() {
+  if (_badgeRenderer && !_badgeRenderer.isDestroyed()) return _badgeRenderer;
+  _badgeRenderer = new BrowserWindow({
+    width: BADGE_RENDER_SIZE,
+    height: BADGE_RENDER_SIZE,
+    show: false,
+    webPreferences: { offscreen: true, contextIsolation: true, nodeIntegration: false },
+  });
+  await _badgeRenderer.loadURL('data:text/html;charset=utf-8,<!doctype html><html><body></body></html>');
+  return _badgeRenderer;
+}
+
+async function renderBadgeLabel(label) {
+  const win = await ensureBadgeRenderer();
+  const size = BADGE_RENDER_SIZE;
+  const isCompact = label.length > 1;
+  const fontSize = isCompact ? 50 : 72;
+  const yOffset = isCompact ? 2 : 4;
+  const dataUrl = await win.webContents.executeJavaScript(`(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = ${size};
+    canvas.height = ${size};
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.fillStyle = '#ed4245';
+    ctx.beginPath();
+    ctx.arc(${size / 2}, ${size / 2}, ${size / 2 - 6}, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '600 ${fontSize}px ${BADGE_FONT_STACK}';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(${JSON.stringify(label)}, ${size / 2}, ${size / 2 + yOffset});
+    return canvas.toDataURL('image/png');
+  })()`);
+  const img = nativeImage.createFromDataURL(dataUrl);
+  if (img.isEmpty()) return null;
+  return img.resize({ width: BADGE_OVERLAY_SIZE, height: BADGE_OVERLAY_SIZE, quality: 'best' });
+}
+
+async function initBadgeCache() {
+  if (process.platform !== 'win32') return;
+  try {
+    for (let i = 1; i <= 9; i++) {
+      _badgeCache[String(i)] = await renderBadgeLabel(String(i));
+    }
+    _badgeCache['9plus'] = await renderBadgeLabel('9+');
+  } catch (err) {
+    console.error('[badge] Failed to render overlay icons:', err);
+  } finally {
+    if (_badgeRenderer && !_badgeRenderer.isDestroyed()) {
+      _badgeRenderer.destroy();
+      _badgeRenderer = null;
+    }
   }
-  return _badgeCache[key];
+}
+
+function getBadgeIcon(count) {
+  const key = count >= 10 ? '9plus' : String(Math.max(1, count));
+  return _badgeCache[key] || null;
+}
+
+function resolveBadgeCount(data) {
+  if (typeof data === 'number') return Math.max(0, data);
+  if (typeof data === 'object' && data !== null) {
+    if (typeof data.total === 'number') return Math.max(0, data.total);
+    // Legacy structured payload
+    const total = (data.dmUnread || 0) + (data.serverUnread || 0)
+      + (data.mentions || 0) + (data.friendRequests || 0);
+    if (total > 0) return total;
+    if (data.hasUnreadDm || data.hasUnreadServer) return 1;
+    return 0;
+  }
+  return Math.max(0, parseInt(data, 10) || 0);
 }
 
 // ─── Badge ───────────────────────────────────────────────────────────────────
-// data: { mentions, friendRequests, hasUnreadServer, hasUnreadDm } or a plain number (legacy)
+// data: total unread count (number) or legacy { mentions, friendRequests, ... }
 function updateBadge(data) {
-  let mentions = 0, friendRequests = 0, hasUnreadServer = false, hasUnreadDm = false;
-  if (typeof data === 'object' && data !== null) {
-    mentions = Math.min(data.mentions || 0, 9);
-    friendRequests = Math.min(data.friendRequests || 0, 9);
-    hasUnreadServer = !!data.hasUnreadServer;
-    hasUnreadDm = !!data.hasUnreadDm;
-  } else {
-    mentions = Math.max(0, Math.min(parseInt(data) || 0, 9));
-  }
-  const redBadgeCount = Math.min(mentions + friendRequests, 9);
-  currentBadgeCount = redBadgeCount || (hasUnreadDm ? 1 : 0) || (hasUnreadServer ? 1 : 0);
+  const count = resolveBadgeCount(data);
+  currentBadgeCount = count;
 
   if (process.platform === 'darwin' || process.platform === 'linux') {
-    app.setBadgeCount(redBadgeCount || (hasUnreadDm || hasUnreadServer ? 1 : 0));
+    app.setBadgeCount(count > 0 ? Math.min(count, 99) : 0);
   }
   if (process.platform === 'win32' && mainWindow && !mainWindow.isDestroyed()) {
-    let icon = null, tooltip = '';
-    if (redBadgeCount > 0) {
-      icon = getBadgeIcon('mention', redBadgeCount);
-      const parts = [];
-      if (mentions > 0) parts.push(`${mentions} mention${mentions > 1 ? 's' : ''}`);
-      if (friendRequests > 0) {
-        parts.push(`${friendRequests} demande${friendRequests > 1 ? 's' : ''} d'ami`);
-      }
-      tooltip = parts.join(', ');
-    } else if (hasUnreadDm) {
-      icon = getBadgeIcon('dm');
-      tooltip = 'Nouveaux messages directs';
-    } else if (hasUnreadServer) {
-      icon = getBadgeIcon('unread');
-      tooltip = 'Messages non lus';
-    }
+    const icon = count > 0 ? getBadgeIcon(count) : null;
+    const label = count > 99 ? '99+' : count > 9 ? '9+' : String(count);
+    const tooltip = count > 0 ? `${label} non lu${count > 1 ? 's' : ''}` : '';
     mainWindow.setOverlayIcon(icon, tooltip);
   }
-  updateTrayMenu(redBadgeCount || (hasUnreadDm || hasUnreadServer ? 1 : 0));
+  updateTrayMenu(count);
 }
 
 // ─── Tray icon generation (16×16 for system tray) ─────────────────────────────
@@ -387,7 +414,7 @@ function updateTrayMenu(count = currentBadgeCount) {
 }
 
 function createTray() {
-  const iconPath = path.join(__dirname, '../public/icon.png');
+  const iconPath = getAppIconPath();
   try {
     trayIconDefault = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
   } catch {
@@ -693,14 +720,31 @@ function downloadFile(uri, destPath, redirects = 0) {
   });
 }
 
+function quitForUpdateInstall() {
+  if (appQuitDelayTimer) {
+    clearTimeout(appQuitDelayTimer);
+    appQuitDelayTimer = null;
+  }
+  app.isQuitting = true;
+  if (tray) {
+    try { tray.destroy(); } catch (_) {}
+    tray = null;
+  }
+  app.exit(0);
+}
+
 function runWindowsInstallerAndRelaunch(installerPath) {
   const relaunchScript = path.join(app.getPath('temp'), `slide-update-${Date.now()}.cmd`);
   const currentExe = app.getPath('exe');
   const script = [
     '@echo off',
+    'taskkill /IM Slide.exe /T /F >nul 2>&1',
     'timeout /t 2 /nobreak >nul',
-    `"${installerPath}" /S`,
-    `start "" "${currentExe}"`,
+    `start /wait "" "${installerPath}" /S`,
+    'timeout /t 1 /nobreak >nul',
+    `start "" "${currentExe}" --slide-relaunch`,
+    'timeout /t 2 /nobreak >nul',
+    'del "%~f0" >nul 2>&1',
     'exit /b 0',
     '',
   ].join('\r\n');
@@ -712,6 +756,7 @@ function runWindowsInstallerAndRelaunch(installerPath) {
     windowsHide: true,
   });
   child.unref();
+  quitForUpdateInstall();
 }
 
 function normalizeWindowsArtifact(data) {
@@ -780,11 +825,13 @@ async function installAvailableUpdate() {
     await downloadFile(state.downloadUrl, destPath);
 
     if (ext === '.exe') {
+      setUpdateState({ downloading: false, error: null });
       runWindowsInstallerAndRelaunch(destPath);
-    } else {
-      const err = await shell.openPath(destPath);
-      if (err) throw new Error(err);
+      return updateState;
     }
+
+    const err = await shell.openPath(destPath);
+    if (err) throw new Error(err);
 
     setUpdateState({ downloading: false });
     beginGracefulAppQuit();
@@ -811,7 +858,7 @@ function createSplashWindow() {
   splashWindow = new BrowserWindow({
     width: 400, height: 300,
     frame: false, transparent: true, alwaysOnTop: true, resizable: false,
-    icon: path.join(__dirname, '../public/icon.png'),
+    icon: getAppIconPath(),
     webPreferences: { nodeIntegration: false, contextIsolation: true },
   });
   splashWindow.loadFile(path.join(__dirname, 'splash.html'));
@@ -828,7 +875,7 @@ async function createMainWindow() {
     height: (validBounds && state.height) || 800,
     minWidth: 900, minHeight: 600,
     show: false, frame: false,
-    icon: path.join(__dirname, '../public/icon.png'),
+    icon: getAppIconPath(),
     title: 'Slide',
     backgroundColor: '#1e1f22',
     paintWhenInitiallyHidden: true,
@@ -947,6 +994,7 @@ async function createMainWindow() {
 
 // ─── App ready ────────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
+  try {
   Menu.setApplicationMenu(null);
 
   // Grant all permissions
@@ -995,6 +1043,11 @@ app.whenReady().then(async () => {
   mainWindow = await createMainWindow();
   createTray();
 
+  // Badge overlays — after main window; must not block startup (offscreen GPU crash on some PCs)
+  if (process.platform === 'win32') {
+    initBadgeCache().catch((err) => console.error('[badge] init failed:', err));
+  }
+
   // Check for app updates on launch, then periodically and after system wake.
   startUpdateChecks();
   powerMonitor.on('resume', () => checkForUpdates().catch(() => {}));
@@ -1028,6 +1081,13 @@ app.whenReady().then(async () => {
     mainWindow?.show(); mainWindow?.focus();
     safeSend(mainWindow, 'protocol-url', protocolUrl);
   });
+  } catch (err) {
+    console.error('[Slide] Startup failed:', err);
+    try {
+      dialog.showErrorBox('Slide', `Impossible de démarrer Slide.\n\n${err?.message || err}`);
+    } catch (_) {}
+    app.exit(1);
+  }
 });
 
 app.on('before-quit', (e) => {
@@ -1101,7 +1161,7 @@ ipcMain.handle('show-notification', (_, { title, body, icon } = {}) => {
   const n = new Notification({
     title: title || 'Slide',
     body: body || '',
-    icon: icon || path.join(__dirname, '../public/icon.png'),
+    icon: icon || getAppIconPath(),
   });
   n.on('click', () => { mainWindow?.show(); mainWindow?.focus(); });
   n.show();

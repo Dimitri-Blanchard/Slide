@@ -150,13 +150,20 @@
   opacity: 0.75;
 }
 
-/* Navigation — straight chevrons, no group chrome */
+/* Navigation — browser-style arrows with vertical bars */
 .electron-title-bar-nav {
   display: flex;
   align-items: center;
   gap: 0;
   margin-left: 10px;
   -webkit-app-region: no-drag;
+}
+
+.electron-title-bar-nav-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border-subtle, rgba(255, 255, 255, 0.12));
+  flex-shrink: 0;
 }
 
 .electron-title-bar-nav-btn {

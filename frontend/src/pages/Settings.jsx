@@ -1863,6 +1863,7 @@ export default function Settings({
 
   const confirmLogout = () => {
     setShowLogoutConfirm(false);
+    onRequestClose?.();
     logout();
     navigate('/login', { replace: true });
   };
@@ -1882,6 +1883,7 @@ export default function Settings({
       await auth.deleteAccount(deleteAccountPassword);
       setShowDeleteConfirm(false);
       notify.success(t('success.accountDeleted') || 'Compte supprimé');
+      onRequestClose?.();
       logout();
       navigate('/login', { replace: true });
     } catch (err) {

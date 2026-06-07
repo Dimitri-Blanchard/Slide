@@ -70,7 +70,7 @@ contextBridge.exposeInMainWorld('electron', {
 
   // ── Badge / unread count ─────────────────────────────────────────────────────
   // Updates taskbar overlay icon (Windows), dock badge (macOS), tray tooltip
-  // data: { mentions?, friendRequests?, hasUnreadDm?, hasUnreadServer? } or number (legacy)
+  // count: total unread messages (number) — displays red badge 1–9+ on Windows
   setBadgeCount: (count) => ipcRenderer.invoke('set-badge-count', count),
 
   // ── Power save blocker ───────────────────────────────────────────────────────

@@ -1,6 +1,12 @@
 /* ═══════════════════════════════════════════════════════════
    SERVER BAR - Vertical server navigation
    ═══════════════════════════════════════════════════════════ */
+:root {
+  --server-icon-size: 45px;
+  --server-icon-radius: 13px;
+  --server-icon-radius-active: 8px;
+}
+
 .server-bar {
   --server-icon-size: 45px;
   --server-icon-radius: 13px;
@@ -33,21 +39,25 @@ body:has(.usas-in-voice) .server-bar {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   grid-template-columns: 1fr;
-  justify-items: center;
+  justify-items: stretch;
   align-content: start;
   overflow: hidden;
 }
 
-/* Server Lists */
+/* Server Lists — margin spacing (gap is unreliable in Electron scroll flex columns) */
 .server-list {
   list-style: none;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 0;
   width: 100%;
   padding: 0;
   box-sizing: border-box;
+}
+
+.server-list > .server-item + .server-item {
+  margin-top: 10px;
 }
 
 .home-section {
@@ -62,7 +72,7 @@ body:has(.usas-in-voice) .server-bar {
   grid-row: 3;
   min-height: 0;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: clip;
   -webkit-overflow-scrolling: touch;
   /* Must win over index.css * / [data-theme="dark"] * scrollbar rules */
   scrollbar-width: none !important;
@@ -91,12 +101,16 @@ body:has(.usas-in-voice) .server-bar {
   justify-self: center;
 }
 
-/* Server Item */
-.server-item {
+/* Server Item — .server-bar scope beats global .server-icon leaks (e.g. InvitePage.css) */
+.server-bar .server-item {
   position: relative;
+  display: block;
   flex-shrink: 0;
-  width: var(--server-icon-size);
-  height: var(--server-icon-size);
+  width: var(--server-icon-size, 45px);
+  height: var(--server-icon-size, 45px);
+  max-width: var(--server-icon-size, 45px);
+  max-height: var(--server-icon-size, 45px);
+  overflow: visible;
 }
 
 /* Drag wrapper - allows drag without dragging the link */
@@ -129,12 +143,15 @@ body:has(.usas-in-voice) .server-bar {
 }
 
 /* Server Icon Link */
-.server-icon-link {
+.server-bar .server-icon-link {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--server-icon-size);
-  height: var(--server-icon-size);
+  flex-shrink: 0;
+  width: var(--server-icon-size, 45px);
+  height: var(--server-icon-size, 45px);
+  max-width: var(--server-icon-size, 45px);
+  max-height: var(--server-icon-size, 45px);
   position: relative;
   cursor: pointer;
   text-decoration: none;
@@ -142,32 +159,67 @@ body:has(.usas-in-voice) .server-bar {
   transition: background-color 0.15s ease;
 }
 
-.server-icon-link.active {
+.server-bar .server-icon-link.active {
   border-radius: var(--server-icon-radius-active);
 }
 
-/* Server Icon */
-.server-icon {
-  width: var(--server-icon-size);
-  height: var(--server-icon-size);
+/* Server Icon — fixed square slot; media absolutely fills it */
+.server-bar .server-icon {
+  box-sizing: border-box;
+  width: var(--server-icon-size, 45px);
+  height: var(--server-icon-size, 45px);
+  max-width: var(--server-icon-size, 45px);
+  max-height: var(--server-icon-size, 45px);
   border-radius: var(--server-icon-radius);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
+  flex-shrink: 0;
   background: var(--bg-primary);
   transition: background-color 0.15s ease;
   overflow: hidden;
   position: relative;
 }
 
-.server-icon img {
+.server-bar .server-icon > img,
+.server-bar .server-icon > .avatar-img-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
   border-radius: inherit;
+  object-fit: cover;
+  margin: 0;
+  padding: 0;
 }
 
-.server-initials {
+.server-bar .server-icon .avatar-img-wrap > .avatar-gif-layer {
+  object-fit: cover;
+}
+
+/* AvatarImg inline 100% + compositor hint — keep inside slot */
+.server-bar .server-icon .avatar-img-gif {
+  transform: none !important;
+  backface-visibility: visible !important;
+}
+
+/* + / compass / home logo — center in slot */
+.server-bar .server-icon.add-icon,
+.server-bar .server-icon.discover-icon,
+.server-bar .server-icon.home-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.server-bar .server-initials {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-primary);
@@ -310,6 +362,7 @@ button.server-icon-link:hover .server-tooltip,
   background: var(--bg-primary);
   color: var(--text-primary);
   transition: background-color 0.15s ease, filter 0.15s ease;
+  overflow: hidden;
 }
 
 .server-icon-link:hover .home-icon {
@@ -347,11 +400,11 @@ button.server-icon-link:hover .server-tooltip,
 }
 
 .home-logo {
-  width: 100%;
-  height: 100%;
+  width: 88%;
+  height: 88%;
   object-fit: contain;
   object-position: center;
-  transform: scale(1.12);
+  flex-shrink: 0;
 }
 
 /* Friend requests on home — solid red pill (same as DM unread badges, no dark ring) */
@@ -635,9 +688,9 @@ button.server-icon-link:hover .server-tooltip,
 }
 [data-theme="dark"] .server-list {
   padding: 0;
-  gap: 10px;
+  gap: 0;
 }
-[data-theme="dark"] .server-icon {
+[data-theme="dark"] .server-bar .server-icon {
   background: #232328;
 }
 [data-theme="dark"] .server-separator {

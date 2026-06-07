@@ -112,6 +112,13 @@ html.client-app.platform-mobile .settings-content button {
   min-height: 44px;
 }
 
+/* ── Electron: clip rail content so avatars never bleed into the sidebar ── */
+html.platform-electron .server-bar .home-section,
+html.platform-electron .server-bar .servers-section {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
 /* ── Voice overlay above bottom nav ── */
 html.client-app.platform-mobile .voice-fullscreen-overlay--v2 {
   z-index: 600;

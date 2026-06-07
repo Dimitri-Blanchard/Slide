@@ -8,10 +8,11 @@ const iconIco = path.join(buildDir, 'icon.ico');
 
 // Check for slide_icon.png: Desktop, project root, or public/icon.png
 const possibleSources = [
-  path.join(__dirname, '../../..', 'slide_icon.png'),  // D:\Users\kor\Desktop\slide_icon.png
-  path.join(__dirname, '../..', 'slide_icon.png'),    // project root
-  path.join(__dirname, '..', 'slide_icon.png'),       // frontend/
+  path.join(__dirname, '../../..', 'slide_icon.png'),
+  path.join(__dirname, '../..', 'slide_icon.png'),
+  path.join(__dirname, '..', 'slide_icon.png'),
   path.join(publicDir, 'icon.png'),
+  path.join(__dirname, '../../docs', 'icon.png'),
 ];
 const iconPng = possibleSources.find((p) => fs.existsSync(p));
 

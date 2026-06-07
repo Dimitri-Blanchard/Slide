@@ -14,6 +14,15 @@ import { shouldUseSettingsModal } from '../utils/clientApp';
 
 const SettingsUiContext = createContext(null);
 
+const AUTH_SCREEN_RE = /^\/(login|register|forgot-password|reset-password)(\/|$)/;
+
+function resetDesktopSettingsState(setDesktopOpen, setDesktopInitialSection, setDesktopQuery, handledRouteRef) {
+  setDesktopOpen(false);
+  setDesktopInitialSection(null);
+  setDesktopQuery('');
+  handledRouteRef.current = null;
+}
+
 export function SettingsUiProvider({ children }) {
   const platform = usePlatform();
   const { viewportWidth } = platform;
@@ -36,10 +45,15 @@ export function SettingsUiProvider({ children }) {
   }, [settingsUseModal, navigate]);
 
   const closeSettings = useCallback(() => {
-    setDesktopOpen(false);
-    setDesktopInitialSection(null);
-    setDesktopQuery('');
+    resetDesktopSettingsState(setDesktopOpen, setDesktopInitialSection, setDesktopQuery, handledRouteRef);
   }, []);
+
+  // Logout navigates to /login while SettingsUiProvider stays mounted — close modal so it does not reopen after sign-in.
+  useLayoutEffect(() => {
+    if (AUTH_SCREEN_RE.test(location.pathname)) {
+      resetDesktopSettingsState(setDesktopOpen, setDesktopInitialSection, setDesktopQuery, handledRouteRef);
+    }
+  }, [location.pathname]);
 
   useLayoutEffect(() => {
     if (!settingsUseModal) return;

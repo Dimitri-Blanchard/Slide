@@ -1481,33 +1481,35 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
                   onChannelMarkedUnread={handleChannelMarkedUnread}
                   onOpenDmFromMessage={handleOpenDmFromMessage}
                 />
-                {typingUsers.length > 0 && (
-                  <div className="chat-typing">
-                    <div className="chat-typing-dots"><span></span><span></span><span></span></div>
-                    {typingUsers.map(u => u.displayName).join(', ')} {typingUsers.length > 1 ? t('chat.typingPlural') : t('chat.typing')}...
-                  </div>
-                )}
                 {displayChannel && (
-                  <MessageInput
-                    ref={messageInputRef}
-                    onSend={sendMessage}
-                    onUpload={uploadFile}
-                    onTyping={onTyping}
-                    placeholder={`Message #${displayChannel?.name || 'general'}`}
-                    lastOwnMessage={lastOwnMessage}
-                    onEditLastMessage={handleEditLastMessage}
-                    draftKey={`team_${teamId}_channel_${channelId}`}
-                    replyTo={replyTo}
-                    onCancelReply={handleCancelReply}
-                    mentionUsers={members}
-                    onToggleStickerPanel={handleToggleStickerPanel}
-                    stickerPanelOpen={showStickerPanel}
-                    isAdmin={canManage}
-                    canSend={displayChannel?.can_send !== false}
-                    maxFileSize={maxFileSize}
-                    isSendBackpressured={sendQueueDepth >= MESSAGE_SEND_BACKPRESSURE_LIMIT}
-                    onInputFocus={isMobile ? () => messageListRef.current?.scrollToBottom?.() : undefined}
-                  />
+                  <div className="chat-composer-stack">
+                    {typingUsers.length > 0 && (
+                      <div className="chat-typing">
+                        <div className="chat-typing-dots"><span></span><span></span><span></span></div>
+                        {typingUsers.map(u => u.displayName).join(', ')} {typingUsers.length > 1 ? t('chat.typingPlural') : t('chat.typing')}...
+                      </div>
+                    )}
+                    <MessageInput
+                      ref={messageInputRef}
+                      onSend={sendMessage}
+                      onUpload={uploadFile}
+                      onTyping={onTyping}
+                      placeholder={`Message #${displayChannel?.name || 'general'}`}
+                      lastOwnMessage={lastOwnMessage}
+                      onEditLastMessage={handleEditLastMessage}
+                      draftKey={`team_${teamId}_channel_${channelId}`}
+                      replyTo={replyTo}
+                      onCancelReply={handleCancelReply}
+                      mentionUsers={members}
+                      onToggleStickerPanel={handleToggleStickerPanel}
+                      stickerPanelOpen={showStickerPanel}
+                      isAdmin={canManage}
+                      canSend={displayChannel?.can_send !== false}
+                      maxFileSize={maxFileSize}
+                      isSendBackpressured={sendQueueDepth >= MESSAGE_SEND_BACKPRESSURE_LIMIT}
+                      onInputFocus={isMobile ? () => messageListRef.current?.scrollToBottom?.() : undefined}
+                    />
+                  </div>
                 )}
               </div>
             </FileDropOverlay>

@@ -1,7 +1,7 @@
 {
   "name": "slide-frontend",
   "private": true,
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Slide messenger desktop client",
   "author": "Slide",
   "type": "module",
@@ -82,10 +82,16 @@
       "public/**/*",
       "build/icon.ico"
     ],
+    "extraResources": [
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
+      }
+    ],
     "win": {
       "target": "nsis",
       "icon": "build/icon.ico",
-      "signAndEditExecutable": false
+      "sign": null
     },
     "linux": {
       "target": "AppImage",
@@ -100,7 +106,8 @@
       "createStartMenuShortcut": true,
       "installerIcon": "build/icon.ico",
       "installerHeaderIcon": "build/icon.ico",
-      "uninstallerIcon": "build/icon.ico"
+      "uninstallerIcon": "build/icon.ico",
+      "differentialPackage": false
     }
   }
 }

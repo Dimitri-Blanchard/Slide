@@ -1413,6 +1413,7 @@ export const VoiceStatusBar = memo(function VoiceStatusBar() {
           </>
         )}
         <button
+          type="button"
           className="vsb-btn disconnect"
           onClick={handleDisconnect}
           title="Disconnect"

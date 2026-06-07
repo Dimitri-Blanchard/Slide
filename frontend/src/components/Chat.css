@@ -302,33 +302,39 @@ html.platform-mobile .swipe-back-chevron {
   background: var(--success);
 }
 
-/* Typing Indicator - pinned just above the input bar */
+/* Composer footer — typing indicator glued to the input bar */
+.chat-composer-stack {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  order: 9999;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  z-index: 10;
+}
+
+.chat-composer-stack .message-input-container {
+  margin-top: 0;
+}
+
+.chat-composer-stack:has(.chat-typing) .message-input-container {
+  padding-top: 6px;
+}
+
+/* Typing Indicator */
 .chat-typing {
   flex: 0 0 auto;
-  order: 9998;
-  margin-top: auto; /* fallback: push to bottom of flex column */
   display: flex;
   align-items: center;
   gap: 0.5rem;
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--text-secondary);
-  padding: 2px 20px;
-  height: 20px;
+  padding: 0 16px 2px;
+  height: 18px;
   pointer-events: none;
   animation: typingFadeIn 0.15s ease forwards;
-}
-
-/* Force the message input to always render after the typing indicator */
-.chat-main-content > .message-input-container,
-.chat-main-content .message-input-container {
-  order: 9999;
-  margin-top: 0;
-}
-
-/* When typing indicator is present, the input shouldn't also claim the auto margin */
-.chat-main-content > .chat-typing + .message-input-container {
-  margin-top: 0;
 }
 
 @keyframes typingFadeIn {
@@ -1225,7 +1231,7 @@ html.platform-mobile .swipe-back-chevron {
   }
 
   .chat-typing {
-    padding: 2px 14px;
+    padding: 0 12px 2px;
   }
 
   .gm-sidebar {
@@ -1254,7 +1260,7 @@ html.platform-mobile .swipe-back-chevron {
   }
 
   .chat-typing {
-    padding: 2px 12px;
+    padding: 0 10px 2px;
   }
 }
 

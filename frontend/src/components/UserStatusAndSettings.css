@@ -229,6 +229,8 @@
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+  position: relative;
+  z-index: 2;
 }
 
 /* Constrain hover area to just the "Connected" text + signal dot */

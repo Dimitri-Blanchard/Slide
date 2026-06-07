@@ -505,29 +505,31 @@ const ChannelChat = memo(function ChannelChat({ teamId, channelId, currentTeam, 
             messageInputRef={messageInputRef}
             onOpenDmFromMessage={handleOpenDmFromMessage}
           />
-          {typingUsers.length > 0 && (
-            <div className="chat-typing">
-              <div className="chat-typing-dots">
-                <span></span><span></span><span></span>
+          <div className="chat-composer-stack">
+            {typingUsers.length > 0 && (
+              <div className="chat-typing">
+                <div className="chat-typing-dots">
+                  <span></span><span></span><span></span>
+                </div>
+                {typingUsers.map((u) => u.displayName).join(', ')} {typingUsers.length > 1 ? t('chat.typingPlural') : t('chat.typing')}...
               </div>
-              {typingUsers.map((u) => u.displayName).join(', ')} {typingUsers.length > 1 ? t('chat.typingPlural') : t('chat.typing')}...
-            </div>
-          )}
-          <MessageInput 
-            ref={messageInputRef}
-            onSend={sendMessage} 
-            onUpload={uploadFile} 
-            onTyping={onTyping} 
-            placeholder={`Message #${channel.name}`}
-            draftKey={`channel_${channelId}`}
-            replyTo={replyTo}
-            onCancelReply={handleCancelReply}
-            mentionUsers={members}
-            onToggleStickerPanel={handleToggleStickerPanel}
-            stickerPanelOpen={showStickerPanel}
-            isAdmin={user?.role === 'admin'}
-            onInputFocus={() => messageListRef.current?.scrollToBottom?.()}
-          />
+            )}
+            <MessageInput 
+              ref={messageInputRef}
+              onSend={sendMessage} 
+              onUpload={uploadFile} 
+              onTyping={onTyping} 
+              placeholder={`Message #${channel.name}`}
+              draftKey={`channel_${channelId}`}
+              replyTo={replyTo}
+              onCancelReply={handleCancelReply}
+              mentionUsers={members}
+              onToggleStickerPanel={handleToggleStickerPanel}
+              stickerPanelOpen={showStickerPanel}
+              isAdmin={user?.role === 'admin'}
+              onInputFocus={() => messageListRef.current?.scrollToBottom?.()}
+            />
+          </div>
         </div>
         
         <StickerPicker
