@@ -18,6 +18,7 @@ import ServerErrorBoundary from '../components/ServerErrorBoundary';
 import ErrorBoundary from '../components/ErrorBoundary';
 import NotFound from '../pages/NotFound';
 import { isMobileFullPageRoute } from './appPaths';
+import { serverPath } from '../utils/appRoutes';
 import { useSettingsUi } from '../context/SettingsUiContext';
 import { useVoice } from '../context/VoiceContext';
 

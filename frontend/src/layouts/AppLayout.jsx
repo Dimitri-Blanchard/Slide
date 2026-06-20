@@ -12,6 +12,7 @@ import { useScene } from '../context/SceneContext';
 import { useNotification } from '../context/NotificationContext';
 import { usePlatform } from '../context/PlatformContext';
 import { useViewportShellTransition } from '../hooks/useViewportShellTransition';
+import usePendingFriendsCount from '../hooks/usePendingFriendsCount';
 import { useSettingsUi } from '../context/SettingsUiContext';
 import MobileAppLayoutShell from './MobileAppLayoutShell';
 import DesktopAppLayoutShell from './DesktopAppLayoutShell';
@@ -1036,7 +1037,7 @@ function AppLayout() {
         <DesktopAppLayoutShell
         params={params}
         scene={scene}
-        isMobile={isMobile}
+        isMobile={false}
         mobileNavOpen={mobileNavOpen}
         setMobileNavOpen={setMobileNavOpen}
         handleOverlayTouchStart={handleOverlayTouchStart}
