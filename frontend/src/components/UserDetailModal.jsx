@@ -15,6 +15,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import { loadUserNote, saveUserNote } from '../utils/userNotes';
+import { dmPath } from '../utils/appRoutes';
 import { canShowProfileActivities } from '../utils/profileActivities';
 import './UserDetailModal.css';
 

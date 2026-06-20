@@ -35,6 +35,8 @@ import {
   findChannelByRouteId,
   resolveChannelInternalId,
   teamRouteId,
+  parseAppRoute,
+  dmPath,
 } from '../utils/appRoutes';
 import { MESSAGE_SEND_BACKPRESSURE_LIMIT, MESSAGE_SEND_QUEUE_GAP_MS, getRateLimitDelayMs, isRateLimitError, notifyRateLimit, wait } from '../utils/rateLimitRetry';
 import FileDropOverlay from './FileDropOverlay';
@@ -251,7 +253,7 @@ const TeamChat = memo(function TeamChat({
   const navigate = useNavigate();
   const location = useLocation();
   const isMobileSettingsRoute = isMobile && isServerSettingsRoute(location.pathname);
-  const channelSettingsRouteMatch = location.pathname.match(/\/channels\/(\d+)\/(\d+)\/settings/)
+  const channelSettingsRouteMatch = location.pathname.match(/\/channels\/([^/]+)\/([^/]+)\/settings/)
     || location.pathname.match(/\/team\/(\d+)\/channel\/(\d+)\/settings/);
   const isMobileChannelSettingsRoute = isMobile
     && channelSettingsRouteMatch
@@ -296,6 +298,33 @@ const TeamChat = memo(function TeamChat({
   const messageInputRef = useRef(null);
   const sendQueueRef = useRef(Promise.resolve());
   const prevTeamIdRef = useRef(null);
+
+  // Canonical Discord-style URLs: replace legacy internal IDs with public snowflakes in the address bar.
+  useEffect(() => {
+    if (!team?.public_id || teamLoading || channels.length === 0) return;
+    if (isServerSettingsRoute(location.pathname) || isChannelSettingsRoute(location.pathname)) return;
+
+    const route = parseAppRoute(location.pathname);
+    if (route.kind !== 'serverChannel' && route.kind !== 'server') return;
+
+    let target = null;
+    const teamLegacy = String(route.teamPublicId) !== String(team.public_id);
+
+    if (route.kind === 'server' && teamLegacy) {
+      target = serverPath(team);
+    } else if (route.kind === 'serverChannel') {
+      const ch = findChannelByRouteId(channels, route.channelPublicId);
+      if (!ch?.public_id) return;
+      const channelLegacy = String(route.channelPublicId) !== String(ch.public_id);
+      if (teamLegacy || channelLegacy) {
+        target = serverChannelPath(team, ch);
+      }
+    }
+
+    if (target && target !== location.pathname.replace(/\/+$/, '')) {
+      navigate(`${target}${location.search}${location.hash}`, { replace: true });
+    }
+  }, [team, channels, teamLoading, location.pathname, location.search, location.hash, navigate]);
 
   useEffect(() => {
     rehydrateChannelMsgCacheFromStorage(user?.id ?? null);
@@ -1243,8 +1272,7 @@ const TeamChat = memo(function TeamChat({
       if (!uid) return;
       try {
         const conv = await directApi.createConversation(uid);
-        const id = conv?.id ?? conv?.conversation_id;
-        if (id) navigate(`/channels/@me/${id}`);
+        if (conv) navigate(dmPath(conv));
       } catch (err) {
         notify.error(err?.message || t('chat.openDmError'));
       }

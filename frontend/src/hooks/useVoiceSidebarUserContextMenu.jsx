@@ -16,6 +16,7 @@ import useFriendsSync from './useFriendsSync';
 import { invitePublicUrl } from '../utils/publicSiteUrl';
 import { notifyFriendsChanged, isFriendRequestDuplicateError } from '../utils/friendsSync';
 import { ContextMenuVoiceControls } from '../components/ContextMenuVoiceControls';
+import { dmPath } from '../utils/appRoutes';
 
 export function useVoiceSidebarUserContextMenu(user, context = {}) {
   const {

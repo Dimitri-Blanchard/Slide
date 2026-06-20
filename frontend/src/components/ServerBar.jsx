@@ -15,6 +15,7 @@ import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import { hapticImpact } from '../utils/nativeHaptics';
 import SlideLogo from './SlideLogo';
 import { makeLocalPrivateRoute } from '../utils/localPrivateChatCrypto';
+import { dmPath } from '../utils/appRoutes';
 import { invitePublicUrl } from '../utils/publicSiteUrl';
 import './ServerBar.css';
 
@@ -362,7 +363,7 @@ const DmUnreadIcon = memo(function DmUnreadIcon({ conversation, isActive, hideTo
   const id = conversation.conversation_id;
   const to = isLocalPrivate
     ? makeLocalPrivateRoute(conversation.local_private_peer_id || other?.id)
-    : `/channels/@me/${id}`;
+    : dmPath(conversation);
   const name = isGroup
     ? (conversation.group_name || conversation.participants?.map((p) => p.display_name).join(', ') || 'Group')
     : (other?.display_name || 'Conversation');
@@ -768,9 +769,12 @@ const ServerBar = memo(function ServerBar({
   const homeButtonActive = !isCommunityRoute && (
     isFriendsRoute || isHomeActiveBase || !!currentConversationId
   );
+  const lastDmConversation = lastDmConversationId
+    ? (conversations || []).find((c) => String(c.conversation_id) === String(lastDmConversationId))
+    : null;
   const homeTarget = isMobile
     ? '/channels/@me'
-    : (lastDmConversationId ? `/channels/@me/${lastDmConversationId}` : '/channels/@me');
+    : (lastDmConversation ? dmPath(lastDmConversation) : '/channels/@me');
 
   // Backend already returns teams in the persisted user order.
   const sortedTeams = useMemo(() => {

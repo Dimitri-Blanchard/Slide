@@ -10,6 +10,7 @@ import { Icons } from '../components/ContextMenu';
 import useFriendsSync from './useFriendsSync';
 import { notifyFriendsChanged, isFriendRequestDuplicateError } from '../utils/friendsSync';
 import { isLocalPrivateChatAvailable, makeLocalPrivateRoute, upsertLocalPrivateChat } from '../utils/localPrivateChatCrypto';
+import { dmPath } from '../utils/appRoutes';
 
 export function useUserContextMenuItems(user, context = {}) {
   const { conversationId, channelId, teamId, lastMessageId, hasUnread, isDmList, onPinConversation, isPinned, canPin, onOpenNicknameModal, onOpenNoteModal, isInCallWaiting } = context;

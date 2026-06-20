@@ -20,6 +20,7 @@ import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import { useLongPress } from '../hooks/useLongPress';
 import { hapticImpact } from '../utils/nativeHaptics';
 import { makeLocalPrivateRoute, removeLocalPrivateChat } from '../utils/localPrivateChatCrypto';
+import { dmPath } from '../utils/appRoutes';
 import AppIcon from './icons/AppIcon';
 import './Sidebar.css';
 
@@ -80,7 +81,7 @@ const DMItem = memo(function DMItem({ conversation, isActive, onContextMenu, onC
     : (other?.display_name || 'Conversation');
   const id = conversation.conversation_id;
   const isLocalPrivate = !!conversation.is_local_private;
-  const to = isLocalPrivate ? makeLocalPrivateRoute(conversation.local_private_peer_id || other?.id) : `/channels/@me/${id}`;
+  const to = isLocalPrivate ? makeLocalPrivateRoute(conversation.local_private_peer_id || other?.id) : dmPath(conversation);
   const memberCount = isGroup ? (conversation.participants?.length || 0) : 0;
 
   const handleContextMenu = (e) => {

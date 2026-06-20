@@ -203,11 +203,11 @@ if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform()) {
       const explicitRoute = hashFromPath(getStringValue(data, ['url', 'route', 'path', 'link']));
       if (explicitRoute) return explicitRoute;
 
-      const conversationPublicId = getStringValue(data, ['conversationPublicId', 'conversation_public_id', 'public_id', 'conversationId', 'conversation_id', 'dmId', 'dm_id']);
-      if (conversationPublicId) return `#/channels/@me/${encodeURIComponent(conversationPublicId)}`;
+      const conversationId = getStringValue(data, ['conversationId', 'conversation_id', 'dmId', 'dm_id']);
+      if (conversationId) return `#/channels/@me/${encodeURIComponent(conversationId)}`;
 
-      const teamId = getStringValue(data, ['teamPublicId', 'team_public_id', 'teamId', 'team_id', 'serverId', 'server_id']);
-      const channelId = getStringValue(data, ['channelPublicId', 'channel_public_id', 'channelId', 'channel_id']);
+      const teamId = getStringValue(data, ['teamId', 'team_id', 'serverId', 'server_id', 'teamPublicId', 'team_public_id']);
+      const channelId = getStringValue(data, ['channelId', 'channel_id', 'channelPublicId', 'channel_public_id']);
       if (teamId && channelId) {
         return `#/channels/${encodeURIComponent(teamId)}/${encodeURIComponent(channelId)}`;
       }

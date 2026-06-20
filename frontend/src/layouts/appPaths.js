@@ -1,4 +1,5 @@
 /** Top-level paths handled by the authenticated app shell (see AppLayout inner Routes). */
+
 const APP_PREFIX_RE = /^\/(channels|team|community|friends|nitro|security|quests|settings|home|profile)(\/|$)/;
 
 /** Full-screen mobile pages (not bottom-tab home/notifications/profile). */
@@ -9,12 +10,12 @@ export function isSettingsRoute(pathname) {
 }
 
 export function isServerSettingsRoute(pathname) {
-  return /^\/channels\/\d+\/settings(\/|$|\?)/.test(pathname || '')
+  return /^\/channels\/[^/]+\/settings(\/|$|\?)/.test(pathname || '')
     || /^\/team\/\d+\/settings(\/|$|\?)/.test(pathname || '');
 }
 
 export function isChannelSettingsRoute(pathname) {
-  return /^\/channels\/\d+\/\d+\/settings(\/|$|\?)/.test(pathname || '')
+  return /^\/channels\/[^/]+\/[^/]+\/settings(\/|$|\?)/.test(pathname || '')
     || /^\/team\/\d+\/channel\/\d+\/settings(\/|$|\?)/.test(pathname || '');
 }
 

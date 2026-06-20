@@ -7,6 +7,7 @@ import ProfileCard from './ProfileCard';
 import { usePrefetchOnHover } from '../context/PrefetchContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
+import { dmPath, serverPath, serverChannelPath } from '../utils/appRoutes';
 import './SearchModal.css';
 
 export default function SearchModal({ isOpen, onClose, conversations, teams }) {

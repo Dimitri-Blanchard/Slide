@@ -9,6 +9,7 @@ import { useUserContextMenuItems } from './useUserContextMenuItems';
 import { Icons } from '../components/ContextMenu';
 import { undoToast } from '../components/UndoToast';
 import { makeLocalPrivateRoute, removeLocalPrivateChat } from '../utils/localPrivateChatCrypto';
+import { dmPath } from '../utils/appRoutes';
 
 export const MAX_PINNED_DMS = 5;
 
