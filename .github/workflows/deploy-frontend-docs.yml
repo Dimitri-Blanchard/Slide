@@ -51,7 +51,7 @@ jobs:
         run: cp dist/index.html dist/404.html
 
       - name: SPA fallback at site root (Pages publishes /, SPA in /docs/)
-        run: cp dist/404.html ../404.html
+        run: cp public/github-pages-root-404.html ../404.html
 
       - name: Ensure CNAME for custom domain
         run: echo 'sl1de.xyz' > dist/CNAME
@@ -70,7 +70,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git pull origin main --rebase
-          cp dist/404.html ../404.html
+          cp public/github-pages-root-404.html ../404.html
           git add ../404.html
           git diff --staged --quiet || git commit -m "deploy: root 404.html SPA fallback [skip ci]"
           git push

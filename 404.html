@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Slide</title>
+    <script>
+      // GitHub Pages SPA fallback when the built app lives in /docs/ (repo-root Pages deploy).
+      // Root 404.html is served for unknown paths; redirect to index with ?/route so docs/index.html
+      // can restore the client route. See https://github.com/rafgraph/spa-github-pages
+      (function (l) {
+        var path = l.pathname;
+        var segmentsToKeep = 0;
+        var base = '/docs/';
+
+        if (path === '/docs' || path.indexOf('/docs/') === 0) {
+          segmentsToKeep = 1;
+          base = '/docs/';
+        } else if (path === '/Slide/docs' || path.indexOf('/Slide/docs/') === 0) {
+          segmentsToKeep = 2;
+          base = '/Slide/docs/';
+        } else if (path === '/Slide' || path.indexOf('/Slide/') === 0) {
+          segmentsToKeep = 1;
+          base = '/Slide/';
+        } else {
+          // Custom domain (sl1de.xyz): app routes live under /docs/, not at domain root.
+          var host = l.hostname.toLowerCase();
+          if (host === 'sl1de.xyz' || host === 'www.sl1de.xyz') {
+            var route = path.replace(/^\//, '').replace(/&/g, '~and~');
+            var qs = l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '';
+            l.replace(l.origin + base + (route ? '?/' + route + qs : '') + l.hash);
+            return;
+          }
+          l.replace(l.origin + base);
+          return;
+        }
+
+        var route = path
+          .split('/')
+          .slice(1 + segmentsToKeep)
+          .join('/')
+          .replace(/&/g, '~and~');
+        var qs = l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '';
+        l.replace(l.origin + base + '?/' + route + qs + l.hash);
+      })(location);
+    </script>
+  </head>
+  <body></body>
+</html>
