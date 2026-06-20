@@ -11,6 +11,12 @@ import {
   persistElectronVoiceMuteFromRefs,
   saveElectronVoiceMuteState,
 } from '../utils/electronVoicePrefs';
+import {
+  isMicrophonePermissionError,
+  queryMicrophonePermissionState,
+  requestMicrophoneStream,
+  resolveMicrophoneIssue,
+} from '../utils/microphonePermission';
 
 function readInitialVoiceMuteState() {
   if (!isElectronVoicePrefsEnabled()) return { isMuted: false, isDeafened: false };
@@ -34,33 +40,6 @@ const AUDIO_BITRATE = 128000;
 const VIDEO_BITRATE_NITRO = 12_000_000;
 const VIDEO_BITRATE_FREE = 2_500_000;
 const NITRO_STREAM_SEEN_KEY = 'slide_nitro_stream_celebrated';
-
-function getMicrophoneIssueFromError(err) {
-  const name = err?.name || '';
-  const message = err?.message || '';
-  const text = `${name} ${message}`.toLowerCase();
-
-  if (['NotAllowedError', 'PermissionDeniedError', 'SecurityError'].includes(name)) {
-    return { type: 'permission-denied', label: 'Accès micro refusé' };
-  }
-
-  if (['NotFoundError', 'DevicesNotFoundError', 'OverconstrainedError'].includes(name) || text.includes('device not found')) {
-    return { type: 'no-device', label: 'Aucun micro détecté' };
-  }
-
-  if (['NotReadableError', 'TrackStartError', 'AbortError'].includes(name)) {
-    return { type: 'device-busy', label: 'Micro utilisé ailleurs' };
-  }
-
-  return { type: 'access-failed', label: 'Micro indisponible' };
-}
-
-function isMicrophonePermissionError(err) {
-  const name = err?.name || '';
-  if (['NotAllowedError', 'PermissionDeniedError', 'SecurityError'].includes(name)) return true;
-  const text = `${name} ${err?.message || ''} ${err?.code ?? ''}`.toLowerCase();
-  return /permission|not allowed|notallowed|denied|dismissed|microphone.*denied/.test(text);
-}
 
 function applyScreenShareTrackHints(stream) {
   const track = stream?.getVideoTracks?.()?.[0];
@@ -462,6 +441,16 @@ function voiceDmRosterKey(conversationId) {
   return id != null ? `dm_${id}` : `dm_${conversationId}`;
 }
 
+/** voiceUsers DM keys vary (dm_5 vs dm_"5" from socket payloads). */
+function voiceDmRosterKeys(conversationId) {
+  const id = coercePositiveInt(conversationId);
+  const keys = new Set();
+  keys.add(voiceDmRosterKey(conversationId));
+  if (id != null) keys.add(`dm_${String(id)}`);
+  if (conversationId != null && conversationId !== '') keys.add(`dm_${conversationId}`);
+  return [...keys];
+}
+
 function clearChannelRoster(prev, channelId) {
   const next = { ...prev };
   for (const k of voiceChannelRosterKeys(channelId)) {
@@ -632,10 +621,13 @@ export function VoiceProvider({ children }) {
   }, [stopMicSpeechAttemptMonitor]);
 
   const showMicrophoneIssue = useCallback((err) => {
-    const issue = { id: Date.now(), ...getMicrophoneIssueFromError(err) };
-    lastMicrophoneIssueRef.current = issue;
-    setMicrophoneIssue(issue);
-    stopMicSpeechAttemptMonitor();
+    (async () => {
+      const resolved = await resolveMicrophoneIssue(err);
+      const issue = { id: Date.now(), ...resolved };
+      lastMicrophoneIssueRef.current = issue;
+      setMicrophoneIssue(issue);
+      stopMicSpeechAttemptMonitor();
+    })();
   }, [stopMicSpeechAttemptMonitor]);
 
   const dismissMicrophoneIssue = useCallback(() => {
@@ -948,29 +940,31 @@ export function VoiceProvider({ children }) {
   }), [settings?.input_device, settings?.echo_cancellation, settings?.noise_suppression, settings?.auto_gain_control]);
 
   const acquireMicStream = useCallback(async ({ permissionRetry = false } = {}) => {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (!navigator.mediaDevices?.getUserMedia) {
       throw new Error('Microphone access not available in this context.');
     }
 
-    // User-gesture retry: simplest constraint first so Chrome / Capacitor WebView show the OS prompt.
+    // User-gesture retry: invoke getUserMedia immediately — any await before this breaks the prompt.
     if (permissionRetry) {
+      return requestMicrophoneStream();
+    }
+
+    const permState = await queryMicrophonePermissionState();
+    const needsSimplePrompt = permState !== 'granted';
+
+    if (needsSimplePrompt) {
       try {
-        return await navigator.mediaDevices.getUserMedia({ audio: true });
+        return await requestMicrophoneStream();
       } catch (err) {
         if (isMicrophonePermissionError(err)) throw err;
       }
     }
 
-    const attempts = permissionRetry
-      ? [
-          () => navigator.mediaDevices.getUserMedia(getAudioConstraints(false)),
-          () => navigator.mediaDevices.getUserMedia(getAudioConstraints(true)),
-        ]
-      : [
-          () => navigator.mediaDevices.getUserMedia(getAudioConstraints(true)),
-          () => navigator.mediaDevices.getUserMedia(getAudioConstraints(false)),
-          () => navigator.mediaDevices.getUserMedia({ audio: true }),
-        ];
+    const attempts = [
+      () => navigator.mediaDevices.getUserMedia(getAudioConstraints(true)),
+      () => navigator.mediaDevices.getUserMedia(getAudioConstraints(false)),
+      () => requestMicrophoneStream(),
+    ];
 
     let lastErr;
     for (const attempt of attempts) {
@@ -996,6 +990,9 @@ export function VoiceProvider({ children }) {
     if (micAttemptCheckRef.current || !lastMicrophoneIssueRef.current) return;
     if (voiceChannelIdRef.current == null && voiceConversationIdRef.current == null) return;
     if (hasActiveLocalMic()) return;
+
+    const permState = await queryMicrophonePermissionState();
+    if (permState !== 'granted') return;
 
     try {
       const stream = await acquireMicStream();
@@ -2289,8 +2286,10 @@ export function VoiceProvider({ children }) {
   }, [stopMicSpeechAttemptMonitor, stopSpeakingDetection]);
 
   const retryMicrophoneAccess = useCallback(async () => {
+    // Start getUserMedia in the same user-gesture turn, before any other async work.
+    const streamPromise = requestMicrophoneStream();
     releaseLocalMicForRetry();
-    const stream = await acquireMicStream({ permissionRetry: true });
+    const stream = await streamPromise;
     localStreamRef.current = stream;
     await startSpeakingDetection(stream);
     clearMicrophoneIssue();
@@ -2331,7 +2330,6 @@ export function VoiceProvider({ children }) {
     return true;
   }, [
     releaseLocalMicForRetry,
-    acquireMicStream,
     startSpeakingDetection,
     clearMicrophoneIssue,
     isDeafened,
@@ -2344,10 +2342,11 @@ export function VoiceProvider({ children }) {
   const toggleMute = useCallback(async () => {
     if (serverMutedRef.current) return;
 
+    const lastIssue = microphoneIssue || lastMicrophoneIssueRef.current;
     const permissionBlocked =
-      microphoneIssue?.type === 'permission-denied'
-      || lastMicrophoneIssueRef.current?.type === 'permission-denied';
-    const wantsMic = isMuted || permissionBlocked;
+      lastIssue?.type === 'permission-denied'
+      || lastIssue?.type === 'permission-prompt';
+    const wantsMic = isMuted || !!lastIssue;
     const shouldRetryMic = wantsMic && (permissionBlocked || !hasActiveLocalMic());
 
     if (shouldRetryMic) {
@@ -2928,10 +2927,11 @@ export function VoiceProvider({ children }) {
     };
 
     const onVoiceUserJoined = ({ channelId, user: joinedUser, teamId, channelName, teamName }) => {
+      const inThisChannel = coercePositiveInt(voiceChannelIdRef.current) === coercePositiveInt(channelId);
       setVoiceUsers(prev => {
         const existing = prev[channelId] || [];
         if (existing.some(u => sameUserId(u.id, joinedUser.id))) return prev;
-        if (!sameUserId(joinedUser.id, user?.id)) voiceSoundsRef.current.join();
+        if (inThisChannel && !sameUserId(joinedUser.id, user?.id)) voiceSoundsRef.current.join();
         return { ...prev, [channelId]: [...existing, joinedUser] };
       });
       if (teamId != null && (channelName || teamName)) {
@@ -3007,7 +3007,9 @@ export function VoiceProvider({ children }) {
         next.delete(userId);
         return next;
       });
-      voiceSoundsRef.current.leave();
+      if (coercePositiveInt(voiceChannelIdRef.current) === coercePositiveInt(channelId)) {
+        voiceSoundsRef.current.leave();
+      }
       cleanupPeersForLogicalUserId(userId);
       setSpeakingUsersByScope((prev) =>
         patchSpeakingInScope(prev, channelSpeakingScopeKey(channelId), userId, false),
@@ -3016,18 +3018,35 @@ export function VoiceProvider({ children }) {
     };
 
     const onVoiceStateUpdate = ({ channelId, userId, muted, deafened }) => {
+      const keys = voiceChannelRosterKeys(channelId);
+      const inThisChannel = coercePositiveInt(voiceChannelIdRef.current) === coercePositiveInt(channelId);
       setVoiceUsers(prev => {
-        if (!prev[channelId]) return prev;
-        if (!sameUserId(userId, user?.id)) {
-          const current = prev[channelId].find(u => sameUserId(u.id, userId));
-          if (current && current.muted !== muted) playVoiceStateSound(muted);
+        let foundUser = null;
+        for (const k of keys) {
+          const list = prev[k];
+          if (!Array.isArray(list)) continue;
+          const row = list.find(u => sameUserId(u.id, userId));
+          if (row) {
+            foundUser = row;
+            break;
+          }
         }
-        return {
-          ...prev,
-          [channelId]: prev[channelId].map(u =>
+        if (!foundUser) return prev;
+        if (
+          inThisChannel &&
+          !sameUserId(userId, user?.id) &&
+          foundUser.muted !== muted
+        ) {
+          playVoiceStateSound(muted);
+        }
+        const next = { ...prev };
+        for (const k of keys) {
+          if (!Array.isArray(next[k])) continue;
+          next[k] = next[k].map(u =>
             sameUserId(u.id, userId) ? { ...u, muted, deafened } : u
-          ),
-        };
+          );
+        }
+        return next;
       });
     };
 
@@ -3089,11 +3108,14 @@ export function VoiceProvider({ children }) {
     };
 
     const onVoiceUserJoinedDm = ({ conversationId, user: joinedUser }) => {
+      const inThisDm =
+        voiceConversationIdRef.current != null &&
+        Number(voiceConversationIdRef.current) === Number(conversationId);
       setVoiceUsers(prev => {
         const key = dmKey(conversationId);
         const existing = prev[key] || [];
         if (existing.some(u => sameUserId(u.id, joinedUser.id))) return prev;
-        if (!sameUserId(joinedUser.id, user?.id)) voiceSoundsRef.current.join();
+        if (inThisDm && !sameUserId(joinedUser.id, user?.id)) voiceSoundsRef.current.join();
         return { ...prev, [key]: [...existing, joinedUser] };
       });
     };
@@ -3187,7 +3209,12 @@ export function VoiceProvider({ children }) {
         }
         return { ...prev, [key]: filtered };
       });
-      voiceSoundsRef.current.leave();
+      if (
+        voiceConversationIdRef.current != null &&
+        Number(voiceConversationIdRef.current) === Number(conversationId)
+      ) {
+        voiceSoundsRef.current.leave();
+      }
       cleanupPeersForLogicalUserId(userId);
       setSpeakingUsersByScope((prev) =>
         patchSpeakingInScope(prev, dmSpeakingScopeKey(conversationId), userId, false),
@@ -3198,19 +3225,37 @@ export function VoiceProvider({ children }) {
     };
 
     const onVoiceStateUpdateDm = ({ conversationId, userId, muted, deafened }) => {
+      const keys = voiceDmRosterKeys(conversationId);
+      const inThisDm =
+        voiceConversationIdRef.current != null &&
+        Number(voiceConversationIdRef.current) === Number(conversationId);
       setVoiceUsers(prev => {
-        const key = dmKey(conversationId);
-        if (!prev[key]) return prev;
-        if (!sameUserId(userId, user?.id)) {
-          const current = prev[key].find(u => sameUserId(u.id, userId));
-          if (current && current.muted !== muted) playVoiceStateSound(muted);
+        let foundUser = null;
+        for (const k of keys) {
+          const list = prev[k];
+          if (!Array.isArray(list)) continue;
+          const row = list.find(u => sameUserId(u.id, userId));
+          if (row) {
+            foundUser = row;
+            break;
+          }
         }
-        return {
-          ...prev,
-          [key]: prev[key].map(u =>
+        if (!foundUser) return prev;
+        if (
+          inThisDm &&
+          !sameUserId(userId, user?.id) &&
+          foundUser.muted !== muted
+        ) {
+          playVoiceStateSound(muted);
+        }
+        const next = { ...prev };
+        for (const k of keys) {
+          if (!Array.isArray(next[k])) continue;
+          next[k] = next[k].map(u =>
             sameUserId(u.id, userId) ? { ...u, muted, deafened } : u
-          ),
-        };
+          );
+        }
+        return next;
       });
     };
 
@@ -3746,6 +3791,8 @@ export function VoiceProvider({ children }) {
     microphoneIssue,
     clearMicrophoneIssue,
     dismissMicrophoneIssue,
+    retryMicrophoneAccess,
+    showMicrophoneIssue,
     moderateVoiceUser,
   }), [
     voiceChannelId, voiceTeamId, voiceChannelName,
@@ -3763,7 +3810,7 @@ export function VoiceProvider({ children }) {
     screenSharePicker, resolveScreenSharePicker,
     screenShareCaptureAudioActive, setScreenShareCaptureVolume,
     streamVolumeByUserId, setStreamVolumeForUser, getStreamVolumePercent, getListenVolume01,
-    microphoneIssue, clearMicrophoneIssue, dismissMicrophoneIssue, moderateVoiceUser,
+    microphoneIssue, clearMicrophoneIssue, dismissMicrophoneIssue, retryMicrophoneAccess, showMicrophoneIssue, moderateVoiceUser,
   ]);
 
   return (

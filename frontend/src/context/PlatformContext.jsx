@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-/** Must match AppLayout useIsMobile (768 / 1024). */
+/** Must match AppLayout useIsMobile — web mobile shell only at <=768px. */
 const MOBILE_SHELL_BREAKPOINT = 768;
-const WEB_TABLET_SHELL_BREAKPOINT = 1024;
 
 const PlatformContext = createContext({
   isElectron: false,
@@ -61,18 +60,16 @@ function detectPlatform() {
 }
 
 /** Same rules as AppLayout useIsMobile — mobile shell + platform-mobile CSS must stay in sync. */
-export function isMobileShellViewport(platform, width = typeof window !== 'undefined' ? window.innerWidth : WEB_TABLET_SHELL_BREAKPOINT) {
+export function isMobileShellViewport(platform, width = typeof window !== 'undefined' ? window.innerWidth : MOBILE_SHELL_BREAKPOINT + 1) {
   if (!platform) return false;
   if (platform.isMobileDevice) return true;
-  if (width <= MOBILE_SHELL_BREAKPOINT) return true;
-  if (platform.isWeb && width <= WEB_TABLET_SHELL_BREAKPOINT) return true;
-  return false;
+  return width <= MOBILE_SHELL_BREAKPOINT;
 }
 
 export function PlatformProvider({ children }) {
   const [platform, setPlatform] = useState(detectPlatform);
   const [viewportWidth, setViewportWidth] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth : WEB_TABLET_SHELL_BREAKPOINT
+    typeof window !== 'undefined' ? window.innerWidth : MOBILE_SHELL_BREAKPOINT + 1
   );
 
   const syncViewportWidth = useCallback(() => {
@@ -88,13 +85,10 @@ export function PlatformProvider({ children }) {
     if (typeof window === 'undefined') return;
     syncViewportWidth();
     const mqMobile = window.matchMedia(`(max-width: ${MOBILE_SHELL_BREAKPOINT}px)`);
-    const mqTablet = window.matchMedia(`(max-width: ${WEB_TABLET_SHELL_BREAKPOINT}px)`);
     mqMobile.addEventListener('change', syncViewportWidth);
-    mqTablet.addEventListener('change', syncViewportWidth);
     window.addEventListener('resize', syncViewportWidth);
     return () => {
       mqMobile.removeEventListener('change', syncViewportWidth);
-      mqTablet.removeEventListener('change', syncViewportWidth);
       window.removeEventListener('resize', syncViewportWidth);
     };
   }, [syncViewportWidth]);

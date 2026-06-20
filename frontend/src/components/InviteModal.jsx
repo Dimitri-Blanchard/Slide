@@ -8,6 +8,7 @@ import { useNotification } from '../context/NotificationContext';
 import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import MobileSheet from './MobileSheet';
+import { invitePublicUrl } from '../utils/publicSiteUrl';
 import './InviteModal.css';
 
 export default function InviteModal({ isOpen, embedded, onClose, initialCode = '', onServerJoined, onBack, exiting }) {
@@ -286,7 +287,7 @@ function ShareInviteBody({
   t,
 }) {
   const defaultChannelName = (channels || []).find(c => c?.channel_type === 'text')?.name || 'general';
-  const inviteUrl = activeInvite ? `${window.location.origin}/invite/${activeInvite.code}` : '';
+  const inviteUrl = activeInvite ? invitePublicUrl(activeInvite.code) : '';
 
   return (
     <>
@@ -486,7 +487,7 @@ export function ShareInviteModal({ isOpen, onClose, team, channels = [] }) {
     : friends;
 
   const copyInvite = async (code) => {
-    const text = `${window.location.origin}/invite/${code}`;
+    const text = invitePublicUrl(code);
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
@@ -511,7 +512,7 @@ export function ShareInviteModal({ isOpen, onClose, team, channels = [] }) {
 
   const shareInviteLink = useCallback(async () => {
     if (!activeInvite || !team) return;
-    const url = `${window.location.origin}/invite/${activeInvite.code}`;
+    const url = invitePublicUrl(activeInvite.code);
     if (navigator.share) {
       try {
         await navigator.share({
@@ -534,7 +535,7 @@ export function ShareInviteModal({ isOpen, onClose, team, channels = [] }) {
       const conv = await directApi.createConversation(friend.id);
       const convId = conv?.conversation_id ?? conv?.id;
       if (!convId) throw new Error('Failed to start conversation');
-      const inviteUrl = `${window.location.origin}/invite/${activeInvite.code}`;
+      const inviteUrl = invitePublicUrl(activeInvite.code);
       await directApi.sendMessage(convId, inviteUrl, 'text');
       setSentFriendId(friend.id);
       notify.success(t('invite.sentTo', { name: friend.display_name || friend.username || 'friend' }) || `Invite sent to ${friend.display_name || friend.username || 'friend'}`);
@@ -585,7 +586,7 @@ export function ShareInviteModal({ isOpen, onClose, team, channels = [] }) {
     );
   }
 
-  const inviteUrl = activeInvite ? `${window.location.origin}/invite/${activeInvite.code}` : '';
+  const inviteUrl = activeInvite ? invitePublicUrl(activeInvite.code) : '';
 
   const modal = (
     <div className={`invite-modal-overlay${enterInstant ? ' modal-enter-instant' : ''}`} onClick={onClose}>

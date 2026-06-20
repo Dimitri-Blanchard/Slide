@@ -500,9 +500,13 @@ html.platform-electron .vc-stage-stream-vol {
   }
 
   .vc-overlay-bottom-bar {
-    bottom: calc(var(--mobile-nav-bar-height, 56px) + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
+    bottom: calc(var(--mobile-nav-bar-height, 72px) + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
     left: 12px;
     right: 12px;
+  }
+
+  .mobile-app-layout.voice-call-fullscreen .vc-overlay-bottom-bar {
+    bottom: var(--inset-bottom, env(safe-area-inset-bottom, 0px));
   }
 
   .vc-overlay-stage-vol {

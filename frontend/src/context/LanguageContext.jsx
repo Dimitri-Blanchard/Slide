@@ -121,6 +121,27 @@ export function LanguageProvider({ children }) {
     return d.toLocaleTimeString(language, { ...defaultOptions, ...options });
   }, [language]);
   
+  // Discord-style date separator: Today / Yesterday / full date
+  const formatDateSeparatorLabel = useCallback((date) => {
+    const d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) return '';
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const dayDiff = Math.round((startOfToday - startOfDate) / 86400000);
+
+    if (dayDiff === 0) return t('time.today');
+    if (dayDiff === 1) return t('time.yesterday');
+
+    const currentYear = now.getFullYear();
+    return d.toLocaleDateString(language, {
+      month: 'long',
+      day: 'numeric',
+      ...(d.getFullYear() !== currentYear ? { year: 'numeric' } : {}),
+    });
+  }, [t, language]);
+
   // Format relative time (e.g., "2 hours ago")
   const formatRelativeTime = useCallback((date) => {
     const d = date instanceof Date ? date : new Date(date);
@@ -152,6 +173,7 @@ export function LanguageProvider({ children }) {
     getLanguages,
     formatDate,
     formatTime,
+    formatDateSeparatorLabel,
     formatRelativeTime,
     isRTL: ['ar', 'he', 'fa'].includes(language), // For future RTL support
   }), [
@@ -162,6 +184,7 @@ export function LanguageProvider({ children }) {
     getLanguages,
     formatDate,
     formatTime,
+    formatDateSeparatorLabel,
     formatRelativeTime,
   ]);
   

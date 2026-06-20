@@ -16,6 +16,37 @@ function idsEqual(a, b) {
   return String(a) === String(b);
 }
 
+function decodeTokenUserId(token) {
+  if (!token || typeof token !== 'string') return null;
+  try {
+    const payloadPart = token.split('.')[1];
+    if (!payloadPart) return null;
+    const payload = JSON.parse(atob(payloadPart.replace(/-/g, '+').replace(/_/g, '/')));
+    return payload.sub ?? payload.id ?? payload.userId ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function decodeTokenExpMs(token) {
+  if (!token || typeof token !== 'string') return null;
+  try {
+    const payloadPart = token.split('.')[1];
+    if (!payloadPart) return null;
+    const payload = JSON.parse(atob(payloadPart.replace(/-/g, '+').replace(/_/g, '/')));
+    return payload.exp ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+/** True when JWT access token is still valid beyond skewMs (default 2 min). */
+export function isAccessTokenFresh(token, skewMs = 2 * 60 * 1000) {
+  const expMs = decodeTokenExpMs(token);
+  if (!expMs) return true;
+  return expMs - Date.now() > skewMs;
+}
+
 function sanitizeLegacyHandle(value) {
   // Only strip exact Discord-style #0000 discriminator, never touch the username itself
   return String(value || '')
@@ -235,9 +266,9 @@ export function getAccounts() {
  * Add or update an account in the saved accounts list.
  * @param {{id: number, username?: string, display_name?: string, avatar_url?: string}} user
  * @param {string} token
- * @param {string|null} refreshToken
+ * @param {string|null|undefined} refreshToken — omit (undefined) to keep existing; pass null to clear
  */
-export function addAccount(user, token, refreshToken = null) {
+export function addAccount(user, token, refreshToken = undefined) {
   if (typeof window === 'undefined' || !user?.id || !token) return;
   const accounts = getAccounts();
   const existing = accounts.find((a) => idsEqual(a.userId, user.id));
@@ -246,8 +277,8 @@ export function addAccount(user, token, refreshToken = null) {
     username: sanitizeLegacyHandle(user.username || ''),
     displayName: sanitizeLegacyDisplayName(user.display_name || '', user.username || ''),
     token,
-    refreshToken: refreshToken || existing?.refreshToken || null,
-    avatar_url: user.avatar_url || null,
+    refreshToken: refreshToken !== undefined ? refreshToken : (existing?.refreshToken ?? null),
+    avatar_url: user.avatar_url || existing?.avatar_url || null,
   };
   const filtered = accounts.filter((a) => !idsEqual(a.userId, user.id));
   const updated = [entry, ...filtered].slice(0, MAX_ACCOUNTS);
@@ -286,6 +317,45 @@ export function getAccountRefreshToken(userId) {
   const accounts = getAccounts();
   const acc = accounts.find((a) => idsEqual(a.userId, userId));
   return acc?.refreshToken ?? null;
+}
+
+/**
+ * Persist the latest access + refresh tokens for a saved account (multi-account list).
+ */
+export function updateAccountTokens(userId, token, refreshToken = undefined) {
+  if (typeof window === 'undefined' || userId == null || !token) return;
+  const accounts = getAccounts();
+  const existing = accounts.find((a) => idsEqual(a.userId, userId));
+  if (!existing) return;
+  addAccount(
+    {
+      id: existing.userId,
+      username: existing.username,
+      display_name: existing.displayName,
+      avatar_url: existing.avatar_url,
+    },
+    token,
+    refreshToken,
+  );
+}
+
+/**
+ * Save the currently active session tokens back into the multi-account list.
+ */
+export function syncActiveAccountToList(activeUser, accessToken, refreshToken = null) {
+  if (!activeUser?.id || !accessToken) return;
+  updateAccountTokens(activeUser.id, accessToken, refreshToken);
+}
+
+/**
+ * Find which saved account owns an access token (JWT sub/id).
+ */
+export function findAccountIdForToken(accessToken) {
+  const tokenUserId = decodeTokenUserId(accessToken);
+  if (tokenUserId == null) return null;
+  const accounts = getAccounts();
+  const match = accounts.find((a) => idsEqual(a.userId, tokenUserId));
+  return match?.userId ?? tokenUserId;
 }
 
 /**

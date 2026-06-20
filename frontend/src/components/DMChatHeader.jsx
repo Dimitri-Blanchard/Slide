@@ -60,6 +60,8 @@ const DMChatHeader = memo(function DMChatHeader({
   onVideoCall,
   showProfileSidebar,
   onToggleProfileSidebar,
+  profileSidebarDocked = true,
+  onOpenProfile,
   showGroupMembers,
   onToggleGroupMembers,
   onOpenCreateGroup,
@@ -240,14 +242,16 @@ const DMChatHeader = memo(function DMChatHeader({
               {!isGroup && !isMobile && (
                 <button
                   type="button"
-                  className="dm-action-btn"
-                  onClick={onToggleProfileSidebar}
+                  className={`dm-action-btn${profileSidebarDocked && showProfileSidebar ? ' active' : ''}`}
+                  onClick={profileSidebarDocked ? onToggleProfileSidebar : onOpenProfile}
                   aria-label={
-                    showProfileSidebar
-                      ? (t('dmHeader.hideProfile') || 'Hide profile')
-                      : (t('dmHeader.showProfile') || 'Show profile')
+                    profileSidebarDocked
+                      ? (showProfileSidebar
+                        ? (t('dmHeader.hideProfile') || 'Hide profile')
+                        : (t('dmHeader.showProfile') || 'Show profile'))
+                      : (t('dmHeader.viewProfile') || 'View profile')
                   }
-                  aria-pressed={showProfileSidebar}
+                  aria-pressed={profileSidebarDocked ? showProfileSidebar : undefined}
                 >
                   <Contact size={18} strokeWidth={2} />
                 </button>

@@ -12,12 +12,18 @@ import {
   decryptLocalPrivatePayload,
   encryptLocalPrivatePayload,
   getEncryptedLocalPrivateMessages,
+  getLocalPrivateChat,
   getOrCreateLocalPrivateIdentity,
   getStoredPeerPublicKey,
   isLocalPrivateChatAvailable,
   storePeerPublicKey,
   upsertLocalPrivateChat,
 } from '../utils/localPrivateChatCrypto';
+import {
+  buildLocalPrivateKeyAnnouncePayload,
+  buildLocalPrivateMessagePayload,
+  normalizeLocalPrivateSocketPayload,
+} from '../utils/localPrivateChatSocket';
 import './LocalPrivateChat.css';
 
 function normalizeProfile(profile, fallbackId) {
@@ -116,14 +122,9 @@ const LocalPrivateChat = memo(function LocalPrivateChat({ peerUserId, isMobile }
     return () => { cancelled = true; };
   }, [peer, peerId]);
 
-  useEffect(() => {
-    if (!currentUserId || !peer?.id) return;
-    upsertLocalPrivateChat(currentUserId, peer, peerPublicKey ? { accepted: true } : {});
-  }, [currentUserId, peer, peerPublicKey]);
-
   const announceKey = useCallback(() => {
     if (!socket || !identity?.publicJwk || !peerId || !currentUserId) return;
-    socket.emit('local_private_chat_key_announce', {
+    socket.emit('local_private_chat_key_announce', buildLocalPrivateKeyAnnouncePayload({
       toUserId: peerId,
       fromUserId: currentUserId,
       fromUser: {
@@ -132,12 +133,13 @@ const LocalPrivateChat = memo(function LocalPrivateChat({ peerUserId, isMobile }
         username: user?.username,
         avatar_url: user?.avatar_url,
       },
-      publicKey: identity.publicJwk,
-    });
+      publicJwk: identity.publicJwk,
+    }));
   }, [currentUserId, identity?.publicJwk, peerId, socket, user]);
 
   useEffect(() => {
-    if (!socket || !identity?.publicJwk) return;
+    if (!socket || !identity?.publicJwk || !currentUserId || !peerId) return;
+    if (!getLocalPrivateChat(currentUserId, peerId)) return;
     announceKey();
     socket.on('connect', announceKey);
     const interval = setInterval(announceKey, 15000);
@@ -145,13 +147,15 @@ const LocalPrivateChat = memo(function LocalPrivateChat({ peerUserId, isMobile }
       socket.off('connect', announceKey);
       clearInterval(interval);
     };
-  }, [announceKey, identity?.publicJwk, socket]);
+  }, [announceKey, currentUserId, identity?.publicJwk, peerId, socket]);
 
   useEffect(() => {
     if (!socket || !identity?.privateKey || !currentUserId || !peerId) return;
 
-    const acceptPeerKey = ({ fromUserId, fromUser, publicKey }) => {
+    const acceptPeerKey = (rawPayload) => {
+      const { fromUserId, fromUser, publicKey } = normalizeLocalPrivateSocketPayload(rawPayload);
       if (String(fromUserId) !== peerId || !publicKey) return;
+      const existing = getLocalPrivateChat(currentUserId, peerId);
       storePeerPublicKey(currentUserId, peerId, publicKey);
       setPeerPublicKey(publicKey);
       if (fromUser) setPeer((prev) => ({ ...(prev || {}), ...fromUser }));
@@ -159,12 +163,16 @@ const LocalPrivateChat = memo(function LocalPrivateChat({ peerUserId, isMobile }
         last_message_preview: 'Chat privé local accepté',
         last_message_at: new Date().toISOString(),
         accepted: true,
+        initiated_by_me: existing?.initiated_by_me ?? false,
+        unread_count: 0,
       });
       hydrateMessages(identity.privateKey, publicKey);
     };
 
-    const receiveMessage = async ({ fromUserId, fromUser, encryptedPayload, messageId, createdAt }) => {
+    const receiveMessage = async (rawPayload) => {
+      const { fromUserId, fromUser, encryptedPayload, messageId, createdAt } = normalizeLocalPrivateSocketPayload(rawPayload);
       if (String(fromUserId) !== peerId || !encryptedPayload) return;
+      if (!getLocalPrivateChat(currentUserId, peerId)) return;
       try {
         const publicKey = peerPublicKey || getStoredPeerPublicKey(currentUserId, peerId);
         if (!publicKey) {
@@ -256,7 +264,7 @@ const LocalPrivateChat = memo(function LocalPrivateChat({ peerUserId, isMobile }
       created_at: createdAt,
       delivery: 'sent',
     }]);
-    socket.emit('local_private_chat_message', {
+    socket.emit('local_private_chat_message', buildLocalPrivateMessagePayload({
       toUserId: peerId,
       fromUserId: currentUserId,
       fromUser: {
@@ -268,12 +276,12 @@ const LocalPrivateChat = memo(function LocalPrivateChat({ peerUserId, isMobile }
       messageId: id,
       createdAt,
       encryptedPayload,
-    });
+    }));
     return { id, content: text };
   }, [announceKey, canSendEncrypted, currentUserId, identity?.privateKey, notify, peer, peerId, peerPublicKey, socket, title, user]);
 
   const statusText = useMemo(() => {
-    if (!isAvailable) return 'Disponible seulement dans l’application desktop.';
+    if (!isAvailable) return 'Disponible dans l’app Slide (mobile ou desktop).';
     if (readyError) return readyError;
     if (!socket?.connected) return 'Connexion au relais en cours...';
     if (!peerPublicKey) return `Invitation envoyée, en attente de l’acceptation de ${title}`;
@@ -285,7 +293,7 @@ const LocalPrivateChat = memo(function LocalPrivateChat({ peerUserId, isMobile }
       <div className="local-private-chat local-private-blocked">
         <ShieldAlert size={28} />
         <h2>Chat privé local indisponible</h2>
-        <p>Cette feature n’existe pas dans le navigateur. Ouvre Slide Desktop pour l’utiliser.</p>
+        <p>Cette fonctionnalité n’est pas disponible dans le navigateur web. Utilise l’app Slide sur mobile ou desktop.</p>
       </div>
     );
   }
@@ -310,8 +318,8 @@ const LocalPrivateChat = memo(function LocalPrivateChat({ peerUserId, isMobile }
 
       <div className="local-private-notice">
         {canSendEncrypted
-          ? 'Chat accepté. Aucun message n’est envoyé via l’API des DMs ou stocké sur le serveur.'
-          : `${title} doit aussi ouvrir/accepter ce chat privé local. Dès que c’est fait, vous pourrez envoyer des messages chiffrés.`}
+          ? 'Messages chiffrés et stockés uniquement sur cet appareil. Le serveur ne voit jamais le contenu.'
+          : `${title} peut accepter sur n’importe quel appareil (téléphone ou PC). L’historique reste local à chaque appareil.`}
       </div>
 
       <div className="local-private-messages">

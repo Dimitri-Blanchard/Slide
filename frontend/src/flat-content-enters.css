@@ -1,0 +1,148 @@
+/* ═══════════════════════════════════════════════════════════
+   FLAT CONTENT ENTERS — no fade/slide reveal on panels & tabs
+   Loaded last so it wins over component enter animations.
+   Keeps: spinners, bottom sheets, swipe navigation, layout width.
+   ═══════════════════════════════════════════════════════════ */
+
+/* Shared keyframes used across the app */
+@keyframes fadeInUp {
+  from, to { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes fadeInDown {
+  from, to { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes fadeInScale {
+  from, to { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes stage-in {
+  from, to { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes m-content-rise {
+  from, to { opacity: 1; transform: none; }
+}
+
+@keyframes content-phase-appear {
+  from, to { opacity: 1; }
+}
+
+@keyframes pageEnter {
+  from, to { opacity: 1; transform: none; }
+}
+
+@keyframes fadeIn {
+  from, to { opacity: 1; transform: none; }
+}
+
+@keyframes sectionFade {
+  from, to { opacity: 1; }
+}
+
+@keyframes dm-search-panel-in {
+  from, to { opacity: 1; transform: none; }
+}
+
+@keyframes udmModalIn {
+  from, to { opacity: 1; transform: none; }
+}
+
+@keyframes udmModalInMobile {
+  from, to { opacity: 1; transform: none; }
+}
+
+@keyframes udmTabLineIn {
+  from, to { opacity: 1; transform: none; }
+}
+
+@keyframes slideUp {
+  from, to { opacity: 1; transform: none; }
+}
+
+@keyframes invite-slide-up {
+  from, to { opacity: 1; transform: none; }
+}
+
+/* Global utility / phase classes */
+.content-phase-in,
+.content-phase-out,
+.page-enter,
+.animate-fade-in,
+.animate-fade-in-scale,
+.animate-message-send,
+.animate-message-receive,
+.settings-content-section {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+html.platform-mobile .content-phase-in,
+html.platform-mobile .content-phase-in.content-phase-out,
+html.platform-mobile .app-main > .content-phase-in,
+html.client-app.platform-mobile .auth-card {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+.app-main > .content-phase-in {
+  animation: none !important;
+  opacity: 1 !important;
+}
+
+/* Side panel inner content — no blur/slide on open */
+.chat-side-panel__inner,
+.chat-side-panel.is-entering .chat-side-panel__inner,
+.chat-side-panel.is-open .chat-side-panel__inner,
+.chat-side-panel.is-closed .chat-side-panel__inner,
+.chat-collapse-panel__inner,
+.chat-collapse-panel.is-entering .chat-collapse-panel__inner,
+.chat-collapse-panel.is-open .chat-collapse-panel__inner,
+.chat-collapse-panel.is-closed .chat-collapse-panel__inner {
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+  transition:
+    opacity 0s,
+    transform 0s,
+    filter 0s !important;
+}
+
+/* Accordion / expandable list panels */
+.dps-accordion-panel,
+.dps-accordion-group--open .dps-accordion-panel {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* Tab panels & step panels */
+.udm-tab-panel,
+.udm-tab--active::after,
+.csm-step-panel,
+.topic-modal-header,
+.topic-modal-body,
+.topic-modal-footer,
+[class*="tab-panel"],
+[class*="tab-content"],
+[class*="step-panel"],
+[class*="panel-scroll"],
+.dps-accordion-panel {
+  animation: none !important;
+  transform: none !important;
+  opacity: 1 !important;
+}
+
+/* Modal shells — instant appear (overlay may still fade via separate rules) */
+.udm-modal,
+.udm-overlay,
+.member-roles-modal,
+.friend-nickname-modal,
+.add-note-modal {
+  animation: none !important;
+  transform: none !important;
+}

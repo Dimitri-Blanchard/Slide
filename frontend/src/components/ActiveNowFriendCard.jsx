@@ -1,6 +1,8 @@
 import React, { memo } from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { useOnlineUsers } from '../context/SocketContext';
 import { useSpotifyNowPlaying } from '../hooks/useSpotifyNowPlaying';
+import { canShowProfileActivities } from '../utils/profileActivities';
 import Avatar from './Avatar';
 
 const SPOTIFY_ICON_PATH =
@@ -8,7 +10,14 @@ const SPOTIFY_ICON_PATH =
 
 const ActiveNowFriendCard = memo(function ActiveNowFriendCard({ friend, onClick }) {
   const { t } = useLanguage();
-  const spotifyEnabled = !!(friend.spotify_connected || friend.spotify_now_playing);
+  const { isUserOnline } = useOnlineUsers();
+  const activitiesVisible = canShowProfileActivities({
+    isOwnProfile: false,
+    userId: friend.id,
+    isUserOnline,
+  });
+  const spotifyEnabled =
+    activitiesVisible && !!(friend.spotify_connected || friend.spotify_now_playing);
   const { track } = useSpotifyNowPlaying({
     userId: friend.id,
     initialTrack: friend.spotify_now_playing,

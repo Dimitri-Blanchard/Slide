@@ -67,7 +67,15 @@ function apiAuthLog(level, action, details = {}) {
 // ═══════════════════════════════════════════════════════════
 // SECURITY: Token management with validation (persistent storage)
 // ═══════════════════════════════════════════════════════════
-import { getToken, clearToken as clearTokenFromStorage, clearDeviceId } from './utils/tokenStorage';
+import {
+  getToken,
+  setToken,
+  clearToken as clearTokenFromStorage,
+  clearDeviceId,
+  getRefreshToken,
+  setRefreshToken,
+  addAccount,
+} from './utils/tokenStorage';
 
 function clearToken() {
   clearTokenFromStorage();
@@ -87,10 +95,136 @@ const AUTH_INVALIDATION_CODES = new Set([
   'DEVICE_REVOKED',
 ]);
 
+/** Auth failures where a refresh token may recover the session instead of logging out. */
+const REFRESHABLE_AUTH_CODES = new Set(['TOKEN_EXPIRED', 'TOKEN_INVALID']);
+
 function shouldInvalidateSession(status, errorCode) {
   if (status !== 401 && status !== 403) return false;
   if (!errorCode) return false;
   return AUTH_INVALIDATION_CODES.has(String(errorCode).toUpperCase());
+}
+
+function isRefreshableAuthError(errorCode) {
+  if (!errorCode) return false;
+  return REFRESHABLE_AUTH_CODES.has(String(errorCode).toUpperCase());
+}
+
+function dispatchTokenRefreshed(token) {
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('slide:token-refreshed', { detail: { token } }));
+    }
+  } catch (_) {}
+}
+
+let refreshAccessTokenPromise = null;
+let accountSwitchInProgress = false;
+
+export function setAccountSwitchInProgress(inProgress) {
+  accountSwitchInProgress = !!inProgress;
+}
+
+async function fetchRefreshWithToken(refreshToken) {
+  if (!refreshToken) return null;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken, refresh_token: refreshToken }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  const data = await res.json().catch(() => ({}));
+  const accessToken =
+    data.token ??
+    data.accessToken ??
+    data.access_token ??
+    data.jwt ??
+    null;
+  const nextRefreshToken =
+    data.refreshToken ??
+    data.refresh_token ??
+    refreshToken;
+  const user = data.user ?? data.account ?? null;
+
+  if (!res.ok || !accessToken) {
+    apiAuthLog('warn', 'fetchRefreshWithToken — failed', {
+      status: res.status,
+      code: data?.code,
+      fixHint: 'Refresh token expired or revoked. User must re-login.',
+    });
+    return { ok: false, status: res.status, code: data?.code ?? null };
+  }
+
+  return {
+    ok: true,
+    token: accessToken,
+    refreshToken: nextRefreshToken,
+    user,
+  };
+}
+
+/**
+ * Refresh tokens for an explicit refresh token without reading global storage.
+ * Does not mutate active session — caller applies tokens after validation.
+ */
+export async function refreshWithToken(refreshToken) {
+  const result = await fetchRefreshWithToken(refreshToken);
+  if (!result?.ok) return result;
+  return {
+    token: result.token,
+    refreshToken: result.refreshToken,
+    user: result.user,
+  };
+}
+
+/**
+ * Exchange the stored refresh token for a new access token.
+ * Uses raw fetch to avoid recursion through api().
+ * @returns {Promise<{token: string, refreshToken?: string, user?: object}|null>}
+ */
+export async function refreshAccessToken() {
+  if (accountSwitchInProgress) return null;
+  if (refreshAccessTokenPromise) return refreshAccessTokenPromise;
+
+  refreshAccessTokenPromise = (async () => {
+    try {
+      const rt = await getRefreshToken();
+      if (!rt) return null;
+
+      const data = await fetchRefreshWithToken(rt);
+      if (!data?.ok || !data?.token) return null;
+
+      await setToken(data.token);
+      if (data.refreshToken) await setRefreshToken(data.refreshToken);
+      if (data.user?.id) addAccount(data.user, data.token, data.refreshToken);
+
+      requestCache.clear();
+      pendingRequests.clear();
+      dispatchTokenRefreshed(data.token);
+
+      apiAuthLog('info', 'refreshAccessToken — success', { userId: data.user?.id });
+      return {
+        token: data.token,
+        refreshToken: data.refreshToken,
+        user: data.user,
+      };
+    } catch (err) {
+      apiAuthLog('warn', 'refreshAccessToken — error', { error: err?.message });
+      return null;
+    } finally {
+      refreshAccessTokenPromise = null;
+    }
+  })();
+
+  return refreshAccessTokenPromise;
 }
 
 /**
@@ -411,7 +545,21 @@ export async function api(endpoint, options = {}) {
         && !endpoint.includes('/auth/2fa/verify')
         && !endpoint.includes('/auth/forgot-password')
         && !endpoint.includes('/auth/reset-password')
-        && !endpoint.includes('/auth/forgot-password/verify-2fa');
+        && !endpoint.includes('/auth/forgot-password/verify-2fa')
+        && !endpoint.includes('/auth/refresh');
+
+      // Transparent refresh: expired access tokens should not disconnect the user.
+      if (
+        shouldForceLogout
+        && isRefreshableAuthError(errorCode)
+        && !options._retriedAfterRefresh
+      ) {
+        const refreshed = await refreshAccessToken();
+        if (refreshed?.token) {
+          return api(endpoint, { ...options, _retriedAfterRefresh: true });
+        }
+      }
+
       if (shouldForceLogout) {
         clearToken();
         if (errorCode === 'DEVICE_REVOKED') {
@@ -721,6 +869,29 @@ export const servers = {
     invalidateCache('/teams');
     return res.json();
   },
+
+  uploadBanner: async (teamId, file) => {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append('banner', file);
+    const res = await fetch(`${API_BASE}/servers/${teamId}/banner`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Upload failed');
+    }
+    invalidateCache('/teams');
+    return res.json();
+  },
+
+  deleteBanner: (teamId) =>
+    api(`/servers/${teamId}/banner`, { method: 'DELETE' }).then((data) => {
+      invalidateCache('/teams');
+      return data;
+    }),
 
   // Emoji file upload (returns image_url for createEmoji)
   uploadEmojiImage: async (teamId, file) => {

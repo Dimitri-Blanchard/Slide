@@ -11,6 +11,7 @@ import { useOffline } from '../context/OfflineContext';
 import { useScene } from '../context/SceneContext';
 import { useNotification } from '../context/NotificationContext';
 import { usePlatform } from '../context/PlatformContext';
+import { useViewportShellTransition } from '../hooks/useViewportShellTransition';
 import { useSettingsUi } from '../context/SettingsUiContext';
 import MobileAppLayoutShell from './MobileAppLayoutShell';
 import DesktopAppLayoutShell from './DesktopAppLayoutShell';
@@ -18,10 +19,10 @@ import NotFound from '../pages/NotFound';
 import Settings from '../pages/Settings';
 import { isAuthenticatedAppPath, isSettingsRoute } from './appPaths';
 import {
+  getLocalPrivateChat,
   getLocalPrivateChats,
   LOCAL_PRIVATE_CHATS_CHANGED_EVENT,
   toLocalPrivateConversation,
-  upsertLocalPrivateChat,
 } from '../utils/localPrivateChatCrypto';
 import usePendingFriendsCount from '../hooks/usePendingFriendsCount';
 import './AppLayout.css';
@@ -217,6 +218,7 @@ function AppLayout() {
   const params = useAppParams();
   const { pathname, state: locationState } = useLocation();
   const { isMobileShellViewport: isMobile } = usePlatform();
+  const { shellMobile, phase: shellPhase } = useViewportShellTransition(isMobile);
   const isFriendsView = (
     (pathname === '/channels/@me' && !params.conversationId && !params.localPrivateUserId) ||
     pathname === '/friends'
@@ -266,6 +268,26 @@ function AppLayout() {
     window.addEventListener(LOCAL_PRIVATE_CHATS_CHANGED_EVENT, refreshLocalPrivateConversations);
     return () => window.removeEventListener(LOCAL_PRIVATE_CHATS_CHANGED_EVENT, refreshLocalPrivateConversations);
   }, [refreshLocalPrivateConversations]);
+
+  useEffect(() => {
+    const onInvite = () => {
+      if (shouldNotify('dm')) playNotification();
+    };
+    window.addEventListener('slide:local-private-invite', onInvite);
+    return () => window.removeEventListener('slide:local-private-invite', onInvite);
+  }, [playNotification, shouldNotify]);
+
+  // Block access to local private routes that do not belong to the active account.
+  useEffect(() => {
+    if (!params.localPrivateUserId) return;
+    if (!user?.id) {
+      navigate('/channels/@me', { replace: true });
+      return;
+    }
+    if (!getLocalPrivateChat(user.id, params.localPrivateUserId)) {
+      navigate('/channels/@me', { replace: true });
+    }
+  }, [navigate, params.localPrivateUserId, user?.id]);
 
   useEffect(() => {
     if (!params.conversationId) return;
@@ -702,20 +724,6 @@ function AppLayout() {
     };
   }, [socket, params.conversationId, user?.id, shouldNotify, playNotification]);
 
-  useEffect(() => {
-    if (!socket || !user?.id) return;
-    const onLocalPrivateInvite = ({ fromUserId, fromUser }) => {
-      if (!fromUserId || String(fromUserId) === String(user.id)) return;
-      upsertLocalPrivateChat(user.id, fromUser || { id: fromUserId }, {
-        last_message_preview: 'Invitation privée locale',
-        last_message_at: new Date().toISOString(),
-        accepted: false,
-      });
-    };
-    socket.on('local_private_chat_key_announce', onLocalPrivateInvite);
-    return () => socket.off('local_private_chat_key_announce', onLocalPrivateInvite);
-  }, [socket, user?.id]);
-
   // Close mobile nav when route changes
   useEffect(() => {
     setMobileNavOpen(false);
@@ -732,7 +740,7 @@ function AppLayout() {
     const wasInConv = !!prevParamsRef.current.conversationId;
     const wasInTeam = !!prevParamsRef.current.teamId;
     const nowHome = !params.conversationId && !params.localPrivateUserId && !params.teamId && pathname !== '/community';
-    if (nowHome && (wasInConv || wasInTeam)) {
+    if (nowHome && (wasInConv || wasInTeam) && !locationState?.mobileTab) {
       setMobileTab('home');
     }
     prevParamsRef.current = params;
@@ -945,34 +953,40 @@ function AppLayout() {
     return <NotFound />;
   }
 
-  if (isMobile) {
+  const shellClass = `layout-viewport-shell layout-viewport-shell--${shellPhase}`;
+
+  if (shellMobile) {
     return (
       <>
-        <MobileAppLayoutShell
-        pathname={pathname}
-        params={params}
-        scene={scene}
-        isOnline={isOnline}
-        queuedCount={queuedCount}
-        processing={processing}
-        teams={teams}
-        conversations={displayedConversations}
-        setConversations={setConversations}
-        loading={loading}
-        user={user}
-        lastDmConversationId={lastDmConversationId}
-        handleTeamsChange={handleTeamsChange}
-        onLeaveServer={onLeaveServer}
-        mobileTab={mobileTab}
-        setMobileTab={setMobileTab}
-        showSearch={showSearch}
-        setShowSearch={setShowSearch}
-        showCreateServer={showCreateServer}
-        setShowCreateServer={setShowCreateServer}
-        setTeams={setTeams}
-        inboxItems={inboxItems}
-        pendingFriendsCount={pendingFriendsCount}
-      />
+        <div className={shellClass}>
+          <MobileAppLayoutShell
+          pathname={pathname}
+          params={params}
+          scene={scene}
+          isOnline={isOnline}
+          queuedCount={queuedCount}
+          processing={processing}
+          teams={teams}
+          conversations={displayedConversations}
+          setConversations={setConversations}
+          loading={loading}
+          user={user}
+          lastDmConversationId={lastDmConversationId}
+          handleTeamsChange={handleTeamsChange}
+          onLeaveServer={onLeaveServer}
+          mobileTab={mobileTab}
+          setMobileTab={setMobileTab}
+          showSearch={showSearch}
+          setShowSearch={setShowSearch}
+          showCreateServer={showCreateServer}
+          setShowCreateServer={setShowCreateServer}
+          setTeams={setTeams}
+          inboxItems={inboxItems}
+          pendingFriendsCount={pendingFriendsCount}
+          onRemoveConversation={removeConversationLocal}
+          onRestoreConversation={restoreConversationLocal}
+        />
+        </div>
         {settingsOverlay}
       </>
     );
@@ -982,40 +996,42 @@ function AppLayout() {
 
   return (
     <>
-      <DesktopAppLayoutShell
-      params={params}
-      scene={scene}
-      isMobile={isMobile}
-      mobileNavOpen={mobileNavOpen}
-      setMobileNavOpen={setMobileNavOpen}
-      handleOverlayTouchStart={handleOverlayTouchStart}
-      handleOverlayTouchMove={handleOverlayTouchMove}
-      isOnline={isOnline}
-      queuedCount={queuedCount}
-      processing={processing}
-      teams={teams}
-      user={user}
-      conversations={displayedConversations}
-      setConversations={setConversations}
-      lastDmConversationId={lastDmConversationId}
-      handleTeamsChange={handleTeamsChange}
-      onLeaveServer={onLeaveServer}
-      showSidebar={showSidebar}
-      sidebarWidth={sidebarWidth}
-      handleSidebarResizeStart={handleSidebarResizeStart}
-      refreshConversations={refreshConversations}
-      addConversation={addConversation}
-      removeConversationLocal={removeConversationLocal}
-      restoreConversationLocal={restoreConversationLocal}
-      loading={loading}
-      conversationsLoaded={conversationsLoaded}
-      setShowSearch={setShowSearch}
-      showSearch={showSearch}
-      handleTouchStart={handleTouchStart}
-      handleTouchMove={handleTouchMove}
-      handleTouchEnd={handleTouchEnd}
-      pendingFriendsCount={pendingFriendsCount}
-    />
+      <div className={shellClass}>
+        <DesktopAppLayoutShell
+        params={params}
+        scene={scene}
+        isMobile={isMobile}
+        mobileNavOpen={mobileNavOpen}
+        setMobileNavOpen={setMobileNavOpen}
+        handleOverlayTouchStart={handleOverlayTouchStart}
+        handleOverlayTouchMove={handleOverlayTouchMove}
+        isOnline={isOnline}
+        queuedCount={queuedCount}
+        processing={processing}
+        teams={teams}
+        user={user}
+        conversations={displayedConversations}
+        setConversations={setConversations}
+        lastDmConversationId={lastDmConversationId}
+        handleTeamsChange={handleTeamsChange}
+        onLeaveServer={onLeaveServer}
+        showSidebar={showSidebar}
+        sidebarWidth={sidebarWidth}
+        handleSidebarResizeStart={handleSidebarResizeStart}
+        refreshConversations={refreshConversations}
+        addConversation={addConversation}
+        removeConversationLocal={removeConversationLocal}
+        restoreConversationLocal={restoreConversationLocal}
+        loading={loading}
+        conversationsLoaded={conversationsLoaded}
+        setShowSearch={setShowSearch}
+        showSearch={showSearch}
+        handleTouchStart={handleTouchStart}
+        handleTouchMove={handleTouchMove}
+        handleTouchEnd={handleTouchEnd}
+        pendingFriendsCount={pendingFriendsCount}
+      />
+      </div>
       {settingsOverlay}
     </>
   );

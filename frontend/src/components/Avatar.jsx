@@ -13,6 +13,7 @@ function isGifUrl(url) {
   const u = url.toLowerCase();
   return u.includes('.gif') || u.includes('gif');
 }
+
 const getFallbackSvg = (initial) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="%236366f1"/><text x="32" y="42" font-size="24" fill="white" text-anchor="middle" font-family="sans-serif">${(initial || '?').charAt(0).toUpperCase()}</text></svg>`)}`;
 
 export function hasDefaultAvatar(user) {
@@ -334,4 +335,5 @@ export const AvatarImg = memo(function AvatarImg({
   );
 });
 
+export { isGifUrl, useGifStaticFrame, useGifAnimateState };
 export default Avatar;

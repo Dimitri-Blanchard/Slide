@@ -65,7 +65,12 @@ body:has(.usas-in-voice) .server-bar {
   flex-shrink: 0;
   justify-content: flex-start;
   padding-top: 2px; /* Room for logo active glow so it isn't clipped at top by aside */
-  padding-bottom: 10px; /* Room for logo active glow at bottom */
+  padding-bottom: 6px;
+}
+
+/* DM shortcuts in home block — tighter rhythm before divider */
+.home-section > .server-item + .server-item {
+  margin-top: 8px;
 }
 
 .servers-section {
@@ -78,7 +83,7 @@ body:has(.usas-in-voice) .server-bar {
   scrollbar-width: none !important;
   scrollbar-color: transparent transparent !important;
   -ms-overflow-style: none;
-  padding-top: 4px;
+  padding-top: 6px;
   padding-bottom: 8px;
 }
 
@@ -88,17 +93,27 @@ body:has(.usas-in-voice) .server-bar {
   display: none !important;
 }
 
-/* Separator */
+/* Separator — centered pill between home and server lists */
 .server-separator {
   grid-row: 2;
-  width: 32px;
-  height: 2px;
-  background: var(--border-default);
-  margin: 8px 0;
-  border-radius: 1px;
-  opacity: 0.7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 12px;
+  margin: 0;
   flex-shrink: 0;
   justify-self: center;
+}
+
+.server-separator::before {
+  content: '';
+  display: block;
+  width: 32px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--border-default);
+  opacity: 0.55;
 }
 
 /* Server Item — .server-bar scope beats global .server-icon leaks (e.g. InvitePage.css) */
@@ -488,6 +503,31 @@ button.server-icon-link:hover .server-tooltip,
   border-left: none;
 }
 
+.server-tooltip-portal--card {
+  padding: 0;
+  white-space: normal;
+  overflow: hidden;
+  min-width: 200px;
+  max-width: 260px;
+  border-radius: 10px;
+}
+
+.server-tooltip-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.server-tooltip-card-name {
+  padding: 8px 12px 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #e8eaf0;
+}
+
+.server-tooltip-portal--card::before {
+  border-right-color: #18191f;
+}
+
 @keyframes tooltipEnter {
   from { opacity: 0; transform: translateY(-50%) translateX(-4px); }
   to   { opacity: 1; transform: translateY(-50%) translateX(0); }
@@ -683,7 +723,7 @@ button.server-icon-link:hover .server-tooltip,
    ═══════════════════════════════════════════════════════════ */
 [data-theme="dark"] .server-bar {
   --server-icon-size: 42px;
-  background: #111113;
+  background: var(--bg-secondary);
   border-right: none;
 }
 [data-theme="dark"] .server-list {
@@ -691,33 +731,33 @@ button.server-icon-link:hover .server-tooltip,
   gap: 0;
 }
 [data-theme="dark"] .server-bar .server-icon {
-  background: #232328;
+  background: var(--surface-3);
 }
-[data-theme="dark"] .server-separator {
-  background: rgba(255, 255, 255, 0.1);
+[data-theme="dark"] .server-separator::before {
+  background: rgba(255, 255, 255, 0.14);
   opacity: 1;
 }
 [data-theme="dark"] .server-icon-link.active .server-icon,
 [data-theme="dark"] .server-icon.active {
-  background: #2a2a30;
+  background: var(--surface-2);
 }
 [data-theme="dark"] .server-icon-link.active {
   animation: none;
 }
 /* Home menu — contrast on hover only */
 [data-theme="dark"] .home-icon {
-  background: #232328;
+  background: var(--surface-3);
 }
 [data-theme="dark"] .server-icon-link:hover .home-icon {
-  background: #2e2e34;
+  background: color-mix(in srgb, var(--surface-3) 88%, white 12%);
   filter: brightness(1.08);
 }
 [data-theme="dark"] .server-icon-link:hover .home-icon.active {
-  background: #35353c;
+  background: color-mix(in srgb, var(--surface-2) 82%, white 18%);
 }
 [data-theme="dark"] .server-icon-link:not(.active):active .server-icon:not(.home-icon),
 [data-theme="dark"] .server-drag-wrapper:active .server-icon-link:not(.active) .server-icon:not(.home-icon) {
-  background: #232328;
+  background: var(--surface-3);
   filter: none;
 }
 

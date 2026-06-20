@@ -12,7 +12,8 @@
   overflow-anchor: auto;
   display: flex;
   flex-direction: column;
-  padding-bottom: 64px;
+  /* Small gutter only — the composer sits outside this scroll area when docked */
+  padding-bottom: 8px;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
@@ -23,6 +24,13 @@
    "messages at top" → "messages at bottom" that produced a flash. */
 .message-list:not([data-scroll-ready]) {
   visibility: hidden;
+}
+
+/* Grows when the thread is short so messages sit just above the composer (Discord-style) */
+.message-list-anchor-spacer {
+  flex: 1 0 auto;
+  min-height: 0;
+  pointer-events: none;
 }
 
 
@@ -221,8 +229,9 @@
 }
 
 .channel-welcome-date {
+  align-self: stretch;
   width: 100%;
-  margin-top: 4px;
+  margin: 4px 0 0;
 }
 
 /* Shown above existing messages (Discord-style channel start) */
@@ -399,7 +408,7 @@
 /* Call system message - icon aligned with avatar column */
 .message-system-row--call {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-start;
   padding: 2px 72px 2px 16px;
   margin: 2px 0;
@@ -418,6 +427,7 @@
   align-items: center;
   justify-content: center;
   margin-right: 16px;
+  padding-top: 0.15em;
 }
 
 .message-system-row--call .message-system-call-icon {
@@ -425,6 +435,11 @@
   color: var(--success, #43b581);
   width: 1em;
   height: 1em;
+}
+
+.message-system-row--call .message-system-call-content {
+  flex: 1;
+  min-width: 0;
 }
 
 .message-system-row--call .message-system-call-name {
@@ -456,8 +471,14 @@
   color: var(--text-muted, #949ba4);
   margin-left: auto;
   padding-left: 12px;
+  padding-top: 0.15em;
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+.message-system-call-text-short,
+.message-system-call-time--short {
+  display: none;
 }
 
 /* System message - call ended (3 min bandwidth) - clean, minimal */
@@ -558,31 +579,35 @@
 
 .date-separator {
   display: flex;
+  justify-content: center;
   align-items: center;
-  margin: 16px 16px 8px;
+  margin: 1rem 1rem 0.5rem;
+  min-height: 1.3125rem;
   position: relative;
   flex-shrink: 0;
-  gap: 12px;
 }
 
-.date-separator::before,
-.date-separator::after {
+.date-separator::before {
   content: '';
-  flex: 1;
-  height: var(--hairline-width);
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  height: var(--hairline-width, 1px);
+  transform: translateY(-50%);
   background: var(--border-subtle);
+  pointer-events: none;
 }
 
 .date-separator-label {
-  padding: 3px 12px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  white-space: nowrap;
+  position: relative;
+  z-index: 1;
+  padding-inline: 0.5rem;
+  font-size: clamp(0.625rem, 2.2vw, 0.6875rem);
+  font-weight: 500;
+  line-height: 1.3125rem;
+  color: color-mix(in srgb, var(--text-muted, #72767e) 72%, transparent);
   background: var(--bg-primary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-full, 9999px);
-  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -2325,15 +2350,6 @@
   }
 }
 
-/* ── Mobile ── */
-/* Non-virtualized lists: skip layout/paint for off-screen rows (virtualized uses TanStack). */
-@media (max-width: 1024px), (hover: none) {
-  .message-list:not([data-virtualized]) .message-item {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 56px;
-  }
-}
-
 @media (max-width: 768px) {
   .message-item {
     padding: 2px 12px 2px 56px;
@@ -2345,6 +2361,16 @@
 
   .message-system-row--call .message-system-call-icon-col {
     margin-right: 6px;
+  }
+
+  .message-system-call-text-long,
+  .message-system-call-time--long {
+    display: none;
+  }
+
+  .message-system-call-text-short,
+  .message-system-call-time--short {
+    display: inline;
   }
 
   .message-avatar-col {
@@ -2455,6 +2481,15 @@
   animation: skeleton-fade-in 0.15s ease-out;
 }
 
+.message-skeleton-list--overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
 @keyframes skeleton-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -2529,17 +2564,22 @@
   line-height: 1;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   DATE SEPARATOR — "NEW" variant (unread + date on same line)
-   ═══════════════════════════════════════════════════════════ */
-.date-separator--new::before,
-.date-separator--new::after {
-  background: var(--error, #f23f43) !important;
+/* DATE SEPARATOR — unread + date on same line */
+.date-separator--new {
+  gap: 0.5rem;
+}
+
+.date-separator--new::before {
+  background: var(--error, #f23f43);
   opacity: 0.45;
 }
 
+.date-separator--new .unread-badge {
+  position: relative;
+  z-index: 1;
+}
+
 .unread-badge {
-  order: 1;
   flex-shrink: 0;
   padding: 2px 8px;
   font-size: 0.625rem;
@@ -2816,21 +2856,14 @@
 }
 /* Top vignette removed for cleaner mobile experience */
 /* Date separator */
-[data-theme="dark"] .date-separator::before,
-[data-theme="dark"] .date-separator::after {
-  background: rgba(255,255,255,0.06);
-}
-[data-theme="dark"] .date-separator--new::before,
-[data-theme="dark"] .date-separator--new::after {
-  background: var(--error, #f23f43) !important;
-  opacity: 0.4;
+[data-theme="dark"] .date-separator::before {
+  background: rgba(255, 255, 255, 0.06);
 }
 [data-theme="dark"] .date-separator-label {
-  background: var(--bg-primary);
-  border-color: rgba(255,255,255,0.07);
-  color: rgba(255,255,255,0.35);
-  font-size: 0.68rem;
-  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.32);
+}
+[data-theme="dark"] .date-separator--new::before {
+  opacity: 0.4;
 }
 /* Message row hover: increase contrast for readability */
 [data-theme="dark"] .message-item:hover {

@@ -15,15 +15,19 @@ html.platform-mobile .mobile-swipe-host {
   --swipe-x: 0px;
   --swipe-progress: 0;
   --swipe-scale: 1;
-  transform: translate3d(var(--swipe-x), 0, 0) scale(var(--swipe-scale));
   transform-origin: center center;
-  transition:
-    transform var(--m-dur-medium, 280ms) cubic-bezier(0.05, 0.7, 0.1, 1),
-    filter var(--m-dur-short, 200ms) ease;
-  will-change: transform;
   touch-action: pan-y;
   position: relative;
   z-index: 1;
+}
+
+/* Only promote to a compositor layer while swiping — a permanent identity
+   transform blurs message text on Windows at the mobile-shell breakpoint. */
+html.platform-mobile .mobile-swipe-host.is-swipe-dragging,
+html.platform-mobile .mobile-swipe-host.is-swipe-releasing,
+html.platform-mobile .mobile-swipe-host.is-swipe-exiting {
+  transform: translate3d(var(--swipe-x), 0, 0) scale(var(--swipe-scale));
+  will-change: transform;
 }
 
 html.platform-mobile .mobile-swipe-host.is-swipe-dragging {
@@ -104,8 +108,10 @@ html.platform-mobile .mobile-app-layout .team-view {
 }
 
 html.platform-mobile .app-main > .content-phase-in {
-  animation: m-content-rise var(--m-dur-short, 200ms) cubic-bezier(0.05, 0.7, 0.1, 1) forwards;
+  animation: none;
   filter: none;
+  transform: none;
+  opacity: 1;
 }
 
 /* Chat header: wider touch target for back */

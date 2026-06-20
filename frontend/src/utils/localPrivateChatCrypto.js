@@ -9,6 +9,15 @@ function isElectronRuntime() {
   return typeof window !== 'undefined' && !!window.electron?.isElectron;
 }
 
+function isCapacitorRuntime() {
+  return typeof window !== 'undefined' && !!window.Capacitor?.isNativePlatform?.();
+}
+
+/** Desktop (Electron) or native mobile app (Capacitor) — not the web browser. */
+export function isNativeAppRuntime() {
+  return isElectronRuntime() || isCapacitorRuntime();
+}
+
 function bytesToBase64(bytes) {
   let binary = '';
   for (const b of bytes) binary += String.fromCharCode(b);
@@ -48,15 +57,31 @@ async function secureGet(key) {
     const value = await window.electron.secureGet(key);
     return value || null;
   }
+  if (isCapacitorRuntime()) {
+    try {
+      const { Preferences } = await import('@capacitor/preferences');
+      const { value } = await Preferences.get({ key });
+      if (value) {
+        localStorage.setItem(key, value);
+        return value;
+      }
+    } catch (_) {}
+  }
   return localStorage.getItem(key);
 }
 
 async function secureSet(key, value) {
+  localStorage.setItem(key, value);
   if (window.electron?.secureSet) {
     await window.electron.secureSet(key, value);
     return;
   }
-  localStorage.setItem(key, value);
+  if (isCapacitorRuntime()) {
+    try {
+      const { Preferences } = await import('@capacitor/preferences');
+      await Preferences.set({ key, value });
+    } catch (_) {}
+  }
 }
 
 async function importPrivateKey(jwk) {
@@ -80,8 +105,8 @@ async function importPublicKey(jwk) {
 }
 
 export async function getOrCreateLocalPrivateIdentity(currentUserId) {
-  if (!isElectronRuntime()) {
-    throw new Error('Local private chat is only available in the desktop app.');
+  if (!isLocalPrivateChatAvailable()) {
+    throw new Error('Local private chat is only available in the Slide app (desktop or mobile).');
   }
   if (!crypto?.subtle) {
     throw new Error('WebCrypto is not available.');
@@ -109,7 +134,7 @@ export async function getOrCreateLocalPrivateIdentity(currentUserId) {
 }
 
 export function isLocalPrivateChatAvailable() {
-  return isElectronRuntime() && !!crypto?.subtle;
+  return isNativeAppRuntime() && !!crypto?.subtle;
 }
 
 export function getStoredPeerPublicKey(currentUserId, peerUserId) {
@@ -204,6 +229,16 @@ export function getLocalPrivateChats(currentUserId) {
   }
 }
 
+export function getLocalPrivateChat(currentUserId, peerUserId) {
+  if (!currentUserId || peerUserId == null) return null;
+  const peerId = String(peerUserId);
+  return getLocalPrivateChats(currentUserId).find((chat) => String(chat.peerUser?.id) === peerId) || null;
+}
+
+export function isLocalPrivateRoute(pathname) {
+  return typeof pathname === 'string' && /\/channels\/@me\/private-local\//.test(pathname);
+}
+
 export function upsertLocalPrivateChat(currentUserId, peerUser, patch = {}) {
   if (!currentUserId || !peerUser?.id) return null;
   const now = new Date().toISOString();
@@ -223,6 +258,7 @@ export function upsertLocalPrivateChat(currentUserId, peerUser, patch = {}) {
     last_message_preview: patch.last_message_preview ?? existing?.last_message_preview ?? 'Invitation privée locale',
     unread_count: patch.unread_count ?? existing?.unread_count ?? 0,
     accepted: patch.accepted ?? existing?.accepted ?? false,
+    initiated_by_me: patch.initiated_by_me ?? existing?.initiated_by_me ?? false,
   };
   const next = [
     nextChat,
@@ -254,6 +290,7 @@ export function toLocalPrivateConversation(chat) {
     last_message_preview: chat.last_message_preview,
     unread_count: chat.unread_count || 0,
     accepted: !!chat.accepted,
+    initiated_by_me: !!chat.initiated_by_me,
   };
 }
 

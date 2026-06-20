@@ -1,0 +1,80 @@
+.mobile-server-drawer {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  position: relative;
+  overflow: hidden;
+}
+
+.mobile-server-drawer-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 60px;
+  z-index: 210;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-tertiary);
+  border-right: var(--hairline-width) solid var(--border-subtle);
+  box-shadow: 8px 0 32px rgba(0, 0, 0, 0.28);
+  will-change: transform;
+  transition: transform 0.28s cubic-bezier(0.05, 0.7, 0.1, 1);
+}
+
+.mobile-server-drawer.is-dragging .mobile-server-drawer-panel {
+  transition: none;
+}
+
+.mobile-server-drawer-panel .server-bar {
+  width: 60px;
+  min-width: 60px;
+  flex: 1;
+  min-height: 0;
+  padding-top: 16px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+}
+
+.mobile-server-drawer-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 200;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: #000;
+  cursor: default;
+  transition: opacity 0.2s ease;
+}
+
+.mobile-server-drawer.is-dragging .mobile-server-drawer-overlay {
+  transition: none;
+}
+
+.mobile-server-drawer-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+.mobile-server-drawer-edge-hint {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  z-index: 5;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent);
+  opacity: 0.6;
+}

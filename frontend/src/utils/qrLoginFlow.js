@@ -3,9 +3,9 @@
  */
 import { auth } from '../api';
 import { getToken, getOrCreateDeviceId, getDeviceName } from './tokenStorage';
+import { publicSiteRoute, resolvePublicSiteBase } from './publicSiteUrl';
 
 const PENDING_QR_TOKEN_KEY = 'slide_pending_qr_login_token';
-const PUBLIC_SITE = (import.meta.env.VITE_PUBLIC_SITE_URL || 'https://sl1de.xyz').replace(/\/$/, '');
 
 function normalizePendingQrLogin(raw) {
   if (!raw) return null;
@@ -51,14 +51,14 @@ export function buildBrowserQrLoginApprovalUrl(token, source = 'desktop', target
   if (source) params.set('source', source);
   if (targetDevice.deviceId) params.set('deviceId', targetDevice.deviceId);
   if (targetDevice.deviceName) params.set('deviceName', targetDevice.deviceName);
-  return `${PUBLIC_SITE}/qr-login?${params.toString()}`;
+  return publicSiteRoute(`/qr-login?${params.toString()}`);
 }
 
 export function buildBrowserAuthHandoffUrl(targetDevice = {}) {
   const params = new URLSearchParams({ source: 'desktop', handoff: 'direct' });
   if (targetDevice.deviceId) params.set('deviceId', targetDevice.deviceId);
   if (targetDevice.deviceName) params.set('deviceName', targetDevice.deviceName);
-  return `${PUBLIC_SITE}/qr-login?${params.toString()}`;
+  return publicSiteRoute(`/qr-login?${params.toString()}`);
 }
 
 export function buildDesktopBrowserAuthCallbackUrl({ token, refreshToken } = {}) {
@@ -98,9 +98,7 @@ export function buildOpenSlideAppUrl(token, fallbackPageUrl) {
   const slideUrl = `slide://login?token=${encodeURIComponent(token)}`;
   const fallback =
     fallbackPageUrl ||
-    (typeof window !== 'undefined'
-      ? `${window.location.origin}/qr-login?token=${encodeURIComponent(token)}`
-      : `${PUBLIC_SITE}/qr-login?token=${encodeURIComponent(token)}`);
+    (token ? publicSiteRoute(`/qr-login?token=${encodeURIComponent(token)}`) : null);
 
   const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
   if (!isAndroid) return slideUrl;
@@ -136,10 +134,10 @@ export function buildQrLoginScanUrl(token) {
     }
     const isHttp = origin.startsWith('http://') || origin.startsWith('https://');
     if (isHttp) {
-      return `${PUBLIC_SITE}/qr-login?token=${encoded}`;
+      return publicSiteRoute(`/qr-login?token=${encoded}`);
     }
   }
-  return `${PUBLIC_SITE}/qr-login?token=${encoded}`;
+  return publicSiteRoute(`/qr-login?token=${encoded}`);
 }
 
 export function extractQrTokenFromUrl(url) {

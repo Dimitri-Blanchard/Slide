@@ -4,6 +4,7 @@ import { AvatarImg } from './Avatar';
 import { servers } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { resolveInviteShareUrl } from '../utils/publicSiteUrl';
 import './InviteLinkPreview.css';
 
 function extractInviteCode(text) {
@@ -125,7 +126,7 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
   const handleCopyLink = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
-    const inviteUrl = url.startsWith('http') ? url : `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;
+    const inviteUrl = resolveInviteShareUrl(url);
     navigator.clipboard.writeText(inviteUrl).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -150,7 +151,7 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
   }
 
   if (error) {
-    const inviteUrl = url.startsWith('http') ? url : `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;
+    const inviteUrl = resolveInviteShareUrl(url);
     return (
       <div className="invite-embed invite-embed--dead" onClick={(e) => e.stopPropagation()}>
         <div className="invite-embed__header invite-embed__header--dead">
@@ -214,7 +215,7 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
 
   const team = inviteInfo.team;
 
-  const inviteUrl = url.startsWith('http') ? url : `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;
+  const inviteUrl = resolveInviteShareUrl(url);
 
   return (
     <div className="invite-embed" onClick={(e) => e.stopPropagation()}>

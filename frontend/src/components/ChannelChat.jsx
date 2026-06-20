@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock } from 'lucide-react';
 import { messages as messagesApi, channels as channelsApi, reactions as reactionsApi, teams as teamsApi, direct as directApi } from '../api';
@@ -32,11 +32,17 @@ const ChannelChat = memo(function ChannelChat({ teamId, channelId, currentTeam, 
   const messageListRef = useRef(null);
   const messageInputRef = useRef(null);
 
+  useLayoutEffect(() => {
+    if (!channelId) return;
+    setLoading(true);
+    setMessages([]);
+    setMessageReactions({});
+    setChannel(null);
+  }, [channelId]);
+
   useEffect(() => {
     if (!channelId) return;
     let cancelled = false;
-    setLoading(true);
-    setMessageReactions({});
     Promise.all([channelsApi.get(channelId), messagesApi.channel(channelId)])
       .then(([ch, msgs]) => {
         if (cancelled) return;
@@ -488,7 +494,7 @@ const ChannelChat = memo(function ChannelChat({ teamId, channelId, currentTeam, 
         </span>
       </header>
       <div className="chat-main">
-        <div className="chat-main-content">
+        <div className="chat-main-content input-docked">
           <MessageList 
             ref={messageListRef}
             messages={messages} 

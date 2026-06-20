@@ -877,7 +877,7 @@ async function createMainWindow() {
     show: false, frame: false,
     icon: getAppIconPath(),
     title: 'Slide',
-    backgroundColor: '#1e1f22',
+    backgroundColor: '#181a20',
     paintWhenInitiallyHidden: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),

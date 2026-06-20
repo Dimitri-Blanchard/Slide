@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { direct as directApi, reactions as reactionsApi, pinned as pinnedApi, friends as friendsApi } from '../api';
 import useFriendsSync from '../hooks/useFriendsSync';
@@ -13,6 +13,7 @@ import { useSounds } from '../context/SoundContext';
 import { useLanguage } from '../context/LanguageContext';
 import { usePrefetchOnHover } from '../context/PrefetchContext';
 import { useSwipeBack } from '../hooks/useSwipeBack';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { prefetchProfile } from '../utils/profileCache';
 import { MESSAGE_SEND_BACKPRESSURE_LIMIT, MESSAGE_SEND_QUEUE_GAP_MS, getRateLimitDelayMs, isRateLimitError, notifyRateLimit, wait } from '../utils/rateLimitRetry';
 import MessageList from './MessageList';
@@ -26,6 +27,7 @@ import StickerPicker from './StickerPicker';
 import FileDropOverlay from './FileDropOverlay';
 import ConfirmModal from './ConfirmModal';
 import DMCallView from './DMCallView';
+import { AnimatedSidePanel, AnimatedCollapse } from './AnimatedPanel';
 import { undoToast } from './UndoToast';
 import './Chat.css';
 
@@ -40,6 +42,7 @@ const GM_MAX_W = 400;
 const GM_DEFAULT_W = 240;
 
 const DPS_VISIBLE_KEY = 'slide_dm_profile_sidebar_visible';
+const DM_PROFILE_SIDEBAR_MIN_WIDTH = 1491;
 
 const GroupMembersSidebar = memo(function GroupMembersSidebar({ members, ownerId, currentUserId, isUserOnline, onClose }) {
   const [width, setWidth] = useState(() => {
@@ -135,6 +138,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
       return v === null ? true : v === '1';
     } catch { return true; }
   });
+  const profileSidebarDocked = useMediaQuery(`(min-width: ${DM_PROFILE_SIDEBAR_MIN_WIDTH}px)`);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const headerInfoRef = useRef(null);
   const [showPinnedPanel, setShowPinnedPanel] = useState(false);
@@ -177,13 +181,12 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
     setMessageReactions(rxMap);
   }, []);
 
-  useEffect(() => {
+  // Sync cache/clear before paint — avoids flashing the previous DM's messages on switch.
+  useLayoutEffect(() => {
     if (!conversationId) return;
-    let cancelled = false;
     sendQueueRef.current = Promise.resolve();
     setSendQueueDepth(0);
 
-    // Reset UI state but keep messages if we have cache
     setReplyTo(null);
     setShowPinnedPanel(false);
     setShowStickerPanel(false);
@@ -193,7 +196,6 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
     setPinnedMessages([]);
     setReadReceipts({});
 
-    // Instant display from cache (no loading skeleton)
     const cached = dmMessagesCache.get(conversationId);
     if (cached) {
       setMessages(cached.messages);
@@ -205,10 +207,19 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
       setLoading(true);
     }
 
-    // Resolve conversation info from parent state first
     const cachedConv = conversationsRef.current?.find((x) => String(x.conversation_id) === conversationId);
     if (cachedConv) {
       setConversation(cachedConv);
+    }
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    let cancelled = false;
+
+    const cached = dmMessagesCache.get(conversationId);
+    const cachedConv = conversationsRef.current?.find((x) => String(x.conversation_id) === conversationId);
+    if (cachedConv) {
       const hasResolvedTitle = cachedConv?.is_group
         ? !!(cachedConv?.group_name || (cachedConv?.participants || []).length > 0)
         : !!cachedConv?.participants?.[0]?.display_name;
@@ -222,7 +233,9 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
       }
     }
 
-    // Fetch messages (background refresh if cached, primary load if not)
+    // If cache is fresh enough (<15s), skip network fetch entirely
+    if (cached?._ts && Date.now() - cached._ts < 15000) return;
+
     const fetchMessages = directApi.messages(conversationId);
     const fetchConv = cachedConv ? null : directApi.getConversationInfo(conversationId).catch(() => null);
 
@@ -234,7 +247,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
         for (const m of safeMsgs) {
           if (m.reactions?.length) rxMap[m.id] = m.reactions;
         }
-        dmMessagesCache.set(conversationId, { messages: safeMsgs, reactions: rxMap });
+        dmMessagesCache.set(conversationId, { messages: safeMsgs, reactions: rxMap, _ts: Date.now() });
         setMessages(safeMsgs);
         setMessageReactions(rxMap);
         if (info) setConversation(info);
@@ -253,7 +266,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
   // Keep DM cache in sync when messages change (socket, send, etc.)
   useEffect(() => {
     if (!conversationId || messages.length === 0) return;
-    dmMessagesCache.set(conversationId, { messages, reactions: messageReactions });
+    dmMessagesCache.set(conversationId, { messages, reactions: messageReactions, _ts: Date.now() });
   }, [conversationId, messages, messageReactions]);
 
   useEffect(() => {
@@ -1165,6 +1178,8 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
         onVideoCall={handleVideoCall}
         showProfileSidebar={showProfileSidebar}
         onToggleProfileSidebar={toggleProfileSidebar}
+        profileSidebarDocked={profileSidebarDocked}
+        onOpenProfile={() => setShowExtendedProfile(true)}
         showGroupMembers={showGroupMembers}
         onToggleGroupMembers={() => setShowGroupMembers(prev => !prev)}
         onOpenCreateGroup={() => setShowCreateGroup(true)}
@@ -1183,13 +1198,14 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
           onUploadDirect={(file) => uploadFile(file)}
         >
           <div className={`chat-main-content ${inputDocked ? 'input-docked' : 'input-floating'}`}>
-            {!showPlaceholderHeader && showCallPanel && !isMobile && (
+            <AnimatedCollapse open={!showPlaceholderHeader && showCallPanel && !isMobile}>
               <DMCallView embedded otherUserName={title} otherUser={other} isGroup={isGroup} groupMembers={otherUsers} />
-            )}
+            </AnimatedCollapse>
             <MessageList
               ref={messageListRef}
               messages={messages}
               loading={loading}
+              conversationId={conversationId}
               currentUserId={user?.id}
               currentUserName={user?.display_name}
               onEdit={handleEdit}
@@ -1326,21 +1342,25 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
           onSelect={handleStickerSelect}
           onEmojiSelect={handleEmojiSelect}
         />
-        {showGroupMembers && isGroup && (
-          <GroupMembersSidebar
-            members={otherUsers}
-            ownerId={conversation?.owner_id}
-            currentUserId={user?.id}
-            isUserOnline={isUserOnline}
-            onClose={() => setShowGroupMembers(false)}
-          />
+        {isGroup && (
+          <AnimatedSidePanel open={showGroupMembers && !isMobile} variant="members">
+            <GroupMembersSidebar
+              members={otherUsers}
+              ownerId={conversation?.owner_id}
+              currentUserId={user?.id}
+              isUserOnline={isUserOnline}
+              onClose={() => setShowGroupMembers(false)}
+            />
+          </AnimatedSidePanel>
         )}
-        {!isGroup && !isMobile && other?.id && showProfileSidebar && !showCallPanel && (
-          <DMProfileSidebar
-            userId={other.id}
-            user={other}
-            onViewFullProfile={() => setShowExtendedProfile(true)}
-          />
+        {!isGroup && other?.id && !showCallPanel && (
+          <AnimatedSidePanel open={showProfileSidebar && profileSidebarDocked} variant="profile">
+            <DMProfileSidebar
+              userId={other.id}
+              user={other}
+              onViewFullProfile={() => setShowExtendedProfile(true)}
+            />
+          </AnimatedSidePanel>
         )}
       </div>
       <CreateGroupModal

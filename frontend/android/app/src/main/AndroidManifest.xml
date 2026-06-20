@@ -31,6 +31,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="sl1de.xyz" android:pathPrefix="/docs/qr-login" />
                 <data android:scheme="https" android:host="sl1de.xyz" android:pathPrefix="/qr-login" />
             </intent-filter>
         </activity>

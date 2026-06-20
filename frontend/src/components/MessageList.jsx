@@ -58,6 +58,56 @@ function formatContextualTimestamp(dateInput, t, formatTime) {
   return `${dateLabel} at ${time}`;
 }
 
+function parseEnglishCallDurationText(text) {
+  if (!text || typeof text !== 'string') return null;
+  const s = text.trim().toLowerCase();
+  if (s === 'less than a minute') return { lessThanMinute: true };
+
+  const hourMinute = s.match(/^(\d+) hours? and (\d+) minutes?$/);
+  if (hourMinute) {
+    return { hours: parseInt(hourMinute[1], 10), minutes: parseInt(hourMinute[2], 10) };
+  }
+  const minutesOnly = s.match(/^(\d+) minutes?$/);
+  if (minutesOnly) return { minutes: parseInt(minutesOnly[1], 10) };
+  const hoursOnly = s.match(/^(\d+) hours?$/);
+  if (hoursOnly) return { hours: parseInt(hoursOnly[1], 10) };
+
+  return null;
+}
+
+function formatCallDurationParts(t, { lessThanMinute, hours = 0, minutes = 0 } = {}) {
+  if (lessThanMinute || (hours === 0 && minutes === 0)) {
+    return t('chat.callDurationLessThanMinute');
+  }
+  if (hours === 0) {
+    if (minutes === 1) return t('chat.callDurationOneMinute');
+    return t('chat.callDurationMinutes', { count: minutes });
+  }
+  if (minutes === 0) {
+    if (hours === 1) return t('chat.callDurationOneHour');
+    return t('chat.callDurationHours', { count: hours });
+  }
+  if (hours === 1 && minutes === 1) return t('chat.callDurationOneHourOneMinute');
+  if (hours === 1) return t('chat.callDurationOneHourMinutes', { minutes });
+  if (minutes === 1) return t('chat.callDurationHoursOneMinute', { hours });
+  return t('chat.callDurationHoursMinutes', { hours, minutes });
+}
+
+function formatCallDurationLabel(t, durationSeconds, durationText) {
+  if (durationSeconds != null && Number.isFinite(Number(durationSeconds))) {
+    const total = Math.max(0, Math.floor(Number(durationSeconds)));
+    if (total < 60) return formatCallDurationParts(t, { lessThanMinute: true });
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    return formatCallDurationParts(t, { hours, minutes });
+  }
+
+  const parsed = parseEnglishCallDurationText(durationText);
+  if (parsed) return formatCallDurationParts(t, parsed);
+
+  return durationText || '';
+}
+
 function buildMessagePermalink(surface, msg) {
   if (!surface || msg?.id == null) return '';
   const o = typeof window !== 'undefined' ? window.location.origin : '';
@@ -74,6 +124,32 @@ const VIRTUALIZATION_THRESHOLD_TOUCH = 12;
 const ESTIMATED_MESSAGE_HEIGHT = 56;
 const SCROLL_OVERSCAN_DESKTOP = 10;
 const SCROLL_OVERSCAN_TOUCH = 4;
+const ROW_HEIGHT_CACHE_MAX = 2500;
+const messageRowHeightCache = new Map();
+
+function cacheMessageRowHeight(key, height) {
+  if (!key || !Number.isFinite(height) || height <= 0) return;
+  messageRowHeightCache.set(key, height);
+  if (messageRowHeightCache.size > ROW_HEIGHT_CACHE_MAX) {
+    messageRowHeightCache.delete(messageRowHeightCache.keys().next().value);
+  }
+}
+
+function getCachedMessageRowHeight(key, fallback) {
+  const hit = messageRowHeightCache.get(key);
+  return hit && hit > 0 ? hit : fallback;
+}
+
+function getVirtualRowCacheKey(item, index) {
+  if (item?.rowType === 'banner') return '__banner__';
+  if (item?.rowType === 'channelWelcome') return '__channel_welcome__';
+  if (item?.rowType === 'message') return String(item.renderKey ?? item.id ?? `idx-${index}`);
+  return String(index);
+}
+
+function virtualRowTransform(startPx) {
+  return `translate3d(0, ${Math.round(startPx)}px, 0)`;
+}
 
 // ── Blocked message placeholder (Discord-style) ────────────
 const BlockedMessage = memo(function BlockedMessage({ onReveal, t }) {
@@ -2375,8 +2451,9 @@ const CommandResultRow = memo(function CommandResultRow({ msg, t }) {
 // System message row (call ended, etc.)
 const SystemMessageRow = memo(function SystemMessageRow({ msg, currentUserId, onDismissSystemMessage, t, formatTime }) {
   if ((msg.subtype === 'call_ended' || msg.subtype === 'call_started') && msg.call_ended) {
-    const { startedByName, durationText, reason, disconnectedUserIds = [] } = msg.call_ended;
-    const isCallStarted = msg.subtype === 'call_started' || !durationText;
+    const { startedByName, durationText, durationSeconds, reason, disconnectedUserIds = [] } = msg.call_ended;
+    const localizedDuration = formatCallDurationLabel(t, durationSeconds, durationText);
+    const isCallStarted = msg.subtype === 'call_started';
     const formattedTime = msg.created_at
       ? formatContextualTimestamp(msg.created_at, t, formatTime)
       : '';
@@ -2425,17 +2502,41 @@ const SystemMessageRow = memo(function SystemMessageRow({ msg, currentUserId, on
     }
 
     // Regular call message: "X started a call" (in progress) or "X started a call that lasted Y" (ended)
+    const callDate = msg.created_at ? new Date(msg.created_at) : null;
+    const shortTime = callDate && !Number.isNaN(callDate.getTime())
+      ? formatTime(callDate, { hour: 'numeric', minute: '2-digit' })
+      : '';
+
     return (
       <div className={`message-system-row message-system-row--call ${isCallStarted ? 'call-in-progress' : ''}${msg.callAfterMessage ? ' message-system-row--call-after-message' : ''}`} data-message-id={msg.id}>
         <div className="message-system-call-icon-col" aria-hidden>
           <Phone className="message-system-call-icon" strokeWidth={2} />
         </div>
-        <span className="message-system-call-name">{startedByName}</span>
-        <span className="message-system-call-text">
-          {isCallStarted ? 'started a call.' : `started a call that lasted ${durationText}.`}
-        </span>
+        <div className="message-system-call-content">
+          <span className="message-system-call-name">{startedByName}</span>
+          <span className="message-system-call-text">
+            {isCallStarted ? (
+              <>
+                <span className="message-system-call-text-long">{t('chat.callStarted')}</span>
+                <span className="message-system-call-text-short">{t('chat.callStartedShort')}</span>
+              </>
+            ) : (
+              <>
+                <span className="message-system-call-text-long">
+                  {t('chat.callEnded', { duration: localizedDuration })}
+                </span>
+                <span className="message-system-call-text-short">
+                  {t('chat.callEndedShort', { duration: localizedDuration })}
+                </span>
+              </>
+            )}
+          </span>
+        </div>
         {formattedTime && (
-          <time className="message-system-call-time" dateTime={msg.created_at}>{formattedTime}</time>
+          <time className="message-system-call-time message-system-call-time--long" dateTime={msg.created_at}>{formattedTime}</time>
+        )}
+        {shortTime && (
+          <time className="message-system-call-time message-system-call-time--short" dateTime={msg.created_at}>{shortTime}</time>
         )}
       </div>
     );
@@ -2455,11 +2556,9 @@ const ChannelWelcome = memo(function ChannelWelcome({
   onInviteClick,
   onFocusInput,
   t,
-  formatDate,
   compact = false,
 }) {
   const channelTag = `#${channelName || 'general'}`;
-  const todayLabel = formatDate(new Date());
   const showActions = !compact && (onInviteClick || onFocusInput);
   const welcomeHint = useMemo(
     () => pickChannelWelcomeHint(t('chat.welcomeChannelHints'), channelId, channelName, channelTag),
@@ -2491,11 +2590,6 @@ const ChannelWelcome = memo(function ChannelWelcome({
               <ChevronRight size={18} strokeWidth={2} />
             </button>
           )}
-        </div>
-      )}
-      {!compact && (
-        <div className="date-separator channel-welcome-date" aria-hidden="true">
-          <span className="date-separator-label">{todayLabel}</span>
         </div>
       )}
     </div>
@@ -2774,6 +2868,7 @@ const MessageList = memo(forwardRef(function MessageList({
   serverName = null,
   channelId = null,
   channelName = null,
+  conversationId = null,
   onInviteClick = null,
   onFocusInput = null,
   roles = null,
@@ -2796,6 +2891,8 @@ const MessageList = memo(forwardRef(function MessageList({
   const lastMessageIdRef = useRef(null);
   const firstMessageIdRef = useRef(null);
   const isInitialMount = useRef(true);
+  const pendingBottomResyncRef = useRef(false);
+  const pendingScrollRevealRef = useRef(false);
   const scrollRestoreRef = useRef(null);
   const lastScrollTopRef = useRef(0);
   const [contextMenu, setContextMenu] = useState(null);
@@ -2817,7 +2914,7 @@ const MessageList = memo(forwardRef(function MessageList({
   const contextMenuRef = useRef(null);
 
   const { settings, isCompactMode, showAvatars, showEmbeds, animateEmoji } = useSettings();
-  const { t, formatDate, formatTime } = useLanguage();
+  const { t, formatDateSeparatorLabel, formatTime } = useLanguage();
   const { notify } = useNotification();
   const { blockedIds } = useBlockedUsers();
   const [revealedBlockedIds, setRevealedBlockedIds] = useState(() => new Set());
@@ -2827,6 +2924,18 @@ const MessageList = memo(forwardRef(function MessageList({
   const compactTouchUi = useCompactTouchUi();
   const virtualizationThreshold = compactTouchUi ? VIRTUALIZATION_THRESHOLD_TOUCH : VIRTUALIZATION_THRESHOLD_DESKTOP;
   const scrollOverscan = compactTouchUi ? SCROLL_OVERSCAN_TOUCH : SCROLL_OVERSCAN_DESKTOP;
+
+  const surfaceKey = channelId != null ? String(channelId) : (conversationId != null ? String(conversationId) : null);
+  const messagesBelongToSurface = useMemo(() => {
+    if (!surfaceKey || messages.length === 0) return true;
+    return messages.every((m) => {
+      const msgSurface = m.channel_id ?? m.channelId ?? m.conversation_id;
+      return msgSurface != null && String(msgSurface) === surfaceKey;
+    });
+  }, [messages, surfaceKey]);
+  const visibleMessages = messagesBelongToSurface ? messages : [];
+  const showPlaceholder = loading || !messagesBelongToSurface;
+  const surfaceKeyRef = useRef(surfaceKey);
 
   useEffect(() => {
     selectedMessageIdRef.current = selectedMessageId;
@@ -2849,12 +2958,12 @@ const MessageList = memo(forwardRef(function MessageList({
   const mentionUsers = useMemo(() => {
     const byId = new Map();
     otherUsers.forEach((u) => u?.id != null && byId.set(u.id, u));
-    messages.forEach((m) => {
+    visibleMessages.forEach((m) => {
       const s = m.sender;
       if (s?.id != null && !byId.has(s.id)) byId.set(s.id, s);
     });
     return Array.from(byId.values());
-  }, [otherUsers, messages]);
+  }, [otherUsers, visibleMessages]);
 
   // Track Shift key for quick-delete hover actions
   const [isShiftHeld, setIsShiftHeld] = useState(false);
@@ -2875,9 +2984,22 @@ const MessageList = memo(forwardRef(function MessageList({
   // Detect conversation change vs. prepend (load-more).
   // Channel switch: channel_id changes → reset scroll to bottom.
   // Load-more: channel_id same, first id changes → preserve scroll position.
-  const firstMsgId = messages[0]?.id;
-  const conversationKey = messages[0]?.channel_id ?? messages[0]?.conversation_id;
+  const firstMsgId = visibleMessages[0]?.id;
+  const conversationKey = visibleMessages[0]?.channel_id ?? visibleMessages[0]?.conversation_id;
   const conversationKeyRef = useRef(conversationKey);
+
+  useLayoutEffect(() => {
+    if (surfaceKey == null || surfaceKey === surfaceKeyRef.current) return;
+    surfaceKeyRef.current = surfaceKey;
+    isInitialMount.current = true;
+    conversationKeyRef.current = null;
+    pendingScrollRevealRef.current = false;
+    pendingBottomResyncRef.current = false;
+    if (containerRef.current) {
+      delete containerRef.current.dataset.scrollReady;
+    }
+  }, [surfaceKey]);
+
   useLayoutEffect(() => {
     if (!firstMsgId) return;
     const isNewConversation = conversationKey !== conversationKeyRef.current;
@@ -2888,29 +3010,35 @@ const MessageList = memo(forwardRef(function MessageList({
       prevMessagesLengthRef.current = 0;
       lastMessageIdRef.current = null;
       firstMessageIdRef.current = firstMsgId;
+      pendingBottomResyncRef.current = false;
     } else if (firstMsgId !== firstMessageIdRef.current) {
-      // Older messages prepended — preserve scroll position
       const el = containerRef.current;
       if (el) {
-        const prevHeight = el.scrollHeight;
-        const prevScroll = el.scrollTop;
-        requestAnimationFrame(() => {
-          if (containerRef.current) {
-            containerRef.current.scrollTop = containerRef.current.scrollHeight - prevHeight + prevScroll;
-          }
-        });
+        if (loadingMore || !isAtBottomRef.current) {
+          // Load-more while scrolled up — preserve reading position (sync, before paint).
+          const prevHeight = el.scrollHeight;
+          const prevScroll = el.scrollTop;
+          el.scrollTop = el.scrollHeight - prevHeight + prevScroll;
+        } else {
+          // Prepended while pinned to bottom (e.g. DM cache then API) — re-anchor without
+          // the visible "fill upward" effect from an async scroll correction.
+          delete el.dataset.scrollReady;
+          el.scrollTop = el.scrollHeight;
+          pendingBottomResyncRef.current = true;
+        }
       }
       firstMessageIdRef.current = firstMsgId;
-      prevMessagesLengthRef.current = messages.length;
+      prevMessagesLengthRef.current = visibleMessages.length;
     }
-  }, [firstMsgId, conversationKey, messages.length]);
+  }, [firstMsgId, conversationKey, visibleMessages.length, loadingMore]);
 
   const scrollToBottom = useCallback((instant = false) => {
     if (!containerRef.current) return;
     const behavior = instant ? 'auto' : 'smooth';
     const v = virtualizerRef.current;
     if (v?.useVirtualization && v?.virtualizer) {
-      v.virtualizer.scrollToIndex(v.itemCount - 1, { align: 'end', behavior });
+      const vz = v.virtualizer;
+      vz.scrollToOffset(vz.getTotalSize(), { align: 'end', behavior });
     } else {
       containerRef.current.scrollTo({ top: containerRef.current.scrollHeight, behavior });
     }
@@ -2953,32 +3081,28 @@ const MessageList = memo(forwardRef(function MessageList({
   // were not yet final on first scroll. CSS hides the list while
   // data-scroll-ready is absent, masking any residual position jump.
   useLayoutEffect(() => {
-    if (isInitialMount.current && messages.length > 0) {
+    if (showPlaceholder) return;
+    const needsInitialScroll = isInitialMount.current && visibleMessages.length > 0;
+    const needsBottomResync = pendingBottomResyncRef.current && visibleMessages.length > 0;
+    if (needsInitialScroll || needsBottomResync) {
       const el = containerRef.current;
       if (el) {
-        // Hide first (in case a previous render left it ready), sync-scroll, then
-        // a deferred pass + reveal once virtualizer has finalized layout.
         delete el.dataset.scrollReady;
         el.scrollTop = el.scrollHeight;
       }
-      const id = requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          scrollToBottom(true);
-          if (containerRef.current) {
-            containerRef.current.dataset.scrollReady = '1';
-          }
-        });
-      });
+      pendingScrollRevealRef.current = true;
       isInitialMount.current = false;
-      prevMessagesLengthRef.current = messages.length;
-      lastMessageIdRef.current = messages[messages.length - 1]?.id;
-      return () => cancelAnimationFrame(id);
+      pendingBottomResyncRef.current = false;
+      prevMessagesLengthRef.current = visibleMessages.length;
+      lastMessageIdRef.current = visibleMessages[visibleMessages.length - 1]?.id;
+      return;
     }
-    // Already mounted (subsequent renders) or empty conv: ensure the list is visible.
+    // Empty settled conversation: nothing to scroll — reveal immediately.
     if (containerRef.current && !containerRef.current.dataset.scrollReady) {
       containerRef.current.dataset.scrollReady = '1';
+      isInitialMount.current = false;
     }
-  }, [messages.length, firstMsgId, scrollToBottom]);
+  }, [visibleMessages.length, firstMsgId, showPlaceholder, surfaceKey]);
 
   // Restore scroll position after edit or system message (prevents scroll jump)
   // Use multiple restore passes to override virtualizer's internal scroll adjustments
@@ -3022,15 +3146,15 @@ const MessageList = memo(forwardRef(function MessageList({
   // Scroll to bottom when new messages arrive (only if user was at bottom)
   // Never auto-scroll for system messages (call started/ended) - preserve user's position
   useLayoutEffect(() => {
-    if (isInitialMount.current || messages.length === 0) return;
+    if (showPlaceholder || isInitialMount.current || visibleMessages.length === 0) return;
 
-    const lastMessage = messages[messages.length - 1];
+    const lastMessage = visibleMessages[visibleMessages.length - 1];
     const lastMessageId = lastMessage?.id;
     const isSystemMessage = lastMessage?.type === 'system';
 
     // Only scroll if there's a genuinely new message (different ID)
     const isNewMessage = lastMessageId && lastMessageId !== lastMessageIdRef.current &&
-                         messages.length >= prevMessagesLengthRef.current;
+                         visibleMessages.length >= prevMessagesLengthRef.current;
     const isOwnMessage = lastMessage?.sender_id === currentUserId;
 
     if (isNewMessage && !isSystemMessage) {
@@ -3043,9 +3167,9 @@ const MessageList = memo(forwardRef(function MessageList({
       }
     }
 
-    prevMessagesLengthRef.current = messages.length;
+    prevMessagesLengthRef.current = visibleMessages.length;
     lastMessageIdRef.current = lastMessageId;
-  }, [messages, scrollToBottom, currentUserId]);
+  }, [visibleMessages, scrollToBottom, currentUserId, showPlaceholder]);
 
   const handleScroll = useCallback(() => {
     if (scrollRafRef.current) return;
@@ -3400,26 +3524,26 @@ const MessageList = memo(forwardRef(function MessageList({
   // Create a map of messages by ID for quick lookup (for replies)
   const messagesById = useMemo(() => {
     const map = {};
-    messages.forEach(msg => { map[msg.id] = msg; });
+    visibleMessages.forEach(msg => { map[msg.id] = msg; });
     return map;
-  }, [messages]);
+  }, [visibleMessages]);
 
   // Process messages
   const processedMessages = useMemo(() => {
     // Find the ID of the last message sent by current user
     let lastOwnMessageId = null;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].sender_id === currentUserId) {
-        lastOwnMessageId = messages[i].id;
+    for (let i = visibleMessages.length - 1; i >= 0; i--) {
+      if (visibleMessages[i].sender_id === currentUserId) {
+        lastOwnMessageId = visibleMessages[i].id;
         break;
       }
     }
     
     let lastDateStr = null;
     let unreadDividerPlaced = false;
-    return messages.map((msg, index) => {
-      const prev = messages[index - 1];
-      const next = messages[index + 1];
+    return visibleMessages.map((msg, index) => {
+      const prev = visibleMessages[index - 1];
+      const next = visibleMessages[index + 1];
       const isSystem = msg.type === 'system';
       let isMemberJoin = false;
       if (isSystem && msg.content) {
@@ -3432,9 +3556,12 @@ const MessageList = memo(forwardRef(function MessageList({
       const isLastOwnMessage = !isSystem && msg.id === lastOwnMessageId;
       
       const msgDate = msg.created_at ? new Date(msg.created_at) : new Date();
-      const dateStr = isNaN(msgDate.getTime()) ? '' : msgDate.toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
-      const showDateSeparator = dateStr !== lastDateStr;
-      lastDateStr = dateStr;
+      const dateKey = isNaN(msgDate.getTime())
+        ? ''
+        : `${msgDate.getFullYear()}-${msgDate.getMonth()}-${msgDate.getDate()}`;
+      const showDateSeparator = dateKey !== lastDateStr;
+      lastDateStr = dateKey;
+      const dateLabel = isNaN(msgDate.getTime()) ? '' : formatDateSeparatorLabel(msgDate);
 
       let showUnreadDivider = false;
       if (lastReadMessageId && !unreadDividerPlaced && msg.id > lastReadMessageId && !isOwn) {
@@ -3500,13 +3627,13 @@ const MessageList = memo(forwardRef(function MessageList({
         replyToMessage,
         showDateSeparator,
         showUnreadDivider,
-        dateLabel: dateStr,
+        dateLabel,
       };
     });
-  }, [messages, currentUserId, readReceipts, otherUsers, messagesById, lastReadMessageId]);
+  }, [visibleMessages, currentUserId, readReceipts, otherUsers, messagesById, lastReadMessageId, formatDateSeparatorLabel]);
 
   const showChannelIntro = !isDM && !!(channelName || serverName) && !!(onInviteClick || onFocusInput);
-  const showChannelIntroWithMessages = showChannelIntro && messages.length > 0;
+  const showChannelIntroWithMessages = showChannelIntro && visibleMessages.length > 0;
 
   const channelWelcomeBlock = showChannelIntro ? (
     <ChannelWelcome
@@ -3516,8 +3643,7 @@ const MessageList = memo(forwardRef(function MessageList({
       onInviteClick={onInviteClick}
       onFocusInput={onFocusInput}
       t={t}
-      formatDate={formatDate}
-      compact={messages.length > 0}
+      compact={visibleMessages.length > 0}
     />
   ) : null;
 
@@ -3548,26 +3674,93 @@ const MessageList = memo(forwardRef(function MessageList({
     getScrollElement: () => containerRef.current,
     estimateSize: (index) => {
       const item = virtualItems[index];
-      if (item?.rowType === 'banner') return 120;
-      if (item?.rowType === 'channelWelcome') return 112;
-      if (!item || item.rowType !== 'message') return ESTIMATED_MESSAGE_HEIGHT;
+      const cacheKey = getVirtualRowCacheKey(item, index);
+      if (item?.rowType === 'banner') {
+        return getCachedMessageRowHeight(cacheKey, isDM ? 300 : 120);
+      }
+      if (item?.rowType === 'channelWelcome') {
+        return getCachedMessageRowHeight(cacheKey, 112);
+      }
+      if (!item || item.rowType !== 'message') {
+        return getCachedMessageRowHeight(cacheKey, ESTIMATED_MESSAGE_HEIGHT);
+      }
       let est = ESTIMATED_MESSAGE_HEIGHT;
       if (item.isSystem) {
         let h = 48;
         if (item.callAfterMessage) h += 14;
-        return h;
+        return getCachedMessageRowHeight(cacheKey, h);
       }
       if (item.showDateSeparator) est += 36;
       if (item.showUnreadDivider && !item.showDateSeparator) est += 32;
       if (item.type === 'image' || item.type === 'file') est += 80;
-      return est;
+      return getCachedMessageRowHeight(cacheKey, est);
     },
-    overscan: scrollOverscan,
+    overscan: isDM ? Math.max(scrollOverscan, 20) : scrollOverscan,
   });
 
   virtualizerRef.current = useVirtualization
     ? { useVirtualization: true, virtualizer: rowVirtualizer, itemCount: virtualItems.length }
     : null;
+
+  const measureVirtualRow = useCallback((node) => {
+    rowVirtualizer.measureElement(node);
+    if (!node) return;
+    const index = Number(node.getAttribute('data-index'));
+    if (Number.isNaN(index)) return;
+    const item = virtualItems[index];
+    cacheMessageRowHeight(getVirtualRowCacheKey(item, index), node.getBoundingClientRect().height);
+  }, [rowVirtualizer, virtualItems]);
+
+  // Pin to bottom and reveal only once virtual row heights have settled (long DM lists).
+  useLayoutEffect(() => {
+    if (!pendingScrollRevealRef.current || showPlaceholder) return;
+    pendingScrollRevealRef.current = false;
+    const el = containerRef.current;
+    if (!el) return;
+
+    const reveal = () => {
+      if (containerRef.current) containerRef.current.dataset.scrollReady = '1';
+    };
+    const pinBottom = () => {
+      if (useVirtualization) {
+        rowVirtualizer.scrollToOffset(rowVirtualizer.getTotalSize(), { align: 'end', behavior: 'auto' });
+      } else {
+        el.scrollTop = el.scrollHeight;
+      }
+    };
+
+    if (!useVirtualization) {
+      pinBottom();
+      const id = requestAnimationFrame(() => {
+        pinBottom();
+        reveal();
+      });
+      return () => cancelAnimationFrame(id);
+    }
+
+    let lastTotal = -1;
+    let stableFrames = 0;
+    let frames = 0;
+    let rafId = 0;
+    const tick = () => {
+      pinBottom();
+      const total = rowVirtualizer.getTotalSize();
+      frames += 1;
+      if (total === lastTotal && total > 0) stableFrames += 1;
+      else {
+        stableFrames = 0;
+        lastTotal = total;
+      }
+      if (stableFrames >= 3 || frames >= 32) {
+        pinBottom();
+        reveal();
+        return;
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [showPlaceholder, useVirtualization, visibleMessages.length, firstMsgId, rowVirtualizer, surfaceKey]);
 
   // Scroll to a specific message by ID
   const scrollToMessage = useCallback((messageId) => {
@@ -3600,8 +3793,22 @@ const MessageList = memo(forwardRef(function MessageList({
 
   return (
     <div className="message-list-container">
+      {showPlaceholder && (
+        <div className="message-skeleton-list message-skeleton-list--overlay" aria-hidden="true">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="message-skeleton-item">
+              <div className="skeleton-avatar" />
+              <div className="skeleton-lines">
+                <div className="skeleton-line skeleton-line-name" style={{ width: `${60 + (i % 3) * 20}px` }} />
+                <div className="skeleton-line" style={{ width: `${120 + (i % 5) * 40}px` }} />
+                {i % 2 === 0 && <div className="skeleton-line" style={{ width: `${80 + (i % 4) * 30}px` }} />}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       <div
-        className={`message-list${!loading ? ' message-list--loaded' : ''}`}
+        className={`message-list${!showPlaceholder ? ' message-list--loaded' : ''}`}
         ref={containerRef}
         onScroll={handleScroll}
         data-display={isCompactMode ? 'compact' : 'cozy'}
@@ -3611,29 +3818,19 @@ const MessageList = memo(forwardRef(function MessageList({
         data-has-selected={selectedMessageId ? '' : undefined}
         data-virtualized={useVirtualization ? '' : undefined}
       >
-        {!useVirtualization && topBanner}
-        {loading ? (
-          <div className="message-skeleton-list">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="message-skeleton-item">
-                <div className="skeleton-avatar" />
-                <div className="skeleton-lines">
-                  <div className="skeleton-line skeleton-line-name" style={{ width: `${60 + (i % 3) * 20}px` }} />
-                  <div className="skeleton-line" style={{ width: `${120 + (i % 5) * 40}px` }} />
-                  {i % 2 === 0 && <div className="skeleton-line" style={{ width: `${80 + (i % 4) * 30}px` }} />}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
+        {!showPlaceholder && (
           <>
             {loadingMore && (
               <div className="message-list-load-more">
                 <div className="message-list-load-more-spinner" />
               </div>
             )}
+            {!useVirtualization && (
+              <div className="message-list-anchor-spacer" aria-hidden="true" />
+            )}
+            {!useVirtualization && topBanner}
             {showChannelIntroWithMessages && !useVirtualization && channelWelcomeBlock}
-            {messages.length === 0 && (
+            {visibleMessages.length === 0 && (
               showChannelIntro ? (
                 channelWelcomeBlock
               ) : (
@@ -3657,14 +3854,14 @@ const MessageList = memo(forwardRef(function MessageList({
                     return (
                       <div
                         key="__banner__"
-                        ref={rowVirtualizer.measureElement}
+                        ref={measureVirtualRow}
                         data-index={virtualRow.index}
                         style={{
                           position: 'absolute',
                           top: 0,
                           left: 0,
                           width: '100%',
-                          transform: `translateY(${virtualRow.start}px)`,
+                          transform: virtualRowTransform(virtualRow.start),
                         }}
                       >
                         {topBanner}
@@ -3675,14 +3872,14 @@ const MessageList = memo(forwardRef(function MessageList({
                     return (
                       <div
                         key="__channel_welcome__"
-                        ref={rowVirtualizer.measureElement}
+                        ref={measureVirtualRow}
                         data-index={virtualRow.index}
                         style={{
                           position: 'absolute',
                           top: 0,
                           left: 0,
                           width: '100%',
-                          transform: `translateY(${virtualRow.start}px)`,
+                          transform: virtualRowTransform(virtualRow.start),
                         }}
                       >
                         {channelWelcomeBlock}
@@ -3693,14 +3890,14 @@ const MessageList = memo(forwardRef(function MessageList({
                   return (
                     <div
                       key={msg.renderKey}
-                      ref={rowVirtualizer.measureElement}
+                      ref={measureVirtualRow}
                       data-index={virtualRow.index}
                       style={{
                         position: 'absolute',
                         top: 0,
                         left: 0,
                         width: '100%',
-                        transform: `translateY(${virtualRow.start}px)`,
+                        transform: virtualRowTransform(virtualRow.start),
                       }}
                     >
                       {msg.showDateSeparator && !msg._deleting && (

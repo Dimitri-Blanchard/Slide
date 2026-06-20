@@ -67,6 +67,7 @@ html.platform-mobile .swipe-back-chevron {
   min-width: 0;
   display: flex;
   align-items: stretch;
+  transition: flex-direction 0.36s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .chat-main-content {
@@ -91,6 +92,11 @@ html.platform-mobile .swipe-back-chevron {
   border-bottom: var(--hairline-width) solid var(--border-subtle);
   background: var(--bg-primary);
   z-index: 1;
+  transition:
+    height 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    min-height 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    padding 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    gap 0.36s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .chat-header-icon {
@@ -312,14 +318,38 @@ html.platform-mobile .swipe-back-chevron {
   flex-direction: column;
   min-width: 0;
   z-index: 10;
+  background: var(--bg-primary);
+}
+
+.chat-main-content.input-docked .message-list,
+.chat-main-content:has(.chat-composer-stack):not(.input-floating) .message-list {
+  padding-bottom: 8px;
+}
+
+.chat-main-content.input-floating {
+  position: relative;
+}
+
+.chat-main-content.input-floating .chat-composer-stack {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin-top: 0;
+}
+
+.chat-main-content.input-floating .message-list {
+  padding-bottom: calc(var(--composer-stack-height, 96px) + env(safe-area-inset-bottom, 0px));
 }
 
 .chat-composer-stack .message-input-container {
   margin-top: 0;
+  padding-top: 8px;
+  padding-bottom: 16px;
 }
 
 .chat-composer-stack:has(.chat-typing) .message-input-container {
-  padding-top: 6px;
+  padding-top: 4px;
 }
 
 /* Typing Indicator */
@@ -690,6 +720,7 @@ html.platform-mobile .swipe-back-chevron {
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
+  transition: gap 0.36s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dm-header-toolbar {
@@ -699,6 +730,7 @@ html.platform-mobile .swipe-back-chevron {
   margin-left: auto;
   flex-shrink: 0;
   min-width: 0;
+  transition: gap 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dm-header-identity {
@@ -766,8 +798,18 @@ html.platform-mobile .swipe-back-chevron {
   display: flex;
   align-items: center;
   width: 120px;
-  flex-shrink: 0;
-  transition: width 0.28s cubic-bezier(0.33, 1, 0.68, 1);
+  max-width: 188px;
+  flex-shrink: 1;
+  min-width: 0;
+  opacity: 1;
+  overflow: hidden;
+  transition:
+    width 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    max-width 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    min-width 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    margin 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    padding 0.36s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dm-header-search--focused {
@@ -842,17 +884,13 @@ html.platform-mobile .swipe-back-chevron {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.36);
   z-index: 40;
   overflow: hidden;
-  animation: dm-search-panel-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: none;
 }
 
 @keyframes dm-search-panel-in {
-  from {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.98);
-  }
-  to {
+  from, to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: none;
   }
 }
 
@@ -946,6 +984,8 @@ html.platform-mobile .swipe-back-chevron {
 .dm-action-btn {
   width: 34px;
   height: 34px;
+  min-width: 34px;
+  min-height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -955,7 +995,13 @@ html.platform-mobile .swipe-back-chevron {
   color: var(--text-muted);
   cursor: pointer;
   position: relative;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    width 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    min-width 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    min-height 0.36s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dm-action-btn:hover {
@@ -1220,7 +1266,13 @@ html.platform-mobile .swipe-back-chevron {
   }
 
   .dm-header-search {
-    display: none;
+    width: 0;
+    max-width: 0;
+    min-width: 0;
+    opacity: 0;
+    margin: 0;
+    padding: 0;
+    pointer-events: none;
   }
 
   .dm-action-btn {
@@ -1232,10 +1284,6 @@ html.platform-mobile .swipe-back-chevron {
 
   .chat-typing {
     padding: 0 12px 2px;
-  }
-
-  .gm-sidebar {
-    display: none;
   }
 }
 
@@ -1256,7 +1304,7 @@ html.platform-mobile .swipe-back-chevron {
   }
 
   .message-list {
-    padding: 0 8px 56px;
+    padding: 0 8px 8px;
   }
 
   .chat-typing {
@@ -1288,6 +1336,9 @@ html.platform-mobile .swipe-back-chevron {
    GROUP MEMBERS SIDEBAR — Discord-style right panel
    ═══════════════════════════════════════════════════════════ */
 .gm-sidebar {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
   background:

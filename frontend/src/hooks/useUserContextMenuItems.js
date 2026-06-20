@@ -98,6 +98,7 @@ export function useUserContextMenuItems(user, context = {}) {
       upsertLocalPrivateChat(currentUser.id, user, {
         last_message_preview: 'Invitation privée locale',
         last_message_at: new Date().toISOString(),
+        initiated_by_me: true,
       });
     }
     navigate(makeLocalPrivateRoute(user.id), { state: { user } });

@@ -1,4 +1,5 @@
-import React, { memo, useState, useEffect, useRef, useMemo } from 'react';
+import React, { memo, useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { AvatarImg } from './Avatar';
 import AppIcon from './icons/AppIcon';
 import { useVoice, sameUserId } from '../context/VoiceContext';
@@ -6,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSounds } from '../context/SoundContext';
 import { useSettings } from '../context/SettingsContext';
 import { useMediaDevices } from '../hooks/useMediaDevices';
+import { useDmCallStageHeight } from '../hooks/useDmCallStageHeight';
 import { useTranslation } from '../context/LanguageContext';
 import { RemoteStreamVolumeControl } from './RemoteStreamVolumeControl';
 import './DMCallView.css';
@@ -40,17 +42,63 @@ function useCallTimer(active) {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 }
 
-function Btn({ on, danger, end, onClick, title, children }) {
+function DockBtn({ on, danger, onClick, title, children }) {
   return (
     <button
       type="button"
-      className={`dm-call-btn${on ? (danger ? ' is-off' : ' is-on') : ''}${end ? ' dm-call-btn--end' : ''}`}
+      className={`dm-call-dock-btn${on ? (danger ? ' is-off' : ' is-on') : ''}`}
       onClick={onClick}
       title={title}
+      aria-label={title}
       data-voice-mute-trigger={title === 'Mute' || title === 'Unmute' ? true : undefined}
     >
       {children}
     </button>
+  );
+}
+
+function SplitDockControl({ active, danger, open, onMain, onChevron, chevronTitle, title, children }) {
+  return (
+    <div className={`dm-call-split${active ? (danger ? ' is-off' : ' is-on') : ''}${open ? ' is-open' : ''}`}>
+      <button type="button" className="dm-call-dock-btn dm-call-split-main" onClick={onMain} title={title} aria-label={title}>
+        {children}
+      </button>
+      <button
+        type="button"
+        className="dm-call-split-chevron"
+        onClick={onChevron}
+        title={chevronTitle}
+        aria-label={chevronTitle}
+        aria-expanded={open}
+      >
+        <AppIcon name="caretUp" size={10} weight="bold" />
+      </button>
+    </div>
+  );
+}
+
+function DevicePopover({ rect, title, items, selected, onPick, onClose }) {
+  if (!rect) return null;
+  return createPortal(
+    <div
+      className="dm-call-device-popover"
+      style={{ left: rect.left, bottom: rect.bottom, transform: 'translateX(-50%)' }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="dm-call-device-popover-title">{title}</div>
+      {items.map((d) => (
+        <button
+          key={d.value}
+          type="button"
+          data-selected={selected === d.value}
+          title={d.label}
+          onClick={() => { onPick(d.value); onClose(); }}
+        >
+          {d.label}
+        </button>
+      ))}
+    </div>,
+    document.body
   );
 }
 
@@ -75,14 +123,36 @@ export default function DMCallView({
   } = useVoice();
   const { startRingtone, stopRingtone } = useSounds();
   const { inputs, outputs, videoInputs } = useMediaDevices();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
+  const resizable = embedded || compact;
+  const stageRef = useRef(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [openPopover, setOpenPopover] = useState(null);
+  const [popoverRect, setPopoverRect] = useState(null);
+  const dockRef = useRef(null);
+  const micRef = useRef(null);
+  const camRef = useRef(null);
+  const deafenRef = useRef(null);
+  const moreRef = useRef(null);
 
   useEffect(() => {
-    const close = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    const close = (e) => {
+      if (dockRef.current?.contains(e.target)) return;
+      if (e.target.closest('.dm-call-device-popover')) return;
+      setMoreOpen(false);
+      setOpenPopover(null);
+    };
     document.addEventListener('click', close);
     return () => document.removeEventListener('click', close);
   }, []);
+
+  useLayoutEffect(() => {
+    if (!openPopover) { setPopoverRect(null); return; }
+    const map = { mic: micRef, camera: camRef, deafen: deafenRef };
+    const el = map[openPopover]?.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setPopoverRect({ left: rect.left + rect.width / 2, bottom: window.innerHeight - rect.top + 8 });
+  }, [openPopover]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -169,85 +239,153 @@ export default function DMCallView({
   const primary = others[0] || otherUser || { display_name: displayName, avatar_url: otherUser?.avatar_url };
   const speaking = primary?.id != null && speakingUsers.has(String(primary.id));
 
-  let status;
-  if (leaving) status = t('dmCall.leaving', 'Leaving…');
-  else if (connecting) status = t('dmCall.connecting', 'Connecting…');
-  else if (establishing) status = t('dmCall.establishingVoice', 'Connecting audio…');
-  else if (waiting) {
-    status = isGroup
+  let statusPhase = 'live';
+  let statusHeadline;
+  let statusSub = null;
+  if (leaving) {
+    statusPhase = 'leaving';
+    statusHeadline = t('dmCall.leaving', 'Leaving…');
+  } else if (connecting || establishing) {
+    statusPhase = 'connecting';
+    statusHeadline = establishing
+      ? t('dmCall.establishingVoice', 'Connecting audio…')
+      : t('dmCall.connecting', 'Connecting…');
+  } else if (waiting) {
+    statusPhase = 'waiting';
+    statusHeadline = isGroup
       ? t('dmCall.waitingGroup', 'Waiting…')
       : t('dmCall.callingUser', { name: displayName, defaultValue: `Calling ${displayName}…` });
-  } else if (alone) status = t('dmCall.aloneInCallDm', 'In call alone');
-  else if (callUsers.length > 1) status = `${timer} · ${callUsers.length}`;
-  else status = timer;
+    statusSub = t('dmCall.ringingHint', 'Waiting for an answer');
+  } else if (alone) {
+    statusPhase = 'alone';
+    statusHeadline = t('dmCall.aloneInCallDm', 'In call alone');
+  } else if (live) {
+    statusPhase = 'live';
+    statusHeadline = t('dmCall.voiceConnected', 'Voice Connected');
+    statusSub = callUsers.length > 1
+      ? `${timer} · ${t('dmCall.inCallMeta', { count: callUsers.length, defaultValue: `${callUsers.length} in call` })}`
+      : timer;
+  } else {
+    statusPhase = 'live';
+    statusHeadline = t('dmCall.voiceConnected', 'Voice Connected');
+    statusSub = timer;
+  }
 
   const mainVideo = videos.find((v) => !v.isSelf) || videos[0];
   const pipVideo = videos.find((v) => v.isSelf && v !== mainVideo);
-
   const iconSize = 20;
+  const stageName = compact ? null : displayName;
 
-  const meta = (
-    <div className="dm-call-meta">
-      {!embedded && <span className="dm-call-name">{displayName}</span>}
-      <span className={`dm-call-label${live || alone ? ' live' : ''}`}>{status}</span>
-    </div>
+  const { stageHeight, contentMinHeight, handleResizeStart } = useDmCallStageHeight(
+    resizable,
+    stageRef,
+    [hasVideo, compact, embedded, stageName, statusHeadline, statusSub],
   );
 
-  const avatar = (
-    <div className={`dm-call-avatar${speaking ? ' speaking' : ''}`}>
-      {primary?.avatar_url ? (
-        <AvatarImg src={primary.avatar_url} alt={displayName} />
-      ) : (
-        <span>{(displayName || '?').charAt(0).toUpperCase()}</span>
-      )}
-    </div>
-  );
+  const togglePopover = (key) => {
+    setMoreOpen(false);
+    setOpenPopover((prev) => (prev === key ? null : key));
+  };
 
-  const actions = (
-    <div className="dm-call-actions" ref={menuRef}>
-      <Btn on={isMuted} danger onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
-        <AppIcon name={isMuted ? 'micOff' : 'mic'} size={iconSize} />
-      </Btn>
-      <Btn on={isCameraOn} onClick={() => (isCameraOn ? stopCamera() : startCamera())} title="Camera">
-        <AppIcon name={isCameraOn ? 'camera' : 'cameraOff'} size={iconSize} />
-      </Btn>
-      <Btn on={isScreenSharing} onClick={() => (isScreenSharing ? stopScreenShareDM() : startScreenShareDM())} title="Screen">
-        <AppIcon name="screenShare" size={iconSize} />
-      </Btn>
-      <Btn on={isDeafened} danger onClick={toggleDeafen} title="Deafen">
-        <AppIcon name={isDeafened ? 'deafenOff' : 'deafen'} size={iconSize} />
-      </Btn>
-      <div className="dm-call-menu-wrap">
-        <Btn on={menuOpen} onClick={() => setMenuOpen((o) => !o)} title="More">
-          <AppIcon name="more" size={iconSize} />
-        </Btn>
-        {menuOpen && (
-          <div className="dm-call-menu">
-            {waiting && (
-              <button type="button" onClick={() => { ringVoiceDM(); setMenuOpen(false); }}>
-                {t('dmCall.ringAgain', 'Ring again')}
-              </button>
-            )}
-            {inputs.map((d) => (
-              <button key={d.value} type="button" data-selected={settings?.input_device === d.value}
-                onClick={() => { switchAudioInput(d.value); setMenuOpen(false); }}>{d.label}</button>
-            ))}
-            {videoInputs.map((d) => (
-              <button key={`v-${d.value}`} type="button" data-selected={settings?.video_device === d.value}
-                onClick={() => { switchVideoInput(d.value); setMenuOpen(false); }}>{d.label}</button>
-            ))}
-            {outputs.map((d) => (
-              <button key={`o-${d.value}`} type="button" data-selected={settings?.output_device === d.value}
-                onClick={() => { switchAudioOutput(d.value); setMenuOpen(false); }}>{d.label}</button>
-            ))}
+  const dock = (
+    <div className="dm-call-dock" ref={dockRef}>
+      <div className="dm-call-dock-pill">
+        <div className="dm-call-dock-group" ref={micRef}>
+          <SplitDockControl
+            active={isMuted}
+            danger
+            open={openPopover === 'mic'}
+            title={isMuted ? 'Unmute' : 'Mute'}
+            chevronTitle={t('dmCall.mic', 'Microphone')}
+            onMain={toggleMute}
+            onChevron={(e) => { e.stopPropagation(); togglePopover('mic'); }}
+          >
+            <AppIcon name={isMuted ? 'micOff' : 'mic'} size={iconSize} />
+          </SplitDockControl>
+        </div>
+
+        <div className="dm-call-dock-group" ref={camRef}>
+          <SplitDockControl
+            active={isCameraOn}
+            open={openPopover === 'camera'}
+            title={t('dmCall.camera', 'Camera')}
+            chevronTitle={t('dmCall.camera', 'Camera')}
+            onMain={() => (isCameraOn ? stopCamera() : startCamera())}
+            onChevron={(e) => { e.stopPropagation(); togglePopover('camera'); }}
+          >
+            <AppIcon name={isCameraOn ? 'camera' : 'cameraOff'} size={iconSize} />
+          </SplitDockControl>
+        </div>
+
+        <div className="dm-call-dock-group">
+          <DockBtn
+            on={isScreenSharing}
+            onClick={() => (isScreenSharing ? stopScreenShareDM() : startScreenShareDM())}
+            title="Screen"
+          >
+            <AppIcon name="screenShare" size={iconSize} />
+          </DockBtn>
+          <div ref={deafenRef}>
+            <SplitDockControl
+              active={isDeafened}
+              danger
+              open={openPopover === 'deafen'}
+              title="Deafen"
+              chevronTitle={t('dmCall.speaker', 'Speaker')}
+              onMain={toggleDeafen}
+              onChevron={(e) => { e.stopPropagation(); togglePopover('deafen'); }}
+            >
+              <AppIcon name={isDeafened ? 'deafenOff' : 'deafen'} size={iconSize} />
+            </SplitDockControl>
           </div>
-        )}
+        </div>
+
+        <div className="dm-call-dock-group" ref={moreRef}>
+          <DockBtn on={moreOpen} onClick={(e) => { e.stopPropagation(); setOpenPopover(null); setMoreOpen((o) => !o); }} title="More">
+            <AppIcon name="more" size={iconSize} />
+          </DockBtn>
+          {moreOpen && (
+            <div className="dm-call-menu">
+              {waiting && (
+                <button type="button" onClick={() => { ringVoiceDM(); setMoreOpen(false); }}>
+                  {t('dmCall.ringAgain', 'Ring again')}
+                </button>
+              )}
+              {inputs.map((d) => (
+                <button key={d.value} type="button" data-selected={settings?.input_device === d.value}
+                  onClick={() => { switchAudioInput(d.value); setMoreOpen(false); }}>{d.label}</button>
+              ))}
+              {videoInputs.map((d) => (
+                <button key={`v-${d.value}`} type="button" data-selected={settings?.video_device === d.value}
+                  onClick={() => { switchVideoInput(d.value); setMoreOpen(false); }}>{d.label}</button>
+              ))}
+              {outputs.map((d) => (
+                <button key={`o-${d.value}`} type="button" data-selected={settings?.output_device === d.value}
+                  onClick={() => { switchAudioOutput(d.value); setMoreOpen(false); }}>{d.label}</button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-      <Btn end onClick={leaveVoiceDM} title={t('dmCall.leaveCall', 'Leave')}>
+
+      <button
+        type="button"
+        className="dm-call-dock-leave"
+        onClick={leaveVoiceDM}
+        title={t('dmCall.leaveCall', 'Leave')}
+        aria-label={t('dmCall.leaveCall', 'Leave')}
+      >
         <AppIcon name="phoneOff" size={iconSize} />
-      </Btn>
+      </button>
     </div>
   );
+
+  const rootStyle = resizable && stageHeight != null
+    ? {
+        '--dm-call-stage-h': `${stageHeight}px`,
+        '--dm-call-stage-min-h': `${contentMinHeight}px`,
+      }
+    : undefined;
 
   return (
     <div
@@ -256,34 +394,97 @@ export default function DMCallView({
         hasVideo && 'has-video',
         embedded && 'dm-call--embedded',
         compact && 'dm-call--compact',
+        resizable && 'dm-call--resizable',
         exiting && 'dm-call--exiting',
       ].filter(Boolean).join(' ')}
+      style={rootStyle}
     >
-      {hasVideo && (
-        <div className="dm-call-video-box">
-          {mainVideo && (
-            <VideoTile
-              stream={mainVideo.stream}
-              muted={!!mainVideo.isSelf}
-              isSelf={!!mainVideo.isSelf}
-              volumeUserId={!mainVideo.isSelf && mainVideo.uid !== 'screen' ? mainVideo.uid : null}
-              listenVolume01={!mainVideo.isSelf && mainVideo.uid !== 'screen' ? getListenVolume01(mainVideo.uid) : 1}
-            />
-          )}
-          {pipVideo && <VideoTile pip stream={pipVideo.stream} muted isSelf />}
-        </div>
-      )}
-
-      <div className="dm-call-bar">
-        {!hasVideo && (
-          <div className="dm-call-main">
-            {avatar}
-            {meta}
+      <div className="dm-call-stage" ref={stageRef}>
+        {hasVideo ? (
+          <div className="dm-call-video-box">
+            {mainVideo && (
+              <VideoTile
+                stream={mainVideo.stream}
+                muted={!!mainVideo.isSelf}
+                isSelf={!!mainVideo.isSelf}
+                volumeUserId={!mainVideo.isSelf && mainVideo.uid !== 'screen' ? mainVideo.uid : null}
+                listenVolume01={!mainVideo.isSelf && mainVideo.uid !== 'screen' ? getListenVolume01(mainVideo.uid) : 1}
+              />
+            )}
+            {pipVideo && <VideoTile pip stream={pipVideo.stream} muted isSelf />}
+          </div>
+        ) : (
+          <div className="dm-call-stage-idle">
+            <div className={`dm-call-avatar-wrap${waiting ? ' ringing' : ''}`}>
+              <div className={`dm-call-avatar${speaking ? ' speaking' : ''}`}>
+                {primary?.avatar_url ? (
+                  <AvatarImg src={primary.avatar_url} alt={displayName} />
+                ) : (
+                  <span>{(displayName || '?').charAt(0).toUpperCase()}</span>
+                )}
+              </div>
+            </div>
+            {stageName && <div className="dm-call-stage-name">{stageName}</div>}
+            <div className={`dm-call-stage-status dm-call-stage-status--${statusPhase}`}>
+              <span className="dm-call-stage-status-head">{statusHeadline}</span>
+              {statusSub && <span className="dm-call-stage-status-sub">{statusSub}</span>}
+            </div>
           </div>
         )}
-        {hasVideo && meta}
-        {actions}
+
+        {hasVideo && (
+          <div className="dm-call-stage-video-meta">
+            <div className={`dm-call-stage-status dm-call-stage-status--${statusPhase}`}>
+              <span className="dm-call-stage-status-head">{statusHeadline}</span>
+              {statusSub && <span className="dm-call-stage-status-sub">{statusSub}</span>}
+            </div>
+          </div>
+        )}
+
+        <div className="dm-call-dock-wrap">{dock}</div>
       </div>
+
+      {resizable && (
+        <div
+          className="dm-call-resize-edge"
+          onPointerDown={handleResizeStart}
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label={t('dmCall.resizeStage', 'Resize call panel')}
+          aria-hidden="true"
+        />
+      )}
+
+      {openPopover === 'mic' && (
+        <DevicePopover
+          rect={popoverRect}
+          title={t('dmCall.mic', 'Microphone')}
+          items={inputs}
+          selected={settings?.input_device}
+          onPick={switchAudioInput}
+          onClose={() => setOpenPopover(null)}
+        />
+      )}
+      {openPopover === 'camera' && (
+        <DevicePopover
+          rect={popoverRect}
+          title={t('dmCall.camera', 'Camera')}
+          items={videoInputs}
+          selected={settings?.video_device}
+          onPick={switchVideoInput}
+          onClose={() => setOpenPopover(null)}
+        />
+      )}
+      {openPopover === 'deafen' && (
+        <DevicePopover
+          rect={popoverRect}
+          title={t('dmCall.speaker', 'Speaker')}
+          items={outputs}
+          selected={settings?.output_device}
+          onPick={switchAudioOutput}
+          onClose={() => setOpenPopover(null)}
+        />
+      )}
     </div>
   );
 }

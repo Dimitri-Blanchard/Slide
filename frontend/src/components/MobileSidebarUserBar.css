@@ -1,0 +1,182 @@
+/* ═══════════════════════════════════════════════════════════
+   MOBILE SIDEBAR USER BAR — Discord-style bottom identity row
+   ═══════════════════════════════════════════════════════════ */
+
+.msb-root {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  min-height: 52px;
+  padding: 0 8px 0 10px;
+  background: #111214;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: default;
+}
+
+.msb-root--embedded {
+  padding-bottom: max(0px, env(safe-area-inset-bottom, 0px));
+}
+
+.msb-identity {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.msb-identity:active {
+  opacity: 0.88;
+}
+
+.msb-avatar {
+  position: relative;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--accent);
+}
+
+.msb-avatar.speaking {
+  box-shadow: 0 0 0 2px #23a55a;
+}
+
+.msb-avatar img,
+.msb-avatar .avatar-img-wrap {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.msb-avatar > span {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.msb-status-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #111214;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.msb-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.msb-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #f2f3f5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msb-name-chevron {
+  flex-shrink: 0;
+  opacity: 0.65;
+  color: #b5bac1;
+}
+
+.msb-status {
+  font-size: 0.75rem;
+  color: #949ba4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msb-notif-btn {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-right: 2px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #b5bac1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.msb-notif-btn:active {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f2f3f5;
+}
+
+.msb-notif-btn.active {
+  color: #a5a6f6;
+}
+
+.msb-notif-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #f23f43;
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #111214;
+  line-height: 1;
+}
+
+/* Floating island variant (non-embedded) */
+.mobile-island-nav .msb-root:not(.msb-root--embedded) {
+  border-radius: 0;
+  border-top: none;
+  background: transparent;
+  min-height: var(--mobile-island-bar-height, 60px);
+  padding: 0 6px 0 0;
+}
+
+.mobile-island-nav .min-island-shell:has(.msb-root) {
+  border-radius: 30px;
+  background: #111214;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.mobile-island-nav .msb-root:not(.msb-root--embedded) .msb-notif-badge {
+  border-color: #111214;
+}

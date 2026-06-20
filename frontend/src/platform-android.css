@@ -107,7 +107,7 @@
 }
 
 /* ── Hardware acceleration hints for animated elements ── */
-.platform-android .mobile-bottom-nav,
+.platform-android .mobile-island-nav,
 .platform-android .mobile-server-picker,
 .platform-android .sidebar,
 .platform-android .direct-chat,

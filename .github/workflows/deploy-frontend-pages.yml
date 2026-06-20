@@ -46,6 +46,9 @@ jobs:
       - name: SPA fallback (404.html = index.html for /qr-login etc.)
         run: cp dist/index.html dist/404.html
 
+      - name: SPA fallback at site root (Pages publishes /, SPA in /docs/)
+        run: cp dist/404.html ../404.html
+
       - name: Ensure CNAME in artifact
         run: echo 'sl1de.xyz' > dist/CNAME
 

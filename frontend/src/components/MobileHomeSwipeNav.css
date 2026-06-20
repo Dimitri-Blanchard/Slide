@@ -1,0 +1,80 @@
+.mobile-home-swipe-nav {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.mobile-home-swipe-nav--static {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mobile-home-pager {
+  touch-action: pan-y pinch-zoom;
+  background: var(--bg-primary);
+}
+
+.mobile-home-pager.is-pager-dragging {
+  touch-action: none;
+}
+
+.mobile-home-pager-track {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  will-change: transform;
+}
+
+.mobile-home-pager.is-pager-animating .mobile-home-pager-track {
+  transition: transform 0.3s cubic-bezier(0.05, 0.7, 0.1, 1);
+}
+
+.mobile-home-pager-page {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.mobile-app-layout .mobile-split-layout .mobile-home-pager-page {
+  background: transparent;
+  overflow: visible;
+}
+
+.mobile-home-pager-page:not(.is-active) {
+  pointer-events: none;
+  user-select: none;
+}
+
+.mobile-home-pager.is-pager-dragging .mobile-home-pager-page {
+  pointer-events: none;
+}
+
+.mobile-home-pager-page-inner {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mobile-home-pager-page-inner .mobile-messages-view,
+.mobile-home-pager-page-inner .app-main,
+.mobile-home-pager-page-inner .team-view {
+  flex: 1;
+  min-height: 0;
+}

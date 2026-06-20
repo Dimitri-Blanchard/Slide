@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   users as usersApi,
   friends as friendsApi,
@@ -12,17 +13,16 @@ import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useSettings } from '../context/SettingsContext';
+import { useOnlineUsers } from '../context/SocketContext';
+import { canShowProfileActivities } from '../utils/profileActivities';
 import { getStaticUrl } from '../utils/staticUrl';
+import { invitePublicUrl } from '../utils/publicSiteUrl';
 import { harmonizeGradientColors } from '../utils/gradientColors';
 import Avatar from './Avatar';
 import ProfileSpotifyActivity from './ProfileSpotifyActivity';
 import ReportModal from './ReportModal';
+import { useRightPanelWidth } from '../hooks/useRightPanelWidth';
 import './DMProfileSidebar.css';
-
-const DPS_SIDEBAR_WIDTH_KEY = 'slide_dm_profile_sidebar_width';
-const DPS_MIN_W = 240;
-const DPS_MAX_W = 400;
-const DPS_DEFAULT_W = 340;
 
 function isGifUrl(url) {
   if (!url || typeof url !== 'string') return false;
@@ -58,6 +58,7 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
   user: providedUser,
   onViewFullProfile,
 }) {
+  const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const { notify } = useNotification();
   const { t } = useLanguage();
@@ -80,36 +81,8 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
   const [copied, setCopied] = useState(false);
 
   const menuRef = useRef(null);
-  const [width, setWidth] = useState(() => {
-    try {
-      const v = parseInt(localStorage.getItem(DPS_SIDEBAR_WIDTH_KEY), 10);
-      return (!isNaN(v) && v >= DPS_MIN_W && v <= DPS_MAX_W) ? v : DPS_DEFAULT_W;
-    } catch { return DPS_DEFAULT_W; }
-  });
-  const widthRef = useRef(width);
-  widthRef.current = width;
+  const { width, handleResizeStart } = useRightPanelWidth();
   const isOwnProfile = currentUser?.id === resolvedId;
-
-  const handleResizeStart = useCallback((e) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startW = widthRef.current;
-    const onMove = (ev) => {
-      const next = Math.min(DPS_MAX_W, Math.max(DPS_MIN_W, startW + (startX - ev.clientX)));
-      setWidth(next);
-      try { localStorage.setItem(DPS_SIDEBAR_WIDTH_KEY, String(next)); } catch {}
-    };
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-    document.body.style.cursor = 'ew-resize';
-    document.body.style.userSelect = 'none';
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, []);
 
   useEffect(() => {
     if (!resolvedId) return;
@@ -185,7 +158,7 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
       const conv = await directApi.createConversation(resolvedId);
       const convId = conv?.conversation_id ?? conv?.id;
       if (!convId) throw new Error('Failed to start conversation');
-      await directApi.sendMessage(convId, `${window.location.origin}/invite/${code}`, 'text');
+      await directApi.sendMessage(convId, invitePublicUrl(code), 'text');
       notify.success(
         (t('invite.sentTo') || 'Invite sent to {name}').replace(
           '{name}',
@@ -196,6 +169,21 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
       notify.error(err?.message || (t('invite.sendError') || 'Failed to send invite'));
     }
   }, [resolvedId, user?.display_name, user?.username, notify, t]);
+
+  const handleTeamClick = useCallback((team) => {
+    if (!team?.id) return;
+    navigate(`/team/${team.id}`);
+  }, [navigate]);
+
+  const handleFriendClick = useCallback(async (friend) => {
+    if (!friend?.id) return;
+    try {
+      const conv = await directApi.createConversation(parseInt(friend.id, 10));
+      navigate(`/channels/@me/${conv.conversation_id ?? conv.id}`);
+    } catch (err) {
+      notify.error(err?.message || (t('errors.generic') || 'Une erreur est survenue'));
+    }
+  }, [navigate, notify, t]);
 
   if (!resolvedId) return null;
 
@@ -228,10 +216,18 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
   const mutualServersCount = commonTeams.length || user?.common_teams || 0;
   const mutualFriendsCount = commonFriends.length || user?.common_friends || 0;
   const inviteableTeams = inviteTeams.filter((srv) => srv?.id != null);
+  const { isUserOnline } = useOnlineUsers();
   const showSpotifyListening =
     !isOwnProfile || appSettings.show_spotify_listening !== false;
+  const activitiesVisible = canShowProfileActivities({
+    isOwnProfile,
+    userId: resolvedId,
+    isUserOnline,
+  });
   const spotifyEnabled =
-    showSpotifyListening && !!(user?.spotify_connected || user?.spotify_now_playing);
+    activitiesVisible &&
+    showSpotifyListening &&
+    !!(user?.spotify_connected || user?.spotify_now_playing);
 
   return (
     <>
@@ -418,7 +414,12 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
                             <p className="dps-empty-text">{t('profile.noMutualServers') || 'No mutual servers'}</p>
                           ) : (
                             commonTeams.map((team) => (
-                              <div key={team.id} className="dps-list-item">
+                              <button
+                                key={team.id}
+                                type="button"
+                                className="dps-list-item dps-list-item--clickable"
+                                onClick={() => handleTeamClick(team)}
+                              >
                                 <div className="dps-list-icon dps-list-icon--square">
                                   {team.avatar_url ? (
                                     <img src={getStaticUrl(team.avatar_url)} alt="" />
@@ -434,7 +435,10 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
                                     </span>
                                   )}
                                 </div>
-                              </div>
+                                <svg className="dps-list-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                                  <polyline points="9 18 15 12 9 6" />
+                                </svg>
+                              </button>
                             ))
                           )}
                         </div>
@@ -470,14 +474,25 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
                             <p className="dps-empty-text">{t('profile.noMutualFriends') || 'No mutual friends'}</p>
                           ) : (
                             commonFriends.map((friend) => (
-                              <div key={friend.id} className="dps-list-item">
+                              <button
+                                key={friend.id}
+                                type="button"
+                                className="dps-list-item dps-list-item--clickable"
+                                onClick={() => handleFriendClick(friend)}
+                              >
                                 <div className="dps-list-icon">
                                   <Avatar user={friend} size="small" showPresence />
                                 </div>
                                 <div className="dps-list-info">
                                   <span className="dps-list-name">{friend.display_name || friend.username}</span>
+                                  {friend.username && friend.display_name && (
+                                    <span className="dps-list-meta">@{friend.username}</span>
+                                  )}
                                 </div>
-                              </div>
+                                <svg className="dps-list-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                                  <polyline points="9 18 15 12 9 6" />
+                                </svg>
+                              </button>
                             ))
                           )}
                         </div>

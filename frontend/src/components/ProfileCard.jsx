@@ -20,6 +20,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useOnlineUsers } from '../context/SocketContext';
 import { getStaticUrl } from '../utils/staticUrl';
 import { getStoredCustomStatus, getStoredOnlineStatus } from '../utils/presenceStorage';
+import { canShowProfileActivities } from '../utils/profileActivities';
 import { harmonizeGradientColors, lightenHex, isLightGradient, isHighContrastGradient, areMatchingBannerColors } from '../utils/gradientColors';
 import Avatar from './Avatar';
 import ProfileSpotifyActivity from './ProfileSpotifyActivity';
@@ -190,8 +191,15 @@ const ProfileCard = memo(function ProfileCard({
   const isOwnProfile = currentUser?.id === resolvedId || currentUser?.id === providedUser?.id;
   const showSpotifyListening =
     !isOwnProfile || appSettings.show_spotify_listening !== false;
+  const activitiesVisible = canShowProfileActivities({
+    isOwnProfile,
+    userId: resolvedId,
+    isUserOnline,
+  });
   const spotifyEnabled =
-    showSpotifyListening && !!(user?.spotify_connected || user?.spotify_now_playing);
+    activitiesVisible &&
+    showSpotifyListening &&
+    !!(user?.spotify_connected || user?.spotify_now_playing);
 
   // Load note
   useEffect(() => {

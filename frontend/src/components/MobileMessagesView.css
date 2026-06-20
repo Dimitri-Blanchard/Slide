@@ -10,112 +10,18 @@
   background: var(--bg-primary);
 }
 
-.mobile-messages-toolbar {
-  flex-shrink: 0;
+.sidebar-nav-panel {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 16px 0;
-}
-
-.mobile-messages-friends-btn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  text-decoration: none;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  transition: background 0.15s ease;
-}
-
-.mobile-messages-friends-btn:active {
-  background: var(--bg-hover);
-}
-
-.mobile-messages-friends-badge {
-  margin-left: auto;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 10px;
-  background: var(--danger, #ed4245);
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mobile-messages-toolbar .mobile-messages-search {
-  margin: 0;
-  width: 100%;
-}
-
-.mobile-messages-search {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  margin: 0;
-  border: none;
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  margin: 12px 16px;
-  cursor: pointer;
-  color: var(--text-muted);
-  font-size: 0.9375rem;
-  text-align: left;
-  width: calc(100% - 32px);
-  transition: background 0.15s ease;
-}
-
-.mobile-messages-search:active {
-  background: var(--bg-hover);
-}
-
-.mobile-messages-search-icon {
-  flex-shrink: 0;
-  opacity: 0.7;
-}
-
-.mobile-messages-search-text {
-  flex: 1;
-}
-
-.mobile-messages-search-inline {
-  flex-shrink: 0;
-  padding: 0 16px 12px;
-}
-
-.mobile-messages-search-input {
-  width: 100%;
-  padding: 10px 14px 10px 40px;
-  background: var(--input-bg);
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  font-size: 0.9375rem;
-  color: var(--text-primary);
-  min-height: 44px;
-}
-
-.mobile-messages-search-input::placeholder {
-  color: var(--text-muted);
-}
-
-.mobile-messages-search-input:focus {
-  outline: none;
-  border-color: var(--accent);
+  overflow: hidden;
 }
 
 .mobile-messages-list {
+  position: relative;
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -144,8 +50,11 @@
   color: var(--text-secondary);
   font-size: 0.9375rem;
   text-decoration: none;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, transform 0.15s ease;
   min-height: 56px;
+  -webkit-touch-callout: none;
+  user-select: none;
+  touch-action: manipulation;
 }
 
 .mobile-dm-item:active {
@@ -153,8 +62,8 @@
 }
 
 .mobile-dm-item.active {
-  background: var(--accent-muted);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-secondary));
+  color: var(--text-primary);
 }
 
 .mobile-dm-item.has-unread {

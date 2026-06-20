@@ -627,6 +627,73 @@
   flex-shrink: 0;
 }
 
+.ss-server-banner-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 240px;
+  max-width: 420px;
+}
+
+.ss-server-banner-preview {
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-tertiary);
+}
+
+.ss-server-banner-preview.uploading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.ss-server-banner-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.ss-server-banner-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 120px;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.ss-server-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ss-banner-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ss-banner-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.ss-banner-btn--danger {
+  color: var(--error, #ed4245);
+}
+
 .ss-icon-input-hidden {
   position: absolute;
   width: 0;
@@ -2095,6 +2162,103 @@
     padding: 12px 18px;
     font-size: 0.8125rem;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE FULLSCREEN (hub + section, like app Settings)
+   ═══════════════════════════════════════════════════════════ */
+.ss-page--fullscreen .ss-content--mobile {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 1rem 1rem calc(88px + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
+}
+
+.ss-page--fullscreen.settings-page--mobile-section .ss-tab-title {
+  display: none;
+}
+
+.ss-page--fullscreen .ss-overview-top {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.ss-page--fullscreen .ss-server-icon-area {
+  align-items: center;
+}
+
+.ss-page--fullscreen .ss-save-bar {
+  left: 12px;
+  right: 12px;
+  width: auto;
+  max-width: none;
+  bottom: calc(12px + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ss-page--fullscreen .ss-save-actions {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+}
+
+.ss-page--fullscreen .ss-btn-reset,
+.ss-page--fullscreen .ss-btn-save {
+  flex: 1;
+  min-width: 0;
+}
+
+.ss-mobile-server-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.ss-mobile-server-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ss-mobile-server-initial {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.settings-mobile-row--danger {
+  color: #ed4245;
+}
+
+.settings-mobile-row-icon--danger {
+  background: rgba(237, 66, 69, 0.14);
+  color: #ed4245;
+}
+
+.ss-page--fullscreen .ss-roles-layout {
+  flex-direction: column;
+  height: auto;
+}
+
+.ss-page--fullscreen .ss-roles-sidebar {
+  width: 100%;
+  min-width: unset;
+  max-height: 240px;
+}
+
+.ss-page--fullscreen .ss-members-table-header,
+.ss-page--fullscreen .ss-members-row {
+  grid-template-columns: 1fr 72px;
+}
+
+.ss-page--fullscreen .ss-mt-joined {
+  display: none;
 }
 
 /* ═══════════════════════════════════════════════════════════

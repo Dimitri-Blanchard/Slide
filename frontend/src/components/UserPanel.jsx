@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useSettingsUi } from '../context/SettingsUiContext';
@@ -74,7 +74,8 @@ function StatusIcon({ status, size = 10, borderColor = '#202225' }) {
   );
 }
 
-export default function UserPanel() {
+export default forwardRef(function UserPanel({ layout = 'default', onStatusMenuChange }, ref) {
+  const isIsland = layout === 'island';
   const { user, accounts, switchAccount, updateUser } = useAuth();
   const { speakingUsers } = useVoice();
   const navigate = useNavigate();
@@ -92,6 +93,7 @@ export default function UserPanel() {
 
   const statusMenuRef = useRef(null);
   const statusTriggerRef = useRef(null);
+  const islandIdentityRef = useRef(null);
   const customStatusModalRef = useRef(null);
   const accountFlyoutRef = useRef(null);
   const anotherAccountRef = useRef(null);
@@ -155,19 +157,19 @@ export default function UserPanel() {
 
   useEffect(() => {
     const host = document.querySelector('.usas-status-drawer-host');
-    const island = document.querySelector('.user-status-and-settings');
+    const islands = document.querySelectorAll('.user-status-and-settings, .mobile-island-nav');
     host?.classList.toggle('is-open', showStatusMenu);
-    island?.classList.toggle('usas-status-menu-open', showStatusMenu);
+    islands.forEach((island) => island.classList.toggle('usas-status-menu-open', showStatusMenu));
     return () => {
       host?.classList.remove('is-open');
-      island?.classList.remove('usas-status-menu-open');
+      islands.forEach((island) => island.classList.remove('usas-status-menu-open'));
     };
   }, [showStatusMenu]);
 
   useEffect(() => {
-    const island = document.querySelector('.user-status-and-settings');
-    island?.classList.toggle('usas-accounts-open', showAccountFlyout);
-    return () => island?.classList.remove('usas-accounts-open');
+    const islands = document.querySelectorAll('.user-status-and-settings, .mobile-island-nav');
+    islands.forEach((island) => island.classList.toggle('usas-accounts-open', showAccountFlyout));
+    return () => islands.forEach((island) => island.classList.remove('usas-accounts-open'));
   }, [showAccountFlyout]);
 
   const accountWingCount = user
@@ -187,7 +189,8 @@ export default function UserPanel() {
   useEffect(() => {
     if (!showStatusMenu) return;
     const onMouseDown = (e) => {
-      const inTrigger = statusTriggerRef.current?.contains(e.target);
+      const inTrigger = statusTriggerRef.current?.contains(e.target)
+        || islandIdentityRef.current?.contains(e.target);
       const inPicker = statusMenuRef.current?.contains(e.target);
       const inFlyout = accountFlyoutRef.current?.contains(e.target);
       if (!inTrigger && !inPicker && !inFlyout) {
@@ -287,52 +290,100 @@ export default function UserPanel() {
 
   const drawerHost = drawerMounted ? document.querySelector('.usas-status-drawer-host') : null;
   const accountWingHost = showStatusMenu ? document.querySelector('.usas-account-wing-host') : null;
+  const islandAvatarHost = isIsland ? document.querySelector('.min-island-avatar-slot') : null;
+
+  const toggleStatusMenu = () => setShowStatusMenu((open) => !open);
+
+  useImperativeHandle(ref, () => ({
+    toggleStatusMenu,
+    closeStatusMenu: () => setShowStatusMenu(false),
+  }), []);
+
+  useEffect(() => {
+    if (isIsland) onStatusMenuChange?.(showStatusMenu);
+  }, [isIsland, showStatusMenu, onStatusMenuChange]);
+
+  const handleIslandAvatarClick = (e) => {
+    e.stopPropagation();
+    toggleStatusMenu();
+  };
+
+  const avatarContent = user.avatar_url ? (
+    <AvatarImg
+      src={user.avatar_url}
+      alt={displayName}
+      onError={(e) => {
+        e.target.onerror = null;
+        e.target.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="%236366f1"/><text x="32" y="42" font-size="24" fill="white" text-anchor="middle" font-family="sans-serif">${displayName.charAt(0).toUpperCase()}</text></svg>`)}`;
+      }}
+    />
+  ) : (
+    <span>{displayName.charAt(0).toUpperCase()}</span>
+  );
+
+  const islandAvatarNode = (
+    <button
+      type="button"
+      className={`user-panel-avatar min-island-avatar${isSpeaking ? ' speaking' : ''}${showStatusMenu ? ' is-open' : ''}`}
+      ref={statusTriggerRef}
+      onClick={handleIslandAvatarClick}
+      aria-expanded={showStatusMenu}
+      aria-haspopup="true"
+      aria-label={`${displayName}, account menu`}
+    >
+      {avatarContent}
+    </button>
+  );
 
   return (
     <>
-      <div className="user-panel">
-        <div
-          className={`user-panel-identity${showStatusMenu ? ' is-open' : ''}`}
-          ref={statusTriggerRef}
-          onClick={() => setShowStatusMenu((open) => !open)}
-          aria-expanded={showStatusMenu}
-          aria-haspopup="true"
-        >
-          <div className={`user-panel-avatar${isSpeaking ? ' speaking' : ''}`}>
-            {user.avatar_url ? (
-              <AvatarImg
-                src={user.avatar_url}
-                alt={displayName}
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="%236366f1"/><text x="32" y="42" font-size="24" fill="white" text-anchor="middle" font-family="sans-serif">${displayName.charAt(0).toUpperCase()}</text></svg>`)}`;
-                }}
-              />
-            ) : (
-              <span>{displayName.charAt(0).toUpperCase()}</span>
-            )}
-            <div className="user-panel-status-dot">
-              <StatusIcon status={onlineStatus} size={10} />
+      <div className={`user-panel${isIsland ? ' user-panel--island' : ''}`}>
+        {isIsland ? (
+          <div
+            className={`user-panel-identity user-panel-identity--island${showStatusMenu ? ' is-open' : ''}`}
+            ref={islandIdentityRef}
+            aria-expanded={showStatusMenu}
+            aria-haspopup="true"
+          >
+            <span className="user-panel-name">{displayName}</span>
+          </div>
+        ) : (
+          <div
+            className={`user-panel-identity${showStatusMenu ? ' is-open' : ''}`}
+            ref={statusTriggerRef}
+            onClick={toggleStatusMenu}
+            aria-expanded={showStatusMenu}
+            aria-haspopup="true"
+          >
+            <div className={`user-panel-avatar${isSpeaking ? ' speaking' : ''}`}>
+              {avatarContent}
+              <div className="user-panel-status-dot">
+                <StatusIcon status={onlineStatus} size={10} />
+              </div>
+            </div>
+            <div className="user-panel-info">
+              <span className="user-panel-name">{displayName}</span>
+              <span className="user-panel-status">{displayStatus}</span>
             </div>
           </div>
-          <div className="user-panel-info">
-            <span className="user-panel-name">{displayName}</span>
-            <span className="user-panel-status">{displayStatus}</span>
-          </div>
-        </div>
+        )}
 
-        <div className="user-panel-controls">
-          <button
-            className="user-panel-btn"
-            onClick={() => openSettings()}
-            title="User Settings"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-            </svg>
-          </button>
-        </div>
+        {!isIsland && (
+          <div className="user-panel-controls">
+            <button
+              className="user-panel-btn"
+              onClick={() => openSettings()}
+              title="User Settings"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
+
+      {isIsland && islandAvatarHost && createPortal(islandAvatarNode, islandAvatarHost)}
 
       {drawerHost && createPortal(
         <div className="usas-status-drawer" ref={statusMenuRef} role="menu">
@@ -384,6 +435,25 @@ export default function UserPanel() {
                 <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
               </svg>
             </button>
+
+            {isIsland && (
+              <>
+                <div className="status-picker-separator" />
+                <button
+                  type="button"
+                  className="status-picker-item"
+                  onClick={() => {
+                    setShowStatusMenu(false);
+                    openSettings();
+                  }}
+                >
+                  <svg className="status-picker-emoji" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                  </svg>
+                  <span>User Settings</span>
+                </button>
+              </>
+            )}
           </div>
         </div>,
         drawerHost
@@ -440,7 +510,7 @@ export default function UserPanel() {
                   try {
                     await switchAccount(accountId);
                   } catch {
-                    // Token expired - account was removed
+                    // Switch failed — previous session restored, account kept in list
                   }
                 }}
               >
@@ -534,4 +604,4 @@ export default function UserPanel() {
       )}
     </>
   );
-}
+});

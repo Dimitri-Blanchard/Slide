@@ -9,6 +9,7 @@ import {
   openSlideApp,
   savePendingQrLoginToken,
 } from '../utils/qrLoginFlow';
+import { publicSiteRoute } from '../utils/publicSiteUrl';
 import { getRefreshToken, getToken } from '../utils/tokenStorage';
 import './QrLoginRedirect.css';
 
@@ -32,7 +33,7 @@ export default function QrLoginRedirect() {
   };
   const fallbackPageUrl =
     typeof window !== 'undefined' && token
-      ? `${window.location.origin}/qr-login?token=${encodeURIComponent(token)}`
+      ? publicSiteRoute(`/qr-login?token=${encodeURIComponent(token)}`)
       : null;
   const openUrl = buildOpenSlideAppUrl(token, fallbackPageUrl);
   const isNative = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();

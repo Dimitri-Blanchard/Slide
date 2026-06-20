@@ -50,6 +50,9 @@ jobs:
       - name: SPA fallback
         run: cp dist/index.html dist/404.html
 
+      - name: SPA fallback at site root (Pages publishes /, SPA in /docs/)
+        run: cp dist/404.html ../404.html
+
       - name: Ensure CNAME for custom domain
         run: echo 'sl1de.xyz' > dist/CNAME
 
@@ -61,3 +64,13 @@ jobs:
           target-folder: docs
           clean: true
           commit-message: 'deploy: frontend to docs/ [skip ci]'
+
+      - name: Commit root 404.html (GitHub Pages SPA fallback for /docs/* deep links)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull origin main --rebase
+          cp dist/404.html ../404.html
+          git add ../404.html
+          git diff --staged --quiet || git commit -m "deploy: root 404.html SPA fallback [skip ci]"
+          git push

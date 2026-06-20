@@ -32,30 +32,27 @@ html.platform-mobile {
    1. CONTENT PHASE — replace heavy blur fade with a lightweight rise
    ─────────────────────────────────────────────────────────────────────────── */
 html.platform-mobile .content-phase-in {
-  /* Override animations.css `stage-in` (520ms blur) */
-  animation: m-content-rise var(--m-dur-short) var(--m-ease-emphasized-decel) forwards;
+  animation: none;
   filter: none;
+  transform: none;
+  opacity: 1;
 }
 
 html.platform-mobile .content-phase-out {
-  /* Override the blurred exit too */
   filter: none;
-  transform: translateY(6px);
-  opacity: 0;
-  transition:
-    opacity var(--m-dur-quick) var(--m-ease-emphasized-accel),
-    transform var(--m-dur-quick) var(--m-ease-emphasized-accel);
+  transform: none;
+  opacity: 1;
+  transition: none;
 }
 
-/* The wrapper inside .app-main also runs `content-phase-appear` (180ms). Keep
-   it but disable on mobile so we only run our animation, not both. */
 html.platform-mobile .app-main > .content-phase-in {
-  animation: m-content-rise var(--m-dur-short) var(--m-ease-emphasized-decel) forwards;
+  animation: none;
+  transform: none;
+  opacity: 1;
 }
 
 @keyframes m-content-rise {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from, to { opacity: 1; transform: none; }
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
@@ -275,7 +272,7 @@ html.platform-mobile .typing-dot {
 /* ───────────────────────────────────────────────────────────────────────────
    10. GPU COMPOSITING HINTS for the surfaces that animate
    ─────────────────────────────────────────────────────────────────────────── */
-html.platform-mobile .mobile-bottom-nav,
+html.platform-mobile .mobile-island-nav,
 html.platform-mobile .mobile-server-bar,
 html.platform-mobile .mobile-content-main,
 html.platform-mobile .modal,
@@ -311,8 +308,8 @@ html.platform-mobile .message-list,
 html.platform-mobile [class*="message-list"] {
   overflow-anchor: none;
   scroll-behavior: auto;
-  /* Tell the compositor this surface owns scroll — fewer paints during resize */
-  contain: layout paint;
+  /* Layout containment only — paint containment blurs text while scrolling */
+  contain: layout;
   touch-action: pan-y;
 }
 

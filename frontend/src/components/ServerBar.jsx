@@ -15,6 +15,7 @@ import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import { hapticImpact } from '../utils/nativeHaptics';
 import SlideLogo from './SlideLogo';
 import { makeLocalPrivateRoute } from '../utils/localPrivateChatCrypto';
+import { invitePublicUrl } from '../utils/publicSiteUrl';
 import './ServerBar.css';
 
 function getDisplayInitials(name) {
@@ -146,7 +147,7 @@ const InviteFriendsPanel = ({ team, friends, position, onClose, onInvite, sentId
 };
 
 // Portal tooltip - renders at document.body level to avoid overflow clipping
-const ServerBarTooltip = ({ text, anchorRef }) => {
+const ServerBarTooltip = ({ team, text, anchorRef, isActive = false }) => {
   const [pos, setPos] = useState(null);
 
   useEffect(() => {
@@ -156,7 +157,7 @@ const ServerBarTooltip = ({ text, anchorRef }) => {
       top: rect.top + rect.height / 2,
       left: rect.right + 12,
     });
-  }, []); // run once on mount — anchor is already in DOM when tooltip mounts
+  }, [anchorRef]);
 
   if (!pos || !text) return null;
 
@@ -343,7 +344,9 @@ const ServerIcon = memo(function ServerIcon({ team, isActive, hasUnread = false,
           )}
         </div>
       </div>
-      {!hideTooltip && hovered && <ServerBarTooltip text={team.name} anchorRef={tooltipRef} />}
+      {!hideTooltip && hovered && (
+        <ServerBarTooltip team={team} text={team.name} anchorRef={tooltipRef} isActive={isActive} />
+      )}
     </li>
   );
 });
@@ -396,7 +399,7 @@ const DmUnreadIcon = memo(function DmUnreadIcon({ conversation, isActive, hideTo
 });
 
 // Home button (DMs)
-const HomeButton = memo(function HomeButton({ isActive, onContextMenu, homeTarget, pendingFriendsCount = 0 }) {
+const HomeButton = memo(function HomeButton({ isActive, onContextMenu, homeTarget, pendingFriendsCount = 0, onHomeClick, hideTooltip = false }) {
   const { t } = useLanguage();
   const compactTouchUi = useCompactTouchUi();
   const [hovered, setHovered] = useState(false);
@@ -421,6 +424,7 @@ const HomeButton = memo(function HomeButton({ isActive, onContextMenu, homeTarge
   };
 
   const onHomePointerDown = useCallback((e) => {
+    setHovered(false);
     if (!compactTouchUi) return;
     if (e.button !== 0) return;
     longPressFiredRef.current = false;
@@ -458,12 +462,15 @@ const HomeButton = memo(function HomeButton({ isActive, onContextMenu, homeTarge
       <Link
         to={homeTarget}
         className={`server-icon-link ${isActive ? 'active' : ''}`}
-        title={t('sidebar.directMessages')}
+        title={hideTooltip ? undefined : t('sidebar.directMessages')}
         onClick={(e) => {
           if (longPressFiredRef.current) {
             e.preventDefault();
             longPressFiredRef.current = false;
+            return;
           }
+          setHovered(false);
+          onHomeClick?.();
         }}
         onPointerDown={onHomePointerDown}
         onPointerMove={onHomePointerMove}
@@ -480,7 +487,7 @@ const HomeButton = memo(function HomeButton({ isActive, onContextMenu, homeTarge
           </span>
         )}
       </Link>
-      {hovered && <ServerBarTooltip text={t('sidebar.directMessages')} anchorRef={tooltipRef} />}
+      {!hideTooltip && hovered && <ServerBarTooltip text={t('sidebar.directMessages')} anchorRef={tooltipRef} />}
     </li>
   );
 });
@@ -553,6 +560,7 @@ const ServerBar = memo(function ServerBar({
   onLeaveServer,
   isMobile = false,
   pendingFriendsCount = 0,
+  onHomeClick,
 }) {
   const [showServerCreationFlow, setShowServerCreationFlow] = useState(false);
   const [friendsList, setFriendsList] = useState([]);
@@ -658,7 +666,7 @@ const ServerBar = memo(function ServerBar({
       const invite = await serversApi.createInvite(team.id, { maxUses: 1 });
       const conv = await directApi.createConversation(friend.id);
       const convId = conv?.id ?? conv?.conversation_id;
-      await directApi.sendMessage(convId, `${window.location.origin}/invite/${invite.code || invite.invite_code}`);
+      await directApi.sendMessage(convId, invitePublicUrl(invite.code || invite.invite_code));
       setInviteSentIds(prev => new Set([...prev, friend.id]));
       notify.success(`Invitation envoyée à ${friend.display_name || friend.username}`);
     } catch (err) {
@@ -688,10 +696,7 @@ const ServerBar = memo(function ServerBar({
   }, [leaveConfirmTeam, user?.id, onLeaveServer, notify]);
 
   const ctxTeam = serverContextMenu?.team;
-  const canManageServerFromList =
-    ctxTeam?.can_manage_server === true ||
-    ctxTeam?.role === 'owner' ||
-    ctxTeam?.role === 'admin';
+  const canManageServerFromList = ctxTeam?.can_manage_server === true;
 
   const serverMenuItems = serverContextMenu ? [
     {
@@ -758,9 +763,14 @@ const ServerBar = memo(function ServerBar({
 
   // Home (logo) is active for DMs — not when browsing /community (discover button owns that)
   const isCommunityRoute = pathname === '/community' || pathname.startsWith('/community/');
+  const isFriendsRoute = pathname === '/friends' || pathname.startsWith('/friends/');
   const isHomeActiveBase = !currentTeamId && !currentConversationId?.startsWith?.('team');
-  const homeButtonActive = !isCommunityRoute && (isHomeActiveBase || !!currentConversationId);
-  const homeTarget = lastDmConversationId ? `/channels/@me/${lastDmConversationId}` : '/channels/@me';
+  const homeButtonActive = !isCommunityRoute && (
+    isFriendsRoute || isHomeActiveBase || !!currentConversationId
+  );
+  const homeTarget = isMobile
+    ? '/channels/@me'
+    : (lastDmConversationId ? `/channels/@me/${lastDmConversationId}` : '/channels/@me');
 
   // Backend already returns teams in the persisted user order.
   const sortedTeams = useMemo(() => {
@@ -822,6 +832,8 @@ const ServerBar = memo(function ServerBar({
             onContextMenu={handleHomeContextMenu}
             homeTarget={homeTarget}
             pendingFriendsCount={pendingFriendsCount}
+            onHomeClick={onHomeClick}
+            hideTooltip={isMobile}
           />
           {unreadDmConversations.map((conversation) => (
             <DmUnreadIcon

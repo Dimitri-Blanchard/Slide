@@ -1,6 +1,9 @@
 import React, { memo } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useOnlineUsers } from '../context/SocketContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useSpotifyNowPlaying } from '../hooks/useSpotifyNowPlaying';
+import { canShowProfileActivities } from '../utils/profileActivities';
 import { formatSpotifyDuration, formatSpotifyElapsedSeconds } from '../utils/spotifyActivity';
 import './ProfileSpotifyActivity.css';
 
@@ -15,11 +18,24 @@ const ProfileSpotifyActivity = memo(function ProfileSpotifyActivity({
   compact = false,
 }) {
   const { t } = useLanguage();
+  const { user: currentUser } = useAuth();
+  const { isUserOnline } = useOnlineUsers();
+  const isOwnProfile =
+    currentUser?.id != null && userId != null && String(currentUser.id) === String(userId);
+  const activitiesVisible = canShowProfileActivities({
+    isOwnProfile,
+    userId,
+    isUserOnline,
+  });
+  const effectiveEnabled = enabled && activitiesVisible;
+
   const { track, progressMs, durationMs } = useSpotifyNowPlaying({
     userId,
     initialTrack,
-    enabled,
+    enabled: effectiveEnabled,
   });
+
+  if (!activitiesVisible) return null;
 
   if (!track) return null;
 

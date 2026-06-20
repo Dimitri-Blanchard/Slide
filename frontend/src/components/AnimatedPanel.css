@@ -1,0 +1,363 @@
+/* ═══════════════════════════════════════════════════════════
+
+   Responsive panel enter / exit (sidebars, collapses)
+
+   ═══════════════════════════════════════════════════════════ */
+
+
+
+.chat-side-panel {
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-self: stretch;
+
+  min-height: 0;
+
+  flex-shrink: 0;
+
+  max-width: 0;
+
+  overflow: hidden;
+
+  pointer-events: none;
+
+  transition:
+
+    max-width 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+
+    opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+
+}
+
+
+
+.chat-side-panel.is-entering,
+
+.chat-side-panel.is-open {
+
+  max-width: 420px;
+
+  pointer-events: auto;
+
+}
+
+
+
+.chat-side-panel.is-closed {
+
+  max-width: 0;
+
+  pointer-events: none;
+
+}
+
+
+
+.chat-side-panel__inner {
+
+  flex: 1;
+
+  min-height: 0;
+
+  display: flex;
+
+  flex-direction: column;
+
+  width: max-content;
+
+  max-width: 420px;
+
+  overflow: hidden;
+
+  opacity: 1;
+
+  transform: none;
+
+  filter: none;
+
+}
+
+
+
+.chat-side-panel.is-entering .chat-side-panel__inner,
+
+.chat-side-panel.is-open .chat-side-panel__inner {
+
+  opacity: 1;
+
+  transform: none;
+
+  filter: none;
+
+}
+
+
+
+.chat-side-panel.is-closed .chat-side-panel__inner {
+
+  opacity: 1;
+
+  transform: none;
+
+  filter: none;
+
+}
+
+.chat-side-panel__inner > * {
+
+  flex: 1;
+
+  min-height: 0;
+
+}
+
+
+
+/* Profile sidebar — docked only above 1490px */
+
+@media (max-width: 1490px) {
+
+  .chat-side-panel--profile.is-entering,
+
+  .chat-side-panel--profile.is-open,
+
+  .chat-side-panel--profile.is-closed {
+
+    max-width: 0;
+
+    pointer-events: none;
+
+  }
+
+
+
+  .chat-side-panel--profile .chat-side-panel__inner {
+
+    opacity: 1;
+
+    transform: none;
+
+    filter: none;
+
+  }
+
+}
+
+
+
+/* All side panels — fully collapsed on mobile widths */
+
+@media (max-width: 768px) {
+
+  .chat-side-panel.is-entering,
+
+  .chat-side-panel.is-open,
+
+  .chat-side-panel.is-closed {
+
+    max-width: 0;
+
+    pointer-events: none;
+
+  }
+
+
+
+  .chat-side-panel .chat-side-panel__inner {
+
+    opacity: 1;
+
+    transform: none;
+
+    filter: none;
+
+  }
+
+}
+
+
+
+/* chat-main is column on mobile — docked side panels must not stack under the composer */
+
+@media (max-width: 768px) {
+
+  .chat-main {
+
+    position: relative;
+
+  }
+
+
+
+  .chat-main > .chat-side-panel {
+
+    position: absolute;
+
+    top: 0;
+
+    right: 0;
+
+    bottom: 0;
+
+    left: auto;
+
+    flex: none;
+
+    width: 0;
+
+    max-width: 0;
+
+    overflow: hidden;
+
+    z-index: 20;
+
+  }
+
+}
+
+
+
+/* Server members list — hidden below 1180px */
+
+@media (max-width: 1180px) {
+
+  .chat-side-panel--server-members.is-entering,
+
+  .chat-side-panel--server-members.is-open,
+
+  .chat-side-panel--server-members.is-closed {
+
+    max-width: 0;
+
+    pointer-events: none;
+
+  }
+
+
+
+  .chat-side-panel--server-members .chat-side-panel__inner {
+
+    opacity: 0;
+
+    transform: translateX(18px);
+
+    filter: blur(5px);
+
+  }
+
+}
+
+
+
+/* Vertical collapse (embedded call bar, etc.) */
+
+.chat-collapse-panel {
+
+  display: grid;
+
+  grid-template-rows: 0fr;
+
+  overflow: hidden;
+
+  flex-shrink: 0;
+
+  transition: grid-template-rows 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+
+}
+
+
+
+.chat-collapse-panel.is-entering,
+
+.chat-collapse-panel.is-open {
+
+  grid-template-rows: 1fr;
+
+}
+
+
+
+.chat-collapse-panel.is-closed {
+
+  grid-template-rows: 0fr;
+
+}
+
+
+
+.chat-collapse-panel__inner {
+
+  min-height: 0;
+
+  overflow: hidden;
+
+  opacity: 1;
+
+  transform: none;
+
+  transform-origin: top center;
+
+}
+
+
+
+.chat-collapse-panel.is-entering .chat-collapse-panel__inner,
+
+.chat-collapse-panel.is-open .chat-collapse-panel__inner {
+
+  opacity: 1;
+
+  transform: none;
+
+}
+
+
+
+.chat-collapse-panel.is-closed .chat-collapse-panel__inner {
+
+  opacity: 1;
+
+  transform: none;
+
+}
+
+
+
+.chat-main-content {
+
+  transition: flex 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+
+}
+
+
+
+@media (prefers-reduced-motion: reduce) {
+
+  .chat-side-panel,
+
+  .chat-side-panel__inner,
+
+  .chat-collapse-panel,
+
+  .chat-collapse-panel__inner,
+
+  .chat-main-content,
+
+  .dm-header-search,
+
+  .dm-call--embedded,
+
+  .layout-viewport-shell {
+
+    transition: none !important;
+
+    animation: none !important;
+
+  }
+
+}
+
+

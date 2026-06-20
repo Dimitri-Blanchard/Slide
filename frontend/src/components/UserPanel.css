@@ -170,6 +170,12 @@
   background: var(--bg-hover);
 }
 
+/* Island layout — no open/hover tint (mobile floating nav) */
+.user-panel-identity--island:hover,
+.user-panel-identity--island.is-open {
+  background: transparent;
+}
+
 .usas-bottom-bar .user-panel-identity {
   transition: background 0.15s ease;
 }

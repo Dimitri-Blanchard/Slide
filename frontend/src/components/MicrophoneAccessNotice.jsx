@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useVoice } from '../context/VoiceContext';
+import { getMicrophoneBlockedHelp } from '../utils/microphonePermission';
 import './MicrophoneAccessNotice.css';
 
 export const VOICE_MUTE_TRIGGER_ATTR = 'data-voice-mute-trigger';
@@ -29,10 +30,33 @@ function measureMuteAnchor() {
 }
 
 export default function MicrophoneAccessNotice() {
-  const { microphoneIssue, dismissMicrophoneIssue, voiceChannelId, voiceConversationId } = useVoice();
+  const {
+    microphoneIssue,
+    dismissMicrophoneIssue,
+    retryMicrophoneAccess,
+    showMicrophoneIssue,
+    voiceChannelId,
+    voiceConversationId,
+  } = useVoice();
   const [anchor, setAnchor] = useState(null);
+  const [retrying, setRetrying] = useState(false);
+  const retryingRef = useRef(false);
   const tooltipRef = useRef(null);
   const dismissTimerRef = useRef(null);
+
+  const handleRetry = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (retryingRef.current) return;
+    retryingRef.current = true;
+    setRetrying(true);
+    retryMicrophoneAccess()
+      .catch((err) => showMicrophoneIssue(err))
+      .finally(() => {
+        retryingRef.current = false;
+        setRetrying(false);
+      });
+  }, [retryMicrophoneAccess, showMicrophoneIssue]);
 
   const updateAnchor = useCallback(() => {
     setAnchor(measureMuteAnchor());
@@ -107,6 +131,12 @@ export default function MicrophoneAccessNotice() {
         bottom: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))',
       };
 
+  const isBlocked = microphoneIssue.type === 'permission-denied';
+  const canRetry =
+    microphoneIssue.type === 'permission-prompt'
+    || microphoneIssue.type === 'no-device'
+    || microphoneIssue.type === 'access-failed';
+
   const content = (
     <div
       ref={tooltipRef}
@@ -114,7 +144,27 @@ export default function MicrophoneAccessNotice() {
       style={style}
       role="alert"
     >
-      <span className="mic-issue-text">{microphoneIssue.label}</span>
+      <span className="mic-issue-text">
+        {isBlocked ? getMicrophoneBlockedHelp() : microphoneIssue.label}
+      </span>
+      {isBlocked ? (
+        <button
+          type="button"
+          className="mic-issue-retry"
+          onClick={() => window.location.reload()}
+        >
+          Recharger
+        </button>
+      ) : canRetry && (
+        <button
+          type="button"
+          className="mic-issue-retry"
+          onPointerDown={handleRetry}
+          disabled={retrying}
+        >
+          {retrying ? '…' : 'Autoriser'}
+        </button>
+      )}
     </div>
   );
 

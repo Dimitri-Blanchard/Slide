@@ -379,11 +379,25 @@ body.settings-modal-open {
   background: transparent;
   color: var(--text-primary);
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.settings-mobile-header-btn:hover {
+  background: transparent;
+  color: var(--text-primary);
 }
 
 .settings-mobile-header-btn:active {
-  background: var(--bg-hover);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.settings-mobile-header-btn:focus-visible {
+  outline: none;
+}
+
+[data-theme="light"] .settings-mobile-header-btn:active {
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .settings-mobile-header-btn svg {
@@ -2067,7 +2081,7 @@ body.settings-modal-open {
 }
 
 .settings-content-section {
-  animation: sectionFade 0.25s ease forwards;
+  animation: none;
 }
 
 @keyframes sectionFade {
@@ -5070,6 +5084,13 @@ body.settings-modal-open {
 /* ═══════════════════════════════════════════════════════════
    VOICE TEST SECTION
    ═══════════════════════════════════════════════════════════ */
+
+.settings-mic-access-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
 
 .voice-test-section {
   margin-top: 1.5rem;

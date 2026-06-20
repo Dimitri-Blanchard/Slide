@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, memo, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { isServerSettingsRoute, isChannelSettingsRoute } from '../layouts/appPaths';
 import { messages as messagesApi, channels as channelsApi, teams as teamsApi, reactions as reactionsApi, servers, invalidateCache, direct as directApi } from '../api';
 import { useSocket } from '../context/SocketContext';
 import { useOffline, OFFLINE_SENT_EVENT } from '../context/OfflineContext';
@@ -17,13 +18,15 @@ import { useLanguage } from '../context/LanguageContext';
 import { useVoice, getRemoteStreamForUser } from '../context/VoiceContext';
 import ChannelList from './ChannelList';
 import MembersPanel from './MembersPanel';
+import { AnimatedSidePanel } from './AnimatedPanel';
 import ServerSettings from './ServerSettings';
+import ChannelSettings from './ChannelSettings';
 import { ShareInviteModal } from './InviteModal';
 import MemberRolesModal from './MemberRolesModal';
 import ChannelHeader from './ChannelHeader';
 import TopicModal from './TopicModal';
-import InboxPanel from './InboxPanel';
 import { useSwipeBack } from '../hooks/useSwipeBack';
+import { canManageServer as resolveCanManageServer } from '../utils/serverPermissions';
 import { MESSAGE_SEND_BACKPRESSURE_LIMIT, MESSAGE_SEND_QUEUE_GAP_MS, getRateLimitDelayMs, isRateLimitError, notifyRateLimit, wait } from '../utils/rateLimitRetry';
 import FileDropOverlay from './FileDropOverlay';
 import VoiceChannel from './VoiceChannel';
@@ -166,7 +169,20 @@ const LiveStreamFullscreenVideo = memo(function LiveStreamFullscreenVideo({ stre
   );
 });
 
-const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, onLeaveServer, onOpenSearch, sidebarWidth, onSidebarResizeStart }) {
+const TeamChat = memo(function TeamChat({
+  teamId,
+  initialChannelId,
+  isMobile,
+  onLeaveServer,
+  onOpenSearch,
+  sidebarWidth,
+  onSidebarResizeStart,
+  inHomePager = false,
+  notificationCount = 0,
+  isNotificationsActive = false,
+  onMobileNotificationsClick,
+  pendingFriendsCount = 0,
+}) {
   const [team, setTeam] = useState(null);
   const [channelId, setChannelId] = useState(initialChannelId || null);
   const [channels, setChannels] = useState([]);
@@ -196,7 +212,6 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   const [editingTopic, setEditingTopic] = useState(false);
   const [topicDraft, setTopicDraft] = useState('');
   const [showTopicModal, setShowTopicModal] = useState(false);
-  const [showInbox, setShowInbox] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -225,6 +240,42 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   const { settings } = useSettings();
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isMobileSettingsRoute = isMobile && isServerSettingsRoute(location.pathname);
+  const channelSettingsRouteMatch = location.pathname.match(/\/team\/(\d+)\/channel\/(\d+)\/settings/);
+  const isMobileChannelSettingsRoute = isMobile
+    && channelSettingsRouteMatch
+    && channelSettingsRouteMatch[1] === String(teamId);
+
+  const settingsChannelFromRoute = useMemo(() => {
+    if (!isMobileChannelSettingsRoute || !channelSettingsRouteMatch) return null;
+    const channelIdFromRoute = parseInt(channelSettingsRouteMatch[2], 10);
+    if (Number.isNaN(channelIdFromRoute)) return null;
+    return channels.find((channel) => channel.id === channelIdFromRoute) || null;
+  }, [isMobileChannelSettingsRoute, channelSettingsRouteMatch, channels]);
+
+  const closeChannelSettings = useCallback(() => {
+    navigate(`/team/${teamId}`);
+  }, [navigate, teamId]);
+
+  const closeServerSettings = useCallback(() => {
+    if (isMobile) {
+      navigate(`/team/${teamId}`);
+    } else {
+      setShowServerSettings(false);
+    }
+  }, [isMobile, teamId, navigate]);
+
+  const handleServerSettingsUpdate = useCallback((updatedTeam) => {
+    invalidateCache('/teams');
+    invalidateCache('/servers');
+    if (updatedTeam) {
+      setTeam((prev) => (prev ? { ...prev, ...updatedTeam } : updatedTeam));
+    } else {
+      teamsApi.get(teamId).then(setTeam);
+    }
+    servers.getRoles(teamId).then(setRoles).catch(() => {});
+  }, [teamId]);
   const typingTimeoutRef = useRef(null);
   const messageListRef = useRef(null);
   const messageInputRef = useRef(null);
@@ -403,6 +454,7 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   // SYNC channelId from URL when initialChannelId changes (before paint)
   // ═══════════════════════════════════════════════════════════
   useLayoutEffect(() => {
+    if (isChannelSettingsRoute(location.pathname)) return;
     if (initialChannelId) {
       if (String(initialChannelId) !== String(channelId ?? '')) {
         setChannelId(initialChannelId);
@@ -413,11 +465,12 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
       setChannelId(null);
       setMobileChannelListOpen(true);
     }
-  }, [initialChannelId, channelId, isMobile]);
+  }, [initialChannelId, channelId, isMobile, location.pathname]);
 
   // Mobile: never land on a voice channel URL — show join prompt, stay on text/list
   useLayoutEffect(() => {
     if (!isMobile || !initialChannelId || teamLoading || channels.length === 0) return;
+    if (isChannelSettingsRoute(location.pathname)) return;
     const voiceCh = channels.find((c) => String(c.id) === String(initialChannelId));
     if (!voiceCh || voiceCh.channel_type !== 'voice') return;
     if (String(voiceChannelId ?? '') === String(voiceCh.id)) return;
@@ -431,7 +484,7 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
     } else {
       navigate(`/team/${teamId}`, { replace: true });
     }
-  }, [isMobile, initialChannelId, channels, voiceChannelId, teamLoading, teamId, navigate, suppressAutoJoin]);
+  }, [isMobile, initialChannelId, channels, voiceChannelId, teamLoading, teamId, navigate, suppressAutoJoin, location.pathname]);
 
   // Old servers: if channelId points to deleted/missing channel, redirect to first available
   useEffect(() => {
@@ -455,12 +508,11 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   // LOAD MESSAGES - only when channelId changes (fast switching!)
   // Use cache for instant display; no loading skeleton for empty/background fetch.
   // ═══════════════════════════════════════════════════════════
-  useEffect(() => {
+  // useLayoutEffect: sync cache/clear before paint so the previous channel's messages
+  // never flash when switching channels.
+  useLayoutEffect(() => {
     if (!channelId || teamLoading) return;
-    if (skipMessagesEffectRef.current) {
-      skipMessagesEffectRef.current = false;
-      return;
-    }
+    if (skipMessagesEffectRef.current) return;
 
     const cacheKey = `${teamId}-${channelId}`;
     const cached = channelMessagesCache.get(cacheKey);
@@ -470,8 +522,6 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
       setTypingUsers([]);
       setReplyTo(null);
       setMessagesLoading(false);
-      // If cache is fresh enough (<15s), skip network fetch entirely
-      if (cached._ts && Date.now() - cached._ts < 15000) return;
     } else {
       setMessages([]);
       setTypingUsers([]);
@@ -479,9 +529,22 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
       setMessageReactions({});
       setMessagesLoading(true);
     }
+    setHasMore(true);
+  }, [channelId, teamLoading, teamId]);
+
+  useEffect(() => {
+    if (!channelId || teamLoading) return;
+    if (skipMessagesEffectRef.current) {
+      skipMessagesEffectRef.current = false;
+      return;
+    }
+
+    const cacheKey = `${teamId}-${channelId}`;
+    const cached = channelMessagesCache.get(cacheKey);
+    // If cache is fresh enough (<15s), skip network fetch entirely
+    if (cached?._ts && Date.now() - cached._ts < 15000) return;
 
     let cancelled = false;
-    setHasMore(true);
     messagesApi.channel(channelId, { limit: 50 })
       .then((msgs) => {
         const safeMsgs = Array.isArray(msgs) ? msgs : [];
@@ -1247,6 +1310,16 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
   );
   const isTeamAdmin = useMemo(() => memberRole === 'admin', [memberRole]);
   const canManage = useMemo(() => isOwner || isTeamAdmin, [isOwner, isTeamAdmin]);
+  const canManageServer = useMemo(
+    () => resolveCanManageServer({
+      userId: user?.id,
+      team,
+      memberRole,
+      roles,
+      memberRoleIds: memberRolesMap?.[user?.id] || [],
+    }),
+    [user?.id, team, memberRole, roles, memberRolesMap]
+  );
   const canModerateReactions = useMemo(() => {
     if (canManage) return true;
     const currentRoleIds = memberRolesMap?.[user?.id] || [];
@@ -1258,6 +1331,25 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
       (isEnabled(role.perm_administrator) || isEnabled(role.perm_manage_messages))
     );
   }, [canManage, memberRolesMap, roles, user?.id]);
+
+  useEffect(() => {
+    if (!canManageServer && showServerSettings) setShowServerSettings(false);
+  }, [canManageServer, showServerSettings]);
+
+  useEffect(() => {
+    if (!isMobileSettingsRoute || teamLoading || canManageServer) return;
+    navigate(`/team/${teamId}`, { replace: true });
+  }, [isMobileSettingsRoute, teamLoading, canManageServer, navigate, teamId]);
+
+  const openServerSettings = useCallback(() => {
+    if (!canManageServer) return;
+    if (isMobile) {
+      setMobileChannelListOpen(false);
+      navigate(`/team/${teamId}/settings`);
+    } else {
+      setShowServerSettings(true);
+    }
+  }, [isMobile, teamId, navigate, canManageServer]);
 
   const handleVoiceUserRolesChanged = useCallback((userId, roleId, added) => {
     setMemberRolesMap((prev) => {
@@ -1339,20 +1431,71 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
     }
   }, [mobileChannelListOpen, navigate, teamId]);
 
-  const swipe = useSwipeBack(
-    isMobile && teamId ? handleSwipeBack : undefined,
-    isMobile && teamId && mobileChannelListOpen && lastChannelIdRef.current ? handleSwipeForward : undefined,
-    { edgeOnly: true }
-  );
-
   // URL is source of truth — avoid hiding chat while channelId state is still catching up
   const activeChannelId = channelId || initialChannelId || null;
   const showMobileChannelList = isMobile && mobileChannelListOpen && !activeChannelId;
+  const pagerHandlesNav = inHomePager && showMobileChannelList;
+
+  const swipe = useSwipeBack(
+    isMobile && teamId && !pagerHandlesNav ? handleSwipeBack : undefined,
+    isMobile && teamId && !pagerHandlesNav && mobileChannelListOpen && lastChannelIdRef.current ? handleSwipeForward : undefined,
+    { edgeOnly: true }
+  );
+
+  if (isMobileSettingsRoute) {
+    if (teamLoading || !canManageServer) {
+      return (
+        <div className="slide-loading-screen" role="status" aria-live="polite" aria-label="Loading">
+          <div className="slide-spinner" aria-hidden />
+        </div>
+      );
+    }
+    return (
+      <ServerSettings
+        presentation="fullscreen"
+        team={team}
+        roles={roles}
+        members={members}
+        channels={channels}
+        categories={categories}
+        isOwner={isOwner}
+        isOpen
+        onClose={closeServerSettings}
+        onUpdate={handleServerSettingsUpdate}
+      />
+    );
+  }
+
+  if (isMobileChannelSettingsRoute) {
+    if (!settingsChannelFromRoute) {
+      return (
+        <div className="slide-loading-screen" role="status" aria-live="polite" aria-label="Loading">
+          <div className="slide-spinner" aria-hidden />
+        </div>
+      );
+    }
+
+    return (
+      <ChannelSettings
+        presentation="fullscreen"
+        channel={settingsChannelFromRoute}
+        teamId={teamId}
+        categories={categories}
+        isOpen
+        onClose={closeChannelSettings}
+        onSave={(data) => handleEditChannel(settingsChannelFromRoute.id, data)}
+        onDelete={async (channelId) => {
+          await handleDeleteChannel(channelId);
+          closeChannelSettings();
+        }}
+      />
+    );
+  }
 
   return (
     <div
       ref={isMobile && teamId ? swipe.hostRef : undefined}
-      className={`team-view mobile-swipe-host ${activeChannelId ? 'has-active-channel' : ''} ${showMobileChannelList ? 'mobile-channels-open' : ''} ${showStickerPanel ? 'sticker-panel-open' : ''} ${isMobile && swipe.isDragging ? 'is-swipe-dragging' : ''}`}
+      className={`team-view mobile-swipe-host ${activeChannelId ? 'has-active-channel' : ''} ${isMobile && !activeChannelId ? 'mobile-channels-open' : ''} ${showMobileChannelList ? 'mobile-channels-open' : ''} ${showStickerPanel ? 'sticker-panel-open' : ''} ${isMobile && swipe.isDragging ? 'is-swipe-dragging' : ''}`}
     >
       {isMobile && activeChannelId && (
         <div className="swipe-back-indicator" aria-hidden>
@@ -1371,15 +1514,21 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
         currentChannelId={String(activeChannelId || '')}
         onChannelsChange={setChannels}
         onCategoriesChange={setCategories}
-        onOpenSettings={() => setShowServerSettings(true)}
+        onOpenSettings={canManageServer ? openServerSettings : undefined}
+        canOpenServerSettings={canManageServer}
         onInvite={() => setShowInviteModal(true)}
         onLeave={() => handleRemoveMember(user?.id, user?.display_name)}
         canManage={canManage}
         unreadChannels={unreadChannels}
         onEditChannel={handleEditChannel}
         onDeleteChannel={handleDeleteChannel}
-        hideUserPanel={isMobile && mobileChannelListOpen}
+        hideUserPanel={isMobile && !!activeChannelId}
         isMobile={isMobile}
+        onOpenSearch={onOpenSearch}
+        notificationCount={notificationCount}
+        isNotificationsActive={isNotificationsActive}
+        onMobileNotificationsClick={onMobileNotificationsClick}
+        pendingFriendsCount={pendingFriendsCount}
         onActiveChannelClick={isMobile ? () => setMobileChannelListOpen(false) : undefined}
         onVoiceJoinRequest={isMobile ? handleVoiceJoinRequest : undefined}
         roles={roles}
@@ -1426,8 +1575,6 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
             }
           }}
           onOpenTopic={currentChannel?.topic ? () => setShowTopicModal(true) : undefined}
-          showInbox={showInbox}
-          onToggleInbox={() => setShowInbox(v => !v)}
         />
 
         {showInlineVoiceChannel ? (
@@ -1467,9 +1614,6 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
                   hasMore={hasMore}
                   loadingMore={loadingMore}
                   onAtBottomChange={() => {}}
-                  topBanner={displayTeam?.banner_url ? (
-                    <div className="team-chat-banner" style={{ backgroundImage: `url(${displayTeam.banner_url})` }} />
-                  ) : null}
                   lastReadMessageId={currentLastRead}
                   serverName={displayTeam?.name}
                   channelId={displayChannel?.id}
@@ -1534,11 +1678,13 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
         />
       )}
 
-      {showMembers && displayChannel?.channel_type !== 'voice' && (
-        <MembersPanel teamId={teamId} channelId={channelId} members={members} roles={roles} memberRolesMap={memberRolesMap} currentUserId={user?.id} isOwner={isOwner} canManage={canManage}
-          onManageRoles={m => { setSelectedMember(m); setShowRolesModal(true); }} onKick={m => handleRemoveMember(m.id, m.display_name)} onBan={m => handleBanMember(m.id)}
-          voiceChannelId={displayChannel?.channel_type === 'voice' ? displayChannel?.id : null}
-          onRolesChanged={handleVoiceUserRolesChanged} />
+      {displayChannel?.channel_type !== 'voice' && (
+        <AnimatedSidePanel open={showMembers} variant="server-members">
+          <MembersPanel teamId={teamId} channelId={channelId} members={members} roles={roles} memberRolesMap={memberRolesMap} currentUserId={user?.id} isOwner={isOwner} canManage={canManage}
+            onManageRoles={m => { setSelectedMember(m); setShowRolesModal(true); }} onKick={m => handleRemoveMember(m.id, m.display_name)} onBan={m => handleBanMember(m.id)}
+            voiceChannelId={displayChannel?.channel_type === 'voice' ? displayChannel?.id : null}
+            onRolesChanged={handleVoiceUserRolesChanged} />
+        </AnimatedSidePanel>
       )}
       </>
       )}
@@ -1546,16 +1692,19 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
       <ConfirmModal isOpen={confirmModal.isOpen} title={confirmModal.userId === user?.id ? t('team.leaveGroup') : t('team.removeMember')} message={confirmModal.userId === user?.id ? t('team.leaveConfirm') : t('team.removeConfirm', { name: confirmModal.displayName })} confirmText={confirmModal.userId === user?.id ? t('team.leave') : t('team.remove')} cancelText={t('common.cancel')} type="danger" onConfirm={confirmRemoveMember} onCancel={() => setConfirmModal({ isOpen: false, userId: null, displayName: '' })} />
       <ConfirmModal isOpen={!!deleteConfirm} message={t('chat.deleteMessageConfirm')} confirmText={t('chat.delete')} cancelText={t('common.cancel')} type="danger" onConfirm={handleConfirmDelete} onCancel={() => setDeleteConfirm(null)} />
       <ConfirmModal isOpen={!!deleteCaptionConfirm} message={t('chat.deleteCaptionConfirm')} confirmText={t('chat.delete')} cancelText={t('common.cancel')} type="danger" onConfirm={handleConfirmDeleteCaption} onCancel={() => setDeleteCaptionConfirm(null)} />
-      <ServerSettings team={team} roles={roles} members={members} channels={channels} categories={categories} isOwner={isOwner} isOpen={showServerSettings} onClose={() => setShowServerSettings(false)} onUpdate={(updatedTeam) => {
-  invalidateCache('/teams');
-  invalidateCache('/servers');
-  if (updatedTeam) {
-    setTeam(prev => prev ? { ...prev, ...updatedTeam } : updatedTeam);
-  } else {
-    teamsApi.get(teamId).then(setTeam);
-  }
-  servers.getRoles(teamId).then(setRoles).catch(() => {});
-}} />
+      {!isMobile && canManageServer && (
+        <ServerSettings
+          team={team}
+          roles={roles}
+          members={members}
+          channels={channels}
+          categories={categories}
+          isOwner={isOwner}
+          isOpen={showServerSettings}
+          onClose={closeServerSettings}
+          onUpdate={handleServerSettingsUpdate}
+        />
+      )}
       <ShareInviteModal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} team={team} channels={channels} />
       <MemberRolesModal isOpen={showRolesModal} onClose={() => { setShowRolesModal(false); setSelectedMember(null); }} team={team} member={selectedMember} />
       {showTopicModal && (
@@ -1566,8 +1715,6 @@ const TeamChat = memo(function TeamChat({ teamId, initialChannelId, isMobile, on
           onStartEditTopic={startEditTopic}
         />
       )}
-      {showInbox && <InboxPanel onClose={() => setShowInbox(false)} />}
-
       <VoiceJoinSheet
         isOpen={isMobile && !!pendingVoiceJoin}
         channelName={pendingVoiceJoin?.name}

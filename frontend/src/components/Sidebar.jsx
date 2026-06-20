@@ -142,6 +142,7 @@ const DMItem = memo(function DMItem({ conversation, isActive, onContextMenu, onC
               showPresence
               position="right"
               suppressProfileOpen
+              suppressContextMenu={compactTouchUi}
               contextMenuContext={{
                 conversationId: isLocalPrivate ? null : id,
                 lastMessageId: isLocalPrivate ? null : (conversation.last_message_id || null),
@@ -435,6 +436,7 @@ const Sidebar = memo(function Sidebar({
           </Link>
         </div>
 
+        <div className="sidebar-dm-panel">
         {/* DM section header */}
         <div className="sidebar-section-header">
           <span>{t('sidebar.directMessages')}</span>
@@ -545,6 +547,7 @@ const Sidebar = memo(function Sidebar({
             </>
           )}
         </ul>
+        </div>
         {/* Admin button */}
         {user?.role === 'admin' && (
           <div className="sidebar-admin-btn-wrap">
@@ -558,7 +561,13 @@ const Sidebar = memo(function Sidebar({
 
 
       {contextMenu.visible && (
-        <ContextMenu x={contextMenu.x} y={contextMenu.y} items={getContextMenuItems()} onClose={closeContextMenu} />
+        <ContextMenu
+          title={!isGroup && otherUser ? (otherUser.display_name || otherUser.username) : (isGroup ? (conv?.group_name || 'Group') : undefined)}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={getContextMenuItems()}
+          onClose={closeContextMenu}
+        />
       )}
 
       <CreateGroupModal

@@ -4,7 +4,10 @@
    ═══════════════════════════════════════════════════════════ */
 
 :root {
-  --mobile-nav-bar-height: 56px;
+  --mobile-island-bar-height: 60px;
+  --mobile-island-gap: 10px;
+  /* Total bottom inset for scrollable content above the floating island */
+  --mobile-nav-bar-height: calc(var(--mobile-island-bar-height) + var(--mobile-island-gap) + 10px);
 }
 
 /* Lock document to visible viewport — avoids rubber-band and double scroll */
@@ -85,13 +88,7 @@ html.platform-mobile .mobile-app-layout .offline-banner {
 /* Landscape: keep usable height */
 @media (orientation: landscape) and (max-height: 500px) {
   html.platform-mobile {
-    --mobile-nav-bar-height: 48px;
-  }
-  html.platform-mobile .mobile-bottom-nav .mbn-label {
-    display: none;
-  }
-  html.platform-mobile .mbn-tab {
-    padding-top: 4px;
-    padding-bottom: 4px;
+    --mobile-island-bar-height: 54px;
+    --mobile-nav-bar-height: calc(var(--mobile-island-bar-height) + var(--mobile-island-gap) + 8px);
   }
 }

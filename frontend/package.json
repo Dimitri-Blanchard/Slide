@@ -1,7 +1,7 @@
 {
   "name": "slide-frontend",
   "private": true,
-  "version": "0.0.8",
+  "version": "0.0.10",
   "description": "Slide messenger desktop client",
   "author": "Slide",
   "type": "module",
@@ -81,7 +81,9 @@
       "dist/**/*",
       "electron/**/*",
       "public/**/*",
-      "build/icon.ico"
+      "build/icon.ico",
+      "!node_modules/@capacitor/**",
+      "!node_modules/@capacitor-community/**"
     ],
     "extraResources": [
       {
@@ -92,7 +94,9 @@
     "win": {
       "target": "nsis",
       "icon": "build/icon.ico",
-      "sign": null
+      "sign": null,
+      "signAndEditExecutable": true,
+      "verifyUpdateCodeSignature": false
     },
     "linux": {
       "target": "AppImage",

@@ -126,9 +126,9 @@ export default function SearchModal({ isOpen, onClose, conversations, teams }) {
   
   const modal = (
     <div className={`search-modal-overlay${enterInstant ? ' modal-enter-instant' : ''}`} onClick={onClose}>
-      <div className="search-modal" onClick={e => e.stopPropagation()}>
+      <div className="search-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={t('common.search')}>
         <div className="search-modal-header">
-          <svg className="search-modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg className="search-modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8"/>
             <line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>

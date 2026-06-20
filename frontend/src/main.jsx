@@ -4,7 +4,7 @@ import { BrowserRouter, HashRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
 import { restoreToken } from './utils/tokenStorage';
-import { applyCapacitorBootRedirect } from './utils/clientApp';
+import { applyCapacitorBootRedirect, applyElectronBootRedirect } from './utils/clientApp';
 import { SocketProvider } from './context/SocketContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { SettingsProvider } from './context/SettingsContext';
@@ -294,11 +294,26 @@ function mountApp() {
   );
 }
 
-restoreToken()
+const RESTORE_TOKEN_STARTUP_MS = 4000;
+
+function restoreTokenWithStartupTimeout() {
+  return Promise.race([
+    restoreToken(),
+    new Promise((resolve) => {
+      setTimeout(() => {
+        console.warn('[Auth] restoreToken startup timeout — mounting app anyway');
+        resolve(null);
+      }, RESTORE_TOKEN_STARTUP_MS);
+    }),
+  ]);
+}
+
+restoreTokenWithStartupTimeout()
   .catch((err) => {
     console.warn('[Auth] restoreToken failed on startup — continuing without restored token', err);
   })
   .then(() => {
     applyCapacitorBootRedirect();
+    applyElectronBootRedirect();
   })
   .finally(mountApp);

@@ -22,6 +22,8 @@ function SheetRow({ item, onActivate }) {
       className={`context-mobile-sheet-row${item.danger ? ' context-mobile-sheet-row--danger' : ''}${item.disabled ? ' is-disabled' : ''}`}
       disabled={!!item.disabled}
       onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
         if (item.disabled) return;
         if (hasSubmenu) {
           onActivate(item);
@@ -34,7 +36,10 @@ function SheetRow({ item, onActivate }) {
         }
         if (!item.keepOpen) {
           item.onClick?.(e);
-          if (!item.custom) onActivate(null, true);
+          if (!item.custom) {
+            // Defer close so the same tap doesn't activate the row under the sheet.
+            requestAnimationFrame(() => onActivate(null, true));
+          }
         } else {
           item.onClick?.(e);
         }
@@ -156,10 +161,14 @@ const ContextMobileSheet = memo(function ContextMobileSheet({
     }
   }, [onClose]);
 
-  const handleSubItemClick = useCallback((subItem) => {
+  const handleSubItemClick = useCallback((subItem, e) => {
     if (subItem.disabled) return;
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
     subItem.onClick?.();
-    if (!subItem.keepOpen) onClose?.();
+    if (!subItem.keepOpen) {
+      requestAnimationFrame(() => onClose?.());
+    }
   }, [onClose]);
 
   const isSubView = canGoBack;
@@ -202,7 +211,7 @@ const ContextMobileSheet = memo(function ContextMobileSheet({
                     type="button"
                     className={`context-mobile-sheet-row${subItem.danger ? ' context-mobile-sheet-row--danger' : ''}${subItem.disabled ? ' is-disabled' : ''}`}
                     disabled={!!subItem.disabled}
-                    onClick={() => handleSubItemClick(subItem)}
+                    onClick={(e) => handleSubItemClick(subItem, e)}
                   >
                     {subItem.icon && <span className="context-mobile-sheet-row-icon">{subItem.icon}</span>}
                     <span className="context-mobile-sheet-row-label">

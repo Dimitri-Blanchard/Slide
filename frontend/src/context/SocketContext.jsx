@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import { getToken } from '../utils/tokenStorage';
 import { BACKEND_ORIGIN } from '../api';
+import { bindLocalPrivateChatSocket, notifyLocalPrivateInvite, notifyLocalPrivateMessage } from '../utils/localPrivateChatSocket';
 
 const SocketContext = createContext(null);
 const OnlineUsersContext = createContext(null);
@@ -94,8 +95,38 @@ export function SocketProvider({ children }) {
     
     socketRef.current = s;
     setSocket(s);
+
+    const unbindLocalPrivate = bindLocalPrivateChatSocket(s, user.id, {
+      notify: (fromUser, preview) => {
+        if (preview) {
+          notifyLocalPrivateMessage(fromUser, preview).catch(() => {});
+        } else {
+          notifyLocalPrivateInvite(fromUser).catch(() => {});
+        }
+        try {
+          window.dispatchEvent(new CustomEvent('slide:local-private-invite', {
+            detail: { fromUser, preview },
+          }));
+        } catch (_) {}
+      },
+    });
+
+    const onTokenRefreshed = () => {
+      const current = socketRef.current;
+      if (!current) return;
+      const nextToken = getToken();
+      if (!nextToken) return;
+      current.auth = { token: nextToken, displayName: user.display_name };
+      if (current.connected) {
+        current.disconnect();
+        current.connect();
+      }
+    };
+    window.addEventListener('slide:token-refreshed', onTokenRefreshed);
     
     return () => {
+      unbindLocalPrivate();
+      window.removeEventListener('slide:token-refreshed', onTokenRefreshed);
       if (presenceBatchRef.current) clearTimeout(presenceBatchRef.current);
       if (socketRef.current) {
         socketRef.current.off('online_users');

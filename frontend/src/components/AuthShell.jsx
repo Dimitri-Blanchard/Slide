@@ -4,13 +4,12 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAppHomePath } from '../hooks/useAppHomePath';
 import { isClientApp } from '../utils/clientApp';
 import SlideLogo from './SlideLogo';
+import { resolvePublicSiteBase } from '../utils/publicSiteUrl';
 import './AuthShell.css';
-
-const PUBLIC_SITE_URL = (import.meta.env.VITE_PUBLIC_SITE_URL || 'https://sl1de.xyz').replace(/\/$/, '');
 
 function AuthShellFooterLink({ to, children }) {
   const isElectron = typeof window !== 'undefined' && !!window.electron?.isElectron;
-  const href = `${PUBLIC_SITE_URL}${to}`;
+  const href = `${resolvePublicSiteBase()}${to}`;
 
   if (!isElectron) {
     return <Link to={to}>{children}</Link>;

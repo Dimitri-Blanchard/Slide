@@ -19,7 +19,42 @@ import UserDetailModal from './UserDetailModal';
 import AddNoteModal from './AddNoteModal';
 import { useVoiceSidebarUserContextMenu } from '../hooks/useVoiceSidebarUserContextMenu';
 import AppIcon from './icons/AppIcon';
+import ServerMobileMenuSheet from './ServerMobileMenuSheet';
+import MobileSidebarUserBar from './MobileSidebarUserBar';
+import ServerBanner from './ServerBanner';
 import './ChannelList.css';
+
+const MobileChannelToolbar = memo(function MobileChannelToolbar({ onOpenSearch, onInvite }) {
+  const { t } = useLanguage();
+  return (
+    <div className="mobile-channel-toolbar">
+      <button type="button" className="mobile-channel-search" onClick={onOpenSearch}>
+        <AppIcon name="search" size={18} />
+        <span>{t('common.search') === 'common.search' ? 'Search' : t('common.search')}</span>
+      </button>
+      <button type="button" className="mobile-channel-tool-btn" onClick={onInvite} aria-label="Invite">
+        <AppIcon name="userPlus" size={20} />
+      </button>
+      <button type="button" className="mobile-channel-tool-btn" aria-label="Events">
+        <AppIcon name="compass" size={20} />
+      </button>
+    </div>
+  );
+});
+
+const MobileBoostGoal = memo(function MobileBoostGoal({ team }) {
+  const current = team?.boost_level || 0;
+  const goal = 33;
+  return (
+    <button type="button" className="mobile-boost-goal">
+      <span className="mobile-boost-goal-label">Boost Goal</span>
+      <span className="mobile-boost-goal-meta">
+        <span className="mobile-boost-goal-count">{current}/{goal} Boosts</span>
+        <AppIcon name="caretDown" size={14} className="mobile-boost-chevron" />
+      </span>
+    </button>
+  );
+});
 
 const channelIcons = {
   text: <AppIcon name="channelText" size={18} />,
@@ -29,19 +64,20 @@ const channelIcons = {
   forum: <AppIcon name="channelForum" size={18} />,
 };
 
-const ServerHeader = memo(function ServerHeader({ team, onOpenSettings, onInvite, onCreateChannel, onCreateCategory, onLeave }) {
+const ServerHeader = memo(function ServerHeader({ team, onOpenSettings, onInvite, onCreateChannel, onCreateCategory, onLeave, isMobile = false, canOpenServerSettings = false }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const compactTouch = useCompactTouchUi();
   const { t } = useLanguage();
 
   useEffect(() => {
-    if (!dropdownOpen) return;
+    if (!dropdownOpen || compactTouch) return;
     const handleClick = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setDropdownOpen(false);
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
-  }, [dropdownOpen]);
+  }, [dropdownOpen, compactTouch]);
 
   if (!team) return null;
 
@@ -57,21 +93,36 @@ const ServerHeader = memo(function ServerHeader({ team, onOpenSettings, onInvite
         )}
         {dropdownOpen ? (
           <AppIcon name="close" size={18} className="server-header-chevron" weight="bold" />
+        ) : isMobile ? (
+          <AppIcon name="caretDown" size={16} className="server-header-chevron server-header-chevron--right" weight="bold" />
         ) : (
           <AppIcon name="caretDown" size={18} className="server-header-chevron" weight="bold" />
         )}
       </button>
-      {dropdownOpen && (
+      {dropdownOpen && compactTouch ? (
+        <ServerMobileMenuSheet
+          team={team}
+          onClose={() => setDropdownOpen(false)}
+          onInvite={onInvite}
+          onOpenSettings={onOpenSettings}
+          canOpenServerSettings={canOpenServerSettings}
+          onCreateChannel={onCreateChannel}
+          onCreateCategory={onCreateCategory}
+          onLeave={onLeave}
+        />
+      ) : dropdownOpen ? (
         <div className="server-dropdown">
           <button className="server-dropdown-item accent" onClick={() => { onInvite?.(); setDropdownOpen(false); }}>
             <AppIcon name="userPlus" size={18} />
             <span>{t('server.invitePeople') || 'Invite People'}</span>
           </button>
           <div className="server-dropdown-separator" />
-          <button className="server-dropdown-item" onClick={() => { onOpenSettings?.(); setDropdownOpen(false); }}>
-            <AppIcon name="settings" size={18} />
-            <span>{t('server.settings') || 'Server Settings'}</span>
-          </button>
+          {canOpenServerSettings && (
+            <button className="server-dropdown-item" onClick={() => { onOpenSettings?.(); setDropdownOpen(false); }}>
+              <AppIcon name="settings" size={18} />
+              <span>{t('server.settings') || 'Server Settings'}</span>
+            </button>
+          )}
           <button className="server-dropdown-item" onClick={() => { onCreateChannel?.(); setDropdownOpen(false); }}>
             <AppIcon name="plus" size={18} weight="bold" />
             <span>{t('server.createChannel') || 'Create Channel'}</span>
@@ -88,7 +139,7 @@ const ServerHeader = memo(function ServerHeader({ team, onOpenSettings, onInvite
           </button>
           </>)}
         </div>
-      )}
+      ) : null}
     </div>
   );
 });
@@ -110,6 +161,7 @@ const bellIcon = <AppIcon name="bell" size={16} />;
 const bellMutedIcon = <AppIcon name="bellOff" size={16} />;
 
 const ChannelContextMenu = memo(function ChannelContextMenu({ x, y, channel, teamId, onClose, canManage, onEdit, onDelete, onCopyId, isMuted, muteKey, onMute, onUnmute }) {
+  const { t } = useLanguage();
   const items = [];
 
   items.push(
@@ -174,14 +226,13 @@ const ChannelContextMenu = memo(function ChannelContextMenu({ x, y, channel, tea
     items.push(
       { separator: true },
       {
-        label: 'Edit Channel',
-        icon: <AppIcon name="edit" size={16} />,
-        onClick: () => onEdit?.(channel),
-      },
-      {
-        label: 'Channel Settings',
+        label: t('channelSettings.menuLabel'),
+        description: t('channelSettings.menuDesc'),
         icon: <AppIcon name="settings" size={16} />,
-        onClick: () => onEdit?.(channel),
+        onClick: () => {
+          onClose?.();
+          onEdit?.(channel);
+        },
       },
       { separator: true },
       {
@@ -765,6 +816,18 @@ const ChannelItem = memo(function ChannelItem({
     setCtxMenu({ x: e.clientX, y: e.clientY });
   };
 
+  const stopMobileMenuPointer = useCallback((e) => {
+    e.stopPropagation();
+  }, []);
+
+  const handleMobileMenuClick = useCallback((ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    hapticImpact('Light');
+    const r = ev.currentTarget.getBoundingClientRect();
+    setCtxMenu({ x: r.left, y: r.bottom + 4 });
+  }, []);
+
   const handleDragStart = (e) => {
     if (!canManage || !onChannelMove) return;
     e.dataTransfer.effectAllowed = 'move';
@@ -899,19 +962,16 @@ const ChannelItem = memo(function ChannelItem({
           type="button"
           className="channel-mobile-menu-btn"
           aria-label={t('chat.moreOptions')}
-          onClick={(ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-            const r = ev.currentTarget.getBoundingClientRect();
-            setCtxMenu({ x: r.left, y: r.bottom + 4 });
-          }}
+          onPointerDown={stopMobileMenuPointer}
+          onPointerUp={stopMobileMenuPointer}
+          onClick={handleMobileMenuClick}
         >
-          <AppIcon name="more" size={18} />
+          <AppIcon name="more" size={20} />
         </button>
       )}
-      {canManage && (
+      {canManage && !compactTouchUi && (
         <div className="channel-actions">
-          <button className="channel-action-btn" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit?.(channel); }} title="Edit Channel">
+          <button className="channel-action-btn" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit?.(channel); }} title={t('channelSettings.menuLabel')}>
             <AppIcon name="settings" size={14} />
           </button>
         </div>
@@ -963,7 +1023,7 @@ const ChannelItem = memo(function ChannelItem({
 // ═══════════════════════════════════════════════════════════
 // CHANNEL MODAL (Create / Edit)
 // ═══════════════════════════════════════════════════════════
-const ChannelModal = ({ isOpen, onClose, onSubmit, onError, teamId, categories, initialData, defaultCategoryId }) => {
+const ChannelModal = ({ isOpen, onClose, onSubmit, onError, teamId, categories, defaultCategoryId }) => {
   const [name, setName] = useState('');
   const [type, setType] = useState('text');
   const [categoryId, setCategoryId] = useState('');
@@ -975,16 +1035,16 @@ const ChannelModal = ({ isOpen, onClose, onSubmit, onError, teamId, categories, 
 
   useEffect(() => {
     if (isOpen) {
-      setName(initialData?.name || '');
-      setType(initialData?.channel_type || 'text');
-      const catId = initialData?.category_id ?? defaultCategoryId ?? '';
+      setName('');
+      setType('text');
+      const catId = defaultCategoryId ?? '';
       setCategoryId(catId !== '' && catId != null ? String(catId) : '');
-      setTopic(initialData?.topic || '');
-      setIsPrivate(initialData?.is_private || false);
-      setSlowmode(initialData?.slowmode_seconds || 0);
-      setNsfw(initialData?.nsfw || false);
+      setTopic('');
+      setIsPrivate(false);
+      setSlowmode(0);
+      setNsfw(false);
     }
-  }, [isOpen, initialData, defaultCategoryId]);
+  }, [isOpen, defaultCategoryId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1025,31 +1085,29 @@ const ChannelModal = ({ isOpen, onClose, onSubmit, onError, teamId, categories, 
     <div className="channel-modal-overlay" onClick={onClose}>
       <div className="channel-modal" onClick={(e) => e.stopPropagation()}>
         <div className="channel-modal-header">
-          <h3>{initialData ? 'Edit Channel' : 'Create Channel'}</h3>
-          <p className="channel-modal-sub">{initialData ? 'Update this channel\'s settings' : 'in ' + (categories?.find(c => String(c.id) === String(categoryId || ''))?.name || 'your server')}</p>
+          <h3>Create Channel</h3>
+          <p className="channel-modal-sub">in {categories?.find(c => String(c.id) === String(categoryId || ''))?.name || 'your server'}</p>
           <button className="modal-close-btn" onClick={onClose}>
             <AppIcon name="close" size={20} weight="bold" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
-          {!initialData && (
-            <div className="form-group">
-              <label>Channel Type</label>
-              <div className="channel-type-grid">
-                {channelTypes.map(ct => (
-                  <button key={ct.key} type="button" className={`channel-type-option ${type === ct.key ? 'active' : ''}`} onClick={() => setType(ct.key)}>
-                    <span className="cto-icon">{ct.icon}</span>
-                    <div className="cto-info">
-                      <span className="cto-label">{ct.label}</span>
-                      <span className="cto-desc">{ct.desc}</span>
-                    </div>
-                    <div className="cto-radio"><div className="cto-radio-inner" /></div>
-                  </button>
-                ))}
-              </div>
+          <div className="form-group">
+            <label>Channel Type</label>
+            <div className="channel-type-grid">
+              {channelTypes.map(ct => (
+                <button key={ct.key} type="button" className={`channel-type-option ${type === ct.key ? 'active' : ''}`} onClick={() => setType(ct.key)}>
+                  <span className="cto-icon">{ct.icon}</span>
+                  <div className="cto-info">
+                    <span className="cto-label">{ct.label}</span>
+                    <span className="cto-desc">{ct.desc}</span>
+                  </div>
+                  <div className="cto-radio"><div className="cto-radio-inner" /></div>
+                </button>
+              ))}
             </div>
-          )}
+          </div>
 
           <div className="form-group">
             <label>Channel Name</label>
@@ -1119,7 +1177,7 @@ const ChannelModal = ({ isOpen, onClose, onSubmit, onError, teamId, categories, 
           <div className="form-actions">
             <button type="button" onClick={onClose} className="cancel-btn">Cancel</button>
             <button type="submit" className="submit-btn" disabled={loading || !name.trim()}>
-              {loading ? (initialData ? 'Saving...' : 'Creating...') : initialData ? 'Save Changes' : 'Create Channel'}
+              {loading ? 'Creating...' : 'Create Channel'}
             </button>
           </div>
         </form>
@@ -1432,10 +1490,15 @@ export default function ChannelList({
   team, channels, categories, currentChannelId,
   onChannelsChange, onCategoriesChange,
   onOpenSettings, onInvite, onLeave,
-  canManage = false, unreadChannels,
+  canManage = false, canOpenServerSettings = false, unreadChannels,
   onEditChannel, onDeleteChannel,
   hideUserPanel = false,
   isMobile = false,
+  onOpenSearch,
+  notificationCount = 0,
+  isNotificationsActive = false,
+  onMobileNotificationsClick,
+  pendingFriendsCount = 0,
   onActiveChannelClick,
   onVoiceJoinRequest,
   width,
@@ -1460,6 +1523,7 @@ export default function ChannelList({
   const [dragOverCategoryId, setDragOverCategoryId] = useState(null);
   const [scrollContextMenu, setScrollContextMenu] = useState(null);
   const { notify } = useNotification();
+  const navigate = useNavigate();
 
   const MUTE_KEY = `channelMutes_${team?.id}`;
   const [mutedChannels, setMutedChannels] = useState(() => {
@@ -1509,10 +1573,14 @@ export default function ChannelList({
     setShowChannelModal(true);
   }, []);
 
-  const handleOpenEditChannel = useCallback((channel) => {
+  const handleOpenChannelSettings = useCallback((channel) => {
+    if (isMobile && team?.id && channel?.id) {
+      navigate(`/team/${team.id}/channel/${channel.id}/settings`);
+      return;
+    }
     setSettingsChannel(channel);
     setShowChannelSettings(true);
-  }, []);
+  }, [isMobile, team?.id, navigate]);
 
   const handleChannelSubmit = useCallback(async (data) => {
     let resolvedCategoryId = data.categoryId ?? data.category_id ?? selectedCategoryId ?? null;
@@ -1526,7 +1594,12 @@ export default function ChannelList({
       category_id: resolvedCategoryId,
     });
     onChannelsChange?.([...safeChannels, newChannel]);
-  }, [team.id, safeChannels, selectedCategoryId, onChannelsChange]);
+    setShowChannelModal(false);
+    setSelectedCategoryId(null);
+    if (isMobile && newChannel?.id) {
+      navigate(`/team/${team.id}/channel/${newChannel.id}/settings`);
+    }
+  }, [team.id, safeChannels, selectedCategoryId, onChannelsChange, isMobile, navigate]);
 
   const handleChannelSettingsSave = useCallback(async (data) => {
     if (!settingsChannel) return;
@@ -1608,7 +1681,7 @@ export default function ChannelList({
   }
 
   return (
-    <div className="channel-sidebar" style={width ? { width, minWidth: width } : undefined}>
+    <div className={`channel-sidebar${isMobile ? ' channel-sidebar--mobile-discord' : ''}`} style={width ? { width, minWidth: width } : undefined}>
       {onResizeStart && (
         <div
           className="channel-sidebar-resize-handle"
@@ -1618,12 +1691,27 @@ export default function ChannelList({
           aria-label="Redimensionner la barre latérale"
         />
       )}
-      <ServerHeader
-        team={team} onOpenSettings={onOpenSettings} onInvite={onInvite}
-        onCreateChannel={() => handleCreateChannel(null)}
-        onCreateCategory={() => { setEditingCategory(null); setShowCategoryModal(true); }}
-        onLeave={onLeave}
-      />
+      <div className={`channel-sidebar-top${team?.banner_url ? ' channel-sidebar-top--banner' : ''}`}>
+        {team?.banner_url && (
+          <ServerBanner bannerUrl={team.banner_url} alt={`${team.name} banner`} />
+        )}
+        <ServerHeader
+          team={team} onOpenSettings={onOpenSettings} onInvite={onInvite}
+          onCreateChannel={() => handleCreateChannel(null)}
+          onCreateCategory={() => { setEditingCategory(null); setShowCategoryModal(true); }}
+          onLeave={onLeave}
+          isMobile={isMobile}
+          canOpenServerSettings={canOpenServerSettings}
+        />
+      </div>
+
+      <div className="sidebar-nav-panel">
+      {isMobile && (
+        <>
+          <MobileChannelToolbar onOpenSearch={onOpenSearch} onInvite={onInvite} />
+          <MobileBoostGoal team={team} />
+        </>
+      )}
 
       {isMobile && currentChannel && (
         <div className="channel-current-banner">
@@ -1645,7 +1733,7 @@ export default function ChannelList({
           category={null} channels={safeChannels} teamId={team.id}
           currentChannelId={currentChannelId} onCreateChannel={handleCreateChannel}
           canManage={canManage} unreadChannels={unreadChannels}
-          onEditChannel={handleOpenEditChannel} onDeleteChannel={handleRequestDeleteChannel} onCopyChannelId={handleCopyChannelId}
+          onEditChannel={handleOpenChannelSettings} onDeleteChannel={handleRequestDeleteChannel} onCopyChannelId={handleCopyChannelId}
           isChannelMuted={isChannelMuted} getChannelMuteKey={getChannelMuteKey} onMuteChannel={handleMuteChannel} onUnmuteChannel={handleUnmuteChannel}
           onChannelMove={canManage ? handleChannelMove : undefined}
           dragOverCategoryId={dragOverCategoryId} setDragOverCategoryId={setDragOverCategoryId}
@@ -1661,7 +1749,7 @@ export default function ChannelList({
             currentChannelId={currentChannelId} onCreateChannel={handleCreateChannel}
             onEditCategory={handleEditCategory} onDeleteCategory={handleDeleteCategory}
             canManage={canManage} unreadChannels={unreadChannels}
-            onEditChannel={handleOpenEditChannel} onDeleteChannel={handleRequestDeleteChannel} onCopyChannelId={handleCopyChannelId}
+            onEditChannel={handleOpenChannelSettings} onDeleteChannel={handleRequestDeleteChannel} onCopyChannelId={handleCopyChannelId}
             isChannelMuted={isChannelMuted} getChannelMuteKey={getChannelMuteKey} onMuteChannel={handleMuteChannel} onUnmuteChannel={handleUnmuteChannel}
             onChannelMove={canManage ? handleChannelMove : undefined}
             dragOverCategoryId={dragOverCategoryId} setDragOverCategoryId={setDragOverCategoryId}
@@ -1672,6 +1760,17 @@ export default function ChannelList({
           />
         ))}
 
+      </div>
+
+      {isMobile && !hideUserPanel && (
+        <MobileSidebarUserBar
+          embedded
+          notificationCount={notificationCount}
+          isNotificationsActive={isNotificationsActive}
+          onNotificationsClick={onMobileNotificationsClick}
+          pendingFriendsCount={pendingFriendsCount}
+        />
+      )}
       </div>
 
       {scrollContextMenu && (
@@ -1701,18 +1800,24 @@ export default function ChannelList({
         onError={(msg) => notify.error(msg)}
         teamId={team.id}
         categories={safeCategories}
-        initialData={null}
         defaultCategoryId={selectedCategoryId}
       />
 
-      <ChannelSettings
-        isOpen={showChannelSettings}
-        channel={settingsChannel}
-        teamId={team.id}
-        categories={safeCategories}
-        onClose={() => { setShowChannelSettings(false); setSettingsChannel(null); }}
-        onSave={handleChannelSettingsSave}
-      />
+      {!isMobile && (
+        <ChannelSettings
+          isOpen={showChannelSettings}
+          channel={settingsChannel}
+          teamId={team.id}
+          categories={safeCategories}
+          onClose={() => { setShowChannelSettings(false); setSettingsChannel(null); }}
+          onSave={handleChannelSettingsSave}
+          onDelete={async (channelId) => {
+            await onDeleteChannel?.(channelId);
+            setShowChannelSettings(false);
+            setSettingsChannel(null);
+          }}
+        />
+      )}
 
       <CategoryModal
         isOpen={showCategoryModal}

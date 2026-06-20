@@ -164,6 +164,14 @@
   background: var(--bg-hover);
 }
 
+.message-action-sheet-row--accent {
+  color: var(--accent);
+}
+
+.message-action-sheet-row--accent .message-action-sheet-row-icon {
+  color: var(--accent);
+}
+
 .message-action-sheet-row--danger {
   color: var(--danger, #f04747);
 }

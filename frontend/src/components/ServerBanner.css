@@ -1,0 +1,94 @@
+/* ═══════════════════════════════════════════════════════════
+   SERVER BANNER — wide cover; GIF animates on hover only
+   ═══════════════════════════════════════════════════════════ */
+
+.server-banner {
+  position: relative;
+  flex-shrink: 0;
+  width: 100%;
+  overflow: hidden;
+  background-color: #2b2d31;
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+}
+
+.server-banner--static {
+  min-height: 80px;
+}
+
+.server-banner--gif {
+  min-height: 80px;
+}
+
+.server-banner-img,
+.server-banner-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+}
+
+.server-banner-canvas {
+  pointer-events: none;
+}
+
+.server-banner--gif .avatar-gif-visible {
+  opacity: 1;
+  z-index: 1;
+}
+
+.server-banner--gif .avatar-gif-hidden {
+  opacity: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.server-banner--gif .avatar-gif-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Channel sidebar top */
+.channel-sidebar .server-banner {
+  height: 96px;
+  min-height: 96px;
+  background-color: var(--bg-tertiary, #2b2d31);
+}
+
+.channel-sidebar--mobile-discord .server-banner {
+  border-radius: 16px 0 0 0;
+}
+
+/* Chat message list banner */
+.team-chat-banner.server-banner {
+  height: 120px;
+  min-height: 120px;
+}
+
+.team-chat-banner.server-banner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 0%, rgba(49, 51, 56, 0.3) 100%);
+  pointer-events: none;
+}
+
+/* Server settings preview */
+.ss-server-banner-preview .server-banner {
+  height: 120px;
+  min-height: 120px;
+  border-radius: 12px;
+}
+
+/* Server bar hover card */
+.server-tooltip-card .server-banner {
+  height: 72px;
+  min-height: 72px;
+  border-radius: 8px 8px 0 0;
+}

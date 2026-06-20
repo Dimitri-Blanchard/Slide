@@ -61,6 +61,8 @@ function ProtectedRoute({ children }) {
     const redirect = encodeURIComponent(`${location.pathname}${location.search}`);
     return <Navigate to={`/login?redirect=${redirect}`} replace />;
   }
+  // Token present but /me still in flight — avoid rendering AppLayout with user=null (gray empty shell).
+  if (loading && hasToken && !user) return <RouteLoadingFallback />;
   if (loading && !hasToken) return <RouteLoadingFallback />;
   return children;
 }

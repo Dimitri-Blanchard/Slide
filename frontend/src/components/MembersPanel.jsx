@@ -4,30 +4,9 @@ import { usePrefetchOnHover } from '../context/PrefetchContext';
 import ClickableAvatar from './ClickableAvatar';
 import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import { useLongPress } from '../hooks/useLongPress';
+import { useRightPanelWidth } from '../hooks/useRightPanelWidth';
 import { hapticImpact } from '../utils/nativeHaptics';
 import './MembersPanel.css';
-
-const MEMBERS_PANEL_WIDTH_KEY = 'slide_members_panel_width';
-const MIN_WIDTH = 160;
-const MAX_WIDTH = 400;
-const DEFAULT_WIDTH = 240;
-
-function getStoredWidth() {
-  try {
-    const v = localStorage.getItem(MEMBERS_PANEL_WIDTH_KEY);
-    if (v) {
-      const n = parseInt(v, 10);
-      if (!isNaN(n) && n >= MIN_WIDTH && n <= MAX_WIDTH) return n;
-    }
-  } catch (_) {}
-  return DEFAULT_WIDTH;
-}
-
-function setStoredWidth(w) {
-  try {
-    localStorage.setItem(MEMBERS_PANEL_WIDTH_KEY, String(w));
-  } catch (_) {}
-}
 
 const MemberItem = memo(function MemberItem({ member, isOnline, roleColor, channelId, teamId, serverRoleBadges, serverTeamRole, canManage, isOwner, roles, memberRolesMap, onKick, onBan, voiceChannelId, onRolesChanged }) {
   const memberRowRef = useRef(null);
@@ -132,31 +111,7 @@ const MemberItem = memo(function MemberItem({ member, isOnline, roleColor, chann
 export default function MembersPanel({ teamId, channelId, members, roles, memberRolesMap, currentUserId, isOwner, canManage, onManageRoles, onKick, onBan, voiceChannelId = null, onRolesChanged }) {
   const { isUserOnline } = useOnlineUsers();
 
-  const [width, setWidth] = useState(getStoredWidth);
-  const widthRef = useRef(width);
-  widthRef.current = width;
-
-  const handleResizeStart = useCallback((e) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startW = widthRef.current;
-    const onMove = (ev) => {
-      const delta = startX - ev.clientX;
-      const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startW + delta));
-      setWidth(next);
-      setStoredWidth(next);
-    };
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-    document.body.style.cursor = 'ew-resize';
-    document.body.style.userSelect = 'none';
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, []);
+  const { width, handleResizeStart } = useRightPanelWidth();
 
   const groupedMembers = useMemo(() => {
     if (!members || members.length === 0) return { online: [], offline: [], roleGroups: [] };

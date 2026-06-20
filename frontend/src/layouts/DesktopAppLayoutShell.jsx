@@ -56,9 +56,8 @@ export default function DesktopAppLayoutShell({
   handleTouchEnd,
   pendingFriendsCount = 0,
 }) {
-  const serverConversations = Array.isArray(conversations)
-    ? conversations.filter((conversation) => !conversation?.is_local_private)
-    : [];
+  const allConversations = Array.isArray(conversations) ? conversations : [];
+  const dmConversations = allConversations.filter((conversation) => !conversation?.is_local_private);
 
   return (
     <div className={`app-layout scene-${scene} ${mobileNavOpen ? 'mobile-nav-open' : ''}`}>
@@ -84,7 +83,7 @@ export default function DesktopAppLayoutShell({
       )}
       <ServerBar
         teams={teams}
-        conversations={serverConversations}
+        conversations={allConversations}
         currentTeamId={params.teamId}
         currentConversationId={params.conversationId}
         currentLocalPrivateUserId={params.localPrivateUserId}
@@ -156,7 +155,7 @@ export default function DesktopAppLayoutShell({
                 <DirectChat
                   conversationId={params.conversationId}
                   onConversationsChange={setConversations}
-                  conversations={serverConversations}
+                  conversations={dmConversations}
                 />
               )}
             />
@@ -164,6 +163,7 @@ export default function DesktopAppLayoutShell({
             <Route path="/nitro" element={<NitroPage />} />
             <Route path="/security" element={<SecurityDashboard />} />
             <Route path="/quests" element={<QuestsPage />} />
+            <Route path="/friends" element={<Navigate to="/channels/@me" replace />} />
             <Route path="/channels/@me" element={<FriendsPage />} />
             <Route path="/" element={<Navigate to="/channels/@me" replace />} />
             <Route path="/home" element={<Navigate to="/channels/@me" replace />} />
@@ -175,11 +175,11 @@ export default function DesktopAppLayoutShell({
       <SearchModal
         isOpen={showSearch}
         onClose={() => setShowSearch(false)}
-        conversations={serverConversations}
+        conversations={dmConversations}
         teams={teams}
       />
 
-      <DmCallFloatingPanel conversations={serverConversations} isMobile={isMobile} />
+      <DmCallFloatingPanel conversations={dmConversations} isMobile={isMobile} />
     </div>
   );
 }

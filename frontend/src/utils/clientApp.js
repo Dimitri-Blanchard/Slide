@@ -68,3 +68,18 @@ export function applyCapacitorBootRedirect() {
   if (!target || window.location.hash === target) return;
   window.location.replace(`${window.location.pathname}${window.location.search}${target}`);
 }
+
+/** Electron HashRouter: skip blank `#/` and land on login or DMs before first paint. */
+export function getElectronBootHash() {
+  if (typeof window === 'undefined' || !window.electron?.isElectron) return null;
+  const hash = window.location.hash || '';
+  const path = (hash.slice(1).split('?')[0] || '/').replace(/\/+$/, '') || '/';
+  if (path !== '/' && path !== '') return null;
+  return getToken() ? '#/channels/@me' : '#/login';
+}
+
+export function applyElectronBootRedirect() {
+  const target = getElectronBootHash();
+  if (!target || window.location.hash === target) return;
+  window.location.replace(`${window.location.pathname}${window.location.search}${target}`);
+}

@@ -30,7 +30,7 @@
   }
 }
 
-/* Mobile shell (<=1024px web): channel list = full-screen overlay; chat fills viewport */
+/* Mobile shell (<=768px): channel list = full-screen overlay; chat fills viewport */
 .mobile-app-layout .team-view {
   position: relative;
   flex: 1;
@@ -40,6 +40,30 @@
 
 .mobile-app-layout .team-view > .channel-sidebar {
   display: none;
+}
+
+/* Server landing (/team/:id): show channel list in the content pane */
+.mobile-app-layout .team-view:not(.has-active-channel) {
+  flex-direction: column;
+  background: var(--bg-secondary);
+}
+
+.mobile-app-layout .team-view:not(.has-active-channel) > .channel-sidebar {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  align-self: stretch;
+  position: relative;
+  z-index: 1;
+}
+
+/* Never keep an empty chat column while browsing channels */
+.mobile-app-layout .team-view:not(.has-active-channel) > .team-chat,
+.mobile-app-layout .team-view:not(.has-active-channel) > .members-panel {
+  display: none !important;
 }
 
 .mobile-app-layout .team-view.mobile-channels-open > .channel-sidebar {
@@ -56,8 +80,29 @@
   box-shadow: none;
 }
 
-.mobile-app-layout:has(.mobile-bottom-nav) .team-view.mobile-channels-open > .channel-sidebar {
-  bottom: calc(var(--mobile-nav-bar-height, 56px) + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
+/* Split layout: channel list stays in the right pane, not over the server bar */
+.mobile-app-layout .mobile-split-layout .team-view:not(.has-active-channel) > .channel-sidebar,
+.mobile-app-layout .mobile-split-layout .team-view.mobile-channels-open > .channel-sidebar {
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  z-index: 1;
+}
+
+.mobile-app-layout:has(.mobile-island-nav) .team-view.mobile-channels-open > .channel-sidebar {
+  bottom: calc(var(--mobile-nav-bar-height, 72px) + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
+}
+
+.mobile-app-layout:has(.mobile-island-nav) .mobile-split-layout .team-view:not(.has-active-channel) > .channel-sidebar,
+.mobile-app-layout:has(.mobile-bottom-nav) .mobile-split-layout .team-view:not(.has-active-channel) > .channel-sidebar {
+  padding-bottom: calc(var(--mobile-nav-bar-height, 72px) + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
+}
+
+/* Embedded sidebar user bar — no island nav padding */
+.mobile-app-layout .mobile-split-layout .team-view:not(.has-active-channel) > .channel-sidebar--mobile-discord {
+  padding-bottom: 0;
 }
 
 .mobile-app-layout .team-view.mobile-channels-open:not(.has-active-channel) .team-chat,
@@ -261,12 +306,5 @@
   min-height: 0;
 }
 
-/* Responsive */
-/* Hide members list a bit earlier on smaller desktop widths so
-   chat content never sits underneath the right panel. */
-@media (max-width: 1180px) {
-  .team-view .members-panel {
-    display: none;
-  }
-}
+/* Responsive — collapse animated via AnimatedSidePanel (server-members variant) */
 

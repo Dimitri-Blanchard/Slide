@@ -13,6 +13,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useSettings } from '../context/SettingsContext';
 import { Icons } from '../components/ContextMenu';
 import useFriendsSync from './useFriendsSync';
+import { invitePublicUrl } from '../utils/publicSiteUrl';
 import { notifyFriendsChanged, isFriendRequestDuplicateError } from '../utils/friendsSync';
 import { ContextMenuVoiceControls } from '../components/ContextMenuVoiceControls';
 
@@ -61,7 +62,7 @@ export function useVoiceSidebarUserContextMenu(user, context = {}) {
       const conv = await directApi.createConversation(user.id);
       const convId = conv?.conversation_id ?? conv?.id;
       if (!convId) throw new Error('Failed to start conversation');
-      await directApi.sendMessage(convId, `${window.location.origin}/invite/${code}`, 'text');
+      await directApi.sendMessage(convId, invitePublicUrl(code), 'text');
       notify.success(
         (t('invite.sentTo') || 'Invite sent to {name}').replace(
           '{name}',

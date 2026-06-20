@@ -7,6 +7,7 @@
 
 :root {
   --panel-junction-radius: 8px;
+  --panel-junction-gap: 8px;
   --panel-divider: rgba(15, 17, 23, 0.05);
   --panel-sidebar-header-h: 63px;
   --panel-channel-header-h: 52px;
@@ -15,13 +16,14 @@
 }
 
 [data-theme="dark"] {
-  --panel-divider: rgba(255, 255, 255, 0.05);
-  --server-rail-bg: #111113;
+  --panel-divider: rgba(255, 255, 255, 0.06);
+  --server-rail-bg: var(--bg-secondary);
   --server-rail-width: 84px;
 }
 
 /* ── Server rail: zero right border ── */
-.app-layout > .server-bar {
+.app-layout > .server-bar,
+.mobile-app-layout .mobile-split-layout > .mobile-server-bar {
   position: relative;
   border: none !important;
   border-right: none !important;
@@ -30,7 +32,8 @@
 }
 
 /* Fill the rounded-corner gap above tour-search / channel header (sidebar clips TL radius) */
-.app-layout > .server-bar::after {
+.app-layout > .server-bar::after,
+.mobile-app-layout .mobile-split-layout > .mobile-server-bar::after {
   content: '';
   position: absolute;
   top: 0;
@@ -42,25 +45,57 @@
   z-index: 5;
 }
 
+.mobile-app-layout .mobile-split-layout > .mobile-server-bar::after {
+  display: none;
+}
+
 /* ── Adjacent panel shape ── */
 .app-layout > .sidebar,
-.app-layout .team-view > .channel-sidebar {
+.app-layout .team-view > .channel-sidebar,
+.mobile-app-layout .mobile-split-layout .mobile-messages-view,
+.mobile-app-layout .mobile-split-layout .team-view > .channel-sidebar {
   position: relative;
   border-top-left-radius: var(--panel-junction-radius);
   border-left: none;
   margin-left: -1px;
   z-index: 2;
   overflow: hidden;
+  background: var(--bg-secondary);
 }
 
-.app-layout > .sidebar {
+.app-layout > .sidebar,
+.mobile-app-layout .mobile-split-layout .mobile-messages-view {
   border-right: none;
 }
 
-.app-layout .team-view > .channel-sidebar {
+.app-layout .team-view > .channel-sidebar,
+.mobile-app-layout .mobile-split-layout .team-view > .channel-sidebar {
   margin-left: 0;
   flex-shrink: 0;
   border-right: var(--hairline-width) solid var(--panel-divider);
+}
+
+.mobile-app-layout .mobile-split-layout .channel-sidebar--mobile-discord {
+  border-radius: 0;
+  border-top-left-radius: var(--panel-junction-radius);
+}
+
+/* Server name row: no left rule (junction on .sidebar-nav-panel below) */
+.mobile-app-layout .mobile-split-layout .channel-sidebar--mobile-discord .server-header {
+  flex-shrink: 0;
+}
+
+/* Pager wrappers — panel carries bg + junction */
+.mobile-app-layout .mobile-split-layout .mobile-home-pager-page,
+.mobile-app-layout .mobile-split-layout .mobile-home-pager-page-inner,
+.mobile-app-layout .mobile-split-layout .mobile-content-main,
+.mobile-app-layout .mobile-split-layout .team-view,
+.mobile-app-layout .mobile-split-layout .app-main {
+  background: transparent;
+}
+
+.mobile-app-layout .mobile-split-layout .mobile-home-pager-page {
+  overflow: visible;
 }
 
 /* Server view: channel list lives inside app-main — align flush with server rail */
@@ -77,7 +112,6 @@
 }
 
 .app-layout > .sidebar::after,
-.app-layout .team-view > .channel-sidebar .server-header::before,
 .app-layout > .app-main .community-hero::after {
   content: '';
   position: absolute;
@@ -93,8 +127,14 @@
   z-index: 3;
 }
 
+/* Channel sidebar: top arc on .sidebar-nav-panel instead of .server-header */
+.app-layout .team-view > .channel-sidebar .server-header::before,
+.mobile-app-layout .mobile-split-layout .team-view > .channel-sidebar .server-header::before {
+  display: none;
+  content: none;
+}
+
 .app-root.has-electron-title-bar .app-layout > .sidebar::after,
-.app-root.has-electron-title-bar .app-layout .team-view > .channel-sidebar .server-header::before,
 .app-root.has-electron-title-bar .app-layout > .app-main .community-hero::after {
   border-top-color: var(--border-subtle, rgba(255, 255, 255, 0.06));
 }
@@ -107,38 +147,41 @@
   z-index: 2;
 }
 
-/* ── Vertical rule: below top arc ── */
-.app-layout > .sidebar::before {
-  content: '';
-  position: absolute;
-  top: var(--panel-junction-radius);
-  left: 0;
-  bottom: 0;
-  width: var(--hairline-width);
-  background: var(--panel-divider);
-  pointer-events: none;
-  z-index: 2;
+/* ── Vertical rule: none on full panel (junction lives on .sidebar-nav-panel) ── */
+.app-layout .team-view > .channel-sidebar::before,
+.mobile-app-layout .mobile-split-layout .team-view > .channel-sidebar::before {
+  display: none;
+  content: none;
 }
 
-.app-layout .team-view > .channel-sidebar::before {
-  content: '';
-  position: absolute;
-  top: var(--panel-junction-radius);
-  left: 0;
-  bottom: 0;
-  width: var(--hairline-width);
-  background: var(--panel-divider);
-  pointer-events: none;
-  z-index: 2;
+/* No vertical line above DM section (erase line 3) */
+.app-layout > .sidebar::before,
+.mobile-app-layout .mobile-split-layout .mobile-messages-view::before {
+  display: none;
+  content: none;
 }
 
-/* ── Header row: custom bottom junction (not a full-width straight border) ── */
+/* ── Header row: no bottom border (junction on .sidebar-nav-panel below) ── */
 .app-layout > .sidebar .sidebar-search-btn,
-.app-layout .team-view > .channel-sidebar .server-header-btn {
+.mobile-app-layout .mobile-split-layout .mobile-messages-view .sidebar-search-btn {
   border-bottom: none !important;
   border-top-left-radius: var(--panel-junction-radius);
   position: relative;
   z-index: 1;
+}
+
+.app-layout .team-view > .channel-sidebar .server-header-btn,
+.mobile-app-layout .mobile-split-layout .team-view > .channel-sidebar .server-header-btn {
+  border-bottom: none !important;
+  border-top-left-radius: 0;
+  position: relative;
+  z-index: 1;
+}
+
+/* Radius lives on header only when no banner (see ChannelList.css) */
+.app-layout .team-view > .channel-sidebar .channel-sidebar-top:not(.channel-sidebar-top--banner) .server-header-btn,
+.mobile-app-layout .mobile-split-layout .team-view > .channel-sidebar .channel-sidebar-top:not(.channel-sidebar-top--banner) .server-header-btn {
+  border-top-left-radius: var(--panel-junction-radius);
 }
 
 .app-layout > .app-main .friends-header {
@@ -148,11 +191,11 @@
   z-index: 1;
 }
 
-.app-layout .team-view > .channel-sidebar .server-header {
+.app-layout .team-view > .channel-sidebar .server-header,
+.mobile-app-layout .mobile-split-layout .team-view > .channel-sidebar .server-header {
   position: relative;
 }
 
-.app-layout > .sidebar .sidebar-search-btn::after,
 .app-layout > .app-main .friends-header::after {
   content: '';
   position: absolute;
@@ -165,24 +208,135 @@
   z-index: 2;
 }
 
-.app-layout .team-view > .channel-sidebar .server-header-btn::after {
+/* Nav panel: horizontal + vertical joined with rounded top-left corner */
+.app-layout > .sidebar .sidebar-nav,
+.app-layout .team-view > .channel-sidebar .sidebar-nav-panel,
+.mobile-app-layout .mobile-split-layout .sidebar-nav-panel {
+  position: relative;
+}
+
+/* DM sidebar keeps the junction line on the nav panel itself */
+.app-layout > .sidebar .sidebar-nav,
+.mobile-app-layout .mobile-split-layout .mobile-messages-view .sidebar-nav-panel {
+  background-image: linear-gradient(var(--panel-divider), var(--panel-divider));
+  background-size: calc(100% - var(--panel-junction-radius)) var(--hairline-width);
+  background-position: var(--panel-junction-radius) 0;
+  background-repeat: no-repeat;
+}
+
+/* Server channel list: top rule is on .channel-sidebar-top — nav panel only carries the vertical */
+.app-layout .team-view > .channel-sidebar .sidebar-nav-panel {
+  background-image: none;
+}
+
+.app-layout > .sidebar .sidebar-nav::before,
+.app-layout .team-view > .channel-sidebar .sidebar-nav-panel::before,
+.mobile-app-layout .mobile-split-layout .sidebar-nav-panel::before {
   content: '';
   position: absolute;
+  top: var(--panel-junction-radius);
   left: 0;
-  right: 0;
   bottom: 0;
-  height: var(--hairline-width);
+  width: var(--hairline-width);
   background: var(--panel-divider);
   pointer-events: none;
-  z-index: 2;
+  z-index: 3;
 }
 
-.app-layout > .sidebar .sidebar-search-btn::before {
-  display: none;
+.app-layout > .sidebar .sidebar-nav::after,
+.mobile-app-layout .mobile-split-layout .mobile-messages-view .sidebar-nav-panel::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--panel-junction-radius);
+  height: var(--panel-junction-radius);
+  border-left: var(--hairline-width) solid var(--panel-divider);
+  border-top: var(--hairline-width) solid var(--panel-divider);
+  border-top-left-radius: var(--panel-junction-radius);
+  background: var(--bg-secondary);
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 4;
 }
 
-.app-layout .team-view > .channel-sidebar .server-header-btn::before {
+/* Server sidebar: rounded corner at nav top-left (horizontal rule is on .channel-sidebar-top) */
+.app-layout .team-view > .channel-sidebar .sidebar-nav-panel::after,
+.mobile-app-layout .mobile-split-layout .team-view > .channel-sidebar .sidebar-nav-panel::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--panel-junction-radius);
+  height: var(--panel-junction-radius);
+  border-left: var(--hairline-width) solid var(--panel-divider);
+  border-bottom: var(--hairline-width) solid var(--panel-divider);
+  border-bottom-left-radius: var(--panel-junction-radius);
+  background: var(--bg-secondary);
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* ── Chat panel junction: sidebar ↔ DM / local chat (square, flush) ── */
+.app-layout:has(> .sidebar) > .app-main:has(.direct-chat),
+.app-layout:has(> .sidebar) > .app-main:has(.local-private-chat) {
+  box-shadow: none !important;
+}
+
+/* ── Mobile split overrides ── */
+.mobile-app-layout .mobile-split-layout .mobile-messages-view,
+.mobile-app-layout .mobile-split-layout .team-view > .channel-sidebar {
+  margin-left: 0;
+}
+
+.mobile-app-layout .mobile-split-layout .mobile-messages-view::after {
   display: none;
+  content: none;
+}
+
+.mobile-app-layout .mobile-split-layout .mobile-messages-view .sidebar-search-btn::before,
+.mobile-app-layout .mobile-split-layout .mobile-messages-view .sidebar-search-btn::after {
+  display: none;
+  content: none;
+}
+
+.mobile-app-layout .mobile-split-layout .sidebar-nav-panel {
+  background-image: linear-gradient(var(--border-subtle), var(--border-subtle));
+  background-size: calc(100% - var(--panel-junction-radius)) 1px;
+}
+
+.mobile-app-layout .mobile-split-layout .team-view > .channel-sidebar .sidebar-nav-panel {
+  background-image: none;
+}
+
+.mobile-app-layout .mobile-split-layout .sidebar-nav-panel::before {
+  width: 1px;
+  background: var(--border-subtle);
+}
+
+.mobile-app-layout .mobile-split-layout .team-view > .channel-sidebar .sidebar-nav-panel::after {
+  border-left-width: 1px;
+  border-bottom-width: 1px;
+  border-left-color: var(--border-subtle);
+  border-bottom-color: var(--border-subtle);
+}
+
+.mobile-app-layout .mobile-split-layout .mobile-messages-view .sidebar-nav-panel::after {
+  border-left-width: 1px;
+  border-top-width: 1px;
+  border-left-color: var(--border-subtle);
+  border-top-color: var(--border-subtle);
+}
+
+.mobile-app-layout .mobile-split-layout .channel-sidebar-top::after {
+  height: 1px;
+  background: var(--border-subtle);
+}
+
+.mobile-app-layout .mobile-split-layout .channel-sidebar-top--banner .server-banner {
+  border-bottom-width: 1px;
+  border-bottom-color: var(--border-subtle);
 }
 
 @media (max-width: 768px) {
@@ -212,8 +366,12 @@
   }
 
   .app-layout > .sidebar .sidebar-search-btn,
-  .app-layout .team-view > .channel-sidebar .server-header-btn,
   .app-layout > .app-main .friends-header {
     border-bottom: var(--hairline-width) solid var(--panel-divider) !important;
+  }
+
+  .app-layout .team-view > .channel-sidebar .channel-sidebar-top::after {
+    height: 1px;
+    background: var(--border-subtle);
   }
 }

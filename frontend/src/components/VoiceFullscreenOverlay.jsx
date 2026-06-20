@@ -1,8 +1,6 @@
 import React, { memo, useMemo } from 'react';
-import { ChevronDown } from 'lucide-react';
 import { useVoice, getRemoteStreamForUser } from '../context/VoiceContext';
 import { useAuth } from '../context/AuthContext';
-import { useLanguage } from '../context/LanguageContext';
 import AppIcon from './icons/AppIcon';
 import VoiceChannel from './VoiceChannel';
 import DMCallView from './DMCallView';
@@ -20,7 +18,6 @@ function resolveIslandStream(preview, { remoteVideoStreams, ownScreenStream, own
 
 const VoiceFullscreenOverlay = memo(function VoiceFullscreenOverlay({ isMobile, conversations }) {
   const { user } = useAuth();
-  const { t } = useLanguage();
   const {
     voiceChannelId,
     voiceTeamId,
@@ -175,19 +172,6 @@ const VoiceFullscreenOverlay = memo(function VoiceFullscreenOverlay({ isMobile, 
 
   return (
     <div className={`voice-fullscreen-overlay voice-fullscreen-overlay--v2${voiceLeaveAnim ? ' voice-fullscreen-overlay--exiting' : ''}`}>
-      <div className="voice-fullscreen-topbar">
-        <div className="voice-fullscreen-brand">
-          <span className="voice-fullscreen-brand-text">Voice</span>
-        </div>
-        <button
-          type="button"
-          className="voice-fullscreen-minimize"
-          onClick={() => setVoiceViewMinimized(true)}
-          aria-label={t('voice.minimizeVoice') || 'Minimize'}
-        >
-          <ChevronDown size={22} strokeWidth={2.5} />
-        </button>
-      </div>
       <div className="voice-fullscreen-content voice-fullscreen-content--fill">
         {voiceConversationId ? (
           <DMCallView

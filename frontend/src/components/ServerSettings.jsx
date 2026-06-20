@@ -1,13 +1,18 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import { servers, teams as teamsApi, webhooks as webhooksApi, BACKEND_ORIGIN } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useNotification } from '../context/NotificationContext';
+import { useNativeBackHandler } from '../hooks/useNativeBackHandler';
 import Avatar, { AvatarImg } from './Avatar';
 import ColorPicker from './ColorPicker';
 import ConfirmModal from './ConfirmModal';
 import CommunitySetupWizard from './CommunitySetupWizard';
+import { invitePublicUrl } from '../utils/publicSiteUrl';
 import './ServerSettings.css';
+import '../pages/Settings.css';
 
 function parseDiscoveryTags(v) {
   if (Array.isArray(v)) return v;
@@ -33,8 +38,10 @@ const OverviewTab = ({ team, channels, onUpdate, onDirtyChange }) => {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploadingIcon, setUploadingIcon] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
   const [showCommunityWizard, setShowCommunityWizard] = useState(false);
   const iconInputRef = React.useRef(null);
+  const bannerInputRef = React.useRef(null);
   const savedBaselineRef = React.useRef(null);
   const { notify } = useNotification();
 
@@ -125,6 +132,41 @@ const OverviewTab = ({ team, channels, onUpdate, onDirtyChange }) => {
     e.target.value = '';
   };
 
+  const handleBannerClick = () => bannerInputRef.current?.click();
+  const handleBannerChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !/^image\/(jpeg|png|gif|webp)$/i.test(file.type)) {
+      notify.error('Please select a JPG, PNG, GIF or WebP image (max 4 MB)');
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      notify.error('Image too large. Max 4 MB.');
+      return;
+    }
+    setUploadingBanner(true);
+    try {
+      const result = await servers.uploadBanner(team.id, file);
+      onUpdate?.(result?.team);
+      notify.success('Server banner updated');
+    } catch (err) {
+      notify.error(err.message || 'Failed to upload banner');
+    }
+    setUploadingBanner(false);
+    e.target.value = '';
+  };
+
+  const handleBannerRemove = async () => {
+    setUploadingBanner(true);
+    try {
+      const result = await servers.deleteBanner(team.id);
+      onUpdate?.(result?.team);
+      notify.success('Server banner removed');
+    } catch (err) {
+      notify.error(err.message || 'Failed to remove banner');
+    }
+    setUploadingBanner(false);
+  };
+
   const resetAll = () => {
     setName(team?.name || '');
     setDescription(team?.description || '');
@@ -205,6 +247,39 @@ const OverviewTab = ({ team, channels, onUpdate, onDirtyChange }) => {
             )}
           </div>
           <span className="ss-icon-hint">Click to upload (512×512 recommended, max 8 MB)</span>
+        </div>
+
+        <div className="ss-server-banner-area">
+          <input
+            ref={bannerInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            className="ss-icon-input-hidden"
+            onChange={handleBannerChange}
+          />
+          <div className={`ss-server-banner-preview${uploadingBanner ? ' uploading' : ''}`}>
+            {team?.banner_url ? (
+              <img src={team.banner_url} alt="" className="ss-server-banner-img" />
+            ) : (
+              <div className="ss-server-banner-placeholder">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                </svg>
+                <span>No banner yet</span>
+              </div>
+            )}
+          </div>
+          <div className="ss-server-banner-actions">
+            <button type="button" className="ss-banner-btn" onClick={handleBannerClick} disabled={uploadingBanner}>
+              {uploadingBanner ? 'Uploading…' : (team?.banner_url ? 'Change banner' : 'Upload banner')}
+            </button>
+            {team?.banner_url && (
+              <button type="button" className="ss-banner-btn ss-banner-btn--danger" onClick={handleBannerRemove} disabled={uploadingBanner}>
+                Remove
+              </button>
+            )}
+          </div>
+          <span className="ss-icon-hint">960×540 recommended. GIFs animate on hover at the top of the channel list.</span>
         </div>
 
         <div className="ss-overview-fields">
@@ -1013,7 +1088,7 @@ const InvitesTab = ({ team }) => {
   };
 
   const copyInvite = (code) => {
-    const text = `${window.location.origin}/invite/${code}`;
+    const text = invitePublicUrl(code);
     navigator.clipboard?.writeText(text).then(() => notify.success('Copied!')).catch(() => {});
   };
 
@@ -1713,11 +1788,30 @@ function DeleteServerTab({ team, onClose, onUpdate }) {
   );
 }
 
-export default function ServerSettings({ team, roles, members, channels, categories, isOwner: isOwnerProp, isOpen, onClose, onUpdate }) {
+export default function ServerSettings({
+  team,
+  roles,
+  members,
+  channels,
+  categories,
+  isOwner: isOwnerProp,
+  isOpen,
+  onClose,
+  onUpdate,
+  presentation = 'overlay',
+}) {
+  const isFullscreen = presentation === 'fullscreen';
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('overview');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
+  const [mobileView, setMobileView] = useState('hub');
   const { t } = useLanguage();
+
+  const tx = useCallback((key, fallback) => {
+    const value = t(key);
+    return value === key ? fallback : value;
+  }, [t]);
 
   const handleClose = useCallback(() => {
     if (hasUnsavedChanges) {
@@ -1728,7 +1822,7 @@ export default function ServerSettings({ team, roles, members, channels, categor
   }, [hasUnsavedChanges, onClose]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || isFullscreen) return;
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
@@ -1737,39 +1831,108 @@ export default function ServerSettings({ team, roles, members, channels, categor
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, handleClose]);
+  }, [isOpen, isFullscreen, handleClose]);
+
+  useEffect(() => {
+    if (!isOpen || !isFullscreen) return undefined;
+    document.body.classList.add('settings-open');
+    return () => document.body.classList.remove('settings-open');
+  }, [isOpen, isFullscreen]);
 
   const { user: currentUser } = useAuth();
   const isOwner = isOwnerProp || String(team?.created_by) === String(currentUser?.id);
 
-  if (!isOpen || !team) return null;
+  const navIcons = useMemo(() => ({
+    overview: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>,
+    roles: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>,
+    emoji: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>,
+    members: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>,
+    webhooks: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>,
+    invites: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>,
+    bans: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z"/></svg>,
+    audit: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>,
+    delete: <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--error)"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>,
+  }), []);
 
-  const navGroups = [
+  const navGroups = useMemo(() => [
     {
-      label: team.name,
+      label: team?.name || tx('server.settings', 'Server Settings'),
       items: [
-        { id: 'overview', label: 'Overview', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg> },
-        { id: 'roles', label: 'Roles', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg> },
-        { id: 'emoji', label: 'Emoji', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg> },
-        { id: 'members', label: 'Members', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg> },
-        { id: 'webhooks', label: 'Webhooks', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg> },
-      ]
+        { id: 'overview', label: tx('server.overview', 'Overview'), icon: navIcons.overview },
+        { id: 'roles', label: tx('server.roles', 'Roles'), icon: navIcons.roles },
+        { id: 'emoji', label: tx('server.emoji', 'Emoji'), icon: navIcons.emoji },
+        { id: 'members', label: tx('server.members', 'Members'), icon: navIcons.members },
+        { id: 'webhooks', label: tx('server.webhooks', 'Webhooks'), icon: navIcons.webhooks },
+      ],
     },
     {
-      label: 'Moderation',
+      label: tx('server.moderation', 'Moderation'),
       items: [
-        { id: 'invites', label: 'Invites', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg> },
-        { id: 'bans', label: 'Bans', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z"/></svg> },
-        { id: 'audit', label: 'Audit Log', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg> },
-      ]
+        { id: 'invites', label: tx('server.invites', 'Invites'), icon: navIcons.invites },
+        { id: 'bans', label: tx('server.bans', 'Bans'), icon: navIcons.bans },
+        { id: 'audit', label: tx('server.auditLog', 'Audit Log'), icon: navIcons.audit },
+      ],
     },
     ...(isOwner ? [{
-      label: 'Danger Zone',
+      label: tx('server.dangerZone', 'Danger Zone'),
       items: [
-        { id: 'delete', label: 'Delete Server', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--error)"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>, danger: true },
-      ]
+        { id: 'delete', label: tx('server.deleteServer', 'Delete Server'), icon: navIcons.delete, danger: true },
+      ],
     }] : []),
-  ];
+  ], [team?.name, isOwner, navIcons, tx]);
+
+  const navItemsFlat = useMemo(
+    () => navGroups.flatMap((group) => group.items),
+    [navGroups],
+  );
+
+  const activeTabLabel = navItemsFlat.find((item) => item.id === activeTab)?.label
+    || tx('server.settings', 'Server Settings');
+
+  const isMobileHub = isFullscreen && mobileView === 'hub';
+  const isMobileSection = isFullscreen && mobileView === 'section';
+
+  useEffect(() => {
+    if (!isFullscreen || !isOpen) return;
+    const section = searchParams.get('section');
+    if (section && navItemsFlat.some((item) => item.id === section)) {
+      setActiveTab(section);
+      setMobileView('section');
+      return;
+    }
+    setMobileView('hub');
+  }, [isFullscreen, isOpen, searchParams, navItemsFlat]);
+
+  const navigateToTab = useCallback((tabId) => {
+    setActiveTab(tabId);
+    if (!isFullscreen) return;
+    setMobileView('section');
+    const next = new URLSearchParams(searchParams);
+    next.set('section', tabId);
+    setSearchParams(next, { replace: true });
+  }, [isFullscreen, searchParams, setSearchParams]);
+
+  const backToMobileHub = useCallback(() => {
+    if (hasUnsavedChanges) {
+      setShowUnsavedConfirm(true);
+      return;
+    }
+    setMobileView('hub');
+    const next = new URLSearchParams(searchParams);
+    next.delete('section');
+    setSearchParams(next, { replace: true });
+  }, [hasUnsavedChanges, searchParams, setSearchParams]);
+
+  useNativeBackHandler(isFullscreen && isOpen, () => {
+    if (isMobileSection) {
+      backToMobileHub();
+      return true;
+    }
+    handleClose();
+    return true;
+  }, 120);
+
+  if (!isOpen || !team) return null;
 
   const renderTab = () => {
     switch (activeTab) {
@@ -1785,6 +1948,129 @@ export default function ServerSettings({ team, roles, members, channels, categor
       default: return null;
     }
   };
+
+  const unsavedConfirmModal = (
+    <ConfirmModal
+      isOpen={showUnsavedConfirm}
+      title={tx('server.unsavedChangesTitle', 'Unsaved Changes')}
+      message={tx('server.unsavedChangesMessage', 'You have unsaved changes. Are you sure you want to leave? Your changes will be lost.')}
+      confirmText={tx('server.discardChanges', 'Discard')}
+      cancelText={tx('server.keepEditing', 'Keep Editing')}
+      type="danger"
+      onConfirm={() => {
+        setShowUnsavedConfirm(false);
+        setHasUnsavedChanges(false);
+        onClose();
+      }}
+      onCancel={() => setShowUnsavedConfirm(false)}
+    />
+  );
+
+  if (isFullscreen) {
+    const mobileShell = (
+      <div
+        className={[
+          'settings-page',
+          'settings-page--fullscreen',
+          'ss-page--fullscreen',
+          isMobileHub ? 'settings-page--mobile-hub' : '',
+          isMobileSection ? 'settings-page--mobile-section' : '',
+        ].filter(Boolean).join(' ')}
+      >
+        <div className="settings-modal-container">
+          {isMobileHub ? (
+            <>
+              <header className="settings-mobile-header">
+                <button
+                  type="button"
+                  className="settings-mobile-header-btn"
+                  onClick={handleClose}
+                  aria-label={tx('common.close', 'Close')}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+                <h1 className="settings-mobile-header-title">{tx('server.settings', 'Server Settings')}</h1>
+                <span className="settings-mobile-header-spacer" aria-hidden />
+              </header>
+
+              <div className="settings-mobile-hub-body">
+                <button
+                  type="button"
+                  className="settings-mobile-profile-card"
+                  onClick={() => navigateToTab('overview')}
+                >
+                  <div className="settings-mobile-profile-avatar ss-mobile-server-avatar">
+                    {team?.avatar_url ? (
+                      <AvatarImg src={team.avatar_url} alt={team.name} />
+                    ) : (
+                      <span className="ss-mobile-server-initial">{(team?.name || '?').charAt(0).toUpperCase()}</span>
+                    )}
+                  </div>
+                  <div className="settings-mobile-profile-info">
+                    <span className="settings-mobile-profile-name">{team?.name}</span>
+                    <span className="settings-mobile-profile-tag">{tx('server.overview', 'Overview')}</span>
+                  </div>
+                  <svg className="settings-mobile-row-chevron" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z" />
+                  </svg>
+                </button>
+
+                {navGroups.map((group) => (
+                  <section key={group.label} className="settings-mobile-group">
+                    <h2 className="settings-mobile-group-label">{group.label}</h2>
+                    <div className="settings-mobile-group-card">
+                      {group.items.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={`settings-mobile-row${item.danger ? ' settings-mobile-row--danger' : ''}`}
+                          onClick={() => navigateToTab(item.id)}
+                        >
+                          <span className={`settings-mobile-row-icon${item.danger ? ' settings-mobile-row-icon--danger' : ''}`}>
+                            {item.icon}
+                          </span>
+                          <span className="settings-mobile-row-label">{item.label}</span>
+                          <svg className="settings-mobile-row-chevron" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z" />
+                          </svg>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <header className="settings-mobile-header">
+                <button
+                  type="button"
+                  className="settings-mobile-header-btn"
+                  onClick={backToMobileHub}
+                  aria-label={tx('common.back', 'Back')}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6"/>
+                  </svg>
+                </button>
+                <h1 className="settings-mobile-header-title">{activeTabLabel}</h1>
+                <span className="settings-mobile-header-spacer" aria-hidden />
+              </header>
+              <div className="ss-content ss-content--mobile">
+                {renderTab()}
+              </div>
+            </>
+          )}
+        </div>
+        {unsavedConfirmModal}
+      </div>
+    );
+
+    return createPortal(mobileShell, document.body);
+  }
 
   return (
     <div className="ss-overlay">
@@ -1826,20 +2112,7 @@ export default function ServerSettings({ team, roles, members, channels, categor
         </div>
       </div>
 
-      <ConfirmModal
-        isOpen={showUnsavedConfirm}
-        title="Unsaved Changes"
-        message="You have unsaved changes. Are you sure you want to leave? Your changes will be lost."
-        confirmText="Discard"
-        cancelText="Keep Editing"
-        type="danger"
-        onConfirm={() => {
-          setShowUnsavedConfirm(false);
-          setHasUnsavedChanges(false);
-          onClose();
-        }}
-        onCancel={() => setShowUnsavedConfirm(false)}
-      />
+      {unsavedConfirmModal}
     </div>
   );
 }

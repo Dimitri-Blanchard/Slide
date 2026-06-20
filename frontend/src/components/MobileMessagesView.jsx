@@ -1,22 +1,20 @@
-import React, { useState, useMemo, memo } from 'react';
+import React, { useMemo, memo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { AvatarImg } from './Avatar';
 import ClickableAvatar from './ClickableAvatar';
+import ContextMenu from './ContextMenu';
+import ProfileCard from './ProfileCard';
+import AddNoteModal from './AddNoteModal';
+import FriendNicknameModal from './FriendNicknameModal';
 import { makeLocalPrivateRoute } from '../utils/localPrivateChatCrypto';
+import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
+import { useLongPress } from '../hooks/useLongPress';
+import { useDmConversationContextMenu } from '../hooks/useDmConversationContextMenu';
+import { hapticImpact } from '../utils/nativeHaptics';
 import { Lock } from 'lucide-react';
+import './Sidebar.css';
 import './MobileMessagesView.css';
-
-function getPinnedConversations() {
-  try {
-    const pinned = localStorage.getItem('slide_pinned_conversations');
-    return pinned ? JSON.parse(pinned) : [];
-  } catch {
-    return [];
-  }
-}
-
-const MAX_PINNED = 5;
 
 const GroupAvatar = memo(function GroupAvatar({ participants, size = 'medium' }) {
   const avatars = (participants || []).slice(0, 3);
@@ -37,11 +35,20 @@ const GroupAvatar = memo(function GroupAvatar({ participants, size = 'medium' })
   );
 });
 
-const DMItem = memo(function DMItem({ conversation, isActive, currentConversationId }) {
+const DMItem = memo(function DMItem({
+  conversation,
+  isActive,
+  currentConversationId,
+  onContextMenu,
+  onPinConversation,
+  isPinned,
+  canPin,
+}) {
+  const compactTouchUi = useCompactTouchUi();
   const isGroup = !!conversation.is_group;
   const other = conversation.participants?.[0];
   const name = isGroup
-    ? (conversation.group_name || conversation.participants?.map(p => p.display_name).join(', ') || 'Group')
+    ? (conversation.group_name || conversation.participants?.map((p) => p.display_name).join(', ') || 'Group')
     : (other?.display_name || 'Conversation');
   const id = conversation.conversation_id;
   const isLocalPrivate = !!conversation.is_local_private;
@@ -50,17 +57,67 @@ const DMItem = memo(function DMItem({ conversation, isActive, currentConversatio
   const unreadCount = currentConversationId === String(id) ? 0 : (conversation.unread_count || 0);
   const lastPreview = conversation.last_message_preview || '';
 
+  const handleContextMenu = useCallback((e) => {
+    e.preventDefault?.();
+    e.stopPropagation?.();
+    onContextMenu?.(e, conversation);
+  }, [conversation, onContextMenu]);
+
+  const { longPressProps, shouldSkipClick } = useLongPress(
+    useCallback((e) => {
+      hapticImpact('Medium');
+      onContextMenu?.(e, conversation);
+    }, [conversation, onContextMenu]),
+    { disabled: !compactTouchUi, delay: 420 },
+  );
+
+  const handleLinkClick = useCallback((e) => {
+    if (shouldSkipClick()) e.preventDefault();
+  }, [shouldSkipClick]);
+
+  const stopAvatarPointer = useCallback((e) => {
+    if (!compactTouchUi) return;
+    e.stopPropagation();
+  }, [compactTouchUi]);
+
   return (
     <Link
       to={to}
       className={`mobile-dm-item ${isActive ? 'active' : ''} ${unreadCount > 0 ? 'has-unread' : ''} ${isLocalPrivate ? 'local-private-dm' : ''}`}
       draggable={false}
+      onContextMenu={compactTouchUi ? longPressProps.onContextMenu : handleContextMenu}
+      onPointerDown={compactTouchUi ? longPressProps.onPointerDown : undefined}
+      onPointerMove={compactTouchUi ? longPressProps.onPointerMove : undefined}
+      onPointerUp={compactTouchUi ? longPressProps.onPointerUp : undefined}
+      onPointerCancel={compactTouchUi ? longPressProps.onPointerCancel : undefined}
+      onClick={compactTouchUi ? handleLinkClick : undefined}
     >
-      <span className="mobile-dm-avatar-wrap">
+      <span
+        className="mobile-dm-avatar-wrap"
+        onPointerDown={stopAvatarPointer}
+        onPointerMove={stopAvatarPointer}
+        onPointerUp={stopAvatarPointer}
+      >
         {isGroup ? (
           <GroupAvatar participants={conversation.participants} size="medium" />
         ) : (
-          <ClickableAvatar user={other} size="medium" showPresence position="right" suppressProfileOpen />
+          <ClickableAvatar
+            user={other}
+            size="medium"
+            showPresence
+            position="right"
+            suppressProfileOpen
+            suppressContextMenu={compactTouchUi}
+            contextMenuContext={{
+              conversationId: isLocalPrivate ? null : id,
+              lastMessageId: isLocalPrivate ? null : (conversation.last_message_id || null),
+              hasUnread: unreadCount > 0,
+              isDmList: !isLocalPrivate,
+              onPinConversation: isLocalPrivate ? undefined : onPinConversation,
+              isPinned: isLocalPrivate ? false : isPinned,
+              canPin: isLocalPrivate ? false : canPin,
+            }}
+          />
         )}
       </span>
       <span className="mobile-dm-info">
@@ -88,73 +145,58 @@ export default function MobileMessagesView({
   currentLocalPrivateUserId,
   loading,
   onOpenSearch,
-  pendingFriendsCount = 0,
+  onRemoveConversation,
+  onRestoreConversation,
 }) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [pinnedIds] = useState(() => getPinnedConversations());
+  const { t } = useLanguage();
 
-  const allConversations = conversations || [];
+  const {
+    pinnedIds,
+    togglePinConversation,
+    handleConversationContextMenu,
+    closeContextMenu,
+    contextMenu,
+    getContextMenuItems,
+    contextMenuTitle,
+    filterVisibleConversations,
+    profileCard,
+    setProfileCard,
+    nicknameModalUser,
+    setNicknameModalUser,
+    noteModalUser,
+    setNoteModalUser,
+  } = useDmConversationContextMenu({
+    currentConversationId,
+    onRemoveConversation,
+    onRestoreConversation,
+  });
+
+  const allConversations = filterVisibleConversations(conversations);
   const pinned = useMemo(() => allConversations.filter((c) => pinnedIds.includes(c.conversation_id)), [allConversations, pinnedIds]);
   const unpinned = useMemo(() => allConversations.filter((c) => !pinnedIds.includes(c.conversation_id)), [allConversations, pinnedIds]);
 
-  const filteredPinned = useMemo(() => {
-    if (!searchQuery.trim()) return pinned;
-    const q = searchQuery.toLowerCase();
-    return pinned.filter((c) => {
-      const name = c.is_group
-        ? (c.group_name || c.participants?.map(p => p.display_name).join(' ') || '')
-        : (c.participants?.[0]?.display_name || c.participants?.[0]?.username || '');
-      return name.toLowerCase().includes(q);
-    });
-  }, [pinned, searchQuery]);
-
-  const filteredUnpinned = useMemo(() => {
-    if (!searchQuery.trim()) return unpinned;
-    const q = searchQuery.toLowerCase();
-    return unpinned.filter((c) => {
-      const name = c.is_group
-        ? (c.group_name || c.participants?.map(p => p.display_name).join(' ') || '')
-        : (c.participants?.[0]?.display_name || c.participants?.[0]?.username || '');
-      return name.toLowerCase().includes(q);
-    });
-  }, [unpinned, searchQuery]);
-
   const showDmSkeleton = loading && allConversations.length === 0;
-  const { t } = useLanguage();
+
+  const renderDmItem = (c, isPinnedRow) => (
+    <DMItem
+      key={c.conversation_id}
+      conversation={c}
+      isActive={c.is_local_private ? currentLocalPrivateUserId === String(c.local_private_peer_id) : currentConversationId === String(c.conversation_id)}
+      currentConversationId={currentConversationId}
+      onContextMenu={handleConversationContextMenu}
+      onPinConversation={() => togglePinConversation(c.conversation_id)}
+      isPinned={isPinnedRow}
+      canPin={pinnedIds.length < 5}
+    />
+  );
 
   return (
     <div className="mobile-messages-view">
-      <div className="mobile-messages-toolbar">
-        <Link to="/friends" className="mobile-messages-friends-btn">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
-          </svg>
-          <span>{t('friends.title')}</span>
-          {pendingFriendsCount > 0 && (
-            <span className="mobile-messages-friends-badge">{pendingFriendsCount > 99 ? '99+' : pendingFriendsCount}</span>
-          )}
-        </Link>
-        <button className="mobile-messages-search" onClick={onOpenSearch} type="button">
-          <span className="mobile-messages-search-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-          </span>
-          <span className="mobile-messages-search-text">{t('mobileMessages.searchMessages')}</span>
-        </button>
-      </div>
+      <button className="sidebar-search-btn" onClick={onOpenSearch} type="button">
+        <span>{t('mobileMessages.searchMessages')}</span>
+      </button>
 
-      <div className="mobile-messages-search-inline">
-        <input
-          type="text"
-          placeholder={t('mobileMessages.filterConversations')}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="mobile-messages-search-input"
-        />
-      </div>
-
+      <div className="sidebar-nav-panel">
       <div className="mobile-messages-list">
         {showDmSkeleton ? (
           Array.from({ length: 6 }).map((_, i) => (
@@ -168,33 +210,19 @@ export default function MobileMessagesView({
           ))
         ) : (
           <>
-            {filteredPinned.length > 0 && (
+            {pinned.length > 0 && (
               <div className="mobile-dm-section">
                 <span className="mobile-dm-section-label">{t('mobileMessages.sectionPinned')}</span>
-                {filteredPinned.map((c) => (
-                  <DMItem
-                    key={c.conversation_id}
-                    conversation={c}
-                    isActive={c.is_local_private ? currentLocalPrivateUserId === String(c.local_private_peer_id) : currentConversationId === String(c.conversation_id)}
-                    currentConversationId={currentConversationId}
-                  />
-                ))}
+                {pinned.map((c) => renderDmItem(c, true))}
               </div>
             )}
-            {filteredUnpinned.length > 0 && (
+            {unpinned.length > 0 && (
               <div className="mobile-dm-section">
                 <span className="mobile-dm-section-label">{t('mobileMessages.sectionDirectMessages')}</span>
-                {filteredUnpinned.map((c) => (
-                  <DMItem
-                    key={c.conversation_id}
-                    conversation={c}
-                    isActive={c.is_local_private ? currentLocalPrivateUserId === String(c.local_private_peer_id) : currentConversationId === String(c.conversation_id)}
-                    currentConversationId={currentConversationId}
-                  />
-                ))}
+                {unpinned.map((c) => renderDmItem(c, false))}
               </div>
             )}
-            {filteredPinned.length === 0 && filteredUnpinned.length === 0 && !showDmSkeleton && (
+            {pinned.length === 0 && unpinned.length === 0 && !showDmSkeleton && (
               <div className="mobile-messages-empty">
                 <p>{t('mobileMessages.emptyTitle')}</p>
                 <span>{t('mobileMessages.emptySubtitle')}</span>
@@ -203,6 +231,34 @@ export default function MobileMessagesView({
           </>
         )}
       </div>
+      </div>
+
+      {contextMenu.visible && (
+        <ContextMenu
+          title={contextMenuTitle}
+          items={getContextMenuItems()}
+          onClose={closeContextMenu}
+        />
+      )}
+
+      <ProfileCard
+        userId={profileCard.userId}
+        isOpen={!!profileCard.userId}
+        onClose={() => setProfileCard({ userId: null, anchorEl: null })}
+        anchorEl={profileCard.anchorEl}
+        position="right"
+      />
+
+      <AddNoteModal
+        isOpen={!!noteModalUser}
+        onClose={() => setNoteModalUser(null)}
+        user={noteModalUser}
+      />
+      <FriendNicknameModal
+        isOpen={!!nicknameModalUser}
+        onClose={() => setNicknameModalUser(null)}
+        user={nicknameModalUser}
+      />
     </div>
   );
 }

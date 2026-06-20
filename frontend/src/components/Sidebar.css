@@ -165,6 +165,15 @@
   flex-shrink: 0;
 }
 
+/* DM panel: scrollable list below nav items */
+.sidebar-dm-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 /* ── Section Header (DIRECT MESSAGES + add btn) ── */
 .sidebar-section-header {
   display: flex;

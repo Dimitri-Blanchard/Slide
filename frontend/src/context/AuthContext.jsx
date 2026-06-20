@@ -1,7 +1,27 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { auth as authApi, setAuthErrorHandler, invalidateCache } from '../api';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { auth as authApi, setAuthErrorHandler, invalidateCache, refreshAccessToken, refreshWithToken, setAccountSwitchInProgress } from '../api';
 import { resetRateLimit } from '../utils/security';
-import { getToken, setToken as persistToken, clearToken as persistClearToken, getOrCreateDeviceId, getDeviceName, clearDeviceId, getAccounts, addAccount as storageAddAccount, removeAccount as storageRemoveAccount, getAccountToken, getAccountRefreshToken, getRefreshToken, setRefreshToken, clearRefreshToken } from '../utils/tokenStorage';
+import {
+  getToken,
+  setToken as persistToken,
+  clearToken as persistClearToken,
+  getOrCreateDeviceId,
+  getDeviceName,
+  clearDeviceId,
+  getAccounts,
+  addAccount as storageAddAccount,
+  removeAccount as storageRemoveAccount,
+  getAccountToken,
+  getAccountRefreshToken,
+  getRefreshToken,
+  setRefreshToken,
+  clearRefreshToken,
+  syncActiveAccountToList,
+  updateAccountTokens,
+  findAccountIdForToken,
+  isAccessTokenFresh,
+} from '../utils/tokenStorage';
+import { isLocalPrivateRoute } from '../utils/localPrivateChatCrypto';
 import { buildBrowserAuthHandoffUrl, extractBrowserAuthFromUrl, normalizeQrLoginCheckResponse, processPendingQrLoginIfAny } from '../utils/qrLoginFlow';
 
 const AuthContext = createContext(null);
@@ -61,6 +81,7 @@ export function AuthProvider({ children }) {
   const [authError, setAuthError] = useState(null);
   const [accountsVersion, setAccountsVersion] = useState(0);
   const accounts = useMemo(() => getAccounts(), [accountsVersion]);
+  const switchInProgressRef = useRef(false);
 
   // ═══════════════════════════════════════════════════════════
   // SECURITY: Handle automatic logout on auth errors
@@ -182,10 +203,45 @@ export function AuthProvider({ children }) {
       return false;
     };
 
+    const restoreFromRefreshToken = async () => {
+      const rt = await getRefreshToken();
+      if (!rt) return false;
+      try {
+        authLog('info', 'session restore — attempting refresh token');
+        const refreshed = await refreshAccessToken();
+        if (!refreshed?.token) return false;
+        let normalized = refreshed.user ? normalizeAuthUser(refreshed.user) : null;
+        if (!normalized) {
+          const data = await authApi.me({ _skipAuthInvalidation: true, _noCache: true });
+          normalized = normalizeAuthUser(data);
+        }
+        storageAddAccount(normalized, refreshed.token, refreshed.refreshToken);
+        setAccountsVersion((v) => v + 1);
+        invalidateCache();
+        if (cancelled) return true;
+        setUser(normalized);
+        emitAuthChanged(normalized);
+        setAuthError(null);
+        processPendingQrLoginIfAny().catch(() => {});
+        authLog('info', 'session restore — refresh token success', { userId: normalized?.id });
+        return true;
+      } catch (refreshErr) {
+        authLog('warn', 'session restore — refresh token failed', { error: refreshErr?.message });
+        await clearRefreshToken();
+        return false;
+      }
+    };
+
     const restoreSession = async () => {
       const token = getToken();
       if (!token) {
-        authLog('info', 'session restore — no stored token, trying default browser session', { fixHint: 'Electron opens /qr-login in the default browser for SSO handoff.' });
+        authLog('info', 'session restore — no stored access token, trying refresh token', { fixHint: 'Access token missing but refresh token may still be valid.' });
+        const restored = await restoreFromRefreshToken();
+        if (restored) {
+          if (!cancelled) setLoading(false);
+          return;
+        }
+        authLog('info', 'session restore — no refresh token, trying default browser session', { fixHint: 'Electron opens /qr-login in the default browser for SSO handoff.' });
         const imported = await tryImportBrowserSession();
         if (!imported && !cancelled) {
           authLog('info', 'session restore — no browser session imported', { fixHint: 'User not logged in on the browser, or approval timed out.' });
@@ -196,11 +252,10 @@ export function AuthProvider({ children }) {
 
       authLog('info', 'session restore — validating token via /me', { tokenLength: token.length, fixHint: 'File: AuthContext.jsx, authApi.me()' });
 
-      // Safety timeout: if /me hangs (e.g. server down, network issue), stop loading after 20s
+      // Safety timeout: stop the loading spinner but never wipe tokens on slow networks.
       safetyTimeout = setTimeout(() => {
         authLog('warn', 'session restore — timeout (20s)', { fixHint: 'Server may be down or network slow. Check API_BASE, CORS, backend /auth/me.' });
         if (!cancelled) setLoading(false);
-        persistClearToken();
       }, 20000);
 
       try {
@@ -220,33 +275,8 @@ export function AuthProvider({ children }) {
         if (err?.code === 'DEVICE_REVOKED') {
           clearDeviceId();
         }
-        // Try refresh token flow
-        try {
-          const rt = await getRefreshToken();
-          if (rt) {
-            authLog('info', 'session restore — attempting token refresh');
-            const { token: newToken, refreshToken: newRt, user } = await authApi.refresh(rt);
-            if (newToken && user) {
-              const normalized = normalizeAuthUser(user);
-              await persistToken(newToken);
-              if (newRt) await setRefreshToken(newRt);
-              else await clearRefreshToken();
-              storageAddAccount(normalized, newToken, newRt || rt);
-              setAccountsVersion((v) => v + 1);
-              invalidateCache();
-              if (cancelled) return;
-              setUser(normalized);
-              emitAuthChanged(normalized);
-              setAuthError(null);
-              processPendingQrLoginIfAny().catch(() => {});
-              authLog('info', 'session restore — refresh token success', { userId: user?.id });
-              return;
-            }
-          }
-        } catch (refreshErr) {
-          authLog('warn', 'session restore — refresh token failed', { error: refreshErr?.message });
-          await clearRefreshToken();
-        }
+        const restored = await restoreFromRefreshToken();
+        if (restored) return;
         persistClearToken();
         const imported = await tryImportBrowserSession();
         if (imported) return;
@@ -257,7 +287,10 @@ export function AuthProvider({ children }) {
       }
     };
 
-    restoreSession();
+    restoreSession().catch((err) => {
+      authLog('error', 'session restore — unhandled error', { error: err?.message, fixHint: 'AuthContext restoreSession()' });
+      if (!cancelled) setLoading(false);
+    });
 
     return () => {
       cancelled = true;
@@ -265,6 +298,45 @@ export function AuthProvider({ children }) {
       setAuthErrorHandler(null);
     };
   }, [handleAuthError]);
+
+  // Proactively refresh the access token before it expires so users stay connected.
+  useEffect(() => {
+    if (!user?.id) return undefined;
+    let timer = null;
+
+    const scheduleProactiveRefresh = () => {
+      const token = getToken();
+      if (!token) return;
+
+      let delayMs = 45 * 60 * 1000;
+      try {
+        const payloadPart = token.split('.')[1];
+        if (payloadPart) {
+          const payload = JSON.parse(atob(payloadPart.replace(/-/g, '+').replace(/_/g, '/')));
+          if (payload.exp) {
+            const refreshBeforeMs = 3 * 60 * 1000;
+            delayMs = Math.max(30_000, payload.exp * 1000 - Date.now() - refreshBeforeMs);
+          }
+        }
+      } catch (_) {}
+
+      timer = setTimeout(async () => {
+        const refreshed = await refreshAccessToken();
+        if (refreshed?.user) {
+          const normalized = normalizeAuthUser(refreshed.user);
+          syncActiveAccountToList(normalized, refreshed.token, refreshed.refreshToken);
+          setUser((prev) => (prev?.id === normalized.id ? { ...prev, ...normalized } : prev));
+          setAccountsVersion((v) => v + 1);
+        }
+        scheduleProactiveRefresh();
+      }, delayMs);
+    };
+
+    scheduleProactiveRefresh();
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [user?.id]);
 
   const login = useCallback(async (email, password) => {
     authLog('info', 'login — attempt', { hasEmail: !!email, hasPassword: !!password, fixHint: 'AuthContext.jsx login() -> authApi.login()' });
@@ -392,6 +464,14 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     authLog('info', 'logout', { previousUserId: user?.id, fixHint: 'AuthContext.jsx logout() — token cleared, cache invalidated.' });
+    if (user?.id) {
+      const activeToken = getToken();
+      const activeRefreshToken = await getRefreshToken();
+      if (activeToken) {
+        syncActiveAccountToList(user, activeToken, activeRefreshToken);
+        setAccountsVersion((v) => v + 1);
+      }
+    }
     invalidateCache('/auth/me');
     persistClearToken();
     await clearRefreshToken();
@@ -399,78 +479,120 @@ export function AuthProvider({ children }) {
     emitAuthChanged(null);
     setAuthError(null);
     invalidateCache();
-  }, [user?.id]);
+  }, [user]);
 
   const switchAccount = useCallback(async (userId) => {
-    const token = getAccountToken(userId);
-    const savedRefreshToken = getAccountRefreshToken(userId);
-    if (!token) {
-      authLog('warn', 'switchAccount — no token for user', { userId });
+    if (switchInProgressRef.current) {
+      authLog('warn', 'switchAccount — ignored, switch already in progress', { userId });
       return;
     }
-    const previousToken = getToken();
+    if (user?.id != null && String(user.id) === String(userId)) {
+      return;
+    }
+
+    const savedAccessToken = getAccountToken(userId);
+    const savedRefreshToken = getAccountRefreshToken(userId);
+    if (!savedAccessToken && !savedRefreshToken) {
+      authLog('warn', 'switchAccount — no tokens for user', { userId });
+      return;
+    }
+
+    switchInProgressRef.current = true;
+    setAccountSwitchInProgress(true);
+
+    const previousAccessToken = getToken();
     const previousRefreshToken = await getRefreshToken();
     const restorePreviousSession = async () => {
-      if (previousToken) await persistToken(previousToken);
+      if (previousAccessToken) await persistToken(previousAccessToken);
       else persistClearToken();
       if (previousRefreshToken) await setRefreshToken(previousRefreshToken);
       else await clearRefreshToken();
       invalidateCache('/auth/me');
     };
-    authLog('info', 'switchAccount', { userId, fixHint: 'AuthContext.jsx switchAccount()' });
-    await persistToken(token);
-    if (savedRefreshToken) await setRefreshToken(savedRefreshToken);
-    else await clearRefreshToken();
-    // Prevent serving stale /auth/me data from previous account cache.
-    invalidateCache('/auth/me');
 
-    const finishSwitch = async (normalized, nextToken, nextRefreshToken) => {
-      if (String(normalized?.id) !== String(userId)) {
-        throw new Error('Saved account token belongs to a different user');
+    try {
+      // Always persist the outgoing account's latest tokens before touching global storage.
+      if (previousAccessToken) {
+        const outgoingUserId = user?.id ?? findAccountIdForToken(previousAccessToken);
+        if (outgoingUserId != null && String(outgoingUserId) !== String(userId)) {
+          if (user?.id != null && String(user.id) === String(outgoingUserId)) {
+            syncActiveAccountToList(user, previousAccessToken, previousRefreshToken);
+          } else {
+            updateAccountTokens(outgoingUserId, previousAccessToken, previousRefreshToken);
+          }
+        }
       }
-      storageAddAccount(normalized, nextToken, nextRefreshToken);
+
+      authLog('info', 'switchAccount', { userId, fixHint: 'AuthContext.jsx switchAccount()' });
+
+      let nextAccessToken = savedAccessToken;
+      let nextRefreshToken = savedRefreshToken;
+      let normalized = null;
+
+      const accessStillValid = !!(savedAccessToken && isAccessTokenFresh(savedAccessToken));
+      const shouldTryRefresh = !!savedRefreshToken && (!savedAccessToken || !accessStillValid);
+
+      if (shouldTryRefresh) {
+        const refreshed = await refreshWithToken(savedRefreshToken);
+        if (refreshed?.token) {
+          nextAccessToken = refreshed.token;
+          nextRefreshToken = refreshed.refreshToken || savedRefreshToken;
+          if (refreshed.user) {
+            if (String(refreshed.user.id) !== String(userId)) {
+              throw new Error('Saved account refresh token belongs to a different user');
+            }
+            normalized = normalizeAuthUser(refreshed.user);
+          }
+        } else if (refreshed?.ok === false && [401, 403].includes(refreshed.status)) {
+          authLog('warn', 'switchAccount — stale refresh token discarded', { userId, status: refreshed.status });
+          updateAccountTokens(userId, savedAccessToken || getAccountToken(userId), null);
+          nextRefreshToken = null;
+        }
+      }
+
+      if (!normalized) {
+        if (!nextAccessToken) {
+          throw new Error('Session expirée pour ce compte. Reconnecte-toi une fois pour le réactiver.');
+        }
+        await persistToken(nextAccessToken);
+        if (nextRefreshToken) await setRefreshToken(nextRefreshToken);
+        else await clearRefreshToken();
+        invalidateCache('/auth/me');
+        const data = await authApi.me({ _skipAuthInvalidation: true, _noCache: true });
+        normalized = normalizeAuthUser(data);
+        if (String(normalized?.id) !== String(userId)) {
+          throw new Error('Saved account token belongs to a different user');
+        }
+      } else {
+        await persistToken(nextAccessToken);
+        if (nextRefreshToken) await setRefreshToken(nextRefreshToken);
+        else await clearRefreshToken();
+      }
+
+      storageAddAccount(normalized, nextAccessToken, nextRefreshToken);
       setAccountsVersion((v) => v + 1);
       setUser(normalized);
       emitAuthChanged(normalized);
       setAuthError(null);
       invalidateCache();
-      // Refresh page so all app state (socket, contexts, cached data) reflects the new account
-      if (typeof window !== 'undefined') window.location.reload();
-    };
 
-    if (savedRefreshToken) {
-      try {
-        const refreshed = await authApi.refresh(savedRefreshToken);
-        if (refreshed?.token && refreshed?.user) {
-          const nextRefreshToken = refreshed.refreshToken || savedRefreshToken;
-          const normalized = normalizeAuthUser(refreshed.user);
-          await persistToken(refreshed.token);
-          await setRefreshToken(nextRefreshToken);
-          await finishSwitch(normalized, refreshed.token, nextRefreshToken);
-          return;
-        }
-      } catch (refreshErr) {
-        authLog('warn', 'switchAccount — refresh token failed, falling back to saved access token', { userId, error: refreshErr?.message });
-        if (!refreshErr?.status || ![400, 401, 403].includes(refreshErr.status)) {
-          await restorePreviousSession();
-          throw refreshErr;
+      if (typeof window !== 'undefined') {
+        if (isLocalPrivateRoute(window.location.pathname)) {
+          window.location.replace('/channels/@me');
+        } else {
+          window.location.reload();
         }
       }
-    }
-
-    try {
-      const data = await authApi.me({ _skipAuthInvalidation: true, _noCache: true });
-      const normalized = normalizeAuthUser(data);
-      await finishSwitch(normalized, token, savedRefreshToken);
     } catch (err) {
-      authLog('warn', 'switchAccount — /me failed, token may be expired', { userId, error: err?.message });
-      storageRemoveAccount(userId);
-      if (savedRefreshToken) await clearRefreshToken();
+      authLog('warn', 'switchAccount — failed, restoring previous session', { userId, error: err?.message });
       await restorePreviousSession();
       setAccountsVersion((v) => v + 1);
       throw err;
+    } finally {
+      switchInProgressRef.current = false;
+      setAccountSwitchInProgress(false);
     }
-  }, []);
+  }, [user]);
 
   const removeAccount = useCallback((userId) => {
     storageRemoveAccount(userId);

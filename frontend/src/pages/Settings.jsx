@@ -13,6 +13,7 @@ import { invalidateProfile } from '../utils/profileCache';
 import { harmonizeGradientColors, lightenHex, isLightGradient, isHighContrastGradient } from '../utils/gradientColors';
 import QRCode from 'qrcode';
 import { useAudioDevices } from '../hooks/useAudioDevices';
+import { getMicrophoneBlockedHelp } from '../utils/microphonePermission';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { useVoice } from '../context/VoiceContext';
 import Avatar, { StatusBadgeIcon } from '../components/Avatar';
@@ -1026,6 +1027,7 @@ export default function Settings({
     inputDevices,
     outputDevices,
     permissionGranted: audioPermissionGranted,
+    microphoneBlocked: audioMicrophoneBlocked,
     micLevel,
     requestPermission: requestAudioPermission,
     startMicTest,
@@ -3315,24 +3317,45 @@ export default function Settings({
           </div>
         );
         
-      case 'voice':
-        const handleMicTest = async () => {
+      case 'voice': {
+        const notifyMicPermissionResult = (result) => {
+          if (result?.ok) {
+            notify.success(t('voice.micAccessGranted', 'Microphone access granted'));
+            return;
+          }
+          if (result?.state === 'denied' || audioMicrophoneBlocked) {
+            notify.error(getMicrophoneBlockedHelp());
+            return;
+          }
+          notify.error(t('voice.micAccessError'));
+        };
+
+        const handleAllowMicAccess = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          requestAudioPermission().then(notifyMicPermissionResult);
+        };
+
+        const handleMicTest = (e) => {
           if (micTesting) {
             stopMicTest();
             setMicTesting(false);
-          } else {
-            if (!audioPermissionGranted) {
-              await requestAudioPermission();
-            }
-            const success = await startMicTest();
+            return;
+          }
+          if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+          startMicTest().then((success) => {
             if (success) {
               setMicTesting(true);
-            } else {
-              notify.error(t('voice.micAccessError'));
+              return;
             }
-          }
+            if (audioMicrophoneBlocked) notify.error(getMicrophoneBlockedHelp());
+            else notify.error(t('voice.micAccessError'));
+          });
         };
-        
+
         return (
           <div className="settings-content-section">
             <h2 className="settings-content-title">{t('voice.title')}</h2>
@@ -3344,12 +3367,43 @@ export default function Settings({
             ) : (
               <>
                 <SettingsDivider title={t('voice.inputOutput')} />
-                
-                {!audioPermissionGranted && (inputDevices.length === 0 || outputDevices.length === 0) && (
-                  <SettingsRow label={t('voice.deviceAccess')} description={t('voice.deviceAccessDesc', 'Grant microphone access to see and select your devices.')}>
-                    <button type="button" className="btn-secondary btn-sm" onClick={() => requestAudioPermission()}>
-                      {t('voice.allowAccess', 'Allow access')}
-                    </button>
+
+                {!audioPermissionGranted && (
+                  <SettingsRow
+                    label={t('voice.deviceAccess', 'Microphone access')}
+                    description={
+                      audioMicrophoneBlocked
+                        ? getMicrophoneBlockedHelp()
+                        : t('voice.deviceAccessDesc', 'Grant microphone access to see and select your devices.')
+                    }
+                  >
+                    <div className="settings-mic-access-actions">
+                      {!audioMicrophoneBlocked && (
+                        <button
+                          type="button"
+                          className="btn-secondary btn-sm"
+                          onPointerDown={handleAllowMicAccess}
+                        >
+                          {t('voice.allowAccess', 'Allow access')}
+                        </button>
+                      )}
+                      {audioMicrophoneBlocked && (
+                        <button
+                          type="button"
+                          className="btn-secondary btn-sm"
+                          onClick={() => window.location.reload()}
+                        >
+                          {t('voice.micReloadPage', 'Reload page')}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="btn-secondary btn-sm"
+                        onPointerDown={handleAllowMicAccess}
+                      >
+                        {t('voice.retryMicAccess', 'Retry')}
+                      </button>
+                    </div>
                   </SettingsRow>
                 )}
                 <SelectRowWithArrow
@@ -3428,7 +3482,7 @@ export default function Settings({
                 <div className="voice-test-section">
                   <button 
                     className={`btn-secondary ${micTesting ? 'active' : ''}`} 
-                    onClick={handleMicTest}
+                    onPointerDown={handleMicTest}
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
@@ -3452,7 +3506,8 @@ export default function Settings({
             )}
           </div>
         );
-        
+      }
+
       case 'notifications':
         return (
           <div className="settings-content-section">

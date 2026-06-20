@@ -7,6 +7,37 @@ const winUnpackedDir = path.join(releaseDir, 'win-unpacked');
 const winAppExe = path.join(winUnpackedDir, 'Slide.exe');
 const staleWinUnpackedPrefix = 'win-unpacked.locked-';
 
+function removeFileIfExists(filePath) {
+  if (!fs.existsSync(filePath)) return;
+  try {
+    fs.rmSync(filePath, { force: true });
+    console.log(`Removed ${path.relative(process.cwd(), filePath) || filePath}`);
+  } catch (error) {
+    console.warn(`Could not remove ${filePath}: ${error.message}`);
+  }
+}
+
+function removePartialNsisArtifacts() {
+  if (!fs.existsSync(releaseDir)) return;
+
+  for (const entry of fs.readdirSync(releaseDir, { withFileTypes: true })) {
+    const fullPath = path.join(releaseDir, entry.name);
+    if (entry.isFile()) {
+      if (
+        entry.name.endsWith('.nsis.7z') ||
+        entry.name.startsWith('__uninstaller-nsis-')
+      ) {
+        removeFileIfExists(fullPath);
+      }
+      continue;
+    }
+
+    if (entry.isDirectory() && entry.name.startsWith('nsis-web')) {
+      removeDirectoryWithRetries(fullPath);
+    }
+  }
+}
+
 function sleep(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
@@ -106,4 +137,5 @@ function removeStaleLockedDirectories() {
 
 terminatePreviousWindowsApp();
 removeStaleLockedDirectories();
+removePartialNsisArtifacts();
 removeDirectoryWithRetries(winUnpackedDir);

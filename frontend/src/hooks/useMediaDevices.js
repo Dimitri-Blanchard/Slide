@@ -1,53 +1,26 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { getToken } from '../utils/tokenStorage';
+import { useState, useEffect, useCallback } from 'react';
 
 /**
  * Enumerate audio/video devices for call device selection.
  * Returns inputs (mics), outputs (speakers/headphones), and videoInputs (cameras).
  *
  * Browsers require getUserMedia permission before enumerateDevices returns
- * real device labels/IDs. When `autoRequestPermission` is true, requests a brief
- * permission grant when the initial enumeration returns unlabeled devices.
+ * real device labels/IDs. Call getUserMedia from a user gesture to unlock labels.
  */
-export function useMediaDevices({ autoRequestPermission = true } = {}) {
+export function useMediaDevices() {
   const [inputs, setInputs] = useState([]);
   const [outputs, setOutputs] = useState([]);
   const [videoInputs, setVideoInputs] = useState([]);
-  const permissionRequested = useRef(false);
 
   const enumerate = useCallback(async () => {
     if (!navigator.mediaDevices?.enumerateDevices) return;
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
-
-      // If we get devices back but none have labels, the browser hasn't
-      // granted permission yet. Request a quick getUserMedia to unlock labels.
-      const hasLabels = devices.some(d => d.label);
-      if (
-        autoRequestPermission &&
-        getToken() &&
-        !hasLabels &&
-        devices.length > 0 &&
-        !permissionRequested.current
-      ) {
-        permissionRequested.current = true;
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          stream.getTracks().forEach(t => t.stop());
-          // Re-enumerate now that we have permission
-          const updated = await navigator.mediaDevices.enumerateDevices();
-          applyDevices(updated);
-          return;
-        } catch (_) {
-          // User denied — continue with unlabeled devices
-        }
-      }
-
       applyDevices(devices);
     } catch (err) {
       console.error('Error enumerating devices:', err);
     }
-  }, [autoRequestPermission]);
+  }, []);
 
   function applyDevices(devices) {
     const fallbackLabel = (kind, deviceId, i) => {

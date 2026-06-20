@@ -221,44 +221,44 @@
 }
 
 .content-phase-in {
-  animation: stage-in var(--dur-slow, 520ms) var(--ease-flow, cubic-bezier(0.2, 0.8, 0.2, 1)) forwards;
+  animation: none;
+  opacity: 1;
+  filter: none;
+  transform: none;
 }
 
 .content-phase-out {
-  opacity: 0;
-  filter: blur(6px);
-  transform: translateY(14px);
-  transition:
-    opacity var(--dur-slow, 520ms) var(--ease-flow, cubic-bezier(0.2, 0.8, 0.2, 1)),
-    filter var(--dur-slow, 520ms) var(--ease-flow, cubic-bezier(0.2, 0.8, 0.2, 1)),
-    transform var(--dur-slow, 520ms) var(--ease-flow, cubic-bezier(0.2, 0.8, 0.2, 1));
+  opacity: 1;
+  filter: none;
+  transform: none;
+  transition: none;
 }
 
 /* ═══════════════════════════════════════════════════════════
    UTILITY CLASSES
    ═══════════════════════════════════════════════════════════ */
 .animate-fade-in {
-  animation: fadeInUp 0.2s ease-out forwards;
+  animation: none;
 }
 
 .animate-fade-in-scale {
-  animation: fadeInScale 0.15s ease-out forwards;
+  animation: none;
 }
 
 .animate-slide-in-left {
-  animation: slideInLeft 0.2s ease-out forwards;
+  animation: none;
 }
 
 .animate-slide-in-right {
-  animation: slideInRight 0.2s ease-out forwards;
+  animation: none;
 }
 
 .animate-message-send {
-  animation: fadeInUp 0.15s ease-out forwards;
+  animation: none;
 }
 
 .animate-message-receive {
-  animation: fadeInUp 0.15s ease-out forwards;
+  animation: none;
 }
 
 .animate-pulse {

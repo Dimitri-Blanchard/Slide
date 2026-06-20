@@ -1,0 +1,38 @@
+/* ═══════════════════════════════════════════════════════════
+   MOBILE ISLAND NAV — floating pill hosts MobileSidebarUserBar
+   ═══════════════════════════════════════════════════════════ */
+
+.mobile-island-nav {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(10px + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  isolation: isolate;
+}
+
+.min-island-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  border-radius: 30px;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+/* Scrollable content clearance above the floating island */
+.mobile-app-layout.has-island-nav .mobile-messages-list,
+.mobile-app-layout.has-island-nav .mobile-notifications-body {
+  padding-bottom: calc(var(--mobile-nav-bar-height, 72px) + var(--inset-bottom, env(safe-area-inset-bottom, 0px)));
+}
+
+@media (max-width: 380px) {
+  .mobile-island-nav {
+    left: 8px;
+    right: 8px;
+  }
+}

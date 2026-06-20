@@ -1,14 +1,16 @@
-import React, { lazy, Suspense, useEffect } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import ServerBar from '../components/ServerBar';
 import TeamChat from '../components/TeamChat';
 import DirectChat from '../components/DirectChat';
 import LocalPrivateChat from '../components/LocalPrivateChat';
 import FriendsPage from '../components/FriendsPage';
-import MobileBottomNav from '../components/MobileBottomNav';
+import MobileIslandNav from '../components/MobileIslandNav';
 import MobileMessagesView from '../components/MobileMessagesView';
 import MobileNotificationsView from '../components/MobileNotificationsView';
 import MobileYouView from '../components/MobileYouView';
+import MobileServerDrawer from '../components/MobileServerDrawer';
+import MobileHomeSwipeNav from '../components/MobileHomeSwipeNav';
 import CreateServerModal from '../components/CreateServerModal';
 import SearchModal from '../components/SearchModal';
 import VoiceFullscreenOverlay from '../components/VoiceFullscreenOverlay';
@@ -17,6 +19,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import NotFound from '../pages/NotFound';
 import { isMobileFullPageRoute } from './appPaths';
 import { useSettingsUi } from '../context/SettingsUiContext';
+import { useVoice } from '../context/VoiceContext';
 
 import '../pages/SecurityDashboard.css';
 import '../pages/NitroPage.css';
@@ -59,9 +62,14 @@ export default function MobileAppLayoutShell({
   setTeams,
   inboxItems,
   pendingFriendsCount = 0,
+  onRemoveConversation,
+  onRestoreConversation,
 }) {
   const navigate = useNavigate();
   const { openSettings } = useSettingsUi();
+  const { voiceChannelId, voiceConversationId, voiceLeaveAnim, voiceViewMinimized } = useVoice();
+  const isInVoice = !!(voiceChannelId || voiceConversationId || voiceLeaveAnim);
+  const fullscreenVoiceActive = isInVoice && !voiceViewMinimized;
 
   useEffect(() => {
     const onVoiceDisconnect = (event) => {
@@ -74,9 +82,8 @@ export default function MobileAppLayoutShell({
     return () => window.removeEventListener('slide:voice-channel-disconnect', onVoiceDisconnect);
   }, [pathname, navigate]);
 
-  const serverConversations = Array.isArray(conversations)
-    ? conversations.filter((conversation) => !conversation?.is_local_private)
-    : [];
+  const allConversations = Array.isArray(conversations) ? conversations : [];
+  const dmConversations = allConversations.filter((conversation) => !conversation?.is_local_private);
   const isCommunityPage = pathname === '/community';
   const isFullPageRoute = isMobileFullPageRoute(pathname);
   const inChatRoute = !!(params.teamId || params.conversationId || params.localPrivateUserId || isCommunityPage);
@@ -86,26 +93,178 @@ export default function MobileAppLayoutShell({
     : params.isSettings ? 'profile'
     : mobileTab;
 
-  const dmUnreadTotal = (Array.isArray(conversations) ? conversations : []).reduce((n, c) => n + (c.unread_count || 0), 0);
-  const serverUnreadTotal = (Array.isArray(teams) ? teams : []).reduce((n, t) => n + (t.unread_count || 0), 0);
-
   const handleMobileTabChange = (tab) => {
     setMobileTab(tab);
     if (inChatRoute || isFullPageRoute) {
-      navigate('/channels/@me');
+      navigate('/channels/@me', { state: { mobileTab: tab } });
     }
   };
 
-  const hideBottomNav = params.isSettings
-    || isFullPageRoute
-    || !!(params.channelId || params.conversationId || params.localPrivateUserId);
+  const isNotificationsActive = activeTab === 'notifications';
+  const handleMobileNotificationsFromSidebar = useCallback(() => {
+    const nextTab = isNotificationsActive ? 'home' : 'notifications';
+    setMobileTab(nextTab);
+    navigate('/channels/@me', { state: { mobileTab: nextTab } });
+  }, [isNotificationsActive, navigate, setMobileTab]);
+
+  const teamChatMobileProps = {
+    notificationCount: (inboxItems || []).length,
+    isNotificationsActive,
+    onMobileNotificationsClick: handleMobileNotificationsFromSidebar,
+    pendingFriendsCount,
+  };
 
   const showServerBar = !isCommunityPage
     && !isFullPageRoute
     && !(params.conversationId || params.localPrivateUserId || (params.teamId && params.channelId));
 
+  const hideBottomNav = params.isSettings
+    || isFullPageRoute
+    || !!(params.channelId || params.conversationId || params.localPrivateUserId)
+    || fullscreenVoiceActive
+    || (showServerBar && params.teamId && !params.channelId);
+
+  const handleHomeLogoClick = useCallback(() => {
+    setMobileTab('home');
+  }, [setMobileTab]);
+
+  const serverBarProps = {
+    teams,
+    conversations: allConversations,
+    currentTeamId: params.teamId,
+    currentConversationId: params.conversationId,
+    currentLocalPrivateUserId: params.localPrivateUserId,
+    lastDmConversationId,
+    onTeamsChange: handleTeamsChange,
+    onLeaveServer,
+    isMobile: true,
+    pendingFriendsCount,
+    onHomeClick: handleHomeLogoClick,
+  };
+
+  const handleSwipeToDms = useCallback(() => {
+    navigate('/channels/@me');
+  }, [navigate]);
+
+  const handleSwipeToServer = useCallback((teamId) => {
+    navigate(`/team/${teamId}`);
+  }, [navigate]);
+
+  const drawerCloseSignal = pathname;
+
+  const enableHomeNavSwipe = showServerBar
+    && !params.conversationId
+    && !params.localPrivateUserId
+    && !params.channelId
+    && (params.teamId || (showTabShell && mobileTab === 'home'));
+
+  const dmsPageContent = (
+    <ErrorBoundary fallback={<div className="mobile-messages-view" style={{ padding: '1rem', color: 'var(--text-muted)' }}>Messages unavailable</div>}>
+      <MobileMessagesView
+        conversations={conversations}
+        currentConversationId={params.conversationId}
+        currentLocalPrivateUserId={params.localPrivateUserId}
+        loading={loading}
+        onOpenSearch={() => setShowSearch(true)}
+        onRemoveConversation={onRemoveConversation}
+        onRestoreConversation={onRestoreConversation}
+      />
+    </ErrorBoundary>
+  );
+
+  const renderServerPage = useCallback((teamId) => (
+    <main className="app-main">
+      <div className="content-phase-in">
+        <ServerErrorBoundary>
+          <TeamChat
+            teamId={teamId}
+            initialChannelId={null}
+            isMobile={true}
+            inHomePager={true}
+            onLeaveServer={onLeaveServer}
+            onOpenSearch={() => setShowSearch(true)}
+            {...teamChatMobileProps}
+          />
+        </ServerErrorBoundary>
+      </div>
+    </main>
+  ), [onLeaveServer, setShowSearch, teamChatMobileProps]);
+
+  const homePagerActive = enableHomeNavSwipe && !params.teamId && (teams?.length ?? 0) >= 1;
+  const pagerOwnsDmsHome = homePagerActive && showTabShell && contentTab === 'home';
+  const showTeamRouteDirect = showServerBar && !!params.teamId;
+
+  const mainContent = (
+    <>
+      {showTabShell ? (
+        pagerOwnsDmsHome ? null
+        : contentTab === 'home' ? dmsPageContent
+        : contentTab === 'notifications' ? (
+          <MobileNotificationsView />
+        ) : contentTab === 'profile' ? (
+          <MobileYouView
+            onOpenSettings={() => openSettings()}
+            pendingFriendsCount={pendingFriendsCount}
+          />
+        ) : null
+      ) : (
+        <main className={`app-main ${isFullPageRoute ? 'mobile-full-page-route' : ''}`}>
+          <div className="content-phase-in">
+            <Suspense fallback={<MobileRouteFallback />}>
+              <Routes>
+                <Route path="/community" element={<CommunityServersPage />} />
+                <Route path="/friends" element={<FriendsPage mobileStandalone />} />
+                <Route path="/security" element={<SecurityDashboard mobileStandalone />} />
+                <Route path="/nitro" element={<NitroPage />} />
+                <Route path="/quests" element={<QuestsPage />} />
+                <Route path="/settings/*" element={null} />
+                <Route
+                  path="/team/:teamId/*"
+                  element={(
+                    <ServerErrorBoundary>
+                      <TeamChat
+                        teamId={params.teamId}
+                        initialChannelId={params.channelId}
+                        isMobile={true}
+                        onLeaveServer={onLeaveServer}
+                        onOpenSearch={() => setShowSearch(true)}
+                        {...teamChatMobileProps}
+                      />
+                    </ServerErrorBoundary>
+                  )}
+                />
+                <Route
+                  path="/channels/@me/private-local/:peerUserId"
+                  element={(
+                    <LocalPrivateChat
+                      peerUserId={params.localPrivateUserId}
+                      isMobile={true}
+                    />
+                  )}
+                />
+                <Route
+                  path="/channels/@me/:conversationId"
+                  element={(
+                    <DirectChat
+                      conversationId={params.conversationId}
+                      onConversationsChange={setConversations}
+                      conversations={dmConversations}
+                      isMobile={true}
+                    />
+                  )}
+                />
+                <Route path="/" element={<Navigate to="/channels/@me" replace />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </div>
+        </main>
+      )}
+    </>
+  );
+
   return (
-    <div className={`mobile-app-layout scene-${scene}`}>
+    <div className={`mobile-app-layout scene-${scene}${!hideBottomNav ? ' has-island-nav' : ''}${fullscreenVoiceActive ? ' voice-call-fullscreen' : ''}`}>
       {!isOnline && (
         <div className="offline-banner" role="alert">
           <span className="offline-banner-icon">⚠</span>
@@ -119,120 +278,60 @@ export default function MobileAppLayoutShell({
         </div>
       )}
 
-      <div className={`mobile-content ${showServerBar ? 'mobile-split-layout' : ''}`}>
-        {showServerBar && (
-          <aside className="mobile-server-bar">
-            <ServerBar
-              teams={teams}
-              conversations={Array.isArray(conversations)
-                ? conversations.filter((conversation) => !conversation?.is_local_private)
-                : []}
-              currentTeamId={params.teamId}
-              currentConversationId={params.conversationId}
-              currentLocalPrivateUserId={params.localPrivateUserId}
-              lastDmConversationId={lastDmConversationId}
-              onTeamsChange={handleTeamsChange}
-              onLeaveServer={onLeaveServer}
-              isMobile={true}
-              pendingFriendsCount={pendingFriendsCount}
-            />
-          </aside>
-        )}
-        <div className="mobile-content-main">
-          {showTabShell ? (
-            contentTab === 'home' ? (
-              <ErrorBoundary fallback={<div className="mobile-messages-view" style={{ padding: '1rem', color: 'var(--text-muted)' }}>Messages unavailable</div>}>
-                <MobileMessagesView
-                  conversations={conversations}
-                  currentConversationId={params.conversationId}
-                  currentLocalPrivateUserId={params.localPrivateUserId}
-                  loading={loading}
-                  onOpenSearch={() => setShowSearch(true)}
-                  pendingFriendsCount={pendingFriendsCount}
-                />
-              </ErrorBoundary>
-            ) : contentTab === 'notifications' ? (
-              <MobileNotificationsView />
-            ) : contentTab === 'profile' ? (
-              <MobileYouView
-                onOpenSettings={() => openSettings()}
-                pendingFriendsCount={pendingFriendsCount}
-              />
-            ) : null
-          ) : (
-            <main className={`app-main ${isFullPageRoute ? 'mobile-full-page-route' : ''}`}>
-              <div className="content-phase-in">
-                <Suspense fallback={<MobileRouteFallback />}>
-                  <Routes>
-                    <Route path="/community" element={<CommunityServersPage />} />
-                    <Route path="/friends" element={<FriendsPage mobileStandalone />} />
-                    <Route path="/security" element={<SecurityDashboard mobileStandalone />} />
-                    <Route path="/nitro" element={<NitroPage />} />
-                    <Route path="/quests" element={<QuestsPage />} />
-                    <Route path="/settings/*" element={null} />
-                    <Route
-                      path="/team/:teamId/*"
-                      element={
-                        <ServerErrorBoundary>
-                          <TeamChat
-                            teamId={params.teamId}
-                            initialChannelId={params.channelId}
-                            isMobile={true}
-                            onLeaveServer={onLeaveServer}
-                            onOpenSearch={() => setShowSearch(true)}
-                          />
-                        </ServerErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/channels/@me/private-local/:peerUserId"
-                      element={(
-                        <LocalPrivateChat
-                          peerUserId={params.localPrivateUserId}
-                          isMobile={true}
-                        />
-                      )}
-                    />
-                    <Route
-                      path="/channels/@me/:conversationId"
-                      element={(
-                        <DirectChat
-                          conversationId={params.conversationId}
-                          onConversationsChange={setConversations}
-                          conversations={serverConversations}
-                          isMobile={true}
-                        />
-                      )}
-                    />
-                    <Route path="/" element={<Navigate to="/channels/@me" replace />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Suspense>
+      <div className={`mobile-content ${showServerBar ? 'mobile-split-layout' : 'mobile-drawer-layout'}`}>
+        {showServerBar ? (
+          <>
+            <aside className="mobile-server-bar">
+              <ServerBar {...serverBarProps} />
+            </aside>
+            {showTeamRouteDirect ? (
+              <div className="mobile-content-main">
+                {mainContent}
               </div>
-            </main>
-          )}
-        </div>
+            ) : (
+              <MobileHomeSwipeNav
+                enabled={homePagerActive}
+                currentTeamId={params.teamId}
+                teams={teams}
+                onNavigateToDms={handleSwipeToDms}
+                onNavigateToServer={handleSwipeToServer}
+                dmsContent={dmsPageContent}
+                renderServerPage={renderServerPage}
+              >
+                <div className="mobile-content-main">
+                  {mainContent}
+                </div>
+              </MobileHomeSwipeNav>
+            )}
+          </>
+        ) : (
+          <MobileServerDrawer
+            enabled
+            closeSignal={drawerCloseSignal}
+            drawer={<ServerBar {...serverBarProps} />}
+          >
+            <div className="mobile-content-main">
+              {mainContent}
+            </div>
+          </MobileServerDrawer>
+        )}
       </div>
 
-      <VoiceFullscreenOverlay isMobile={true} conversations={serverConversations} />
+      <VoiceFullscreenOverlay isMobile={true} conversations={dmConversations} />
 
       {!hideBottomNav && (
-        <MobileBottomNav
+        <MobileIslandNav
           activeTab={activeTab}
           onTabChange={handleMobileTabChange}
-          unreadCounts={{
-            home: dmUnreadTotal + serverUnreadTotal,
-            notifications: (inboxItems || []).length,
-            profile: pendingFriendsCount,
-          }}
-          userAvatar={user?.avatar_url}
+          notificationCount={(inboxItems || []).length}
+          pendingFriendsCount={pendingFriendsCount}
         />
       )}
 
       <SearchModal
         isOpen={showSearch}
         onClose={() => setShowSearch(false)}
-        conversations={serverConversations}
+        conversations={dmConversations}
         teams={teams}
       />
 

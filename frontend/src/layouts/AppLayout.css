@@ -1,4 +1,42 @@
 /* ═══════════════════════════════════════════════════════════
+   Viewport shell crossfade (desktop ↔ mobile at 768px)
+   ═══════════════════════════════════════════════════════════ */
+.layout-viewport-shell {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  opacity: 1;
+  transform: scale(1);
+  filter: blur(0);
+  transition:
+    opacity 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.layout-viewport-shell--exiting {
+  opacity: 0;
+  transform: scale(0.988);
+  filter: blur(5px);
+  pointer-events: none;
+}
+
+.layout-viewport-shell--entering {
+  opacity: 0;
+  transform: scale(1.012);
+  filter: blur(5px);
+}
+
+.layout-viewport-shell--visible {
+  opacity: 1;
+  transform: scale(1);
+  filter: blur(0);
+}
+
+/* ═══════════════════════════════════════════════════════════
    MOBILE APP LAYOUT - bottom-nav driven (Android / small screens)
    ═══════════════════════════════════════════════════════════ */
 .mobile-app-layout {
@@ -30,7 +68,9 @@
 .mobile-split-layout {
   display: flex;
   flex-direction: row;
+  flex: 1;
   min-width: 0;
+  min-height: 0;
 }
 
 .mobile-server-bar {
@@ -89,6 +129,21 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* Team channel list route: fill the split pane above bottom nav */
+.mobile-app-layout .mobile-split-layout .mobile-content-main,
+.mobile-app-layout .mobile-split-layout .mobile-content-main > .app-main,
+.mobile-app-layout .mobile-split-layout .mobile-content-main .content-phase-in,
+.mobile-app-layout .mobile-split-layout .mobile-content-main .team-view {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Full-width drawer host when server bar is hidden (chat routes) */
+.mobile-drawer-layout {
+  flex: 1;
+  min-height: 0;
 }
 
 .mobile-full-page-route {
@@ -274,12 +329,11 @@ html:not(.platform-mobile) .mobile-app-layout .team-chat {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: content-phase-appear 0.18s ease-out;
+  animation: none;
 }
 
 @keyframes content-phase-appear {
-  from { opacity: 0.6; }
-  to { opacity: 1; }
+  from, to { opacity: 1; }
 }
 
 .app-main > .content-phase-in > * {
@@ -355,7 +409,7 @@ html:not(.platform-mobile) .mobile-app-layout .team-chat {
    VOID INTELLIGENCE — AppLayout dark overrides + immersive glass
    ═══════════════════════════════════════════════════════════ */
 [data-theme="dark"] .app-layout {
-  background: #060608;
+  background: var(--bg-secondary);
   position: relative;
 }
 [data-theme="dark"] .app-layout::before {
@@ -376,5 +430,17 @@ html:not(.platform-mobile) .mobile-app-layout .team-chat {
 [data-theme="dark"] .mobile-app-layout .app-main {
   background: var(--bg-primary);
   box-shadow: inset 0 var(--hairline-width) 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Narrow desktop / tablet landscape (769–1100px): tighter columns, hide members rail */
+@media (min-width: 769px) and (max-width: 1100px) {
+  .app-layout .team-view > .channel-sidebar {
+    width: 232px;
+    min-width: 200px;
+  }
+
+  .app-layout .team-view > .members-panel {
+    display: none;
+  }
 }
 

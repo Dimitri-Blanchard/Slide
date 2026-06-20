@@ -8,6 +8,7 @@
    so its rules win on html.platform-mobile (Capacitor + narrow browser viewports). */
 @import './mobile-animations.css';
 @import './design-quality.css';
+@import './flat-content-enters.css';
 
 /* Product rule: never render CSS outlines anywhere. */
 *,
@@ -75,8 +76,7 @@ html, body, #root {
    PLATFORM-SPECIFIC RULES
    ═══════════════════════════════════════════════════════════ */
 
-/* Web: desktop min width only when viewport is wide enough that we use desktop shell
-   (see AppLayout useIsMobile — web uses mobile shell at <=1024px). */
+/* Web: desktop min width only on wide viewports (mobile shell is <=768px on web). */
 @media (min-width: 1025px) {
   html.platform-web body {
     min-width: 940px;
@@ -459,19 +459,19 @@ textarea:-webkit-autofill:active {
    DARK THEME
    ═══════════════════════════════════════════════════════════ */
 [data-theme="dark"] {
-  --bg-primary:   #111114;
-  --bg-secondary: #0b0b0e;
-  --bg-tertiary:  #191a1e;
+  --bg-primary:   #1e2026;
+  --bg-secondary: #181a20;
+  --bg-tertiary:  #252830;
   --bg-hover:     rgba(255, 255, 255, 0.07);
   --bg-active:    rgba(255, 255, 255, 0.12);
-  --bg-floating:  #1a1a1f;
-  --bg-message-hover: rgba(255, 255, 255, 0.03);
+  --bg-floating:  #282a32;
+  --bg-message-hover: rgba(255, 255, 255, 0.04);
   --channel-active: rgba(255, 255, 255, 0.10);
-  --input-bg:     #1a1a1f;
+  --input-bg:     #2c2e36;
 
-  --surface-1: #141417;
-  --surface-2: #1c1c20;
-  --surface-3: #242428;
+  --surface-1: #1e2026;
+  --surface-2: #262830;
+  --surface-3: #2e3038;
 
   --text-primary:   #f0f0f3;
   --text-secondary: rgba(255, 255, 255, 0.82);
@@ -510,14 +510,14 @@ textarea:-webkit-autofill:active {
   --shadow-inner:    inset 0 1px 2px rgba(0,0,0,0.35);
 
   /* ── Cosmic Ambient Layer ── */
-  --cosmic-bg-orb-1: rgba(255, 255, 255, 0.025);
-  --cosmic-bg-orb-2: rgba(255, 255, 255, 0.015);
-  --cosmic-bg-orb-3: rgba(255, 255, 255, 0.01);
-  --cosmic-glow-soft: rgba(255, 255, 255, 0.06);
-  --cosmic-glow-strong: rgba(255, 255, 255, 0.12);
+  --cosmic-bg-orb-1: rgba(255, 255, 255, 0.035);
+  --cosmic-bg-orb-2: rgba(255, 255, 255, 0.022);
+  --cosmic-bg-orb-3: rgba(255, 255, 255, 0.014);
+  --cosmic-glow-soft: rgba(255, 255, 255, 0.07);
+  --cosmic-glow-strong: rgba(255, 255, 255, 0.14);
   --cosmic-border: rgba(255, 255, 255, 0.14);
-  --cosmic-surface-soft: linear-gradient(155deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.018) 46%, rgba(255, 255, 255, 0.008) 100%);
-  --cosmic-surface-flat: linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, rgba(255, 255, 255, 0.008) 100%);
+  --cosmic-surface-soft: linear-gradient(155deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.022) 46%, rgba(255, 255, 255, 0.01) 100%);
+  --cosmic-surface-flat: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
 
   --modal-overlay-bg:      rgba(0, 0, 0, 0.88);
   --modal-overlay-blur:    20px;
@@ -544,21 +544,21 @@ textarea:-webkit-autofill:active {
   --btn-primary-border-hover: rgba(255, 255, 255, 0.24);
 
   /* ── Void Intelligence variables ── */
-  --bg-void: #060608;
-  --bg-deep: #0a0a0d;
-  --grid-line: rgba(255, 255, 255, 0.04);
-  --grid-dot:  rgba(255, 255, 255, 0.025);
-  --bg-surface: #141417;
-  --bg-elevated: #1c1c20;
+  --bg-void: #14161a;
+  --bg-deep: #181a1f;
+  --grid-line: rgba(255, 255, 255, 0.05);
+  --grid-dot:  rgba(255, 255, 255, 0.03);
+  --bg-surface: #1e2026;
+  --bg-elevated: #262830;
   --text-nebula: #d4d8de;
   --text-void-dim: rgba(255,255,255,0.55);
   --void-border-resting: rgba(255,255,255,0.08);
   --void-border-focus: rgba(255,255,255,0.35);
 
   /* ── Glassmorphism ── */
-  --glass-sidebar-bg: rgba(8, 8, 12, 0.92);
-  --glass-panel-bg:   rgba(18, 18, 22, 0.94);
-  --glass-float-bg:   rgba(24, 24, 28, 0.96);
+  --glass-sidebar-bg: rgba(24, 26, 32, 0.88);
+  --glass-panel-bg:   rgba(32, 34, 42, 0.90);
+  --glass-float-bg:   rgba(38, 40, 48, 0.92);
   --glass-blur:       blur(16px) saturate(120%);
   --glass-blur-sm:    blur(10px) saturate(110%);
   --glass-border-hi:  rgba(255, 255, 255, 0.10);
@@ -661,14 +661,13 @@ textarea:-webkit-autofill:active {
   to { transform: rotate(360deg); }
 }
 
-/* Page content enter animation */
+/* Page content — flat enter */
 @keyframes pageEnter {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: none; }
+  from, to { opacity: 1; transform: none; }
 }
 
 .page-enter {
-  animation: pageEnter 0.38s var(--transition-smooth, cubic-bezier(0.22, 1, 0.36, 1)) both;
+  animation: none;
 }
 
 /* Immersive interactions: no hover/press motion on buttons */

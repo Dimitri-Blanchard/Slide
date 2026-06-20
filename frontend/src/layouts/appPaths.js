@@ -8,8 +8,18 @@ export function isSettingsRoute(pathname) {
   return /^\/settings(\/|$)/.test(pathname || '');
 }
 
+export function isServerSettingsRoute(pathname) {
+  return /^\/team\/\d+\/settings(\/|$|\?)/.test(pathname || '');
+}
+
+export function isChannelSettingsRoute(pathname) {
+  return /^\/team\/\d+\/channel\/\d+\/settings(\/|$|\?)/.test(pathname || '');
+}
+
 export function isMobileFullPageRoute(pathname) {
-  return MOBILE_FULL_PAGE_ROUTES.has(pathname || '');
+  return MOBILE_FULL_PAGE_ROUTES.has(pathname || '')
+    || isServerSettingsRoute(pathname)
+    || isChannelSettingsRoute(pathname);
 }
 
 export function isAuthenticatedAppPath(pathname) {

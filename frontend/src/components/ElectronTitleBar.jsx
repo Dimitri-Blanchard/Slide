@@ -158,7 +158,8 @@ export default function ElectronTitleBar() {
           title="Retour"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M13.5 8H5M5 8L2.5 5.5M5 8L2.5 10.5" />
+            <line x1="5.5" y1="8" x2="13.5" y2="8" />
+            <path d="M2.5 8L5.5 5.5M2.5 8L5.5 10.5" />
           </svg>
         </button>
         <button
@@ -169,7 +170,8 @@ export default function ElectronTitleBar() {
           title="Suivant"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M2.5 8H11M11 8L13.5 5.5M11 8L13.5 10.5" />
+            <line x1="2.5" y1="8" x2="10.5" y2="8" />
+            <path d="M13.5 8L10.5 5.5M13.5 8L10.5 10.5" />
           </svg>
         </button>
       </div>
