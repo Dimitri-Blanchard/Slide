@@ -2,19 +2,7 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <script>
-      // Absolute base for favicon/manifest on deep routes (/docs/channels/…).
-      (function () {
-        var p = location.pathname;
-        var base = '/';
-        if (p === '/docs' || p.indexOf('/docs/') === 0) base = '/docs/';
-        else if (p === '/Slide/docs' || p.indexOf('/Slide/docs/') === 0) base = '/Slide/docs/';
-        else if (p === '/Slide' || p.indexOf('/Slide/') === 0) base = '/Slide/';
-        var el = document.createElement('base');
-        el.href = base;
-        document.head.appendChild(el);
-      })();
-    </script>
+    <base href="/docs/" />
     <!-- index.html cache hint (browsers honor this only when the server doesn't
          set its own Cache-Control; GH Pages does, but it doesn't hurt). The
          actual fix for stale-deploy 404s is the script just below. -->
@@ -88,10 +76,10 @@
     <meta name="twitter:image" content="https://sl1de.xyz/og-image.png" />
 
     <!-- PWA -->
-    <link rel="manifest" href="manifest.json" />
+    <link rel="manifest" href="/docs/manifest.json" />
 
-    <link rel="icon" type="image/png" href="icon.png" />
-    <link rel="apple-touch-icon" href="icon.png" />
+    <link rel="icon" type="image/png" href="/docs/icon.png" />
+    <link rel="apple-touch-icon" href="/docs/icon.png" />
     <script>
       (function () {
         var isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
@@ -177,10 +165,10 @@
         document.documentElement.style.backgroundColor = theme === 'light' ? '#ffffff' : '#000000';
       })();
     </script>
-    <script type="module" crossorigin src="./assets/index-BxLoIfUt.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/react-vendor-CYcp8n3f.js">
-    <link rel="modulepreload" crossorigin href="./assets/socket-vendor-DNoO1m3r.js">
-    <link rel="stylesheet" crossorigin href="./assets/style-DGX-cqHC.css">
+    <script type="module" crossorigin src="/docs/assets/index-BDJTVmSG.js"></script>
+    <link rel="modulepreload" crossorigin href="/docs/assets/react-vendor-CYcp8n3f.js">
+    <link rel="modulepreload" crossorigin href="/docs/assets/socket-vendor-DNoO1m3r.js">
+    <link rel="stylesheet" crossorigin href="/docs/assets/style-DGX-cqHC.css">
   </head>
   <body>
     <div id="root"></div>
