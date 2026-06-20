@@ -1,2 +1,0 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/web-zjv68WIF.js","assets/index-DTrWB7JJ.js"])))=>i.map(i=>d[i]);
-import{_ as e}from"./index-CoJc9w5v.js";import{r as o}from"./index-DTrWB7JJ.js";import"./react-vendor-CYcp8n3f.js";import"./socket-vendor-DNoO1m3r.js";const r=o("Device",{web:()=>e(()=>import("./web-zjv68WIF.js"),__vite__mapDeps([0,1])).then(e=>new e.DeviceWeb)});export{r as Device};
