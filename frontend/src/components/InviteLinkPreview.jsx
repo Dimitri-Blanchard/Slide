@@ -86,7 +86,7 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
     e.stopPropagation();
 
     if (isMember && inviteInfo?.team?.id) {
-      navigate(`/team/${inviteInfo.team.id}`);
+      navigate(serverPath(inviteInfo.team));
       return;
     }
 
@@ -111,7 +111,7 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
       if (onJoined) {
         onJoined(result.team_id, inviteInfo?.team);
       } else {
-        navigate(`/team/${result.team_id}`);
+        navigate(serverPath(result.team ?? { id: result.team_id, public_id: result.public_id }));
       }
     } catch (err) {
       if (err.message?.includes('already_member') || err.response?.data?.already_member) {

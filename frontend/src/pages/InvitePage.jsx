@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAppHomePath } from '../hooks/useAppHomePath';
 import { useLanguage } from '../context/LanguageContext';
 import AuthShell from '../components/AuthShell';
+import { serverPath } from '../utils/appRoutes';
 import './InvitePage.css';
 
 export default function InvitePage() {
@@ -51,7 +52,7 @@ export default function InvitePage() {
       const result = await servers.joinWithInvite(code);
       invalidateCache('/teams');
       localStorage.removeItem('slide_teams_cache');
-      navigate(`/team/${result.team_id}`);
+      navigate(serverPath(result.team ?? { id: result.team_id, public_id: result.public_id }));
     } catch (err) {
       setError(err.message || 'Impossible de rejoindre le serveur');
     }

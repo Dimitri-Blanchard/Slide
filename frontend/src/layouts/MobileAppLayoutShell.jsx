@@ -76,11 +76,12 @@ export default function MobileAppLayoutShell({
       const teamId = event?.detail?.teamId;
       if (teamId == null || teamId === '') return;
       if (isMobileFullPageRoute(pathname)) return;
-      navigate(`/team/${teamId}`, { replace: true });
+      const team = teams?.find((t) => String(t.id) === String(teamId));
+      navigate(serverPath(team || { id: teamId }), { replace: true });
     };
     window.addEventListener('slide:voice-channel-disconnect', onVoiceDisconnect);
     return () => window.removeEventListener('slide:voice-channel-disconnect', onVoiceDisconnect);
-  }, [pathname, navigate]);
+  }, [pathname, navigate, teams]);
 
   const allConversations = Array.isArray(conversations) ? conversations : [];
   const dmConversations = allConversations.filter((conversation) => !conversation?.is_local_private);
@@ -146,9 +147,10 @@ export default function MobileAppLayoutShell({
     navigate('/channels/@me');
   }, [navigate]);
 
-  const handleSwipeToServer = useCallback((teamId) => {
-    navigate(`/team/${teamId}`);
-  }, [navigate]);
+  const handleSwipeToServer = useCallback((teamInternalId) => {
+    const team = teams?.find((t) => String(t.id) === String(teamInternalId));
+    navigate(serverPath(team || { id: teamInternalId }));
+  }, [navigate, teams]);
 
   const drawerCloseSignal = pathname;
 
@@ -178,7 +180,7 @@ export default function MobileAppLayoutShell({
         <ServerErrorBoundary>
           <TeamChat
             teamId={teamId}
-            initialChannelId={null}
+            initialChannelPublicId={null}
             isMobile={true}
             inHomePager={true}
             onLeaveServer={onLeaveServer}
@@ -219,12 +221,42 @@ export default function MobileAppLayoutShell({
                 <Route path="/quests" element={<QuestsPage />} />
                 <Route path="/settings/*" element={null} />
                 <Route
+                  path="/channels/:teamPublicId/:channelPublicId/*"
+                  element={(
+                    <ServerErrorBoundary>
+                      <TeamChat
+                        teamId={params.teamId}
+                        initialChannelPublicId={params.channelPublicId}
+                        isMobile={true}
+                        onLeaveServer={onLeaveServer}
+                        onOpenSearch={() => setShowSearch(true)}
+                        {...teamChatMobileProps}
+                      />
+                    </ServerErrorBoundary>
+                  )}
+                />
+                <Route
+                  path="/channels/:teamPublicId/*"
+                  element={(
+                    <ServerErrorBoundary>
+                      <TeamChat
+                        teamId={params.teamId}
+                        initialChannelPublicId={null}
+                        isMobile={true}
+                        onLeaveServer={onLeaveServer}
+                        onOpenSearch={() => setShowSearch(true)}
+                        {...teamChatMobileProps}
+                      />
+                    </ServerErrorBoundary>
+                  )}
+                />
+                <Route
                   path="/team/:teamId/*"
                   element={(
                     <ServerErrorBoundary>
                       <TeamChat
                         teamId={params.teamId}
-                        initialChannelId={params.channelId}
+                        initialChannelPublicId={params.channelPublicId}
                         isMobile={true}
                         onLeaveServer={onLeaveServer}
                         onOpenSearch={() => setShowSearch(true)}
@@ -341,7 +373,7 @@ export default function MobileAppLayoutShell({
         onServerCreated={(newTeam) => {
           setTeams((prev) => [...prev, { ...newTeam, unread_count: 0, mention_count: 0, has_unread: false }]);
           setShowCreateServer(false);
-          navigate(`/team/${newTeam.id}`);
+          navigate(serverPath(newTeam));
         }}
       />
     </div>

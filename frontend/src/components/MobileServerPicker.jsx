@@ -33,7 +33,7 @@ export default function MobileServerPicker({ teams, onCreateServer }) {
             <button
               key={team.id}
               className={`msp-item ${team.has_unread ? 'unread' : ''}`}
-              onClick={() => navigate(`/team/${team.id}`)}
+              onClick={() => navigate(serverPath(team))}
             >
               <div className="msp-icon">
                 <ServerIcon team={team} />

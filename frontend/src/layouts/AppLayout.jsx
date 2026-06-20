@@ -24,8 +24,12 @@ import {
   LOCAL_PRIVATE_CHATS_CHANGED_EVENT,
   toLocalPrivateConversation,
 } from '../utils/localPrivateChatCrypto';
-import usePendingFriendsCount from '../hooks/usePendingFriendsCount';
-import './AppLayout.css';
+import {
+  parseAppRoute,
+  resolveTeamInternalId,
+  resolveConversationInternalId,
+  canonicalPathForRoute,
+} from '../utils/appRoutes';
 import './panel-junctions.css';
 
 // ═══════════════════════════════════════════════════════════
@@ -123,22 +127,31 @@ function applyViewingTeamUnreadClear(teams, activeTeamId) {
   ));
 }
 
-function useAppParams() {
+function useAppParams(teams, conversations) {
   const { pathname } = useLocation();
   return useMemo(() => {
-    const teamMatch = pathname.match(/\/team\/(\d+)/);
-    const channelMatch = pathname.match(/\/team\/\d+\/channel\/(\d+)/);
-    const localPrivateMatch = pathname.match(/\/channels\/@me\/private-local\/([^/]+)/);
-    const dmMatch = pathname.match(/\/channels\/@me\/(\d+)/);
+    const route = parseAppRoute(pathname);
     const isSettings = isSettingsRoute(pathname);
+    const teamPublicId = route.teamPublicId ?? null;
+    const channelPublicId = route.channelPublicId ?? null;
+    const conversationPublicId = route.conversationPublicId ?? null;
+    const teamId = teamPublicId ? resolveTeamInternalId(teams, teamPublicId) : null;
+    const conversationId = conversationPublicId
+      ? resolveConversationInternalId(conversations, conversationPublicId)
+      : null;
+
     return {
-      teamId: teamMatch?.[1] || null,
-      channelId: channelMatch?.[1] || null,
-      conversationId: localPrivateMatch ? null : (dmMatch?.[1] || null),
-      localPrivateUserId: localPrivateMatch ? decodeURIComponent(localPrivateMatch[1]) : null,
+      route,
+      teamPublicId,
+      channelPublicId,
+      conversationPublicId,
+      teamId: teamId != null ? String(teamId) : null,
+      channelId: null,
+      conversationId: conversationId != null ? String(conversationId) : null,
+      localPrivateUserId: route.kind === 'localPrivate' ? route.peerUserId : null,
       isSettings,
     };
-  }, [pathname]);
+  }, [pathname, teams, conversations]);
 }
 
 const SIDEBAR_STORAGE_KEY = 'slide_sidebar_width';
@@ -187,6 +200,14 @@ function useSidebarWidth() {
   return { width, handleResizeStart };
 }
 
+function conversationPublicIdUsesLegacyId(route, convos) {
+  const conv = convos?.find(
+    (c) => String(c.conversation_id) === String(route.conversationPublicId)
+      || String(c.id) === String(route.conversationPublicId),
+  );
+  return conv?.public_id && String(conv.public_id) !== String(route.conversationPublicId);
+}
+
 function AppLayout() {
   const { user } = useAuth();
 
@@ -215,12 +236,12 @@ function AppLayout() {
     isMobileSettingsRoute,
   } = useSettingsUi();
   const navigate = useNavigate();
-  const params = useAppParams();
+  const params = useAppParams(teams, conversations);
   const { pathname, state: locationState } = useLocation();
   const { isMobileShellViewport: isMobile } = usePlatform();
   const { shellMobile, phase: shellPhase } = useViewportShellTransition(isMobile);
   const isFriendsView = (
-    (pathname === '/channels/@me' && !params.conversationId && !params.localPrivateUserId) ||
+    (pathname === '/channels/@me' && params.route?.kind !== 'dm' && !params.localPrivateUserId) ||
     pathname === '/friends'
   );
   const pendingFriendsCount = usePendingFriendsCount(isFriendsView);
@@ -288,6 +309,21 @@ function AppLayout() {
       navigate('/channels/@me', { replace: true });
     }
   }, [navigate, params.localPrivateUserId, user?.id]);
+
+  // Canonical Discord-style URLs + legacy /team/… redirects
+  useEffect(() => {
+    const route = params.route;
+    if (!route || route.kind === 'other' || route.kind === 'localPrivate') return;
+    const canonical = canonicalPathForRoute(route, { teams, conversations });
+    if (!canonical || canonical === pathname) return;
+    if (route.legacy || pathname.startsWith('/team/')) {
+      navigate(canonical, { replace: true });
+      return;
+    }
+    if (route.kind === 'dm' && params.conversationId && conversationPublicIdUsesLegacyId(route, conversations)) {
+      navigate(canonical, { replace: true });
+    }
+  }, [navigate, pathname, params.route, params.conversationId, teams, conversations]);
 
   useEffect(() => {
     if (!params.conversationId) return;
@@ -992,7 +1028,7 @@ function AppLayout() {
     );
   }
 
-  const showSidebar = !params.teamId && pathname !== '/community';
+  const showSidebar = !params.teamPublicId && pathname !== '/community';
 
   return (
     <>

@@ -243,7 +243,7 @@ const Sidebar = memo(function Sidebar({
       onAddConversation?.(convWithParticipants);
       onRefreshConversations();
       closeDmSearch();
-      navigate(`/channels/@me/${conv.conversation_id}`);
+      navigate(dmPath(conv));
     }).catch(console.error);
   }, [onAddConversation, onRefreshConversations, navigate, closeDmSearch]);
 
@@ -269,7 +269,7 @@ const Sidebar = memo(function Sidebar({
     if (!conversation) return;
 
     if (conversation.is_group) {
-      navigate(`/channels/@me/${conversation.conversation_id}`);
+      navigate(dmPath(conversation));
       closeContextMenu();
       return;
     }
@@ -577,7 +577,7 @@ const Sidebar = memo(function Sidebar({
         onGroupCreated={(conv) => {
           onAddConversation?.(conv);
           onRefreshConversations?.();
-          navigate(`/channels/@me/${conv.conversation_id}`);
+          navigate(dmPath(conv));
         }}
       />
 

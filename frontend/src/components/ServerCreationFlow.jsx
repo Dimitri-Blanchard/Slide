@@ -92,7 +92,7 @@ export default function ServerCreationFlow({ isOpen, onClose, onTeamsChange, tea
               onServerCreated={(team) => {
                 onTeamsChange?.([...(teams || []), team]);
                 handleClose();
-                navigate(`/team/${team.id}`);
+                navigate(serverPath(team));
               }}
             />
           )}

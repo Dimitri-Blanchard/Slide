@@ -1,0 +1,4 @@
+-- Public snowflake IDs for URLs (Discord-style). Internal INT PKs unchanged.
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS public_id BIGINT UNSIGNED NULL UNIQUE;
+ALTER TABLE channels ADD COLUMN IF NOT EXISTS public_id BIGINT UNSIGNED NULL UNIQUE;
+ALTER TABLE direct_conversations ADD COLUMN IF NOT EXISTS public_id BIGINT UNSIGNED NULL UNIQUE;

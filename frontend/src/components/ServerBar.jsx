@@ -302,14 +302,14 @@ const ServerIcon = memo(function ServerIcon({ team, isActive, hasUnread = false,
             longPressFiredRef.current = false;
             return;
           }
-          navigate(`/team/${team.id}`);
+          navigate(serverPath(team));
         }}
         role="link"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            navigate(`/team/${team.id}`);
+            navigate(serverPath(team));
           }
         }}
       >
@@ -647,7 +647,7 @@ const ServerBar = memo(function ServerBar({
 
   const handleOpenSettings = useCallback((team) => {
     closeServerContextMenu();
-    navigate(`/team/${team.id}`);
+    navigate(serverPath(team));
   }, [closeServerContextMenu, navigate]);
 
   const handleToggleMute = useCallback((team) => {

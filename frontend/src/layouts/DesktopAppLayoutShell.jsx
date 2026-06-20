@@ -125,22 +125,6 @@ export default function DesktopAppLayoutShell({
         <div className="content-phase-in">
           <Routes>
             <Route
-              path="/team/:teamId/*"
-              element={(
-                <ServerErrorBoundary>
-                  <TeamChat
-                    teamId={params.teamId}
-                    initialChannelId={params.channelId}
-                    isMobile={isMobile}
-                    onLeaveServer={onLeaveServer}
-                    onOpenSearch={() => setShowSearch(true)}
-                    sidebarWidth={sidebarWidth}
-                    onSidebarResizeStart={handleSidebarResizeStart}
-                  />
-                </ServerErrorBoundary>
-              )}
-            />
-            <Route
               path="/channels/@me/private-local/:peerUserId"
               element={(
                 <LocalPrivateChat
@@ -154,9 +138,59 @@ export default function DesktopAppLayoutShell({
               element={(
                 <DirectChat
                   conversationId={params.conversationId}
+                  conversationPublicId={params.conversationPublicId}
                   onConversationsChange={setConversations}
                   conversations={dmConversations}
                 />
+              )}
+            />
+            <Route path="/channels/@me" element={<FriendsPage />} />
+            <Route
+              path="/channels/:teamPublicId/:channelPublicId/*"
+              element={(
+                <ServerErrorBoundary>
+                  <TeamChat
+                    teamId={params.teamId}
+                    initialChannelPublicId={params.channelPublicId}
+                    isMobile={isMobile}
+                    onLeaveServer={onLeaveServer}
+                    onOpenSearch={() => setShowSearch(true)}
+                    sidebarWidth={sidebarWidth}
+                    onSidebarResizeStart={handleSidebarResizeStart}
+                  />
+                </ServerErrorBoundary>
+              )}
+            />
+            <Route
+              path="/channels/:teamPublicId/*"
+              element={(
+                <ServerErrorBoundary>
+                  <TeamChat
+                    teamId={params.teamId}
+                    initialChannelPublicId={null}
+                    isMobile={isMobile}
+                    onLeaveServer={onLeaveServer}
+                    onOpenSearch={() => setShowSearch(true)}
+                    sidebarWidth={sidebarWidth}
+                    onSidebarResizeStart={handleSidebarResizeStart}
+                  />
+                </ServerErrorBoundary>
+              )}
+            />
+            <Route
+              path="/team/:teamId/*"
+              element={(
+                <ServerErrorBoundary>
+                  <TeamChat
+                    teamId={params.teamId}
+                    initialChannelPublicId={params.channelPublicId}
+                    isMobile={isMobile}
+                    onLeaveServer={onLeaveServer}
+                    onOpenSearch={() => setShowSearch(true)}
+                    sidebarWidth={sidebarWidth}
+                    onSidebarResizeStart={handleSidebarResizeStart}
+                  />
+                </ServerErrorBoundary>
               )}
             />
             <Route path="/community" element={<CommunityServersPage />} />
@@ -164,7 +198,6 @@ export default function DesktopAppLayoutShell({
             <Route path="/security" element={<SecurityDashboard />} />
             <Route path="/quests" element={<QuestsPage />} />
             <Route path="/friends" element={<Navigate to="/channels/@me" replace />} />
-            <Route path="/channels/@me" element={<FriendsPage />} />
             <Route path="/" element={<Navigate to="/channels/@me" replace />} />
             <Route path="/home" element={<Navigate to="/channels/@me" replace />} />
             <Route path="/profile/*" element={<Navigate to="/channels/@me" replace />} />

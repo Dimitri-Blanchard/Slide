@@ -105,22 +105,26 @@ export default function SearchModal({ isOpen, onClose, conversations, teams }) {
   const handleSelect = useCallback(async (item) => {
     if (item.type === 'conversation') {
       onClose();
-      navigate(`/channels/@me/${item.data.conversation_id}`);
+      navigate(dmPath(item.data));
     } else if (item.type === 'team') {
       onClose();
-      navigate(`/team/${item.data.id}`);
+      navigate(serverPath(item.data));
     } else if (item.type === 'user') {
       setProfileCardState({ userId: item.data.id, anchorEl: item._anchorEl || null });
     } else if (item.type === 'message') {
       const m = item.data;
       onClose();
       if (m.type === 'channel') {
-        navigate(`/team/${m.team_id}/channel/${m.channel_id}`, { state: { highlightMessageId: m.id } });
+        const teamObj = teams?.find((t) => String(t.id) === String(m.team_id));
+        navigate(serverChannelPath(
+          teamObj || { id: m.team_id, public_id: m.team_public_id ?? m.team_id },
+          { id: m.channel_id, public_id: m.channel_public_id ?? m.channel_id },
+        ), { state: { highlightMessageId: m.id } });
       } else {
-        navigate(`/channels/@me/${m.conversation_id}`, { state: { highlightMessageId: m.id } });
+        navigate(dmPath({ conversation_id: m.conversation_id, public_id: m.conversation_public_id ?? m.conversation_id }), { state: { highlightMessageId: m.id } });
       }
     }
-  }, [navigate, onClose]);
+  }, [navigate, onClose, teams]);
   
   if (!isOpen) return null;
   

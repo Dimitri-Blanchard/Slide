@@ -137,7 +137,7 @@ export function useVoiceSidebarUserContextMenu(user, context = {}) {
         onClick: async () => {
           try {
             const conv = await directApi.createConversation(user.id);
-            navigate(`/channels/@me/${conv.conversation_id}`);
+            navigate(dmPath(conv));
           } catch (err) {
             notify.error(err.message);
           }

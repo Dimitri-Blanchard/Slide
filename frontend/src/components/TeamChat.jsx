@@ -27,6 +27,15 @@ import ChannelHeader from './ChannelHeader';
 import TopicModal from './TopicModal';
 import { useSwipeBack } from '../hooks/useSwipeBack';
 import { canManageServer as resolveCanManageServer } from '../utils/serverPermissions';
+import {
+  serverPath,
+  serverChannelPath,
+  serverSettingsPath,
+  channelSettingsPath,
+  findChannelByRouteId,
+  resolveChannelInternalId,
+  teamRouteId,
+} from '../utils/appRoutes';
 import { MESSAGE_SEND_BACKPRESSURE_LIMIT, MESSAGE_SEND_QUEUE_GAP_MS, getRateLimitDelayMs, isRateLimitError, notifyRateLimit, wait } from '../utils/rateLimitRetry';
 import FileDropOverlay from './FileDropOverlay';
 import VoiceChannel from './VoiceChannel';
@@ -171,7 +180,7 @@ const LiveStreamFullscreenVideo = memo(function LiveStreamFullscreenVideo({ stre
 
 const TeamChat = memo(function TeamChat({
   teamId,
-  initialChannelId,
+  initialChannelPublicId,
   isMobile,
   onLeaveServer,
   onOpenSearch,
@@ -184,7 +193,7 @@ const TeamChat = memo(function TeamChat({
   pendingFriendsCount = 0,
 }) {
   const [team, setTeam] = useState(null);
-  const [channelId, setChannelId] = useState(initialChannelId || null);
+  const [channelId, setChannelId] = useState(null);
   const [channels, setChannels] = useState([]);
   const [categories, setCategories] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -208,7 +217,7 @@ const TeamChat = memo(function TeamChat({
   const [unreadChannels, setUnreadChannels] = useState(new Set());
   const [channelReadStates, setChannelReadStates] = useState({});
   const [currentLastRead, setCurrentLastRead] = useState(null);
-  const [mobileChannelListOpen, setMobileChannelListOpen] = useState(() => isMobile && !initialChannelId);
+  const [mobileChannelListOpen, setMobileChannelListOpen] = useState(() => isMobile && !initialChannelPublicId);
   const [editingTopic, setEditingTopic] = useState(false);
   const [topicDraft, setTopicDraft] = useState('');
   const [showTopicModal, setShowTopicModal] = useState(false);
@@ -242,29 +251,35 @@ const TeamChat = memo(function TeamChat({
   const navigate = useNavigate();
   const location = useLocation();
   const isMobileSettingsRoute = isMobile && isServerSettingsRoute(location.pathname);
-  const channelSettingsRouteMatch = location.pathname.match(/\/team\/(\d+)\/channel\/(\d+)\/settings/);
+  const channelSettingsRouteMatch = location.pathname.match(/\/channels\/(\d+)\/(\d+)\/settings/)
+    || location.pathname.match(/\/team\/(\d+)\/channel\/(\d+)\/settings/);
   const isMobileChannelSettingsRoute = isMobile
     && channelSettingsRouteMatch
-    && channelSettingsRouteMatch[1] === String(teamId);
+    && (channelSettingsRouteMatch[1] === teamRouteId(team)
+      || channelSettingsRouteMatch[1] === String(teamId));
+
+  const resolvedInitialChannelId = useMemo(() => {
+    if (!initialChannelPublicId) return null;
+    if (channels.length === 0) return null;
+    return resolveChannelInternalId(channels, initialChannelPublicId);
+  }, [initialChannelPublicId, channels]);
 
   const settingsChannelFromRoute = useMemo(() => {
     if (!isMobileChannelSettingsRoute || !channelSettingsRouteMatch) return null;
-    const channelIdFromRoute = parseInt(channelSettingsRouteMatch[2], 10);
-    if (Number.isNaN(channelIdFromRoute)) return null;
-    return channels.find((channel) => channel.id === channelIdFromRoute) || null;
+    return findChannelByRouteId(channels, channelSettingsRouteMatch[2]) || null;
   }, [isMobileChannelSettingsRoute, channelSettingsRouteMatch, channels]);
 
   const closeChannelSettings = useCallback(() => {
-    navigate(`/team/${teamId}`);
-  }, [navigate, teamId]);
+    navigate(serverPath(team || { id: teamId }));
+  }, [navigate, team, teamId]);
 
   const closeServerSettings = useCallback(() => {
     if (isMobile) {
-      navigate(`/team/${teamId}`);
+      navigate(serverPath(team || { id: teamId }));
     } else {
       setShowServerSettings(false);
     }
-  }, [isMobile, teamId, navigate]);
+  }, [isMobile, team, teamId, navigate]);
 
   const handleServerSettingsUpdate = useCallback((updatedTeam) => {
     invalidateCache('/teams');
@@ -312,7 +327,10 @@ const TeamChat = memo(function TeamChat({
     if (isMobile) return undefined;
     const onVoiceDisconnect = () => {
       const fallback = lastTextChannelIdRef.current || channels.find(c => c?.channel_type !== 'voice')?.id;
-      if (fallback) navigate(`/team/${teamId}/channel/${fallback}`);
+      if (fallback) {
+        const ch = channels.find((c) => String(c.id) === String(fallback));
+        if (ch) navigate(serverChannelPath(team || { id: teamId }, ch), { replace: true });
+      }
     };
     window.addEventListener('slide:voice-channel-disconnect', onVoiceDisconnect);
     return () => window.removeEventListener('slide:voice-channel-disconnect', onVoiceDisconnect);
@@ -361,8 +379,8 @@ const TeamChat = memo(function TeamChat({
         const safeChannels = (Array.isArray(channelsList) ? channelsList : []).filter(c => c && c.id != null);
         const safeCategories = Array.isArray(categoriesList) ? categoriesList : [];
         const firstText = safeChannels.find(c => c?.channel_type === 'text') || safeChannels[0];
-        let targetId = initialChannelId && safeChannels.some(c => c && String(c.id) === String(initialChannelId))
-          ? initialChannelId
+        let targetId = resolvedInitialChannelId && safeChannels.some(c => c && String(c.id) === String(resolvedInitialChannelId))
+          ? resolvedInitialChannelId
           : firstText?.id;
         const toUse = targetId ? String(targetId) : null;
 
@@ -402,7 +420,7 @@ const TeamChat = memo(function TeamChat({
         }
 
         if (toUse) {
-          if (isMobile && !initialChannelId) {
+          if (isMobile && !resolvedInitialChannelId) {
             setChannelId(null);
           } else {
             const cacheKey = `${teamId}-${toUse}`;
@@ -414,8 +432,9 @@ const TeamChat = memo(function TeamChat({
               skipMessagesEffectRef.current = true;
             }
             setChannelId(toUse);
-            if (!initialChannelId || !safeChannels.some(c => String(c.id) === String(initialChannelId))) {
-              navigate(`/team/${teamId}/channel/${toUse}`, { replace: true });
+            if (!resolvedInitialChannelId || !safeChannels.some(c => String(c.id) === String(resolvedInitialChannelId))) {
+              const ch = safeChannels.find((c) => String(c.id) === String(toUse));
+              if (ch) navigate(serverChannelPath(team || { id: teamId }, ch), { replace: true });
             }
             if (!cached) {
               setMessagesLoading(true);
@@ -448,30 +467,29 @@ const TeamChat = memo(function TeamChat({
       })
       .finally(() => { if (!cancelled) setTeamLoading(false); });
     return () => { cancelled = true; };
-  }, [teamId, onLeaveServer, navigate, isMobile, initialChannelId, user?.id]);
+  }, [teamId, onLeaveServer, navigate, isMobile, resolvedInitialChannelId, user?.id, team]);
 
   // ═══════════════════════════════════════════════════════════
-  // SYNC channelId from URL when initialChannelId changes (before paint)
+  // SYNC channelId from URL when resolvedInitialChannelId changes (before paint)
   // ═══════════════════════════════════════════════════════════
   useLayoutEffect(() => {
     if (isChannelSettingsRoute(location.pathname)) return;
-    if (initialChannelId) {
-      if (String(initialChannelId) !== String(channelId ?? '')) {
-        setChannelId(initialChannelId);
+    if (resolvedInitialChannelId) {
+      if (String(resolvedInitialChannelId) !== String(channelId ?? '')) {
+        setChannelId(resolvedInitialChannelId);
       }
       if (isMobile) setMobileChannelListOpen(false);
-    } else if (!initialChannelId && channelId && isMobile) {
-      // Navigated to /team/:id (no channel) — show channel list
+    } else if (!resolvedInitialChannelId && channelId && isMobile) {
       setChannelId(null);
       setMobileChannelListOpen(true);
     }
-  }, [initialChannelId, channelId, isMobile, location.pathname]);
+  }, [resolvedInitialChannelId, channelId, isMobile, location.pathname]);
 
   // Mobile: never land on a voice channel URL — show join prompt, stay on text/list
   useLayoutEffect(() => {
-    if (!isMobile || !initialChannelId || teamLoading || channels.length === 0) return;
+    if (!isMobile || !resolvedInitialChannelId || teamLoading || channels.length === 0) return;
     if (isChannelSettingsRoute(location.pathname)) return;
-    const voiceCh = channels.find((c) => String(c.id) === String(initialChannelId));
+    const voiceCh = channels.find((c) => String(c.id) === String(resolvedInitialChannelId));
     if (!voiceCh || voiceCh.channel_type !== 'voice') return;
     if (String(voiceChannelId ?? '') === String(voiceCh.id)) return;
 
@@ -480,11 +498,12 @@ const TeamChat = memo(function TeamChat({
     const fallback = lastTextChannelIdRef.current
       || channels.find((c) => c?.channel_type !== 'voice')?.id;
     if (fallback) {
-      navigate(`/team/${teamId}/channel/${fallback}`, { replace: true });
+      const ch = channels.find((c) => String(c.id) === String(fallback));
+      if (ch) navigate(serverChannelPath(team || { id: teamId }, ch), { replace: true });
     } else {
-      navigate(`/team/${teamId}`, { replace: true });
+      navigate(serverPath(team || { id: teamId }), { replace: true });
     }
-  }, [isMobile, initialChannelId, channels, voiceChannelId, teamLoading, teamId, navigate, suppressAutoJoin, location.pathname]);
+  }, [isMobile, resolvedInitialChannelId, channels, voiceChannelId, teamLoading, teamId, navigate, suppressAutoJoin, location.pathname, team]);
 
   // Old servers: if channelId points to deleted/missing channel, redirect to first available
   useEffect(() => {
@@ -493,7 +512,7 @@ const TeamChat = memo(function TeamChat({
       if (!exists) {
         const first = channels[0];
         setChannelId(first?.id);
-        navigate(`/team/${teamId}/channel/${first?.id}`, { replace: true });
+        navigate(serverChannelPath(team, first), { replace: true });
       }
     }
   }, [teamLoading, team, channels, channelId, teamId, navigate]);
@@ -678,7 +697,7 @@ const TeamChat = memo(function TeamChat({
         setChannels(prev => prev.some(c => c.id === channel.id) ? prev : [...prev, channel]);
         if (!channelId) {
           setChannelId(channel.id);
-          navigate(`/team/${teamId}/channel/${channel.id}`, { replace: true });
+          navigate(serverChannelPath(team || { id: teamId }, channel), { replace: true });
         }
       }
     };
@@ -691,7 +710,7 @@ const TeamChat = memo(function TeamChat({
         if (parseInt(channelId, 10) === deletedId && remaining.length > 0) {
           const first = remaining[0];
           setChannelId(first.id);
-          navigate(`/team/${teamId}/channel/${first.id}`, { replace: true });
+          navigate(serverChannelPath(team || { id: teamId }, first), { replace: true });
         }
         return remaining;
       });
@@ -762,7 +781,7 @@ const TeamChat = memo(function TeamChat({
             const ch = channels.find(c => c.id === msgChannelId);
             addInboxItem({
               channelName: ch?.name || '',
-              channelPath: `/team/${teamId}/channel/${msgChannelId}`,
+              channelPath: serverChannelPath(team || { id: teamId }, ch || { id: msgChannelId }),
               senderName: msg.sender?.display_name || 'Someone',
               preview: msg.content.substring(0, 100),
             });
@@ -773,7 +792,7 @@ const TeamChat = memo(function TeamChat({
             const ch = channels.find(c => c.id === msgChannelId);
             addInboxItem({
               channelName: ch?.name || '',
-              channelPath: `/team/${teamId}/channel/${msgChannelId}`,
+              channelPath: serverChannelPath(team || { id: teamId }, ch || { id: msgChannelId }),
               senderName: msg.sender?.display_name || 'Someone',
               preview: msg.content.substring(0, 100),
             });
@@ -803,7 +822,7 @@ const TeamChat = memo(function TeamChat({
             const ch = channels.find(c => c.id === msgChannelId);
             addInboxItem({
               channelName: ch?.name || '',
-              channelPath: `/team/${teamId}/channel/${msgChannelId}`,
+              channelPath: serverChannelPath(team || { id: teamId }, ch || { id: msgChannelId }),
               senderName: msg.sender?.display_name || 'Someone',
               preview: msg.content.substring(0, 100),
             });
@@ -951,7 +970,7 @@ const TeamChat = memo(function TeamChat({
         const remaining = prev.filter(c => c.id !== channelIdToDelete);
         if (parseInt(channelId, 10) === channelIdToDelete && remaining.length > 0) {
           setChannelId(remaining[0].id);
-          navigate(`/team/${teamId}/channel/${remaining[0].id}`, { replace: true });
+          navigate(serverChannelPath(team || { id: teamId }, remaining[0]), { replace: true });
         }
         return remaining;
       });
@@ -1198,8 +1217,14 @@ const TeamChat = memo(function TeamChat({
   const handleCancelReply = useCallback(() => setReplyTo(null), []);
 
   const messageSurfaceContext = useMemo(
-    () => (teamId && channelId ? { kind: 'server', teamId, channelId } : null),
-    [teamId, channelId]
+    () => (teamId && channelId ? {
+      kind: 'server',
+      teamId,
+      channelId,
+      teamPublicId: team?.public_id,
+      channelPublicId: currentChannel?.public_id,
+    } : null),
+    [teamId, channelId, team?.public_id, currentChannel?.public_id]
   );
 
   const handleChannelMarkedUnread = useCallback(({ channelId: chId, lastReadMessageId }) => {
@@ -1338,18 +1363,18 @@ const TeamChat = memo(function TeamChat({
 
   useEffect(() => {
     if (!isMobileSettingsRoute || teamLoading || canManageServer) return;
-    navigate(`/team/${teamId}`, { replace: true });
-  }, [isMobileSettingsRoute, teamLoading, canManageServer, navigate, teamId]);
+    navigate(serverPath(team || { id: teamId }), { replace: true });
+  }, [isMobileSettingsRoute, teamLoading, canManageServer, navigate, teamId, team]);
 
   const openServerSettings = useCallback(() => {
     if (!canManageServer) return;
     if (isMobile) {
       setMobileChannelListOpen(false);
-      navigate(`/team/${teamId}/settings`);
+      navigate(serverSettingsPath(team || { id: teamId }));
     } else {
       setShowServerSettings(true);
     }
-  }, [isMobile, teamId, navigate, canManageServer]);
+  }, [isMobile, team, teamId, navigate, canManageServer]);
 
   const handleVoiceUserRolesChanged = useCallback((userId, roleId, added) => {
     setMemberRolesMap((prev) => {
@@ -1418,21 +1443,22 @@ const TeamChat = memo(function TeamChat({
       navigate(`/channels/@me`);
     } else if (channelId) {
       lastChannelIdRef.current = channelId;
-      navigate(`/team/${teamId}`);
+      navigate(serverPath(team || { id: teamId }));
     } else {
       setMobileChannelListOpen(true);
     }
-  }, [mobileChannelListOpen, navigate, channelId, teamId]);
+  }, [mobileChannelListOpen, navigate, channelId, teamId, team]);
 
   const handleSwipeForward = useCallback(() => {
     if (mobileChannelListOpen && lastChannelIdRef.current) {
-      navigate(`/team/${teamId}/channel/${lastChannelIdRef.current}`);
+      const ch = channels.find((c) => String(c.id) === String(lastChannelIdRef.current));
+      if (ch) navigate(serverChannelPath(team || { id: teamId }, ch));
       lastChannelIdRef.current = null;
     }
-  }, [mobileChannelListOpen, navigate, teamId]);
+  }, [mobileChannelListOpen, navigate, teamId, team, channels]);
 
   // URL is source of truth — avoid hiding chat while channelId state is still catching up
-  const activeChannelId = channelId || initialChannelId || null;
+  const activeChannelId = channelId || resolvedInitialChannelId || null;
   const showMobileChannelList = isMobile && mobileChannelListOpen && !activeChannelId;
   const pagerHandlesNav = inHomePager && showMobileChannelList;
 
@@ -1569,7 +1595,7 @@ const TeamChat = memo(function TeamChat({
           onToggleMobileChannelList={() => {
             if (channelId) {
               lastChannelIdRef.current = channelId;
-              navigate(`/team/${teamId}`);
+              navigate(serverPath(team || { id: teamId }));
             } else {
               navigate('/channels/@me');
             }

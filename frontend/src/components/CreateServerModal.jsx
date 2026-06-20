@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { dmPath, serverPath, serverChannelPath, channelSettingsPath } from '../utils/appRoutes';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { teams as teamsApi, servers, channels as channelsApi } from '../api';
@@ -234,7 +235,7 @@ export default function CreateServerModal({ isOpen, embedded, onClose, onServerC
       setTimeout(() => {
         onServerCreated?.(team);
         handleClose(true);
-        navigate(`/team/${team.id}`);
+        navigate(serverPath(team));
       }, 400);
 
     } catch (err) {

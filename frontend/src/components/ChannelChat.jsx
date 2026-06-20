@@ -2,6 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, memo,
 import { useNavigate } from 'react-router-dom';
 import { Lock } from 'lucide-react';
 import { messages as messagesApi, channels as channelsApi, reactions as reactionsApi, teams as teamsApi, direct as directApi } from '../api';
+import { dmPath } from '../utils/appRoutes';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -390,8 +391,7 @@ const ChannelChat = memo(function ChannelChat({ teamId, channelId, currentTeam, 
       if (!uid) return;
       try {
         const conv = await directApi.createConversation(uid);
-        const id = conv?.id ?? conv?.conversation_id;
-        if (id) navigate(`/channels/@me/${id}`);
+        if (conv) navigate(dmPath(conv));
       } catch (err) {
         notify.error(err?.message || t('chat.openDmError'));
       }

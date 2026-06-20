@@ -126,7 +126,7 @@ export function useDmConversationContextMenu({
     const conversation = contextMenu.conversation;
     if (!conversation) return;
     if (conversation.is_group) {
-      navigate(`/channels/@me/${conversation.conversation_id}`);
+      navigate(dmPath(conversation));
       closeContextMenu();
       return;
     }

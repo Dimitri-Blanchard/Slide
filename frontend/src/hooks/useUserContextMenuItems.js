@@ -121,7 +121,7 @@ export function useUserContextMenuItems(user, context = {}) {
     items.push({ label: t('friends.message'), icon: Icons.message, onClick: async () => {
       try {
         const conv = await directApi.createConversation(user.id);
-        navigate(`/channels/@me/${conv.conversation_id}`);
+        navigate(dmPath(conv));
       } catch (err) { notify.error(err.message); }
     } });
     if (!isOwn && isLocalPrivateChatAvailable()) {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { dmPath, serverPath, serverChannelPath, channelSettingsPath } from '../utils/appRoutes';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { AvatarImg } from './Avatar';
@@ -47,7 +48,7 @@ export default function DiscoverServersModal({ isOpen, embedded, onClose, onServ
       };
       onServerJoined?.(joinedTeam);
       onClose();
-      navigate(`/team/${joinedTeam.id}`);
+      navigate(serverPath(joinedTeam));
     } catch (err) {
       setError(err.message || 'Impossible de rejoindre');
     }

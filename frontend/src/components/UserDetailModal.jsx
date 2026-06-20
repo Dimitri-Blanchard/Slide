@@ -125,14 +125,14 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
     try {
       const conv = await directApi.createConversation(parseInt(user.id, 10));
       onClose();
-      navigate(`/channels/@me/${conv.conversation_id ?? conv.id}`);
+      navigate(dmPath(conv));
     } catch {}
   }, [user?.id, navigate, onClose]);
 
   const handleTeamClick = useCallback((team) => {
     if (!team?.id) return;
     onClose();
-    navigate(`/team/${team.id}`);
+    navigate(serverPath(team));
   }, [navigate, onClose]);
 
   const handleFriendClick = useCallback(async (friend) => {
@@ -140,7 +140,7 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
     try {
       const conv = await directApi.createConversation(parseInt(friend.id, 10));
       onClose();
-      navigate(`/channels/@me/${conv.conversation_id ?? conv.id}`);
+      navigate(dmPath(conv));
     } catch {}
   }, [navigate, onClose]);
 
