@@ -13,7 +13,6 @@ import { useSounds } from '../context/SoundContext';
 import { useLanguage } from '../context/LanguageContext';
 import { usePrefetchOnHover } from '../context/PrefetchContext';
 import { useSwipeBack } from '../hooks/useSwipeBack';
-import { dmPath } from '../utils/appRoutes';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { prefetchProfile } from '../utils/profileCache';
 import { MESSAGE_SEND_BACKPRESSURE_LIMIT, MESSAGE_SEND_QUEUE_GAP_MS, getRateLimitDelayMs, isRateLimitError, notifyRateLimit, wait } from '../utils/rateLimitRetry';
@@ -819,13 +818,8 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
   const otherIsFriend = !isGroup && other?.id ? isFriend(other.id) : false;
 
   const messageSurfaceContext = useMemo(
-    () => (conversationId ? {
-      kind: 'dm',
-      conversationId,
-      conversationPublicId: conversation?.public_id,
-      isGroup: !!isGroup,
-    } : null),
-    [conversationId, conversation?.public_id, isGroup]
+    () => (conversationId ? { kind: 'dm', conversationId, isGroup: !!isGroup } : null),
+    [conversationId, isGroup]
   );
 
   // Prefetch DM partner profile on load so profile card opens instantly
@@ -869,7 +863,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
       try {
         const conv = await directApi.createConversation(uid);
         const id = conv?.id ?? conv?.conversation_id;
-        if (id) navigate(dmPath(conv));
+        if (id) navigate(`/channels/@me/${id}`);
       } catch (err) {
         notify.error(err?.message || t('chat.openDmError'));
       }
@@ -1110,7 +1104,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
     const id = conv?.conversation_id ?? conv?.id;
     if (id) {
       onConversationsChange?.();
-      navigate(dmPath(conv));
+      navigate(`/channels/@me/${id}`);
     }
   }, [navigate, onConversationsChange]);
 

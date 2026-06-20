@@ -16,7 +16,6 @@ import useFriendsSync from './useFriendsSync';
 import { invitePublicUrl } from '../utils/publicSiteUrl';
 import { notifyFriendsChanged, isFriendRequestDuplicateError } from '../utils/friendsSync';
 import { ContextMenuVoiceControls } from '../components/ContextMenuVoiceControls';
-import { dmPath } from '../utils/appRoutes';
 
 export function useVoiceSidebarUserContextMenu(user, context = {}) {
   const {
@@ -138,7 +137,7 @@ export function useVoiceSidebarUserContextMenu(user, context = {}) {
         onClick: async () => {
           try {
             const conv = await directApi.createConversation(user.id);
-            navigate(dmPath(conv));
+            navigate(`/channels/@me/${conv.conversation_id}`);
           } catch (err) {
             notify.error(err.message);
           }

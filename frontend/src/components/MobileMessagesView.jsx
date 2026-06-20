@@ -8,7 +8,6 @@ import ProfileCard from './ProfileCard';
 import AddNoteModal from './AddNoteModal';
 import FriendNicknameModal from './FriendNicknameModal';
 import { makeLocalPrivateRoute } from '../utils/localPrivateChatCrypto';
-import { dmPath } from '../utils/appRoutes';
 import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import { useLongPress } from '../hooks/useLongPress';
 import { useDmConversationContextMenu } from '../hooks/useDmConversationContextMenu';
@@ -53,7 +52,7 @@ const DMItem = memo(function DMItem({
     : (other?.display_name || 'Conversation');
   const id = conversation.conversation_id;
   const isLocalPrivate = !!conversation.is_local_private;
-  const to = isLocalPrivate ? makeLocalPrivateRoute(conversation.local_private_peer_id || other?.id) : dmPath(conversation);
+  const to = isLocalPrivate ? makeLocalPrivateRoute(conversation.local_private_peer_id || other?.id) : `/channels/@me/${id}`;
   const memberCount = isGroup ? (conversation.participants?.length || 0) : 0;
   const unreadCount = currentConversationId === String(id) ? 0 : (conversation.unread_count || 0);
   const lastPreview = conversation.last_message_preview || '';

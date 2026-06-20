@@ -22,7 +22,6 @@ import { Spoiler, parseInlineMarkdown, parseMessageContent as _parseMarkdown, HA
 import { getStaticUrl } from '../utils/staticUrl';
 import { pickChannelWelcomeHint } from '../utils/channelWelcomeHint';
 import { getToken } from '../utils/tokenStorage';
-import { dmPath, serverChannelPath } from '../utils/appRoutes';
 import TextWithAranjaEmojis from './TextWithAranjaEmojis';
 import ContextMenu from './ContextMenu';
 import MessageMobileActionSheet from './MessageMobileActionSheet';
@@ -113,16 +112,10 @@ function buildMessagePermalink(surface, msg) {
   if (!surface || msg?.id == null) return '';
   const o = typeof window !== 'undefined' ? window.location.origin : '';
   if (surface.kind === 'server') {
-    return `${o}${serverChannelPath(
-      { id: surface.teamId, public_id: surface.teamPublicId ?? surface.teamId },
-      { id: surface.channelId, public_id: surface.channelPublicId ?? surface.channelId },
-    )}#msg-${msg.id}`;
+    return `${o}/team/${surface.teamId}/channel/${surface.channelId}#msg-${msg.id}`;
   }
   if (surface.kind === 'dm') {
-    return `${o}${dmPath({
-      conversation_id: surface.conversationId,
-      public_id: surface.conversationPublicId ?? surface.conversationId,
-    })}#msg-${msg.id}`;
+    return `${o}/channels/@me/${surface.conversationId}#msg-${msg.id}`;
   }
   return '';
 }

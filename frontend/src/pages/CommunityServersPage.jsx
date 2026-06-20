@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AvatarImg } from '../components/Avatar';
 import { servers } from '../api';
-import { serverPath } from '../utils/appRoutes';
+import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import './CommunityServersPage.css';
 
@@ -57,8 +57,8 @@ export default function CommunityServersPage() {
     setError('');
     try {
       const result = await servers.joinPublic(team.id);
-      const joined = result.team ?? team;
-      navigate(serverPath(joined));
+      const teamId = result.team_id ?? result.team?.id ?? team.id;
+      navigate(`/team/${teamId}`);
     } catch (err) {
       setError(err.message || 'Failed to join');
     }

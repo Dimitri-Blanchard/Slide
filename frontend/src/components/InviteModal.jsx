@@ -9,7 +9,6 @@ import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import MobileSheet from './MobileSheet';
 import { invitePublicUrl } from '../utils/publicSiteUrl';
-import { serverPath } from '../utils/appRoutes';
 import './InviteModal.css';
 
 export default function InviteModal({ isOpen, embedded, onClose, initialCode = '', onServerJoined, onBack, exiting }) {
@@ -76,7 +75,7 @@ export default function InviteModal({ isOpen, embedded, onClose, initialCode = '
       }
       
       onClose();
-      navigate(serverPath(result.team ?? { id: result.team_id, public_id: result.public_id }));
+      navigate(`/team/${result.team_id}`);
     } catch (err) {
       setError(err.message || 'Impossible de rejoindre le serveur');
     }

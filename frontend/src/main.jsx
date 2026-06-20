@@ -206,12 +206,12 @@ if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform()) {
       const conversationId = getStringValue(data, ['conversationId', 'conversation_id', 'dmId', 'dm_id']);
       if (conversationId) return `#/channels/@me/${encodeURIComponent(conversationId)}`;
 
-      const teamId = getStringValue(data, ['teamId', 'team_id', 'serverId', 'server_id', 'teamPublicId', 'team_public_id']);
-      const channelId = getStringValue(data, ['channelId', 'channel_id', 'channelPublicId', 'channel_public_id']);
+      const teamId = getStringValue(data, ['teamId', 'team_id', 'serverId', 'server_id']);
+      const channelId = getStringValue(data, ['channelId', 'channel_id']);
       if (teamId && channelId) {
-        return `#/channels/${encodeURIComponent(teamId)}/${encodeURIComponent(channelId)}`;
+        return `#/team/${encodeURIComponent(teamId)}/channel/${encodeURIComponent(channelId)}`;
       }
-      if (teamId) return `#/channels/${encodeURIComponent(teamId)}`;
+      if (teamId) return `#/team/${encodeURIComponent(teamId)}`;
 
       return '#/channels/@me';
     };

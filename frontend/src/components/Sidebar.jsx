@@ -20,7 +20,6 @@ import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import { useLongPress } from '../hooks/useLongPress';
 import { hapticImpact } from '../utils/nativeHaptics';
 import { makeLocalPrivateRoute, removeLocalPrivateChat } from '../utils/localPrivateChatCrypto';
-import { dmPath } from '../utils/appRoutes';
 import AppIcon from './icons/AppIcon';
 import './Sidebar.css';
 
@@ -81,7 +80,7 @@ const DMItem = memo(function DMItem({ conversation, isActive, onContextMenu, onC
     : (other?.display_name || 'Conversation');
   const id = conversation.conversation_id;
   const isLocalPrivate = !!conversation.is_local_private;
-  const to = isLocalPrivate ? makeLocalPrivateRoute(conversation.local_private_peer_id || other?.id) : dmPath(conversation);
+  const to = isLocalPrivate ? makeLocalPrivateRoute(conversation.local_private_peer_id || other?.id) : `/channels/@me/${id}`;
   const memberCount = isGroup ? (conversation.participants?.length || 0) : 0;
 
   const handleContextMenu = (e) => {
@@ -244,7 +243,7 @@ const Sidebar = memo(function Sidebar({
       onAddConversation?.(convWithParticipants);
       onRefreshConversations();
       closeDmSearch();
-      navigate(dmPath(conv));
+      navigate(`/channels/@me/${conv.conversation_id}`);
     }).catch(console.error);
   }, [onAddConversation, onRefreshConversations, navigate, closeDmSearch]);
 
@@ -270,7 +269,7 @@ const Sidebar = memo(function Sidebar({
     if (!conversation) return;
 
     if (conversation.is_group) {
-      navigate(dmPath(conversation));
+      navigate(`/channels/@me/${conversation.conversation_id}`);
       closeContextMenu();
       return;
     }
@@ -578,7 +577,7 @@ const Sidebar = memo(function Sidebar({
         onGroupCreated={(conv) => {
           onAddConversation?.(conv);
           onRefreshConversations?.();
-          navigate(dmPath(conv));
+          navigate(`/channels/@me/${conv.conversation_id}`);
         }}
       />
 

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
-import { dmPath, serverPath, serverChannelPath, channelSettingsPath } from '../utils/appRoutes';
 import ProfileCard from './ProfileCard';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -237,7 +236,7 @@ export default function FriendsPage({ mobileStandalone = false }) {
       await refreshFriendsSyncNow();
       if (otherUser?.id) {
         const conv = await directApi.createConversation(otherUser.id);
-        navigate(dmPath(conv));
+        navigate(`/channels/@me/${conv.conversation_id}`);
       }
     } catch (err) {
       notify.error(err.message);
@@ -277,7 +276,7 @@ export default function FriendsPage({ mobileStandalone = false }) {
   const handleMessage = async (friend) => {
     try {
       const conv = await directApi.createConversation(friend.id);
-      navigate(dmPath(conv));
+      navigate(`/channels/@me/${conv.conversation_id}`);
     } catch (err) {
       notify.error(err.message);
     }

@@ -10,7 +10,6 @@ import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import { useLongPress } from '../hooks/useLongPress';
 import { useAuth } from '../context/AuthContext';
 import { hapticImpact } from '../utils/nativeHaptics';
-import { serverChannelPath, channelSettingsPath } from '../utils/appRoutes';
 import ConfirmModal from './ConfirmModal';
 import ClickableAvatar from './ClickableAvatar';
 import ChannelSettings from './ChannelSettings';
@@ -161,7 +160,7 @@ const checkIcon = <AppIcon name="check" size={16} />;
 const bellIcon = <AppIcon name="bell" size={16} />;
 const bellMutedIcon = <AppIcon name="bellOff" size={16} />;
 
-const ChannelContextMenu = memo(function ChannelContextMenu({ x, y, channel, team, teamId, onClose, canManage, onEdit, onDelete, onCopyId, isMuted, muteKey, onMute, onUnmute }) {
+const ChannelContextMenu = memo(function ChannelContextMenu({ x, y, channel, teamId, onClose, canManage, onEdit, onDelete, onCopyId, isMuted, muteKey, onMute, onUnmute }) {
   const { t } = useLanguage();
   const items = [];
 
@@ -170,7 +169,7 @@ const ChannelContextMenu = memo(function ChannelContextMenu({ x, y, channel, tea
       label: 'Copy Link',
       icon: <AppIcon name="link" size={16} />,
       onClick: () => {
-        const link = `${window.location.origin}${serverChannelPath(team || { id: teamId }, channel)}`;
+        const link = `${window.location.origin}/team/${teamId}/channel/${channel.id}`;
         navigator.clipboard?.writeText(link).then(() => {}, () => {});
       },
     },
@@ -278,7 +277,7 @@ const CategoryContextMenu = memo(function CategoryContextMenu({ x, y, category, 
 // CATEGORY
 // ═══════════════════════════════════════════════════════════
 const Category = memo(function Category({
-  category, channels, team, teamId, currentChannelId,
+  category, channels, teamId, currentChannelId,
   onCreateChannel, onEditCategory, onDeleteCategory, canManage,
   unreadChannels, onEditChannel, onDeleteChannel, onCopyChannelId,
   isChannelMuted, getChannelMuteKey, onMuteChannel, onUnmuteChannel,
@@ -452,7 +451,6 @@ const Category = memo(function Category({
           <ChannelItem
             key={channel.id}
             channel={channel}
-            team={team}
             teamId={teamId}
             isActive={currentChannelId === String(channel.id)}
             hasUnread={unreadChannels?.has(channel.id)}
@@ -751,7 +749,7 @@ const VoiceUserItem = memo(function VoiceUserItem({
 // CHANNEL ITEM with context menu & hover actions
 // ═══════════════════════════════════════════════════════════
 const ChannelItem = memo(function ChannelItem({
-  channel, team, teamId, isActive, hasUnread, canManage, onEdit, onDelete, onCopyId,
+  channel, teamId, isActive, hasUnread, canManage, onEdit, onDelete, onCopyId,
   isMuted, muteKey, onMute, onUnmute, onChannelMove, onDragEnd, onDragOverAtPosition,
   categoryId, position, channelCount, dropIndicatorPosition, isDragOverCategory,
   isMobile, onActiveChannelClick, onVoiceJoinRequest, roles, memberRolesMap, onRolesChanged,
@@ -900,7 +898,7 @@ const ChannelItem = memo(function ChannelItem({
       onVoiceJoinRequest?.(channel);
       return;
     }
-    navigate(serverChannelPath(team || { id: teamId }, channel));
+    navigate(`/team/${teamId}/channel/${channel.id}`);
   };
 
   const showUnread = hasUnread && !isMuted;
@@ -947,7 +945,7 @@ const ChannelItem = memo(function ChannelItem({
         </div>
       ) : (
         <Link
-          to={serverChannelPath(team || { id: teamId }, channel)}
+          to={`/team/${teamId}/channel/${channel.id}`}
           className="channel-link"
           onContextMenu={handleContextMenu}
           onPointerDown={onChannelRowPointerDown}
@@ -1012,7 +1010,7 @@ const ChannelItem = memo(function ChannelItem({
       )}
       {ctxMenu && (
         <ChannelContextMenu
-          x={ctxMenu.x} y={ctxMenu.y} channel={channel} team={team} teamId={teamId}
+          x={ctxMenu.x} y={ctxMenu.y} channel={channel} teamId={teamId}
           onClose={() => setCtxMenu(null)} canManage={canManage}
           onEdit={onEdit} onDelete={onDelete} onCopyId={onCopyId}
           isMuted={isMuted} muteKey={muteKey} onMute={onMute} onUnmute={onUnmute}
@@ -1577,7 +1575,7 @@ export default function ChannelList({
 
   const handleOpenChannelSettings = useCallback((channel) => {
     if (isMobile && team?.id && channel?.id) {
-      navigate(channelSettingsPath(team, channel));
+      navigate(`/team/${team.id}/channel/${channel.id}/settings`);
       return;
     }
     setSettingsChannel(channel);
@@ -1599,7 +1597,7 @@ export default function ChannelList({
     setShowChannelModal(false);
     setSelectedCategoryId(null);
     if (isMobile && newChannel?.id) {
-      navigate(channelSettingsPath(team, newChannel));
+      navigate(`/team/${team.id}/channel/${newChannel.id}/settings`);
     }
   }, [team.id, safeChannels, selectedCategoryId, onChannelsChange, isMobile, navigate]);
 
@@ -1732,7 +1730,7 @@ export default function ChannelList({
         setScrollContextMenu({ x: e.clientX, y: e.clientY });
       }}>
         <Category
-          category={null} channels={safeChannels} team={team} teamId={team.id}
+          category={null} channels={safeChannels} teamId={team.id}
           currentChannelId={currentChannelId} onCreateChannel={handleCreateChannel}
           canManage={canManage} unreadChannels={unreadChannels}
           onEditChannel={handleOpenChannelSettings} onDeleteChannel={handleRequestDeleteChannel} onCopyChannelId={handleCopyChannelId}
@@ -1747,7 +1745,7 @@ export default function ChannelList({
 
         {sortedCategories.map(category => (
           <Category
-            key={category.id} category={category} channels={safeChannels} team={team} teamId={team.id}
+            key={category.id} category={category} channels={safeChannels} teamId={team.id}
             currentChannelId={currentChannelId} onCreateChannel={handleCreateChannel}
             onEditCategory={handleEditCategory} onDeleteCategory={handleDeleteCategory}
             canManage={canManage} unreadChannels={unreadChannels}

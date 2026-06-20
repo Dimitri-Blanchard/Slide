@@ -9,7 +9,6 @@ import { useUserContextMenuItems } from './useUserContextMenuItems';
 import { Icons } from '../components/ContextMenu';
 import { undoToast } from '../components/UndoToast';
 import { makeLocalPrivateRoute, removeLocalPrivateChat } from '../utils/localPrivateChatCrypto';
-import { dmPath } from '../utils/appRoutes';
 
 export const MAX_PINNED_DMS = 5;
 
@@ -127,7 +126,7 @@ export function useDmConversationContextMenu({
     const conversation = contextMenu.conversation;
     if (!conversation) return;
     if (conversation.is_group) {
-      navigate(dmPath(conversation));
+      navigate(`/channels/@me/${conversation.conversation_id}`);
       closeContextMenu();
       return;
     }

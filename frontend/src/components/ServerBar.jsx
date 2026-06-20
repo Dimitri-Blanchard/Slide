@@ -15,7 +15,6 @@ import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import { hapticImpact } from '../utils/nativeHaptics';
 import SlideLogo from './SlideLogo';
 import { makeLocalPrivateRoute } from '../utils/localPrivateChatCrypto';
-import { dmPath } from '../utils/appRoutes';
 import { invitePublicUrl } from '../utils/publicSiteUrl';
 import './ServerBar.css';
 
@@ -303,14 +302,14 @@ const ServerIcon = memo(function ServerIcon({ team, isActive, hasUnread = false,
             longPressFiredRef.current = false;
             return;
           }
-          navigate(serverPath(team));
+          navigate(`/team/${team.id}`);
         }}
         role="link"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            navigate(serverPath(team));
+            navigate(`/team/${team.id}`);
           }
         }}
       >
@@ -363,7 +362,7 @@ const DmUnreadIcon = memo(function DmUnreadIcon({ conversation, isActive, hideTo
   const id = conversation.conversation_id;
   const to = isLocalPrivate
     ? makeLocalPrivateRoute(conversation.local_private_peer_id || other?.id)
-    : dmPath(conversation);
+    : `/channels/@me/${id}`;
   const name = isGroup
     ? (conversation.group_name || conversation.participants?.map((p) => p.display_name).join(', ') || 'Group')
     : (other?.display_name || 'Conversation');
@@ -648,7 +647,7 @@ const ServerBar = memo(function ServerBar({
 
   const handleOpenSettings = useCallback((team) => {
     closeServerContextMenu();
-    navigate(serverPath(team));
+    navigate(`/team/${team.id}`);
   }, [closeServerContextMenu, navigate]);
 
   const handleToggleMute = useCallback((team) => {
@@ -769,12 +768,9 @@ const ServerBar = memo(function ServerBar({
   const homeButtonActive = !isCommunityRoute && (
     isFriendsRoute || isHomeActiveBase || !!currentConversationId
   );
-  const lastDmConversation = lastDmConversationId
-    ? (conversations || []).find((c) => String(c.conversation_id) === String(lastDmConversationId))
-    : null;
   const homeTarget = isMobile
     ? '/channels/@me'
-    : (lastDmConversation ? dmPath(lastDmConversation) : '/channels/@me');
+    : (lastDmConversationId ? `/channels/@me/${lastDmConversationId}` : '/channels/@me');
 
   // Backend already returns teams in the persisted user order.
   const sortedTeams = useMemo(() => {

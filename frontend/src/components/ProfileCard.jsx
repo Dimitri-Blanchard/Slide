@@ -343,7 +343,7 @@ const ProfileCard = memo(function ProfileCard({
     try {
       const conv = await directApi.createConversation(parseInt(user.id, 10));
       onClose();
-      navigate(dmPath(conv));
+      navigate(`/channels/@me/${conv.conversation_id ?? conv.id}`);
     } catch {}
   }, [user?.id, navigate, onClose]);
 

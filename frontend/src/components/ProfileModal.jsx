@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
-import { dmPath, serverPath, serverChannelPath, channelSettingsPath } from '../utils/appRoutes';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useSettingsUi } from '../context/SettingsUiContext';
@@ -145,7 +144,7 @@ const ProfileModal = memo(function ProfileModal({ userId, onClose }) {
     try {
       const conv = await directApi.createConversation(parseInt(userId, 10));
       onClose();
-      navigate(dmPath(conv));
+      navigate(`/channels/@me/${conv.conversation_id ?? conv.id}`);
     } catch {}
   };
 

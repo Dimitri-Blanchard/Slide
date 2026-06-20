@@ -15,7 +15,6 @@ import { useSettings } from '../context/SettingsContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import { loadUserNote, saveUserNote } from '../utils/userNotes';
-import { dmPath } from '../utils/appRoutes';
 import { canShowProfileActivities } from '../utils/profileActivities';
 import './UserDetailModal.css';
 
@@ -126,14 +125,14 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
     try {
       const conv = await directApi.createConversation(parseInt(user.id, 10));
       onClose();
-      navigate(dmPath(conv));
+      navigate(`/channels/@me/${conv.conversation_id ?? conv.id}`);
     } catch {}
   }, [user?.id, navigate, onClose]);
 
   const handleTeamClick = useCallback((team) => {
     if (!team?.id) return;
     onClose();
-    navigate(serverPath(team));
+    navigate(`/team/${team.id}`);
   }, [navigate, onClose]);
 
   const handleFriendClick = useCallback(async (friend) => {
@@ -141,7 +140,7 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
     try {
       const conv = await directApi.createConversation(parseInt(friend.id, 10));
       onClose();
-      navigate(dmPath(conv));
+      navigate(`/channels/@me/${conv.conversation_id ?? conv.id}`);
     } catch {}
   }, [navigate, onClose]);
 

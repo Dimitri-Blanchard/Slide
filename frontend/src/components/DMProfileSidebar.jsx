@@ -172,14 +172,14 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
 
   const handleTeamClick = useCallback((team) => {
     if (!team?.id) return;
-    navigate(serverPath(team));
+    navigate(`/team/${team.id}`);
   }, [navigate]);
 
   const handleFriendClick = useCallback(async (friend) => {
     if (!friend?.id) return;
     try {
       const conv = await directApi.createConversation(parseInt(friend.id, 10));
-      navigate(dmPath(conv));
+      navigate(`/channels/@me/${conv.conversation_id ?? conv.id}`);
     } catch (err) {
       notify.error(err?.message || (t('errors.generic') || 'Une erreur est survenue'));
     }
