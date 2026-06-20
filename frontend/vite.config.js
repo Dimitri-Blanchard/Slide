@@ -49,8 +49,9 @@ function resolveWebBase() {
   if (isNativeBuild) return './';
   const explicit = (process.env.VITE_BASE || '').trim();
   if (explicit) return explicit.endsWith('/') ? explicit : `${explicit}/`;
-  // Relative assets: works on sl1de.xyz (root) and github.io/Slide/docs/
-  if (process.env.VITE_GITHUB_PAGES === '1') return './';
+  // Absolute base so ./assets/ resolves on deep routes (/docs/team/…/channel/…).
+  // Runtime <base> injection is too late for modulepreload tags in some browsers.
+  if (process.env.VITE_GITHUB_PAGES === '1') return '/docs/';
   return '/';
 }
 
