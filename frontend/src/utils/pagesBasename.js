@@ -4,8 +4,11 @@ export function resolvePagesBasename() {
   const path = window.location.pathname;
   const host = window.location.hostname.toLowerCase();
 
-  // Custom domain: app is served at site root (sl1de.xyz/channels/…).
-  if (host === 'sl1de.xyz' || host === 'www.sl1de.xyz') return '/';
+  // Custom domain: SPA lives under /docs/ (see repo index.html redirect + docs/ deploy).
+  if (host === 'sl1de.xyz' || host === 'www.sl1de.xyz') {
+    if (path === '/docs' || path.startsWith('/docs/')) return '/docs';
+    return '/';
+  }
 
   // Repo-root Pages deploy with app copied under /docs/ (github.io/Slide/docs/).
   if (path === '/docs' || path.startsWith('/docs/')) return '/docs';

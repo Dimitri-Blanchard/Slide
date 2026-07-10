@@ -38,6 +38,8 @@ jobs:
         run: npm run build:pages
         env:
           VITE_GITHUB_PAGES: '1'
+          VITE_BASE: '/docs'
+          VITE_PUBLIC_SITE_PATH: '/docs'
           VITE_PUBLIC_SITE_URL: ${{ vars.VITE_PUBLIC_SITE_URL || 'https://sl1de.xyz' }}
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
           VITE_BACKEND_ORIGIN: ${{ vars.VITE_BACKEND_ORIGIN }}
@@ -47,7 +49,7 @@ jobs:
         run: cp dist/index.html dist/404.html
 
       - name: SPA fallback at site root (Pages publishes /, SPA in /docs/)
-        run: cp dist/404.html ../404.html
+        run: cp public/github-pages-root-404.html ../404.html
 
       - name: Ensure CNAME in artifact
         run: echo 'sl1de.xyz' > dist/CNAME

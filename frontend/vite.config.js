@@ -49,9 +49,8 @@ function resolveWebBase() {
   if (isNativeBuild) return './';
   const explicit = (process.env.VITE_BASE || '').trim();
   if (explicit) return explicit.endsWith('/') ? explicit : `${explicit}/`;
-  // Absolute base so ./assets/ resolves on deep routes (/channels/…/…).
-  // Runtime <base> injection is too late for modulepreload tags in some browsers.
-  if (process.env.VITE_GITHUB_PAGES === '1') return '/';
+  // GitHub Pages: SPA is copied into repo /docs/ (sl1de.xyz/docs/), not domain root.
+  if (process.env.VITE_GITHUB_PAGES === '1') return '/docs/';
   return '/';
 }
 

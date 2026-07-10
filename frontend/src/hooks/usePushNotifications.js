@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import { initPushNotifications } from '../utils/nativeNotifications';
+import { resolvePublicPathPrefix } from '../utils/pagesBasename';
 
 async function getVapidKey() {
   try {
@@ -29,7 +30,8 @@ function urlBase64ToUint8Array(base64String) {
 async function registerSW() {
   if (!('serviceWorker' in navigator)) return null;
   try {
-    const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    const prefix = resolvePublicPathPrefix();
+    const reg = await navigator.serviceWorker.register(`${prefix}sw.js`, { scope: prefix });
     await navigator.serviceWorker.ready;
     return reg;
   } catch (err) {
