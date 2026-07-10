@@ -6,10 +6,12 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useNotification } from '../context/NotificationContext';
 import { useNativeBackHandler } from '../hooks/useNativeBackHandler';
-import Avatar, { AvatarImg } from './Avatar';
+import Avatar, { AvatarImg, hasDefaultAvatar } from './Avatar';
 import ColorPicker from './ColorPicker';
 import ConfirmModal from './ConfirmModal';
 import CommunitySetupWizard from './CommunitySetupWizard';
+import BannerCropModal from './BannerCropModal';
+import ServerBanner from './ServerBanner';
 import { invitePublicUrl } from '../utils/publicSiteUrl';
 import './ServerSettings.css';
 import '../pages/Settings.css';
@@ -39,6 +41,7 @@ const OverviewTab = ({ team, channels, onUpdate, onDirtyChange }) => {
   const [saved, setSaved] = useState(false);
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [bannerCropFile, setBannerCropFile] = useState(null);
   const [showCommunityWizard, setShowCommunityWizard] = useState(false);
   const iconInputRef = React.useRef(null);
   const bannerInputRef = React.useRef(null);
@@ -133,27 +136,51 @@ const OverviewTab = ({ team, channels, onUpdate, onDirtyChange }) => {
   };
 
   const handleBannerClick = () => bannerInputRef.current?.click();
-  const handleBannerChange = async (e) => {
+  const handleBannerChange = (e) => {
     const file = e.target.files?.[0];
     if (!file || !/^image\/(jpeg|png|gif|webp)$/i.test(file.type)) {
       notify.error('Please select a JPG, PNG, GIF or WebP image (max 4 MB)');
+      e.target.value = '';
       return;
     }
     if (file.size > 4 * 1024 * 1024) {
       notify.error('Image too large. Max 4 MB.');
+      e.target.value = '';
       return;
     }
+    setBannerCropFile(file);
+    e.target.value = '';
+  };
+
+  const handleBannerCropConfirm = useCallback(async (result) => {
+    setBannerCropFile(null);
     setUploadingBanner(true);
     try {
-      const result = await servers.uploadBanner(team.id, file);
-      onUpdate?.(result?.team);
+      let uploadFile;
+      let cropParams = null;
+      if (result.blob) {
+        uploadFile =
+          result.blob instanceof File
+            ? result.blob
+            : new File([result.blob], 'banner.webp', { type: result.blob.type || 'image/webp' });
+      } else if (result.file && result.cropParams) {
+        uploadFile = result.file;
+        cropParams = result.cropParams;
+      } else {
+        return;
+      }
+      const resultData = await servers.uploadBanner(team.id, uploadFile, cropParams);
+      onUpdate?.(resultData?.team);
       notify.success('Server banner updated');
     } catch (err) {
       notify.error(err.message || 'Failed to upload banner');
     }
     setUploadingBanner(false);
-    e.target.value = '';
-  };
+  }, [team.id, onUpdate, notify]);
+
+  const handleBannerCropCancel = useCallback(() => {
+    setBannerCropFile(null);
+  }, []);
 
   const handleBannerRemove = async () => {
     setUploadingBanner(true);
@@ -232,7 +259,7 @@ const OverviewTab = ({ team, channels, onUpdate, onDirtyChange }) => {
           >
             {uploadingIcon ? (
               <span className="ss-icon-upload-spinner" />
-            ) : team?.avatar_url ? (
+            ) : team?.avatar_url && !hasDefaultAvatar({ avatar_url: team.avatar_url }) ? (
               <AvatarImg src={team.avatar_url} alt={team.name} />
             ) : (
               <span>{(name || '?').charAt(0).toUpperCase()}</span>
@@ -259,7 +286,7 @@ const OverviewTab = ({ team, channels, onUpdate, onDirtyChange }) => {
           />
           <div className={`ss-server-banner-preview${uploadingBanner ? ' uploading' : ''}`}>
             {team?.banner_url ? (
-              <img src={team.banner_url} alt="" className="ss-server-banner-img" />
+              <ServerBanner bannerUrl={team.banner_url} className="ss-server-banner-preview-banner" alt="" />
             ) : (
               <div className="ss-server-banner-placeholder">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -279,7 +306,7 @@ const OverviewTab = ({ team, channels, onUpdate, onDirtyChange }) => {
               </button>
             )}
           </div>
-          <span className="ss-icon-hint">960×540 recommended. GIFs animate on hover at the top of the channel list.</span>
+          <span className="ss-icon-hint">960×540 recommended (16:9). You can crop before upload. GIFs animate on hover.</span>
         </div>
 
         <div className="ss-overview-fields">
@@ -423,6 +450,16 @@ const OverviewTab = ({ team, channels, onUpdate, onDirtyChange }) => {
             </button>
           </div>
         </div>
+      )}
+
+      {bannerCropFile && createPortal(
+        <BannerCropModal
+          file={bannerCropFile}
+          variant="server"
+          onConfirm={handleBannerCropConfirm}
+          onCancel={handleBannerCropCancel}
+        />,
+        document.body
       )}
     </div>
   );
@@ -2003,7 +2040,7 @@ export default function ServerSettings({
                   onClick={() => navigateToTab('overview')}
                 >
                   <div className="settings-mobile-profile-avatar ss-mobile-server-avatar">
-                    {team?.avatar_url ? (
+                    {team?.avatar_url && !hasDefaultAvatar({ avatar_url: team.avatar_url }) ? (
                       <AvatarImg src={team.avatar_url} alt={team.name} />
                     ) : (
                       <span className="ss-mobile-server-initial">{(team?.name || '?').charAt(0).toUpperCase()}</span>

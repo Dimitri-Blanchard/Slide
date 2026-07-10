@@ -7,9 +7,10 @@ import { getProfile, getCachedProfile } from '../utils/profileCache';
 import { useAuth } from '../context/AuthContext';
 import { useOnlineUsers } from '../context/SocketContext';
 import { getStaticUrl } from '../utils/staticUrl';
+import { serverPath } from '../utils/appRoutes';
 import { getStoredCustomStatus, getStoredOnlineStatus } from '../utils/presenceStorage';
 import { harmonizeGradientColors } from '../utils/gradientColors';
-import Avatar from './Avatar';
+import Avatar, { hasDefaultAvatar } from './Avatar';
 import ProfileSpotifyActivity from './ProfileSpotifyActivity';
 import { useSettings } from '../context/SettingsContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -132,7 +133,7 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
   const handleTeamClick = useCallback((team) => {
     if (!team?.id) return;
     onClose();
-    navigate(`/team/${team.id}`);
+    navigate(serverPath(team.id));
   }, [navigate, onClose]);
 
   const handleFriendClick = useCallback(async (friend) => {
@@ -487,7 +488,7 @@ export default function UserDetailModal({ userId, user: providedUser, isOpen, on
                                 onClick={() => handleTeamClick(team)}
                               >
                                 <div className="udm-team-icon">
-                                  {team.avatar_url ? (
+                                  {team.avatar_url && !hasDefaultAvatar({ avatar_url: team.avatar_url }) ? (
                                     <img src={getStaticUrl(team.avatar_url)} alt="" />
                                   ) : (
                                     <span>{team.name.slice(0, 2).toUpperCase()}</span>

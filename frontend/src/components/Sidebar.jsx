@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { direct as directApi, users as usersApi, conversations as conversationsApi } from '../api';
+import { direct as directApi, users as usersApi, conversations as conversationsApi, localPrivate as localPrivateApi } from '../api';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import Avatar, { AvatarImg } from './Avatar';
+import Avatar from './Avatar';
 import ClickableAvatar from './ClickableAvatar';
+import GroupAvatar from './GroupAvatar';
 import ContextMenu, { Icons } from './ContextMenu';
 import ProfileCard from './ProfileCard';
 import CreateGroupModal from './CreateGroupModal';
@@ -16,6 +17,7 @@ import { useNotification } from '../context/NotificationContext';
 import { useVoice } from '../context/VoiceContext';
 import { useUserContextMenuItems } from '../hooks/useUserContextMenuItems';
 import { usePrefetchOnHover } from '../context/PrefetchContext';
+import { prefetchDmMessages } from '../utils/dmCache';
 import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import { useLongPress } from '../hooks/useLongPress';
 import { hapticImpact } from '../utils/nativeHaptics';
@@ -47,28 +49,6 @@ function useDebounce(callback, delay) {
   useEffect(() => () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); }, []);
   return debouncedFn;
 }
-
-const GroupAvatar = memo(function GroupAvatar({ participants, size = 'medium', onContextMenu }) {
-  const avatars = (participants || []).slice(0, 3);
-  const sizeMap = { small: 24, medium: 32, large: 40 };
-  const px = sizeMap[size] || 32;
-  
-  return (
-    <div className="group-avatar-stack" style={{ width: px, height: px }} onContextMenu={onContextMenu}>
-      {avatars.map((u, i) => (
-        <div key={u.id} className={`group-avatar-item group-avatar-pos-${i}-of-${Math.min(avatars.length, 3)}`}>
-          {u.avatar_url ? (
-            <AvatarImg src={u.avatar_url} alt="" />
-          ) : (
-            <span className="group-avatar-fallback">
-              {(u.display_name || '?').charAt(0).toUpperCase()}
-            </span>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-});
 
 const DMItem = memo(function DMItem({ conversation, isActive, onContextMenu, onClose, unreadCount = 0, onPinConversation, isPinned, canPin = true }) {
   const isGroup = !!conversation.is_group;
@@ -128,7 +108,10 @@ const DMItem = memo(function DMItem({ conversation, isActive, onContextMenu, onC
         onPointerUp={compactTouchUi ? longPressProps.onPointerUp : undefined}
         onPointerCancel={compactTouchUi ? longPressProps.onPointerCancel : undefined}
         onClick={compactTouchUi ? handleLinkClick : undefined}
-        onMouseEnter={!isGroup && other?.id ? () => onMouseEnter(other.id, other) : undefined}
+        onMouseEnter={other?.id || !isLocalPrivate ? () => {
+          if (!isGroup && other?.id) onMouseEnter(other.id, other);
+          if (!isLocalPrivate) prefetchDmMessages(id);
+        } : undefined}
         onMouseLeave={!isGroup ? onMouseLeave : undefined}
         draggable={false}
       >
@@ -310,6 +293,9 @@ const Sidebar = memo(function Sidebar({
     });
     setConversationsWithPresence((prev) => prev.filter((c) => c.conversation_id !== convId));
     if (conv.is_local_private) {
+      if (!conv.accepted) {
+        localPrivateApi.declineRequest(conv.local_private_peer_id).catch(() => {});
+      }
       removeLocalPrivateChat(authUser?.id || user?.id, conv.local_private_peer_id);
       if (location.pathname === makeLocalPrivateRoute(conv.local_private_peer_id)) navigate('/channels/@me');
       return;

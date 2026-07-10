@@ -10,7 +10,6 @@ import { useSounds } from '../context/SoundContext';
 import { useLanguage } from '../context/LanguageContext';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
-import StickerPicker from './StickerPicker';
 import './Chat.css';
 
 const ChannelChat = memo(function ChannelChat({ teamId, channelId, currentTeam, onChannelsChange }) {
@@ -20,7 +19,6 @@ const ChannelChat = memo(function ChannelChat({ teamId, channelId, currentTeam, 
   const [typingUsers, setTypingUsers] = useState([]);
   const [replyTo, setReplyTo] = useState(null);
   const [messageReactions, setMessageReactions] = useState({});
-  const [showStickerPanel, setShowStickerPanel] = useState(false);
   const [members, setMembers] = useState([]);
   const socket = useSocket();
   const { user } = useAuth();
@@ -302,12 +300,7 @@ const ChannelChat = memo(function ChannelChat({ teamId, channelId, currentTeam, 
     });
   }, [channelId]);
   
-  // Toggle sticker panel
-  const handleToggleStickerPanel = useCallback(() => {
-    setShowStickerPanel(prev => !prev);
-  }, []);
-  
-  // Handle sticker/gif/emoji selection from panel
+  // Handle sticker/gif selection from picker
   const handleStickerSelect = useCallback((item) => {
     sendMedia(item, item.type || 'sticker');
   }, [sendMedia]);
@@ -479,7 +472,7 @@ const ChannelChat = memo(function ChannelChat({ teamId, channelId, currentTeam, 
   }
 
   return (
-    <div className={`chat-container ${showStickerPanel ? 'sticker-panel-open' : ''}`}>
+    <div className="chat-container">
       <header className="chat-header">
         <span className="chat-header-icon">#</span>
         <div className="chat-header-info">
@@ -530,20 +523,13 @@ const ChannelChat = memo(function ChannelChat({ teamId, channelId, currentTeam, 
               replyTo={replyTo}
               onCancelReply={handleCancelReply}
               mentionUsers={members}
-              onToggleStickerPanel={handleToggleStickerPanel}
-              stickerPanelOpen={showStickerPanel}
+              onMediaSelect={handleStickerSelect}
+              onEmojiSelect={handleEmojiSelect}
               isAdmin={user?.role === 'admin'}
               onInputFocus={() => messageListRef.current?.scrollToBottom?.()}
             />
           </div>
         </div>
-        
-        <StickerPicker
-          isOpen={showStickerPanel}
-          onClose={() => setShowStickerPanel(false)}
-          onSelect={handleStickerSelect}
-          onEmojiSelect={handleEmojiSelect}
-        />
       </div>
     </div>
   );

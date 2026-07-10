@@ -5,11 +5,13 @@
 .dm-profile-sidebar {
   flex: 1;
   min-height: 0;
-  height: 100%;
+  height: calc(100% - 10px);
+  margin: 5px;
   display: flex;
   flex-direction: column;
-  background: var(--bg-secondary, #2b2d31);
-  border-left: var(--hairline-width, 1px) solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  background: #393A41;
+  border: var(--hairline-width, 1px) solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  border-radius: 12px;
   overflow: hidden;
   position: relative;
   flex-shrink: 0;
@@ -58,16 +60,21 @@
 
 .dps-banner {
   width: 100%;
-  height: 100px;
+  height: 120px;
   background-color: #4f6ef7;
   background-size: cover;
-  background-position: center top;
+  background-position: center center;
   position: relative;
   z-index: 0;
 }
 
 .dps-banner--image {
-  height: 80px;
+  height: 120px;
+}
+
+.dps-banner--skeleton {
+  background: var(--bg-tertiary, #232428);
+  animation: dpsPulse 1.2s ease-in-out infinite;
 }
 
 .dps-banner-img {
@@ -76,7 +83,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center top;
+  object-position: center center;
 }
 
 .dps-menu-wrap {
@@ -132,7 +139,7 @@
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--text-secondary);
+  color: #fff;
   font-size: 0.875rem;
   font-weight: 500;
   text-align: left;
@@ -161,7 +168,7 @@
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--text-secondary);
+  color: #fff;
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
@@ -169,7 +176,7 @@
 }
 
 .dps-dropdown-trigger svg {
-  opacity: 0.6;
+  opacity: 0.9;
   flex-shrink: 0;
 }
 
@@ -221,7 +228,7 @@
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--text-secondary);
+  color: #fff;
   font-size: 0.875rem;
   font-weight: 500;
   text-align: left;
@@ -255,7 +262,7 @@
   justify-content: center;
   font-size: 0.65rem;
   font-weight: 700;
-  color: var(--text-muted);
+  color: #fff;
 }
 
 .dps-submenu-icon img {
@@ -283,13 +290,13 @@
   height: 80px;
   flex-shrink: 0;
   z-index: 1;
-  --avatar-status-ring: var(--bg-secondary, #2b2d31);
+  --avatar-status-ring: #393A41;
 }
 
 .dps-avatar-wrap .avatar {
   width: 80px !important;
   height: 80px !important;
-  border: 6px solid var(--bg-secondary, #2b2d31) !important;
+  border: 6px solid #393A41 !important;
   border-radius: 50% !important;
   box-sizing: border-box;
 }
@@ -298,7 +305,7 @@
   bottom: -6px;
   right: -6px;
   padding: 3px;
-  background: var(--bg-secondary, #2b2d31);
+  background: #393A41;
   border-radius: 50%;
   line-height: 0;
 }
@@ -314,7 +321,7 @@
   height: 80px;
   border-radius: 50%;
   background: var(--bg-tertiary, #232428);
-  border: 6px solid var(--bg-secondary, #2b2d31);
+  border: 6px solid #393A41;
   animation: dpsPulse 1.2s ease-in-out infinite;
 }
 
@@ -332,12 +339,13 @@
 .dps-footer {
   flex-shrink: 0;
   display: block;
-  width: 100%;
-  padding: 12px 16px 14px;
+  width: calc(100% - 24px);
+  margin: 8px 12px 12px;
+  padding: 11px 16px;
   border: none;
-  border-top: var(--hairline-width, 1px) solid var(--border-subtle, rgba(255, 255, 255, 0.06));
-  background: var(--bg-secondary, #2b2d31);
-  color: var(--text-muted, #949ba4);
+  border-radius: 8px;
+  background: #44454C;
+  color: #fff;
   font-family: var(--font-sans, Inter, system-ui, sans-serif);
   font-size: 0.8125rem;
   font-weight: 500;
@@ -347,7 +355,7 @@
 }
 
 .dps-footer:hover {
-  background: var(--bg-hover, rgba(255, 255, 255, 0.04));
+  background: #4f5058;
 }
 
 .dps-identity {
@@ -373,7 +381,7 @@
 
 .dps-username {
   font-size: 0.875rem;
-  color: var(--text-muted, #b5bac1);
+  color: #fff;
 }
 
 .dps-badge {
@@ -513,8 +521,8 @@
 
 .dps-accordion-chevron {
   flex-shrink: 0;
-  color: var(--text-muted, #949ba4);
-  opacity: 0.75;
+  color: #fff;
+  opacity: 0.9;
   transition:
     transform 0.28s var(--transition-smooth, cubic-bezier(0.22, 1, 0.36, 1)),
     color 0.16s ease,
@@ -590,7 +598,7 @@
 .dps-list-chevron {
   flex-shrink: 0;
   margin-left: auto;
-  color: var(--text-muted);
+  color: #fff;
   opacity: 0;
   transition: opacity 0.15s var(--transition-smooth, cubic-bezier(0.22, 1, 0.36, 1));
 }
@@ -618,7 +626,7 @@
   justify-content: center;
   font-size: 0.7rem;
   font-weight: 700;
-  color: var(--text-muted);
+  color: #fff;
 }
 
 .dps-list-icon--square img {
@@ -658,7 +666,7 @@
 .dps-empty-text {
   margin: 6px 8px 4px;
   font-size: 0.8125rem;
-  color: var(--text-muted, #949ba4);
+  color: #fff;
   font-style: italic;
 }
 

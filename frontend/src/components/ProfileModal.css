@@ -35,15 +35,15 @@
   width: 100%;
   max-width: 320px;
   height: 100vh;
-  background: var(--bg-floating);
-  border-left: var(--hairline-width) solid var(--border-default);
+  background: var(--profile-modal-bg, var(--bg-floating));
+  border: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: pmPanelIn 0.25s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--profile-modal-panel-shadow, 0 0 0 1px rgba(255, 255, 255, 0.20));
   pointer-events: all;
 }
 @keyframes pmPanelIn {
@@ -86,7 +86,7 @@
   left: 0;
   right: 0;
   height: 45px;
-  background: linear-gradient(to top, var(--bg-floating) 0%, transparent 100%);
+  background: linear-gradient(to top, var(--profile-modal-bg, var(--bg-floating)) 0%, transparent 100%);
   pointer-events: none;
 }
 /* When modal has gradient, no fade needed — gradient shows through */
@@ -196,7 +196,7 @@
 .profile-modal-avatar-wrapper .avatar {
   width: 96px !important;
   height: 96px !important;
-  border: 6px solid var(--bg-floating) !important;
+  border: 6px solid var(--profile-modal-bg, var(--bg-floating)) !important;
   border-radius: 50% !important;
   box-sizing: border-box;
 }
@@ -223,7 +223,7 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 3px solid var(--bg-floating);
+  border: 3px solid var(--profile-modal-bg, var(--bg-floating));
   box-sizing: border-box;
   background: var(--text-muted);
 }
@@ -350,7 +350,7 @@
 /* ── Note field ─────────────────────────────────────────── */
 .profile-modal-note-content {
   padding: 8px 10px;
-  background: var(--bg-tertiary);
+  background: var(--profile-modal-field-bg, var(--bg-tertiary));
   border-radius: 4px;
   font-size: 0.875rem;
   color: var(--text-primary);
@@ -360,7 +360,9 @@
   transition: background 0.1s;
   word-break: break-word;
 }
-.profile-modal-note-content:hover { background: var(--surface-2); }
+.profile-modal-note-content:hover {
+  background: color-mix(in srgb, var(--profile-modal-field-bg, var(--bg-tertiary)) 88%, white 12%);
+}
 .profile-modal-note-content.empty { color: var(--text-muted); font-style: italic; }
 
 .profile-modal-note-input {
@@ -369,7 +371,7 @@
   font-size: 0.875rem;
   font-family: inherit;
   color: var(--text-primary);
-  background: var(--bg-tertiary);
+  background: var(--profile-modal-field-bg, var(--bg-tertiary));
   border: none;
   border-radius: 4px;
   resize: vertical;
@@ -387,7 +389,7 @@
   gap: 8px;
   margin-top: 16px;
   padding: 11px 16px;
-  background: var(--bg-tertiary);
+  background: var(--profile-modal-field-bg, var(--bg-tertiary));
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.1s;
@@ -395,7 +397,9 @@
   width: 100%;
   box-sizing: border-box;
 }
-.profile-modal-message-wrap:hover { background: var(--surface-2); }
+.profile-modal-message-wrap:hover {
+  background: color-mix(in srgb, var(--profile-modal-field-bg, var(--bg-tertiary)) 88%, white 12%);
+}
 
 .profile-modal-message-input {
   flex: 1;
@@ -525,7 +529,7 @@
 .profile-modal--high-contrast-gradient .profile-modal-body > * { position: relative; z-index: 1; }
 .profile-modal--high-contrast-gradient .profile-modal-avatar-wrapper .avatar { border-color: rgba(255,255,255,0.3) !important; }
 .profile-modal--high-contrast-gradient .profile-modal-avatar-wrapper--gradient .avatar { border: none !important; }
-.profile-modal--high-contrast-gradient .profile-modal-status-badge { border-color: var(--bg-floating); }
+.profile-modal--high-contrast-gradient .profile-modal-status-badge { border-color: var(--profile-modal-bg, var(--bg-floating)); }
 
 /* ── Light gradient: dark text/UI for readability on bright gradients ── */
 .profile-modal--light-gradient .profile-modal-close { background: rgba(0,0,0,0.35); color: #fff; }
@@ -563,8 +567,8 @@
 /* ── Light theme ────────────────────────────────────────── */
 [data-theme="light"] .profile-modal {
   background: var(--text-primary);
-  border-left-color: #e3e5e8;
-  box-shadow: -4px 0 24px rgba(0,0,0,0.12);
+  border: none;
+  box-shadow: var(--profile-modal-panel-shadow, 0 0 0 1px rgba(0, 0, 0, 0.10));
 }
 [data-theme="light"] .profile-modal-banner::after {
   background: linear-gradient(to top, var(--text-primary) 0%, transparent 100%);

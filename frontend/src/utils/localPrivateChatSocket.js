@@ -133,6 +133,44 @@ export function handleIncomingLocalPrivateKeyAnnounce(currentUserId, rawPayload,
   return true;
 }
 
+export function handleIncomingLocalPrivateRequest(currentUserId, rawPayload, { notify } = {}) {
+  if (!isLocalPrivateChatAvailable() || currentUserId == null) return false;
+
+  const { fromUserId, fromUser } = normalizeLocalPrivateSocketPayload(rawPayload);
+  if (!fromUserId || String(fromUserId) === String(currentUserId)) return false;
+
+  const peerId = String(fromUserId);
+  const existing = getLocalPrivateChat(currentUserId, peerId);
+  const viewing = isViewingLocalPrivateChat(peerId);
+  upsertLocalPrivateChat(currentUserId, fromUser || { id: fromUserId }, {
+    last_message_preview: 'Demande privée locale à accepter',
+    last_message_at: rawPayload?.createdAt || rawPayload?.created_at || new Date().toISOString(),
+    accepted: false,
+    initiated_by_me: false,
+    unread_count: viewing ? 0 : Math.min(99, (existing?.unread_count || 0) + 1),
+  });
+  if (!viewing) notify?.(fromUser || { id: fromUserId });
+  return true;
+}
+
+export function handleLocalPrivateRequestAccepted(currentUserId, rawPayload) {
+  if (!isLocalPrivateChatAvailable() || currentUserId == null) return false;
+
+  const { fromUserId, fromUser } = normalizeLocalPrivateSocketPayload(rawPayload);
+  if (!fromUserId || String(fromUserId) === String(currentUserId)) return false;
+
+  const existing = getLocalPrivateChat(currentUserId, fromUserId);
+  if (!existing) return false;
+  upsertLocalPrivateChat(currentUserId, fromUser || existing.peerUser || { id: fromUserId }, {
+    last_message_preview: 'Chat privé local accepté',
+    last_message_at: new Date().toISOString(),
+    accepted: true,
+    initiated_by_me: existing.initiated_by_me ?? true,
+    unread_count: existing.unread_count || 0,
+  });
+  return true;
+}
+
 async function handleIncomingLocalPrivateMessage(currentUserId, rawPayload, { notify } = {}) {
   if (!isLocalPrivateChatAvailable() || currentUserId == null) return false;
 
@@ -209,13 +247,25 @@ export function bindLocalPrivateChatSocket(socket, currentUserId, options = {}) 
     handleIncomingLocalPrivateKeyAnnounce(currentUserId, payload, options);
   };
 
+  const onRequest = (payload) => {
+    handleIncomingLocalPrivateRequest(currentUserId, payload, options);
+  };
+
+  const onRequestAccepted = (payload) => {
+    handleLocalPrivateRequestAccepted(currentUserId, payload);
+  };
+
   const onMessage = (payload) => {
     handleIncomingLocalPrivateMessage(currentUserId, payload, options).catch(() => {});
   };
 
+  socket.on('local_private_chat_request', onRequest);
+  socket.on('local_private_chat_request_accepted', onRequestAccepted);
   socket.on('local_private_chat_key_announce', onKeyAnnounce);
   socket.on('local_private_chat_message', onMessage);
   return () => {
+    socket.off('local_private_chat_request', onRequest);
+    socket.off('local_private_chat_request_accepted', onRequestAccepted);
     socket.off('local_private_chat_key_announce', onKeyAnnounce);
     socket.off('local_private_chat_message', onMessage);
   };

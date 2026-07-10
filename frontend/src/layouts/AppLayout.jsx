@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { teams as teamsApi, direct as directApi, invalidateCache } from '../api';
+import { teams as teamsApi, direct as directApi, localPrivate as localPrivateApi, invalidateCache } from '../api';
 import { bindFriendsSyncSocket } from '../utils/friendsSync';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -23,6 +23,7 @@ import {
   getLocalPrivateChats,
   LOCAL_PRIVATE_CHATS_CHANGED_EVENT,
   toLocalPrivateConversation,
+  upsertLocalPrivateChat,
 } from '../utils/localPrivateChatCrypto';
 import usePendingFriendsCount from '../hooks/usePendingFriendsCount';
 import './AppLayout.css';
@@ -107,6 +108,48 @@ function sanitizeTeamsList(list) {
   return list.filter((team) => team && team.id != null);
 }
 
+function normalizeLocalPrivateRequest(request, currentUserId) {
+  const requester =
+    request?.requester ||
+    request?.fromUser ||
+    request?.from_user ||
+    request?.sender ||
+    null;
+  const recipient =
+    request?.recipient ||
+    request?.toUser ||
+    request?.to_user ||
+    request?.targetUser ||
+    null;
+  const requesterId =
+    request?.requester_id ??
+    request?.requesterId ??
+    request?.from_user_id ??
+    request?.fromUserId ??
+    requester?.id ??
+    null;
+  const recipientId =
+    request?.recipient_id ??
+    request?.recipientId ??
+    request?.to_user_id ??
+    request?.toUserId ??
+    request?.target_user_id ??
+    request?.targetUserId ??
+    recipient?.id ??
+    null;
+  const initiatedByMe = String(requesterId) === String(currentUserId);
+  const peer = initiatedByMe
+    ? (recipient || { id: recipientId })
+    : (requester || { id: requesterId });
+  if (!peer?.id) return null;
+  return {
+    peer,
+    initiatedByMe,
+    accepted: request?.accepted === true || request?.status === 'accepted',
+    createdAt: request?.created_at || request?.createdAt || new Date().toISOString(),
+  };
+}
+
 function applyViewingUnreadClear(convos, activeConversationId) {
   if (!Array.isArray(convos) || !activeConversationId) return convos;
   const cid = parseInt(activeConversationId, 10);
@@ -126,14 +169,15 @@ function applyViewingTeamUnreadClear(teams, activeTeamId) {
 function useAppParams() {
   const { pathname } = useLocation();
   return useMemo(() => {
-    const teamMatch = pathname.match(/\/team\/(\d+)/);
-    const channelMatch = pathname.match(/\/team\/\d+\/channel\/(\d+)/);
+    const teamMatch = pathname.match(/^\/channels\/(\d+)/);
+    const channelSettingsMatch = pathname.match(/^\/channels\/\d+\/(\d+)\/settings/);
+    const channelMatch = pathname.match(/^\/channels\/\d+\/(\d+)(?:\/|$|\?)/);
     const localPrivateMatch = pathname.match(/\/channels\/@me\/private-local\/([^/]+)/);
     const dmMatch = pathname.match(/\/channels\/@me\/(\d+)/);
     const isSettings = isSettingsRoute(pathname);
     return {
       teamId: teamMatch?.[1] || null,
-      channelId: channelMatch?.[1] || null,
+      channelId: channelSettingsMatch?.[1] || channelMatch?.[1] || null,
       conversationId: localPrivateMatch ? null : (dmMatch?.[1] || null),
       localPrivateUserId: localPrivateMatch ? decodeURIComponent(localPrivateMatch[1]) : null,
       isSettings,
@@ -268,6 +312,37 @@ function AppLayout() {
     window.addEventListener(LOCAL_PRIVATE_CHATS_CHANGED_EVENT, refreshLocalPrivateConversations);
     return () => window.removeEventListener(LOCAL_PRIVATE_CHATS_CHANGED_EVENT, refreshLocalPrivateConversations);
   }, [refreshLocalPrivateConversations]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    localPrivateApi.requests()
+      .then((requests) => {
+        if (cancelled) return;
+        const list = Array.isArray(requests)
+          ? requests
+          : (Array.isArray(requests?.requests) ? requests.requests : []);
+        for (const request of list) {
+          const normalized = normalizeLocalPrivateRequest(request, user.id);
+          if (!normalized) continue;
+          upsertLocalPrivateChat(user.id, normalized.peer, {
+            last_message_preview: normalized.accepted
+              ? 'Chat privé local accepté'
+              : normalized.initiatedByMe
+              ? 'Demande privée locale envoyée'
+              : 'Demande privée locale à accepter',
+            last_message_at: normalized.createdAt,
+            initiated_by_me: normalized.initiatedByMe,
+            accepted: normalized.accepted,
+          });
+        }
+      })
+      .catch((err) => {
+        // Older servers may not expose this yet; local socket flow still works.
+        console.warn('Local private chat requests sync failed:', err);
+      });
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   useEffect(() => {
     const onInvite = () => {

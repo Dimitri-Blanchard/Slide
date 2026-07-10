@@ -5,6 +5,7 @@ import CreateYourServerModal from './CreateYourServerModal';
 import CreateServerModal from './CreateServerModal';
 import InviteModal from './InviteModal';
 import DiscoverServersModal from './DiscoverServersModal';
+import { serverPath } from '../utils/appRoutes';
 import './CreateYourServerModal.css';
 import './CreateServerModal.css';
 import './InviteModal.css';
@@ -92,7 +93,7 @@ export default function ServerCreationFlow({ isOpen, onClose, onTeamsChange, tea
               onServerCreated={(team) => {
                 onTeamsChange?.([...(teams || []), team]);
                 handleClose();
-                navigate(`/team/${team.id}`);
+                navigate(serverPath(team.id));
               }}
             />
           )}

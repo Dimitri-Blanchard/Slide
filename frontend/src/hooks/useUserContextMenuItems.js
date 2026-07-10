@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { friends as friendsApi, direct as directApi } from '../api';
+import { friends as friendsApi, direct as directApi, localPrivate as localPrivateApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useVoice } from '../context/VoiceContext';
 import { useNotification } from '../context/NotificationContext';
@@ -99,6 +99,9 @@ export function useUserContextMenuItems(user, context = {}) {
         last_message_preview: 'Invitation privée locale',
         last_message_at: new Date().toISOString(),
         initiated_by_me: true,
+      });
+      localPrivateApi.createRequest(user.id).catch((err) => {
+        notify.error(err.message || 'Impossible de créer la demande de chat privé local');
       });
     }
     navigate(makeLocalPrivateRoute(user.id), { state: { user } });

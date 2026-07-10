@@ -508,6 +508,8 @@
     "forMe": "나만",
     "forAll": "모두에게",
     "ok": "확인",
+    "editHintEscape": "Esc 키로",
+    "editHintEnter": "Enter 키로",
     "image": "이미지",
     "file": "파일",
     "user": "사용자",

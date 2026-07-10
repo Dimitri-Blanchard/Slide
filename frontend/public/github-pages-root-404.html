@@ -22,12 +22,12 @@
           segmentsToKeep = 1;
           base = '/Slide/';
         } else {
-          // Custom domain (sl1de.xyz): app routes live under /docs/, not at domain root.
+          // Custom domain (sl1de.xyz): app at domain root.
           var host = l.hostname.toLowerCase();
           if (host === 'sl1de.xyz' || host === 'www.sl1de.xyz') {
             var route = path.replace(/^\//, '').replace(/&/g, '~and~');
             var qs = l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '';
-            l.replace(l.origin + base + (route ? '?/' + route + qs : '') + l.hash);
+            l.replace(l.origin + '/?/' + route + qs + l.hash);
             return;
           }
           l.replace(l.origin + base);

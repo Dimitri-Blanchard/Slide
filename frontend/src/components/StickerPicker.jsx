@@ -5,6 +5,7 @@ import { emojiToAranjaUrl } from '../utils/emojiAranja';
 import { emojiToShortcode, shortcodeToEmoji } from '../utils/emojiShortcodes';
 import { searchEmojis } from '../utils/emojiSearch';
 import './StickerPicker.css';
+import './StickerPicker.discord.css';
 
 // Storage key for recent emojis
 const RECENT_EMOJIS_KEY = 'slide_recent_emojis';
@@ -236,13 +237,43 @@ export const saveRecentEmoji = (emoji) => {
   }
 };
 
-const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, onEmojiSelect }) {
-  const [activeTab, setActiveTab] = useState('emoji'); // 'emoji', 'stickers', 'gifs'
+const PickerSectionHeader = ({ children, count }) => (
+  <div className="picker-section-header">
+    <span className="picker-section-title">{children}</span>
+    {count != null && <span className="picker-section-count">{count}</span>}
+  </div>
+);
+
+const ClockIcon = () => (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+
+const StickerPicker = memo(function StickerPicker({
+  isOpen,
+  onClose,
+  onSelect,
+  onEmojiSelect,
+  initialTab = 'emoji',
+  anchorRef = null,
+  variant = 'popover',
+  onTabChange,
+}) {
+  const isPopover = variant === 'popover';
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const setPickerTab = useCallback((tab) => {
+    setActiveTab(tab);
+    onTabChange?.(tab);
+  }, [onTabChange]);
   const [activeEmojiCategory, setActiveEmojiCategory] = useState(1); // Start at Smileys (index 1), 0 is Recent
   const { t } = useLanguage();
   const [isMobileView, setIsMobileView] = useState(false);
   const [showEmojiSearchMobile, setShowEmojiSearchMobile] = useState(false);
   const [showGifSearchMobile, setShowGifSearchMobile] = useState(false);
+  const [hoveredEmoji, setHoveredEmoji] = useState(null);
+  const [hoveredSticker, setHoveredSticker] = useState(null);
 
   // Recent emojis state
   const [recentEmojis, setRecentEmojis] = useState(() => getRecentEmojis());
@@ -296,6 +327,42 @@ const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, o
     }
   }, [onEmojiSelect]);
 
+  const scrollToEmojiCategory = useCallback((index) => {
+    setActiveEmojiCategory(index);
+    const section = emojiSectionRefs.current[index];
+    const container = emojiMainRef.current;
+    if (section && container) {
+      container.scrollTo({
+        top: section.offsetTop - 8,
+        behavior: 'smooth',
+      });
+    }
+  }, []);
+
+  const renderEmojiButton = useCallback((emojiOrShortcode, index) => {
+    const emojiChar = shortcodeToEmoji(emojiOrShortcode);
+    const aranjaUrl = emojiToAranjaUrl(emojiChar);
+    const shortcode = emojiToShortcode(emojiOrShortcode);
+    return (
+      <button
+        key={`${shortcode}-${index}`}
+        type="button"
+        className="emoji-item"
+        onClick={() => handleEmojiClick(emojiOrShortcode)}
+        onMouseEnter={() => setHoveredEmoji({ char: emojiChar, shortcode, aranjaUrl })}
+        onMouseLeave={() => setHoveredEmoji(null)}
+        onFocus={() => setHoveredEmoji({ char: emojiChar, shortcode, aranjaUrl })}
+        onBlur={() => setHoveredEmoji(null)}
+      >
+        {aranjaUrl ? (
+          <img src={aranjaUrl} alt={emojiChar} className="emoji-item-img" />
+        ) : (
+          emojiChar
+        )}
+      </button>
+    );
+  }, [handleEmojiClick]);
+
   // Stickers state
   const [stickerPacks, setStickerPacks] = useState([]);
   const [loadingStickers, setLoadingStickers] = useState(true);
@@ -316,14 +383,16 @@ const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, o
   const [gifTrending, setGifTrending] = useState([]); // Store trending separately
   const [gifError, setGifError] = useState(null); // API error message
   const [gifFavorites, setGifFavorites] = useState(() => getGifFavorites());
-  const [activeGifView, setActiveGifView] = useState(null); // 'favorites' | null (trending/search)
-  const [gifScreen, setGifScreen] = useState('categories'); // 'categories' = pick type first | 'gifs' = view/send GIFs
+  const [activeGifView, setActiveGifView] = useState(null); // 'favorites' | searchterm
+  const [gifScreen, setGifScreen] = useState('categories'); // 'categories' | 'browse'
 
   const panelRef = useRef(null);
   const searchTimeoutRef = useRef(null);
   const gifContainerRef = useRef(null);
+  const emojiMainRef = useRef(null);
   const emojiSearchInputRef = useRef(null);
   const gifSearchInputRef = useRef(null);
+  const emojiSectionRefs = useRef([]);
   
   // ═══════════════════════════════════════════════════════════
   // Load Stickers
@@ -488,6 +557,30 @@ const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, o
     }
   }, []);
 
+  const openGifBrowse = useCallback((view) => {
+    setGifError(null);
+    setGifScreen('browse');
+    if (view === 'favorites') {
+      setActiveGifView('favorites');
+      setGifSearch('');
+      setGifs(gifFavorites);
+      setGifNextPos(null);
+      return;
+    }
+    setActiveGifView(view);
+    setGifSearch(view);
+    searchGifs(view);
+  }, [gifFavorites, searchGifs]);
+
+  const showGifCategoryHome = useCallback(() => {
+    setGifScreen('categories');
+    setGifSearch('');
+    setGifError(null);
+    setGifs([]);
+    setGifNextPos(null);
+    setActiveGifView(null);
+  }, []);
+
   // Toggle GIF favorite
   const toggleGifFavorite = useCallback((gif, e) => {
     e.stopPropagation();
@@ -513,15 +606,22 @@ const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, o
   const handleGifSearchChange = useCallback((e) => {
     const value = e.target.value;
     setGifSearch(value);
-    
-    // Debounce search
+
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
+
+    if (!value.trim()) {
+      showGifCategoryHome();
+      return;
+    }
+
+    setGifScreen('browse');
+    setActiveGifView(value.trim());
     searchTimeoutRef.current = setTimeout(() => {
       searchGifs(value);
     }, 300);
-  }, [searchGifs]);
+  }, [searchGifs, showGifCategoryHome]);
   
   // ═══════════════════════════════════════════════════════════
   // Load content when tab changes or picker opens
@@ -533,13 +633,15 @@ const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, o
       loadStickers();
     } else if (activeTab === 'gifs') {
       setGifFavorites(getGifFavorites());
-      setActiveGifView(null);
       setGifScreen('categories');
+      setActiveGifView(null);
+      setGifSearch('');
+      setGifs([]);
+      setGifError(null);
       loadGifCategories();
-      loadTrendingGifs(); // Preload trending so it's ready when user taps "Trending GIFs"
     }
     // Emoji tab uses static EMOJI_CATEGORIES constant, no loading needed
-  }, [isOpen, activeTab, loadStickers, loadTrendingGifs, loadGifCategories]);
+  }, [isOpen, activeTab, loadStickers, loadGifCategories]);
 
   // Detect phone layout and keep UI behavior in sync
   useEffect(() => {
@@ -559,20 +661,69 @@ const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, o
     if (!isOpen) {
       setShowEmojiSearchMobile(false);
       setShowGifSearchMobile(false);
+      setHoveredEmoji(null);
+      setHoveredSticker(null);
       return;
     }
     setShowEmojiSearchMobile(false);
     setShowGifSearchMobile(false);
-  }, [activeTab, gifScreen, isOpen]);
+  }, [activeTab, isOpen]);
 
   useEffect(() => {
     if (showEmojiSearchMobile) emojiSearchInputRef.current?.focus();
   }, [showEmojiSearchMobile]);
 
   useEffect(() => {
-    if (showGifSearchMobile) gifSearchInputRef.current?.focus();
-  }, [showGifSearchMobile]);
+    if (!isOpen) return;
+    requestAnimationFrame(() => {
+      if (activeTab === 'emoji') emojiSearchInputRef.current?.focus();
+      else if (activeTab === 'gifs') gifSearchInputRef.current?.focus();
+    });
+  }, [isOpen, activeTab]);
+
+  // Highlight sidebar category while scrolling emoji sections
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'emoji' || filteredEmojis) return undefined;
+    const container = emojiMainRef.current;
+    if (!container) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (!visible[0]) return;
+        const index = Number(visible[0].target.id.replace('emoji-section-', ''));
+        if (!Number.isNaN(index)) setActiveEmojiCategory(index);
+      },
+      { root: container, threshold: [0.1, 0.35, 0.6], rootMargin: '-8% 0px -55% 0px' }
+    );
+
+    emojiSectionRefs.current.forEach((section) => {
+      if (section) observer.observe(section);
+    });
+
+    return () => observer.disconnect();
+  }, [isOpen, activeTab, filteredEmojis, emojiCategoriesWithRecent]);
   
+  useEffect(() => {
+    if (isOpen && initialTab) setActiveTab(initialTab);
+  }, [isOpen, initialTab]);
+
+  // Close on outside click (popover mode)
+  useEffect(() => {
+    if (!isOpen || !isPopover) return undefined;
+
+    const handlePointerDown = (e) => {
+      if (panelRef.current?.contains(e.target)) return;
+      if (anchorRef?.current?.contains(e.target)) return;
+      onClose();
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [isOpen, isPopover, onClose, anchorRef]);
+
   // Handle escape key
   useEffect(() => {
     if (!isOpen) return;
@@ -607,84 +758,194 @@ const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, o
     onSelect({ ...item, type });
   };
   
+  const showEmojiSearch = isPopover || !isMobileView || showEmojiSearchMobile;
+  const showGifSearch = isPopover || !isMobileView || showGifSearchMobile;
+
   return (
-    <div ref={panelRef} className="sticker-panel">
-      {/* Header with tabs */}
-      <div className="sticker-panel-header">
-        <div className="sticker-panel-tabs">
-          <button
-            className={`sticker-panel-tab ${activeTab === 'emoji' ? 'active' : ''}`}
-            onClick={() => setActiveTab('emoji')}
-            title={t('stickers.emojis') || 'Emojis'}
-          >
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
-              <line x1="9" y1="9" x2="9.01" y2="9"/>
-              <line x1="15" y1="9" x2="15.01" y2="9"/>
-            </svg>
-            <span className="tab-label">{t('stickers.emojis') || 'Emojis'}</span>
-          </button>
-          <button
-            className={`sticker-panel-tab ${activeTab === 'stickers' ? 'active' : ''}`}
-            onClick={() => setActiveTab('stickers')}
-            title={t('stickers.stickers') || 'Stickers'}
-          >
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 20h9"/>
-              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-            </svg>
-            <span className="tab-label">{t('stickers.stickers') || 'Stickers'}</span>
-          </button>
-          <button
-            className={`sticker-panel-tab ${activeTab === 'gifs' ? 'active' : ''}`}
-            onClick={() => setActiveTab('gifs')}
-            title="GIFs"
-          >
-            <svg className="gif-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="2" y="4" width="20" height="16" rx="3"/>
-              <path d="M8 10h2v4H8z"/>
-              <path d="M12 10h2v4"/>
-              <path d="M17 10h-1v4h1a2 2 0 000-4"/>
-            </svg>
-            <span className="tab-label">GIFs</span>
-          </button>
+    <div ref={panelRef} className={`sticker-panel ${isPopover ? 'sticker-panel-popover' : ''}`}>
+      {!isPopover && (
+        <div className="sticker-panel-header">
+          <div className="sticker-panel-tabs">
+            <button
+              type="button"
+              className={`sticker-panel-tab ${activeTab === 'gifs' ? 'active' : ''}`}
+              onClick={() => setPickerTab('gifs')}
+            >
+              GIFs
+            </button>
+            <button
+              type="button"
+              className={`sticker-panel-tab ${activeTab === 'stickers' ? 'active' : ''}`}
+              onClick={() => setPickerTab('stickers')}
+            >
+              {t('stickers.stickers') || 'Stickers'}
+            </button>
+            <button
+              type="button"
+              className={`sticker-panel-tab ${activeTab === 'emoji' ? 'active' : ''}`}
+              onClick={() => setPickerTab('emoji')}
+            >
+              {t('stickers.emojis') || 'Emoji'}
+            </button>
+          </div>
+          {isMobileView && (activeTab === 'emoji' || activeTab === 'gifs') && (
+            <button
+              type="button"
+              className={`sticker-panel-search-toggle ${(showEmojiSearchMobile || showGifSearchMobile) ? 'active' : ''}`}
+              onClick={() => {
+                if (activeTab === 'emoji') {
+                  setShowGifSearchMobile(false);
+                  setShowEmojiSearchMobile(v => !v);
+                } else if (activeTab === 'gifs') {
+                  setShowEmojiSearchMobile(false);
+                  setShowGifSearchMobile(v => !v);
+                }
+              }}
+              title={t('common.search') || 'Search'}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
+            </button>
+          )}
+          {!isMobileView && (
+            <button type="button" className="sticker-panel-close" onClick={onClose} title={t('common.close') || 'Close'}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          )}
         </div>
-        {isMobileView && (activeTab === 'emoji' || (activeTab === 'gifs' && gifScreen === 'gifs')) && (
-          <button
-            className={`sticker-panel-search-toggle ${(showEmojiSearchMobile || showGifSearchMobile) ? 'active' : ''}`}
-            onClick={() => {
-              if (activeTab === 'emoji') {
-                setShowGifSearchMobile(false);
-                setShowEmojiSearchMobile(v => !v);
-              } else if (activeTab === 'gifs' && gifScreen === 'gifs') {
-                setShowEmojiSearchMobile(false);
-                setShowGifSearchMobile(v => !v);
-              }
-            }}
-            title={t('common.search') || 'Search'}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8"/>
-              <path d="m21 21-4.35-4.35"/>
-            </svg>
-          </button>
-        )}
-        {!isMobileView && (
-          <button className="sticker-panel-close" onClick={onClose} title={t('common.close') || 'Fermer'}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        )}
-      </div>
-      
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════
+          EMOJI TAB
+          ═══════════════════════════════════════════════════════════ */}
+      {activeTab === 'emoji' && (
+        <div className={`picker-tab-content emoji-picker-content ${isMobileView && showEmojiSearchMobile ? 'mobile-search-active' : ''}`}>
+          {showEmojiSearch && (
+            <div className={`picker-search-row ${isMobileView ? 'mobile-search-popout' : ''}`}>
+              <div className="picker-search-wrapper">
+                <svg className="picker-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="m21 21-4.35-4.35"/>
+                </svg>
+                <input
+                  ref={emojiSearchInputRef}
+                  type="text"
+                  className="picker-search-input"
+                  placeholder={t('stickers.searchEmojis') || 'Find the perfect emoji'}
+                  value={emojiSearch}
+                  onChange={(e) => setEmojiSearch(e.target.value)}
+                />
+                {emojiSearch && (
+                  <button type="button" className="picker-search-clear" onClick={() => setEmojiSearch('')}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/>
+                      <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="picker-body">
+            {!filteredEmojis && (
+              <div className="picker-sidebar" role="tablist" aria-label="Emoji categories">
+                {emojiCategoriesWithRecent.map((cat, index) => {
+                  const CatIcon = cat.icon;
+                  const iconUrl = typeof CatIcon === 'string' ? emojiToAranjaUrl(CatIcon) : null;
+                  const isDisabled = index === 0 && recentEmojis.length === 0;
+                  return (
+                    <button
+                      key={cat.name}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeEmojiCategory === index}
+                      className={`picker-sidebar-btn ${activeEmojiCategory === index ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`}
+                      onClick={() => {
+                        if (isDisabled) return;
+                        scrollToEmojiCategory(index);
+                      }}
+                      title={cat.name === 'Recent' ? (t('stickers.recentEmojis') || 'Frequently Used') : cat.name}
+                      disabled={isDisabled}
+                    >
+                      {index === 0 ? (
+                        <ClockIcon />
+                      ) : typeof CatIcon === 'function' ? (
+                        <CatIcon size={18} />
+                      ) : iconUrl ? (
+                        <img src={iconUrl} alt="" />
+                      ) : (
+                        CatIcon
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="picker-main emoji-grid-container" ref={emojiMainRef}>
+              {filteredEmojis ? (
+                <>
+                  <PickerSectionHeader count={filteredEmojis.length}>
+                    {t('common.searchResults') || 'Search Results'}
+                  </PickerSectionHeader>
+                  {filteredEmojis.length > 0 ? (
+                    <div className="emoji-grid">
+                      {filteredEmojis.map((emojiOrShortcode, index) => renderEmojiButton(emojiOrShortcode, index))}
+                    </div>
+                  ) : (
+                    <div className="emoji-no-results">
+                      <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                        <path d="m13.5 8.5-5 5"/><path d="m8.5 8.5 5 5"/>
+                      </svg>
+                      <p>{t('stickers.noEmojisFound') || 'No emojis found'}</p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                emojiCategoriesWithRecent.map((cat, index) => {
+                  if (index === 0 && recentEmojis.length === 0) return null;
+                  const sectionTitle = cat.name === 'Recent'
+                    ? (t('stickers.recentEmojis') || 'Frequently Used')
+                    : cat.name;
+                  return (
+                    <section
+                      key={cat.name}
+                      id={`emoji-section-${index}`}
+                      className="picker-section"
+                      ref={(el) => { emojiSectionRefs.current[index] = el; }}
+                    >
+                      <PickerSectionHeader>{sectionTitle}</PickerSectionHeader>
+                      {cat.emojis.length > 0 ? (
+                        <div className="emoji-grid">
+                          {cat.emojis.map((emojiOrShortcode, emojiIndex) => renderEmojiButton(emojiOrShortcode, emojiIndex))}
+                        </div>
+                      ) : (
+                        <div className="emoji-no-results compact">
+                          <p>{t('stickers.noRecentEmojis') || 'No recent emojis'}</p>
+                          <small>{t('stickers.useEmojiToAdd') || 'Use emojis to add them here'}</small>
+                        </div>
+                      )}
+                    </section>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═══════════════════════════════════════════════════════════
           STICKERS TAB
           ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'stickers' && (
-        <>
+        <div className="picker-tab-content stickers-picker-content">
           {loadingStickers ? (
             <div className="sticker-panel-loading">
               <span className="sticker-panel-spinner" />
@@ -701,99 +962,114 @@ const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, o
             </div>
           ) : (
             <>
-              <div className="sticker-panel-packs">
-                {stickerPacks.map(pack => (
-                  <button
-                    key={pack.id}
-                    className={`sticker-pack-tab ${activePack === pack.id ? 'active' : ''}`}
-                    onClick={() => setActivePack(pack.id)}
-                    title={`${pack.name} (${pack.team_name})`}
-                  >
-                    <div className="sticker-pack-tab-icon">
+              <div className="picker-body">
+                <div className="picker-sidebar picker-sidebar-stickers" role="tablist" aria-label="Sticker packs">
+                  {stickerPacks.map(pack => (
+                    <button
+                      key={pack.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={activePack === pack.id}
+                      className={`picker-sidebar-btn picker-sidebar-pack ${activePack === pack.id ? 'active' : ''}`}
+                      onClick={() => setActivePack(pack.id)}
+                      title={pack.name}
+                    >
                       {pack.stickers.length > 0 ? (
-                        <img src={pack.stickers[0].image_url} alt={pack.name} />
+                        <img src={pack.stickers[0].image_url} alt="" />
                       ) : (
-                        <span className="sticker-pack-tab-placeholder">
-                          {pack.name.charAt(0).toUpperCase()}
-                        </span>
+                        <span className="picker-sidebar-pack-placeholder">{pack.name.charAt(0).toUpperCase()}</span>
                       )}
-                    </div>
-                    <span className="sticker-pack-tab-name">{pack.name}</span>
-                    <span className="sticker-pack-tab-count">{pack.stickers.length}</span>
-                  </button>
-                ))}
-              </div>
-              
-              <div className="sticker-panel-content">
-                {activeStickerPack && (
-                  <>
-                    <div className="sticker-pack-info">
-                      <div className="sticker-pack-details">
-                        <span className="sticker-pack-name">{activeStickerPack.name}</span>
-                        <span className="sticker-pack-team">{activeStickerPack.team_name}</span>
-                      </div>
-                      <button 
-                        className="sticker-pack-remove"
-                        onClick={(e) => handleHidePack(activeStickerPack.id, e)}
-                        disabled={hidingPack}
-                        title={t('stickers.removePack')}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="18" y1="6" x2="6" y2="18"/>
-                          <line x1="6" y1="6" x2="18" y2="18"/>
-                        </svg>
-                      </button>
-                    </div>
-                    <div className="sticker-panel-grid">
-                      {activeStickerPack.stickers.map(sticker => (
-                        <button
-                          key={sticker.id}
-                          className="sticker-item"
-                          onClick={() => handleSelect(sticker, 'sticker')}
-                          title={sticker.name}
-                        >
-                          <img src={sticker.image_url} alt={sticker.name} />
-                        </button>
-                      ))}
-                      {activeStickerPack.stickers.length === 0 && (
-                        <div className="sticker-pack-empty">
-                          {t('stickers.packEmpty')}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="picker-main sticker-panel-content">
+                  {activeStickerPack && (
+                    <>
+                      <div className="picker-section-header sticker-pack-header">
+                        <div className="sticker-pack-header-text">
+                          <span className="sticker-pack-name">{activeStickerPack.name}</span>
+                          <span className="sticker-pack-team">{activeStickerPack.team_name}</span>
                         </div>
-                      )}
-                    </div>
-                  </>
-                )}
+                        <button
+                          type="button"
+                          className="sticker-pack-remove"
+                          onClick={(e) => handleHidePack(activeStickerPack.id, e)}
+                          disabled={hidingPack}
+                          title={t('stickers.removePack')}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="sticker-panel-grid">
+                        {activeStickerPack.stickers.map(sticker => (
+                          <button
+                            key={sticker.id}
+                            type="button"
+                            className="sticker-item"
+                            onClick={() => handleSelect(sticker, 'sticker')}
+                            onMouseEnter={() => setHoveredSticker({ name: sticker.name, url: sticker.image_url })}
+                            onMouseLeave={() => setHoveredSticker(null)}
+                            onFocus={() => setHoveredSticker({ name: sticker.name, url: sticker.image_url })}
+                            onBlur={() => setHoveredSticker(null)}
+                            title={sticker.name}
+                          >
+                            <img src={sticker.image_url} alt={sticker.name} />
+                          </button>
+                        ))}
+                        {activeStickerPack.stickers.length === 0 && (
+                          <div className="sticker-pack-empty">{t('stickers.packEmpty')}</div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </>
           )}
-        </>
+        </div>
       )}
-      
+
       {/* ═══════════════════════════════════════════════════════════
-          EMOJI TAB
+          GIF TAB
           ═══════════════════════════════════════════════════════════ */}
-      {activeTab === 'emoji' && (
-        <div className={`emoji-picker-content ${isMobileView && showEmojiSearchMobile ? 'mobile-search-active' : ''}`}>
-          {/* Search bar */}
-          {(!isMobileView || showEmojiSearchMobile) && (
-            <div className={`emoji-search-container ${isMobileView ? 'mobile-search-popout' : ''}`}>
-              <div className="emoji-search-wrapper">
-                <svg className="emoji-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      {activeTab === 'gifs' && (
+        <div className={`picker-tab-content gif-picker-content ${isMobileView && showGifSearchMobile ? 'mobile-search-active' : ''}`}>
+          {showGifSearch && (
+            <div className={`picker-search-row gif-picker-search-row ${isMobileView ? 'mobile-search-popout' : ''}`}>
+              {gifScreen === 'browse' && !gifSearch && (
+                <button
+                  type="button"
+                  className="gif-picker-back"
+                  onClick={showGifCategoryHome}
+                  title={t('common.back') || 'Back'}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                  </svg>
+                </button>
+              )}
+              <div className="picker-search-wrapper">
+                <svg className="picker-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="11" cy="11" r="8"/>
                   <path d="m21 21-4.35-4.35"/>
                 </svg>
                 <input
-                  ref={emojiSearchInputRef}
+                  ref={gifSearchInputRef}
                   type="text"
-                  className="emoji-search-input"
-                  placeholder={t('stickers.searchEmojis') || 'Rechercher un emoji...'}
-                  value={emojiSearch}
-                  onChange={(e) => setEmojiSearch(e.target.value)}
+                  className="picker-search-input"
+                  placeholder={t('stickers.searchGifs') || 'Find the perfect GIF'}
+                  value={gifSearch}
+                  onChange={handleGifSearchChange}
                 />
-                {emojiSearch && (
+                {gifSearch && (
                   <button
-                    className="emoji-search-clear"
-                    onClick={() => setEmojiSearch('')}
+                    type="button"
+                    className="picker-search-clear"
+                    onClick={showGifCategoryHome}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <line x1="18" y1="6" x2="6" y2="18"/>
@@ -805,130 +1081,13 @@ const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, o
             </div>
           )}
 
-          {/* Search results */}
-          {filteredEmojis ? (
-            <div className="emoji-grid-container">
-              <div className="emoji-category-name">
-                {t('common.searchResults') || 'Résultats'} ({filteredEmojis.length})
-              </div>
-              {filteredEmojis.length > 0 ? (
-                <div className="emoji-grid">
-                  {filteredEmojis.map((emojiOrShortcode, index) => {
-                    const emojiChar = shortcodeToEmoji(emojiOrShortcode);
-                    const aranjaUrl = emojiToAranjaUrl(emojiChar);
-                    return (
-                      <button
-                        key={index}
-                        className="emoji-item"
-                        onClick={() => handleEmojiClick(emojiOrShortcode)}
-                      >
-                        {aranjaUrl ? (
-                          <img src={aranjaUrl} alt={emojiChar} className="emoji-item-img" />
-                        ) : (
-                          emojiChar
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="emoji-no-results">
-                  <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                    <path d="m13.5 8.5-5 5"/><path d="m8.5 8.5 5 5"/>
-                  </svg>
-                  <p>{t('stickers.noEmojisFound') || 'Aucun emoji trouvé'}</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <>
-              {/* Category tabs */}
-              <div className="emoji-category-tabs">
-                {emojiCategoriesWithRecent.map((cat, index) => {
-                  const CatIcon = cat.icon;
-                  const iconUrl = typeof CatIcon === 'string' ? emojiToAranjaUrl(CatIcon) : null;
-                  return (
-                    <button
-                      key={cat.name}
-                      className={`emoji-category-tab ${activeEmojiCategory === index ? 'active' : ''} ${index === 0 && recentEmojis.length === 0 ? 'disabled' : ''}`}
-                      onClick={() => {
-                        if (index === 0 && recentEmojis.length === 0) return;
-                        setActiveEmojiCategory(index);
-                      }}
-                      title={cat.name}
-                      disabled={index === 0 && recentEmojis.length === 0}
-                    >
-                      {typeof CatIcon === 'function' ? <CatIcon size={18} /> : iconUrl ? <img src={iconUrl} alt={cat.name} /> : CatIcon}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Emoji grid */}
-              <div className="emoji-grid-container">
-                <div className="emoji-category-name">
-                  {emojiCategoriesWithRecent[activeEmojiCategory].name === 'Recent'
-                    ? (t('stickers.recentEmojis') || 'Récents')
-                    : emojiCategoriesWithRecent[activeEmojiCategory].name
-                  }
-                </div>
-                {emojiCategoriesWithRecent[activeEmojiCategory].emojis.length > 0 ? (
-                  <div className="emoji-grid">
-                    {emojiCategoriesWithRecent[activeEmojiCategory].emojis.map((emojiOrShortcode, index) => {
-                      const emojiChar = shortcodeToEmoji(emojiOrShortcode);
-                      const aranjaUrl = emojiToAranjaUrl(emojiChar);
-                      return (
-                        <button
-                          key={index}
-                          className="emoji-item"
-                          onClick={() => handleEmojiClick(emojiOrShortcode)}
-                        >
-                          {aranjaUrl ? (
-                            <img src={aranjaUrl} alt={emojiChar} className="emoji-item-img" />
-                          ) : (
-                            emojiChar
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="emoji-no-results">
-                    <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <circle cx="12" cy="12" r="10"/>
-                      <polyline points="12 6 12 12 16 14"/>
-                    </svg>
-                    <p>{t('stickers.noRecentEmojis') || 'Aucun emoji récent'}</p>
-                    <small>{t('stickers.useEmojiToAdd') || 'Utilisez des emojis pour les ajouter ici'}</small>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-      
-      {/* ═══════════════════════════════════════════════════════════
-          GIF TAB
-          ═══════════════════════════════════════════════════════════ */}
-      {activeTab === 'gifs' && (
-        <div className={`gif-picker-content ${isMobileView && showGifSearchMobile ? 'mobile-search-active' : ''}`}>
-          {gifScreen === 'categories' ? (
-            /* ═══ SCREEN 1: Pick a GIF type (full screen) ═══ */
+          {gifScreen === 'categories' && !gifSearch.trim() ? (
             <div className="gif-categories-fullscreen">
-              <p className="gif-categories-title">{t('stickers.chooseGifType') || 'Choose a type of GIFs'}</p>
               <div className="gif-categories-grid gif-categories-grid-full">
                 <button
+                  type="button"
                   className="gif-category-tile gif-tile-favorites"
-                  onClick={() => {
-                    setActiveGifView('favorites');
-                    setGifSearch('');
-                    setGifError(null);
-                    setGifs(gifFavorites);
-                    setGifNextPos(null);
-                    setGifScreen('gifs');
-                  }}
+                  onClick={() => openGifBrowse('favorites')}
                   title={t('stickers.favorites') || 'Favorites'}
                 >
                   <span className="gif-tile-icon">★</span>
@@ -937,232 +1096,107 @@ const StickerPicker = memo(function StickerPicker({ isOpen, onClose, onSelect, o
                     <span className="gif-tile-count">{gifFavorites.length}</span>
                   )}
                 </button>
-                <button
-                  className="gif-category-tile gif-tile-trending"
-                  onClick={() => {
-                    setActiveGifView(null);
-                    setGifSearch('');
-                    setGifError(null);
-                    setGifScreen('gifs');
-                    if (gifTrending.length > 0) {
-                      setGifs(gifTrending);
-                    } else {
-                      loadTrendingGifs();
-                    }
-                  }}
-                >
-                  {gifTrending[0]?.preview && (
-                    <img src={gifTrending[0].preview} alt="" className="gif-tile-bg" />
-                  )}
-                  <span className="gif-tile-icon gif-trend-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
-                      <polyline points="17 6 23 6 23 12"/>
-                    </svg>
-                  </span>
-                  <span className="gif-tile-label">{t('stickers.trendingGifs') || 'Trending GIFs'}</span>
-                </button>
-                {gifCategories.slice(0, 8).map(cat => (
+                {gifCategories.map(cat => (
                   <button
                     key={cat.searchterm}
+                    type="button"
                     className="gif-category-tile gif-tile-category"
-                    onClick={() => {
-                      setActiveGifView(null);
-                      setGifSearch(cat.searchterm);
-                      setGifError(null);
-                      setGifScreen('gifs');
-                      searchGifs(cat.searchterm);
-                    }}
+                    onClick={() => openGifBrowse(cat.searchterm)}
+                    title={cat.name}
                   >
-                    {cat.image && <img src={cat.image} alt="" className="gif-tile-bg" />}
+                    {cat.image && <img src={cat.image} alt="" className="gif-tile-bg" loading="lazy" />}
                     <span className="gif-tile-label">{cat.name}</span>
                   </button>
                 ))}
               </div>
+              <a href="https://klipy.com" target="_blank" rel="noopener noreferrer" className="picker-gif-credit">
+                Klipy
+              </a>
             </div>
           ) : (
-            /* ═══ SCREEN 2: View & send GIFs (with Back button) ═══ */
-            <>
-              <div className="gif-back-row">
-                <button
-                  type="button"
-                  className="gif-back-btn"
-                  onClick={() => setGifScreen('categories')}
-                  title={t('common.back') || 'Back'}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M19 12H5M12 19l-7-7 7-7"/>
-                  </svg>
-                  {t('common.back') || 'Back'}
-                </button>
-                {!isMobileView && (
-                  <div className="gif-search-container gif-search-inline">
-                    <div className="gif-search-wrapper">
-                      <svg className="gif-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="11" cy="11" r="8"/>
-                        <path d="m21 21-4.35-4.35"/>
-                      </svg>
-                      <input
-                        type="text"
-                        className="gif-search-input"
-                        placeholder={t('stickers.searchGifs') || 'Search GIFs...'}
-                        value={gifSearch}
-                        onChange={handleGifSearchChange}
-                      />
-                      {gifSearch && (
-                        <button
-                          className="gif-search-clear"
-                          onClick={() => {
-                            setActiveGifView(null);
-                            setGifSearch('');
-                            setGifError(null);
-                            if (gifTrending.length > 0) {
-                              setGifs(gifTrending);
-                            } else {
-                              loadTrendingGifs();
-                            }
-                          }}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <line x1="18" y1="6" x2="6" y2="18"/>
-                            <line x1="6" y1="6" x2="18" y2="18"/>
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-              {isMobileView && showGifSearchMobile && (
-                <div className="gif-search-container gif-search-popout">
-                  <div className="gif-search-wrapper">
-                    <svg className="gif-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="11" cy="11" r="8"/>
-                      <path d="m21 21-4.35-4.35"/>
-                    </svg>
-                    <input
-                      ref={gifSearchInputRef}
-                      type="text"
-                      className="gif-search-input"
-                      placeholder={t('stickers.searchGifs') || 'Search GIFs...'}
-                      value={gifSearch}
-                      onChange={handleGifSearchChange}
-                    />
-                    {gifSearch && (
-                      <button
-                        className="gif-search-clear"
-                        onClick={() => {
-                          setActiveGifView(null);
-                          setGifSearch('');
-                          setGifError(null);
-                          if (gifTrending.length > 0) {
-                            setGifs(gifTrending);
-                          } else {
-                            loadTrendingGifs();
-                          }
-                        }}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="18" y1="6" x2="6" y2="18"/>
-                          <line x1="6" y1="6" x2="18" y2="18"/>
-                        </svg>
-                      </button>
-                    )}
-                  </div>
+            <div
+              ref={gifContainerRef}
+              className="picker-main gif-grid-container gif-browse-main"
+              onScroll={handleGifScroll}
+            >
+              {loadingGifs && gifs.length === 0 ? (
+                <div className="gif-loading">
+                  <div className="gif-loading-spinner" />
+                  <span>{t('common.loading') || 'Loading...'}</span>
                 </div>
-              )}
-
-              <div
-                ref={gifContainerRef}
-                className="gif-grid-container"
-                onScroll={handleGifScroll}
-              >
-                {loadingGifs && gifs.length === 0 ? (
-                  <div className="gif-loading">
-                    <div className="gif-loading-spinner" />
-                    <span>{t('common.loading') || 'Chargement...'}</span>
-                  </div>
-                ) : gifs.length === 0 ? (
-                  <div className="gif-empty">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                      <circle cx="8.5" cy="8.5" r="1.5"/>
-                      <polyline points="21 15 16 10 5 21"/>
-                    </svg>
-                    <p>{activeGifView === 'favorites' ? (t('stickers.noFavorites') || 'No favorites yet') : (t('stickers.noGifsFound') || 'Aucun GIF trouvé')}</p>
-                    {gifError ? (
-                      <small className="gif-error-msg">{gifError}</small>
-                    ) : activeGifView === 'favorites' ? (
-                      <small>{t('stickers.addFavoritesHint') || 'Click the star on any GIF to add it here'}</small>
-                    ) : (
-                      <small>{t('stickers.tryDifferentSearch') || 'Essayez une autre recherche'}</small>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <div className="gif-masonry">
-                      <div className="gif-masonry-column">
-                        {gifs.filter((_, i) => i % 2 === 0).map(gif => (
+              ) : gifs.length === 0 ? (
+                <div className="gif-empty">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                  <p>{activeGifView === 'favorites' ? (t('stickers.noFavorites') || 'No favorites yet') : (t('stickers.noGifsFound') || 'No GIFs found')}</p>
+                  {gifError ? (
+                    <small className="gif-error-msg">{gifError}</small>
+                  ) : activeGifView === 'favorites' ? (
+                    <small>{t('stickers.addFavoritesHint') || 'Click the star on any GIF to add it here'}</small>
+                  ) : (
+                    <small>{t('stickers.tryDifferentSearch') || 'Try a different search'}</small>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="gif-masonry">
+                    <div className="gif-masonry-column">
+                      {gifs.filter((_, i) => i % 2 === 0).map(gif => (
+                        <button
+                          key={gif.id}
+                          type="button"
+                          className="gif-item"
+                          onClick={() => handleSelect({ ...gif, image_url: gif.url || gif.image_url }, 'gif')}
+                          title={gif.title}
+                        >
+                          <img src={gif.preview || gif.url} alt={gif.title} loading="lazy" />
                           <button
-                            key={gif.id}
-                            className="gif-item"
-                            onClick={() => handleSelect({ ...gif, image_url: gif.url || gif.image_url }, 'gif')}
-                            title={gif.title}
+                            type="button"
+                            className={`gif-item-fav ${gifFavorites.some(f => String(f.id) === String(gif.id)) ? 'active' : ''}`}
+                            onClick={(e) => toggleGifFavorite(gif, e)}
+                            title={gifFavorites.some(f => String(f.id) === String(gif.id)) ? (t('stickers.removeFavorite') || 'Remove from favorites') : (t('stickers.addFavorite') || 'Add to favorites')}
                           >
-                            <img src={gif.preview || gif.url} alt={gif.title} loading="lazy" />
-                            <button
-                              type="button"
-                              className={`gif-item-fav ${gifFavorites.some(f => String(f.id) === String(gif.id)) ? 'active' : ''}`}
-                              onClick={(e) => toggleGifFavorite(gif, e)}
-                              title={gifFavorites.some(f => String(f.id) === String(gif.id)) ? (t('stickers.removeFavorite') || 'Remove from favorites') : (t('stickers.addFavorite') || 'Add to favorites')}
-                            >
-                              ★
-                            </button>
-                            <div className="gif-item-overlay">
-                              <span className="gif-item-title">{gif.title}</span>
-                            </div>
+                            ★
                           </button>
-                        ))}
-                      </div>
-                      <div className="gif-masonry-column">
-                        {gifs.filter((_, i) => i % 2 === 1).map(gif => (
-                          <button
-                            key={gif.id}
-                            className="gif-item"
-                            onClick={() => handleSelect({ ...gif, image_url: gif.url || gif.image_url }, 'gif')}
-                            title={gif.title}
-                          >
-                            <img src={gif.preview || gif.url} alt={gif.title} loading="lazy" />
-                            <button
-                              type="button"
-                              className={`gif-item-fav ${gifFavorites.some(f => String(f.id) === String(gif.id)) ? 'active' : ''}`}
-                              onClick={(e) => toggleGifFavorite(gif, e)}
-                              title={gifFavorites.some(f => String(f.id) === String(gif.id)) ? (t('stickers.removeFavorite') || 'Remove from favorites') : (t('stickers.addFavorite') || 'Add to favorites')}
-                            >
-                              ★
-                            </button>
-                            <div className="gif-item-overlay">
-                              <span className="gif-item-title">{gif.title}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
+                        </button>
+                      ))}
                     </div>
-                    {loadingGifs && (
-                      <div className="gif-loading-more">
-                        <div className="gif-loading-spinner small" />
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-              {/* Klipy attribution - Required by Klipy API */}
-              <div className="tenor-attribution">
-                <a href="https://klipy.com" target="_blank" rel="noopener noreferrer" className="tenor-link">
-                  <span>Search via Klipy</span>
-                </a>
-              </div>
-            </>
+                    <div className="gif-masonry-column">
+                      {gifs.filter((_, i) => i % 2 === 1).map(gif => (
+                        <button
+                          key={gif.id}
+                          type="button"
+                          className="gif-item"
+                          onClick={() => handleSelect({ ...gif, image_url: gif.url || gif.image_url }, 'gif')}
+                          title={gif.title}
+                        >
+                          <img src={gif.preview || gif.url} alt={gif.title} loading="lazy" />
+                          <button
+                            type="button"
+                            className={`gif-item-fav ${gifFavorites.some(f => String(f.id) === String(gif.id)) ? 'active' : ''}`}
+                            onClick={(e) => toggleGifFavorite(gif, e)}
+                            title={gifFavorites.some(f => String(f.id) === String(gif.id)) ? (t('stickers.removeFavorite') || 'Remove from favorites') : (t('stickers.addFavorite') || 'Add to favorites')}
+                          >
+                            ★
+                          </button>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {loadingGifs && (
+                    <div className="gif-loading-more">
+                      <div className="gif-loading-spinner small" />
+                    </div>
+                  )}
+                  <a href="https://klipy.com" target="_blank" rel="noopener noreferrer" className="picker-gif-credit">
+                    Klipy
+                  </a>
+                </>
+              )}
+            </div>
           )}
         </div>
       )}

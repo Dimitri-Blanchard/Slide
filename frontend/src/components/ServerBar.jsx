@@ -1,7 +1,8 @@
 import React, { useState, useCallback, memo, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { AvatarImg } from './Avatar';
+import { AvatarImg, hasDefaultAvatar } from './Avatar';
+import GroupAvatar from './GroupAvatar';
 import AppIcon from './icons/AppIcon';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
@@ -13,6 +14,7 @@ import ContextMenu from './ContextMenu';
 import ConfirmModal from './ConfirmModal';
 import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import { hapticImpact } from '../utils/nativeHaptics';
+import { serverPath } from '../utils/appRoutes';
 import SlideLogo from './SlideLogo';
 import { makeLocalPrivateRoute } from '../utils/localPrivateChatCrypto';
 import { invitePublicUrl } from '../utils/publicSiteUrl';
@@ -228,7 +230,8 @@ const ServerIcon = memo(function ServerIcon({ team, isActive, hasUnread = false,
   };
 
   const initials = getInitials(team.name);
-  const hasAvatar = team.avatar_url || team.icon_url;
+  const avatarSrc = team.icon_url || team.avatar_url;
+  const hasAvatar = !!avatarSrc && !hasDefaultAvatar({ avatar_url: avatarSrc });
   // Display mention count: max "9+"
   const displayMentionCount = mentionCount > 9 ? '9+' : mentionCount;
   const showUnread = hasUnread && !isMuted;
@@ -302,14 +305,14 @@ const ServerIcon = memo(function ServerIcon({ team, isActive, hasUnread = false,
             longPressFiredRef.current = false;
             return;
           }
-          navigate(`/team/${team.id}`);
+          navigate(serverPath(team.id));
         }}
         role="link"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            navigate(`/team/${team.id}`);
+            navigate(serverPath(team.id));
           }
         }}
       >
@@ -325,7 +328,7 @@ const ServerIcon = memo(function ServerIcon({ team, isActive, hasUnread = false,
               // gifAnimate={isActive}: server you're currently in keeps its
               // GIF playing without needing hover. Hover still animates
               // others (built-in to AvatarImg).
-              <AvatarImg src={team.avatar_url || team.icon_url} alt={team.name} gifAnimate={isActive} />
+              <AvatarImg src={avatarSrc} alt={team.name} gifAnimate={isActive} />
             ) : (
               <span className="server-initials">{initials}</span>
             )}
@@ -384,7 +387,9 @@ const DmUnreadIcon = memo(function DmUnreadIcon({ conversation, isActive, hideTo
         draggable={false}
       >
         <div className={`server-icon ${isActive ? 'active' : ''}`}>
-          {avatarUrl ? (
+          {isGroup ? (
+            <GroupAvatar participants={conversation.participants} size="server" />
+          ) : avatarUrl ? (
             <AvatarImg src={avatarUrl} alt={name} />
           ) : (
             <span className="server-initials">{getDisplayInitials(name)}</span>
@@ -647,7 +652,7 @@ const ServerBar = memo(function ServerBar({
 
   const handleOpenSettings = useCallback((team) => {
     closeServerContextMenu();
-    navigate(`/team/${team.id}`);
+            navigate(serverPath(team.id));
   }, [closeServerContextMenu, navigate]);
 
   const handleToggleMute = useCallback((team) => {

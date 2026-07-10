@@ -12,6 +12,7 @@ import ServerErrorBoundary from '../components/ServerErrorBoundary';
 import ErrorBoundary from '../components/ErrorBoundary';
 import UserStatusAndSettings from '../components/UserStatusAndSettings';
 import NotFound from '../pages/NotFound';
+import LegacyTeamRedirect from './LegacyTeamRedirect';
 
 import '../pages/SecurityDashboard.css';
 import '../pages/NitroPage.css';
@@ -125,22 +126,6 @@ export default function DesktopAppLayoutShell({
         <div className="content-phase-in">
           <Routes>
             <Route
-              path="/team/:teamId/*"
-              element={(
-                <ServerErrorBoundary>
-                  <TeamChat
-                    teamId={params.teamId}
-                    initialChannelId={params.channelId}
-                    isMobile={isMobile}
-                    onLeaveServer={onLeaveServer}
-                    onOpenSearch={() => setShowSearch(true)}
-                    sidebarWidth={sidebarWidth}
-                    onSidebarResizeStart={handleSidebarResizeStart}
-                  />
-                </ServerErrorBoundary>
-              )}
-            />
-            <Route
               path="/channels/@me/private-local/:peerUserId"
               element={(
                 <LocalPrivateChat
@@ -159,12 +144,29 @@ export default function DesktopAppLayoutShell({
                 />
               )}
             />
+            <Route path="/channels/@me" element={<FriendsPage />} />
+            <Route
+              path="/channels/:teamId/*"
+              element={(
+                <ServerErrorBoundary>
+                  <TeamChat
+                    teamId={params.teamId}
+                    initialChannelId={params.channelId}
+                    isMobile={isMobile}
+                    onLeaveServer={onLeaveServer}
+                    onOpenSearch={() => setShowSearch(true)}
+                    sidebarWidth={sidebarWidth}
+                    onSidebarResizeStart={handleSidebarResizeStart}
+                  />
+                </ServerErrorBoundary>
+              )}
+            />
+            <Route path="/team/:teamId/*" element={<LegacyTeamRedirect />} />
             <Route path="/community" element={<CommunityServersPage />} />
             <Route path="/nitro" element={<NitroPage />} />
             <Route path="/security" element={<SecurityDashboard />} />
             <Route path="/quests" element={<QuestsPage />} />
             <Route path="/friends" element={<Navigate to="/channels/@me" replace />} />
-            <Route path="/channels/@me" element={<FriendsPage />} />
             <Route path="/" element={<Navigate to="/channels/@me" replace />} />
             <Route path="/home" element={<Navigate to="/channels/@me" replace />} />
             <Route path="/profile/*" element={<Navigate to="/channels/@me" replace />} />

@@ -5,8 +5,7 @@ export function resolvePublicSiteOrigin() {
 
 /**
  * Path prefix when the built SPA is not at the domain root.
- * Empty when Pages source is /docs (served at sl1de.xyz/). Set to /docs when
- * Pages publishes repo root and the app lives under /docs/.
+ * Empty when the app is served at the domain root (sl1de.xyz/channels/…).
  */
 export function resolvePublicSitePath() {
   const raw = (import.meta.env.VITE_PUBLIC_SITE_PATH || '').trim();

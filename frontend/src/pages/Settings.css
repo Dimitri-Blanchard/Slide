@@ -4110,6 +4110,22 @@ body.settings-modal-open {
   width: min(400px, calc(100vw - 48px)) !important;
 }
 
+.banner-crop-area--server {
+  width: min(480px, calc(100vw - 48px));
+  aspect-ratio: 16 / 9;
+}
+
+.banner-crop-zoom--server {
+  width: min(480px, calc(100vw - 48px)) !important;
+}
+
+.ss-server-banner-preview .ss-server-banner-preview-banner,
+.ss-server-banner-preview .server-banner {
+  height: 120px;
+  min-height: 120px;
+  border-radius: 12px;
+}
+
 .avatar-carousel-container {
   display: flex;
   align-items: center;

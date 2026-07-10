@@ -1,11 +1,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AvatarImg } from './Avatar';
+import { AvatarImg, hasDefaultAvatar } from './Avatar';
+import { serverPath } from '../utils/appRoutes';
 import './MobileServerPicker.css';
 
 function ServerIcon({ team }) {
-  if (team.icon_url) {
-    return <AvatarImg src={team.icon_url} alt={team.name} className="msp-icon-img" />;
+  const avatarSrc = team.icon_url || team.avatar_url;
+  if (avatarSrc && !hasDefaultAvatar({ avatar_url: avatarSrc })) {
+    return <AvatarImg src={avatarSrc} alt={team.name} className="msp-icon-img" />;
   }
   const initials = team.name
     .split(/\s+/)
@@ -33,7 +35,7 @@ export default function MobileServerPicker({ teams, onCreateServer }) {
             <button
               key={team.id}
               className={`msp-item ${team.has_unread ? 'unread' : ''}`}
-              onClick={() => navigate(`/team/${team.id}`)}
+              onClick={() => navigate(serverPath(team.id))}
             >
               <div className="msp-icon">
                 <ServerIcon team={team} />

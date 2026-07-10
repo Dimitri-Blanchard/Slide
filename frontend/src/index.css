@@ -269,6 +269,18 @@ textarea::selection {
   color: var(--text-primary);
 }
 
+/* Aranja inline emojis hide Unicode via transparent text — keep hidden while selected */
+.input-inline-emoji::selection,
+.message-inline-emoji::selection {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+.input-inline-emoji::-moz-selection,
+.message-inline-emoji::-moz-selection {
+  color: transparent !important;
+}
+
 /* ═══════════════════════════════════════════════════════════
    AUTOFILL - Désactiver le fond jaune du navigateur
    ═══════════════════════════════════════════════════════════ */
@@ -298,7 +310,12 @@ textarea:-webkit-autofill:active {
   --bg-hover:     rgba(79, 110, 247, 0.05);
   --bg-active:    rgba(79, 110, 247, 0.09);
   --bg-floating:  #ffffff;
+  --bg-message:   var(--bg-primary);
   --bg-message-hover: rgba(0, 0, 0, 0.022);
+  --profile-modal-bg: var(--bg-floating);
+  --profile-modal-field-bg: var(--bg-tertiary);
+  --profile-modal-edge-shadow: 0 0 0 1px rgba(0, 0, 0, 0.10);
+  --profile-modal-panel-shadow: 0 0 0 1px rgba(0, 0, 0, 0.10);
   --channel-active: transparent;
   --input-bg:     #f0f2f7;
 
@@ -310,6 +327,13 @@ textarea:-webkit-autofill:active {
   --text-secondary: #3c4149;
   --text-muted:     #72767e;
   --text-link:      #4f6ef7;
+
+  /* Discord-style chat typography */
+  --font-chat: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --chat-text: #2e3338;
+  --chat-username: #060607;
+  --chat-timestamp: #5c6370;
+  --chat-line-height: 1.375;
 
   --border-subtle:  rgba(15, 17, 23, 0.06);
   --border-default: rgba(15, 17, 23, 0.11);
@@ -333,12 +357,12 @@ textarea:-webkit-autofill:active {
   --radius-lg: 12px;
   --radius-xl: 16px;
 
-  --shadow-sm:       0 1px 2px rgba(0,0,0,0.05), 0 1px 4px rgba(0,0,0,0.07);
-  --shadow-md:       0 2px 12px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.05);
-  --shadow-lg:       0 4px 24px rgba(0,0,0,0.09), 0 2px 8px rgba(0,0,0,0.05);
-  --shadow-soft:     0 4px 28px rgba(0,0,0,0.06);
-  --shadow-elevated: 0 8px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
-  --shadow-inner:    inset 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-sm:       0 1px 2px rgba(0,0,0,0.03), 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-md:       0 1px 2px rgba(0,0,0,0.03), 0 2px 8px rgba(0,0,0,0.04);
+  --shadow-lg:       0 2px 4px rgba(0,0,0,0.03), 0 4px 12px rgba(0,0,0,0.05);
+  --shadow-soft:     0 2px 6px rgba(0,0,0,0.03), 0 4px 14px rgba(0,0,0,0.04);
+  --shadow-elevated: 0 1px 2px rgba(0,0,0,0.03), 0 3px 10px rgba(0,0,0,0.04), 0 6px 18px rgba(0,0,0,0.04);
+  --shadow-inner:    inset 0 1px 2px rgba(0,0,0,0.03);
 
   /* ── Cosmic Ambient Layer (Grok/X.ai style: primary + white accents) ── */
   --cosmic-bg-orb-1: rgba(79, 110, 247, 0.19);
@@ -354,7 +378,7 @@ textarea:-webkit-autofill:active {
   --modal-overlay-blur:    20px;
   --modal-panel-bg:        var(--bg-floating);
   --modal-panel-border:    rgba(0, 0, 0, 0.07);
-  --modal-panel-shadow:    0 24px 64px rgba(0, 0, 0, 0.20), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  --modal-panel-shadow:    0 2px 6px rgba(0, 0, 0, 0.04), 0 6px 18px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
   --modal-panel-radius:    18px;
 
   /* ── Premium ── */
@@ -390,7 +414,12 @@ textarea:-webkit-autofill:active {
   --bg-hover:     rgba(79, 110, 247, 0.05);
   --bg-active:    rgba(79, 110, 247, 0.09);
   --bg-floating:  #ffffff;
+  --bg-message:   var(--bg-primary);
   --bg-message-hover: rgba(0, 0, 0, 0.022);
+  --profile-modal-bg: var(--bg-floating);
+  --profile-modal-field-bg: var(--bg-tertiary);
+  --profile-modal-edge-shadow: 0 0 0 1px rgba(0, 0, 0, 0.10);
+  --profile-modal-panel-shadow: 0 0 0 1px rgba(0, 0, 0, 0.10);
   --channel-active: transparent;
   --input-bg:     #f0f2f7;
 
@@ -402,6 +431,13 @@ textarea:-webkit-autofill:active {
   --text-secondary: #3c4149;
   --text-muted:     #72767e;
   --text-link:      #4f6ef7;
+
+  /* Discord-style chat typography */
+  --font-chat: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --chat-text: #2e3338;
+  --chat-username: #060607;
+  --chat-timestamp: #5c6370;
+  --chat-line-height: 1.375;
 
   --border-subtle:  rgba(15, 17, 23, 0.06);
   --border-default: rgba(15, 17, 23, 0.11);
@@ -420,18 +456,18 @@ textarea:-webkit-autofill:active {
   --danger:  #dc2626;
   --info:    #4f6ef7;
 
-  --shadow-sm:       0 1px 2px rgba(0,0,0,0.05), 0 1px 4px rgba(0,0,0,0.07);
-  --shadow-md:       0 2px 12px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.05);
-  --shadow-lg:       0 4px 24px rgba(0,0,0,0.09), 0 2px 8px rgba(0,0,0,0.05);
-  --shadow-soft:     0 4px 28px rgba(0,0,0,0.06);
-  --shadow-elevated: 0 8px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
-  --shadow-inner:    inset 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-sm:       0 1px 2px rgba(0,0,0,0.03), 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-md:       0 1px 2px rgba(0,0,0,0.03), 0 2px 8px rgba(0,0,0,0.04);
+  --shadow-lg:       0 2px 4px rgba(0,0,0,0.03), 0 4px 12px rgba(0,0,0,0.05);
+  --shadow-soft:     0 2px 6px rgba(0,0,0,0.03), 0 4px 14px rgba(0,0,0,0.04);
+  --shadow-elevated: 0 1px 2px rgba(0,0,0,0.03), 0 3px 10px rgba(0,0,0,0.04), 0 6px 18px rgba(0,0,0,0.04);
+  --shadow-inner:    inset 0 1px 2px rgba(0,0,0,0.03);
 
   --modal-overlay-bg:      rgba(6, 8, 14, 0.80);
   --modal-overlay-blur:    20px;
   --modal-panel-bg:        var(--bg-floating);
   --modal-panel-border:    rgba(0, 0, 0, 0.07);
-  --modal-panel-shadow:    0 24px 64px rgba(0, 0, 0, 0.20), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  --modal-panel-shadow:    0 2px 6px rgba(0, 0, 0, 0.04), 0 6px 18px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
   --modal-panel-radius:    18px;
 
   /* ── Premium (duplicate from :root for explicitness) ── */
@@ -459,24 +495,37 @@ textarea:-webkit-autofill:active {
    DARK THEME
    ═══════════════════════════════════════════════════════════ */
 [data-theme="dark"] {
-  --bg-primary:   #1e2026;
-  --bg-secondary: #181a20;
-  --bg-tertiary:  #252830;
+  --bg-primary:   #323339;
+  --bg-secondary: #2C2D32;
+  --bg-tertiary:  #2C2D32;
+  --bg-message:   #323339;
   --bg-hover:     rgba(255, 255, 255, 0.07);
   --bg-active:    rgba(255, 255, 255, 0.12);
-  --bg-floating:  #282a32;
-  --bg-message-hover: rgba(255, 255, 255, 0.04);
+  --bg-floating:  #404249;
+  --profile-modal-bg: #393A41;
+  --profile-modal-field-bg: #35353C;
+  --profile-modal-edge-shadow: 0 0 0 1px rgba(255, 255, 255, 0.20);
+  --profile-modal-panel-shadow: 0 0 0 1px rgba(255, 255, 255, 0.20);
+  --profile-modal-sheet-shadow: 0 0 0 1px rgba(255, 255, 255, 0.20);
+  --bg-message-hover: rgba(4, 4, 5, 0.07);
   --channel-active: rgba(255, 255, 255, 0.10);
-  --input-bg:     #2c2e36;
+  --input-bg:     #393A41;
 
-  --surface-1: #1e2026;
-  --surface-2: #262830;
-  --surface-3: #2e3038;
+  --surface-1: #2C2D32;
+  --surface-2: #323339;
+  --surface-3: #393A41;
 
-  --text-primary:   #f0f0f3;
-  --text-secondary: rgba(255, 255, 255, 0.82);
-  --text-muted:     rgba(255, 255, 255, 0.48);
-  --text-link:      #8b9cfd;
+  --text-primary:   #f2f3f5;
+  --text-secondary: #dbdee1;
+  --text-muted:     #949ba4;
+  --text-link:      #00a8fc;
+
+  /* Discord-style chat typography */
+  --font-chat: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --chat-text: #dbdee1;
+  --chat-username: #f2f3f5;
+  --chat-timestamp: #949ba4;
+  --chat-line-height: 1.375;
 
   --border-subtle:  rgba(255, 255, 255, 0.08);
   --border-default: rgba(255, 255, 255, 0.14);
@@ -502,12 +551,12 @@ textarea:-webkit-autofill:active {
   --radius-lg: 12px;
   --radius-xl: 16px;
 
-  --shadow-sm:       0 1px 3px rgba(0, 0, 0, 0.5);
-  --shadow-md:       0 4px 16px rgba(0, 0, 0, 0.55);
-  --shadow-lg:       0 8px 32px rgba(0, 0, 0, 0.6);
-  --shadow-soft:     0 4px 24px rgba(0, 0, 0, 0.5);
-  --shadow-elevated: 0 12px 48px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.35);
-  --shadow-inner:    inset 0 1px 2px rgba(0,0,0,0.35);
+  --shadow-sm:       0 1px 2px rgba(0, 0, 0, 0.16), 0 1px 3px rgba(0, 0, 0, 0.10);
+  --shadow-md:       0 1px 2px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.14);
+  --shadow-lg:       0 2px 4px rgba(0, 0, 0, 0.20), 0 4px 12px rgba(0, 0, 0, 0.16);
+  --shadow-soft:     0 2px 6px rgba(0, 0, 0, 0.18), 0 4px 14px rgba(0, 0, 0, 0.12);
+  --shadow-elevated: 0 1px 2px rgba(0, 0, 0, 0.18), 0 3px 10px rgba(0, 0, 0, 0.14), 0 6px 20px rgba(0, 0, 0, 0.10);
+  --shadow-inner:    inset 0 1px 2px rgba(0,0,0,0.18);
 
   /* ── Cosmic Ambient Layer ── */
   --cosmic-bg-orb-1: rgba(255, 255, 255, 0.035);
@@ -523,7 +572,7 @@ textarea:-webkit-autofill:active {
   --modal-overlay-blur:    20px;
   --modal-panel-bg:        var(--bg-floating);
   --modal-panel-border:    rgba(255, 255, 255, 0.16);
-  --modal-panel-shadow:    0 24px 80px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --modal-panel-shadow:    0 2px 6px rgba(0, 0, 0, 0.22), 0 6px 20px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.05);
   --modal-panel-radius:    18px;
 
   /* ── Premium ── */
@@ -544,21 +593,21 @@ textarea:-webkit-autofill:active {
   --btn-primary-border-hover: rgba(255, 255, 255, 0.24);
 
   /* ── Void Intelligence variables ── */
-  --bg-void: #14161a;
-  --bg-deep: #181a1f;
+  --bg-void: #1e1f22;
+  --bg-deep: #232428;
   --grid-line: rgba(255, 255, 255, 0.05);
   --grid-dot:  rgba(255, 255, 255, 0.03);
-  --bg-surface: #1e2026;
-  --bg-elevated: #262830;
+  --bg-surface: #2C2D32;
+  --bg-elevated: #393A41;
   --text-nebula: #d4d8de;
   --text-void-dim: rgba(255,255,255,0.55);
   --void-border-resting: rgba(255,255,255,0.08);
   --void-border-focus: rgba(255,255,255,0.35);
 
   /* ── Glassmorphism ── */
-  --glass-sidebar-bg: rgba(24, 26, 32, 0.88);
-  --glass-panel-bg:   rgba(32, 34, 42, 0.90);
-  --glass-float-bg:   rgba(38, 40, 48, 0.92);
+  --glass-sidebar-bg: rgba(44, 45, 50, 0.88);
+  --glass-panel-bg:   rgba(50, 51, 57, 0.90);
+  --glass-float-bg:   rgba(57, 58, 65, 0.92);
   --glass-blur:       blur(16px) saturate(120%);
   --glass-blur-sm:    blur(10px) saturate(110%);
   --glass-border-hi:  rgba(255, 255, 255, 0.10);
@@ -600,13 +649,19 @@ textarea:-webkit-autofill:active {
 [data-theme="dark"] .confirm-modal,
 [data-theme="dark"] .invite-modal,
 [data-theme="dark"] .cysm-modal,
-[data-theme="dark"] .csm-modal,
-[data-theme="dark"] .profile-card-popup,
-[data-theme="dark"] .profile-modal {
+[data-theme="dark"] .csm-modal {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   background: var(--bg-floating) !important;
   border-color: var(--border-default) !important;
+}
+
+[data-theme="dark"] .profile-card-popup,
+[data-theme="dark"] .profile-modal {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: var(--profile-modal-bg) !important;
+  border: none !important;
 }
 
 [data-theme="dark"] .page-enter {
@@ -709,10 +764,11 @@ button:focus-visible:not(:disabled),
 
 /* ═══════════════════════════════════════════════════════════
    DARK THEME — Server bar overrides (x.ai style)
-   ═══════════════════════════════════════════════════════════ */
+   No outset halo on active: Discord just morphs the squircle and shows the
+   left pill. The old outline-offset ring made the icon look like it "grew"
+   on click. */
 [data-theme="dark"] .server-icon-link.active {
-  outline: 2px solid rgba(255, 255, 255, 0.65);
-  outline-offset: 2px;
+  outline: none;
   box-shadow: none;
 }
 
@@ -778,6 +834,45 @@ button:focus-visible:not(:disabled),
 [data-theme="dark"] ::selection {
   background: rgba(97, 121, 248, 0.35);
   color: #ffffff;
+}
+
+[data-theme="dark"] .input-inline-emoji::selection,
+[data-theme="dark"] .message-inline-emoji::selection {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+[data-theme="dark"] .input-inline-emoji::-moz-selection,
+[data-theme="dark"] .message-inline-emoji::-moz-selection {
+  color: transparent !important;
+}
+
+/* Aranja inline emojis — fixed cell; transparent Unicode is clipped (no emoji-font advance) */
+.input-inline-emoji,
+.message-inline-emoji {
+  display: inline-block;
+  width: 1.375rem;
+  height: 1.375rem;
+  vertical-align: -0.25em;
+  position: relative;
+  overflow: hidden;
+  line-height: 1.375rem;
+  font-size: 1px;
+  font-family: inherit;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+.input-inline-emoji::before,
+.message-inline-emoji::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--emoji-url);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  pointer-events: none;
 }
 
 /* Scrollbar: ultra-thin, barely-there */
@@ -915,6 +1010,6 @@ button:focus-visible:not(:disabled),
 }
 
 [data-theme="dark"] .message-list::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 3px;
+  height: 3px;
 }

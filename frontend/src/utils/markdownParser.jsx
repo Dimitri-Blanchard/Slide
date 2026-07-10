@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { processTextWithAranjaEmojis } from './emojiAranja';
+import { emojifyText } from './emojiShortcodes';
+import { aranjaEmojiStyle } from './inlineAranjaEmoji';
 
 // ── Spoiler component ──────────────────────────────────────
 export const Spoiler = function Spoiler({ children }) {
@@ -93,11 +95,17 @@ function MarkdownCodeBlock({ code }) {
   );
 }
 
-// Groups: 1=codeblock, 2=inlinecode, 3=spoiler, 4=bold-italic***, 5=strike, 6=bold**, 7=bold__, 8=italic*, 9=italic_, 10=mention
+// Groups: 1=codeblock, 2=inlinecode, 3=spoiler, 4=bold-italic***, 5=strike, 6=bold**, 7=italic__, 8=italic*, 9=italic_, 10=mention
 export const MD_REGEX = /```([\s\S]*?)```|`([^`\n]+)`|\|\|([\s\S]+?)\|\||\*\*\*(.+?)\*\*\*|~~(.+?)~~|\*\*(.+?)\*\*|__(.+?)__|(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)|(?<!_)_(?!_)([^_\n]+?)(?<!_)_(?!_)|@(everyone|channel|[\w\s]+?)(?=[\s.,!?]|$)/g;
 
-// Detect if a string contains any markdown formatting
-export const HAS_MARKDOWN_RE = /```|`[^`\n]|\|\|[^|]|~~[^~]|\*\*[^*]|\*[^*\s]|__[^_]|_[^_\s]|^#{1,3} |^-# |^> /m;
+const BLOCK_MD_LINE_RE = /^(#{1,3} |-# |> )/;
+
+export function hasTextFormatting(text) {
+  if (!text || typeof text !== 'string') return false;
+  if (text.split('\n').some((line) => BLOCK_MD_LINE_RE.test(line))) return true;
+  const re = new RegExp(MD_REGEX.source, 'g');
+  return re.test(text);
+}
 
 const MESSAGE_URL_RE = /https?:\/\/[^\s<>'"]+/g;
 
@@ -123,7 +131,14 @@ function isEmphasisMarkdownMatch(match) {
   return false;
 }
 
-function processPlainTextWithAranja(text, keyRef) {
+function renderEmphasisContent(text, keyRef, currentUserName, mentionUsers, onMentionClick) {
+  if (!text) return null;
+  const nodes = parseInlineMarkdown(text, currentUserName, keyRef.current, mentionUsers, onMentionClick);
+  keyRef.current += 500;
+  return nodes.length > 0 ? nodes : text;
+}
+
+function processPlainTextInline(text, keyRef) {
   const processed = processTextWithAranjaEmojis(text);
   const nodes = [];
   for (const p of processed) {
@@ -149,7 +164,17 @@ function processPlainTextWithAranja(text, keyRef) {
         nodes.push(p);
       }
     } else {
-      nodes.push(<img key={keyRef.current++} src={p.url} alt={p.alt} className="message-inline-emoji" />);
+      nodes.push(
+        <span
+          key={keyRef.current++}
+          className="message-inline-emoji"
+          role="img"
+          aria-label={p.alt}
+          style={aranjaEmojiStyle(p.url)}
+        >
+          {p.alt}
+        </span>
+      );
     }
   }
   return nodes.length > 0 ? nodes : [text];
@@ -166,18 +191,20 @@ export function resolveMentionUser(mentionName, mentionUsers) {
 
 export function parseInlineMarkdown(text, currentUserName = '', baseKey = 0, mentionUsers = [], onMentionClick = null) {
   if (!text) return [];
+  // Resolve :shortcode: before markdown so underscores in names are not parsed as emphasis.
+  const source = emojifyText(text);
   const parts = [];
   let lastIndex = 0;
   const keyRef = { current: baseKey };
-  const urlRanges = getUrlRanges(text);
+  const urlRanges = getUrlRanges(source);
   let match;
   const re = new RegExp(MD_REGEX.source, 'g');
-  while ((match = re.exec(text)) !== null) {
+  while ((match = re.exec(source)) !== null) {
     const matchStart = match.index;
     const matchEnd = match.index + match[0].length;
     if (isEmphasisMarkdownMatch(match) && overlapsUrl(matchStart, matchEnd, urlRanges)) continue;
     if (match.index > lastIndex) {
-      parts.push(...processPlainTextWithAranja(text.substring(lastIndex, match.index), keyRef));
+      parts.push(...processPlainTextInline(source.substring(lastIndex, match.index), keyRef));
     }
     if (match[1] !== undefined) {
       const codeContent = match[1].trim();
@@ -185,19 +212,19 @@ export function parseInlineMarkdown(text, currentUserName = '', baseKey = 0, men
     } else if (match[2] !== undefined) {
       parts.push(<code key={keyRef.current++} className="md-code">{match[2]}</code>);
     } else if (match[3] !== undefined) {
-      parts.push(<Spoiler key={keyRef.current++}>{match[3]}</Spoiler>);
+      parts.push(<Spoiler key={keyRef.current++}>{renderEmphasisContent(match[3], keyRef, currentUserName, mentionUsers, onMentionClick)}</Spoiler>);
     } else if (match[4] !== undefined) {
-      parts.push(<strong key={keyRef.current++}><em>{match[4]}</em></strong>);
+      parts.push(<strong key={keyRef.current++}><em>{renderEmphasisContent(match[4], keyRef, currentUserName, mentionUsers, onMentionClick)}</em></strong>);
     } else if (match[5] !== undefined) {
-      parts.push(<del key={keyRef.current++}>{match[5]}</del>);
+      parts.push(<del key={keyRef.current++}>{renderEmphasisContent(match[5], keyRef, currentUserName, mentionUsers, onMentionClick)}</del>);
     } else if (match[6] !== undefined) {
-      parts.push(<strong key={keyRef.current++}>{match[6]}</strong>);
+      parts.push(<strong key={keyRef.current++}>{renderEmphasisContent(match[6], keyRef, currentUserName, mentionUsers, onMentionClick)}</strong>);
     } else if (match[7] !== undefined) {
-      parts.push(<strong key={keyRef.current++}>{match[7]}</strong>);
+      parts.push(<em key={keyRef.current++}>{renderEmphasisContent(match[7], keyRef, currentUserName, mentionUsers, onMentionClick)}</em>);
     } else if (match[8] !== undefined) {
-      parts.push(<em key={keyRef.current++}>{match[8]}</em>);
+      parts.push(<em key={keyRef.current++}>{renderEmphasisContent(match[8], keyRef, currentUserName, mentionUsers, onMentionClick)}</em>);
     } else if (match[9] !== undefined) {
-      parts.push(<em key={keyRef.current++}>{match[9]}</em>);
+      parts.push(<em key={keyRef.current++}>{renderEmphasisContent(match[9], keyRef, currentUserName, mentionUsers, onMentionClick)}</em>);
     } else if (match[10] !== undefined) {
       const mentionName = match[10];
       const isSpecial = mentionName === 'everyone' || mentionName === 'channel';
@@ -217,8 +244,8 @@ export function parseInlineMarkdown(text, currentUserName = '', baseKey = 0, men
     }
     lastIndex = match.index + match[0].length;
   }
-  if (lastIndex < text.length) {
-    parts.push(...processPlainTextWithAranja(text.substring(lastIndex), keyRef));
+  if (lastIndex < source.length) {
+    parts.push(...processPlainTextInline(source.substring(lastIndex), keyRef));
   }
   return parts.length > 0 ? parts : [text];
 }

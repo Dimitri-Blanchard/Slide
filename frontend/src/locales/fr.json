@@ -734,6 +734,8 @@
     "forMe": "Pour moi",
     "forAll": "Pour tous",
     "ok": "OK",
+    "editHintEscape": "échap pour",
+    "editHintEnter": "entrée pour",
     "image": "Image",
     "file": "Fichier",
     "user": "Utilisateur",

@@ -870,10 +870,22 @@ export const servers = {
     return res.json();
   },
 
-  uploadBanner: async (teamId, file) => {
+  uploadBanner: async (teamId, file, cropParams) => {
     const token = getToken();
     const formData = new FormData();
     formData.append('banner', file);
+    if (
+      cropParams != null &&
+      typeof cropParams.width === 'number' &&
+      cropParams.width > 0 &&
+      typeof cropParams.height === 'number' &&
+      cropParams.height > 0
+    ) {
+      formData.append('cropX', String(cropParams.x));
+      formData.append('cropY', String(cropParams.y));
+      formData.append('cropWidth', String(cropParams.width));
+      formData.append('cropHeight', String(cropParams.height));
+    }
     const res = await fetch(`${API_BASE}/servers/${teamId}/banner`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
@@ -1074,6 +1086,19 @@ export const direct = {
     }),
   getReads: (conversationId) =>
     api(`/direct/conversations/${conversationId}/reads`),
+};
+
+export const localPrivate = {
+  requests: () => api('/local-private-chats/requests'),
+  createRequest: (userId) =>
+    api('/local-private-chats/requests', {
+      method: 'POST',
+      body: JSON.stringify({ userId, targetUserId: userId, recipientId: userId }),
+    }),
+  acceptRequest: (userId) =>
+    api(`/local-private-chats/requests/${encodeURIComponent(userId)}/accept`, { method: 'POST' }),
+  declineRequest: (userId) =>
+    api(`/local-private-chats/requests/${encodeURIComponent(userId)}`, { method: 'DELETE' }),
 };
 
 export const users = {

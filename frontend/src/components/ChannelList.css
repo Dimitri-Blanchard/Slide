@@ -79,22 +79,34 @@
 
 .channel-sidebar-top--banner .server-banner {
   position: relative;
-  border-bottom: var(--hairline-width) solid var(--panel-divider, var(--border-subtle));
+  border-bottom: none;
 }
 
-/* Fade banner into header row */
-.channel-sidebar-top--banner .server-banner::after {
-  content: '';
+/* Banner visible: only the banner slot takes height — header floats on top */
+.channel-sidebar-top--banner:not(.channel-sidebar-top--banner-collapsed) {
+  min-height: 0;
+}
+
+.channel-sidebar-top--banner:not(.channel-sidebar-top--banner-collapsed) .server-header--over-banner {
   position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to bottom,
-    transparent 35%,
-    color-mix(in srgb, var(--bg-secondary) 40%, transparent) 72%,
-    var(--bg-secondary) 100%
-  );
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
   pointer-events: none;
-  z-index: 1;
+}
+
+.channel-sidebar-top--banner:not(.channel-sidebar-top--banner-collapsed) .server-header--over-banner .server-header-row,
+.channel-sidebar-top--banner:not(.channel-sidebar-top--banner-collapsed) .server-header--over-banner .server-dropdown {
+  pointer-events: auto;
+}
+
+.channel-sidebar-top--banner-collapsed .channel-sidebar-banner-slot {
+  display: none;
+}
+
+.channel-sidebar-top--banner-collapsed .server-header {
+  border-bottom: var(--hairline-width) solid var(--panel-divider, var(--border-subtle));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -105,13 +117,21 @@
   flex-shrink: 0;
 }
 
-.server-header-btn {
+.server-header-row {
+  display: flex;
+  align-items: stretch;
   width: 100%;
+  min-height: 48px;
+}
+
+.server-header-btn {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 0 16px;
-  height: 52px;
+  height: 48px;
+  min-height: 48px;
   background: transparent;
   border: none;
   border-bottom: none;
@@ -120,6 +140,141 @@
   transition: background 0.12s ease;
   text-align: left;
   box-shadow: none;
+}
+
+.server-header-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.server-header-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.server-header-avatar,
+.server-header-initials {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.server-header-avatar .avatar-img-wrap,
+.server-header-avatar img,
+.server-header-avatar canvas {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.server-header-avatar img,
+.server-header-avatar canvas {
+  object-fit: cover;
+}
+
+.server-header-initials {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+/* Over banner: white label, transparent — banner shows through */
+.server-header-row:has(.server-header-btn--over-banner) {
+  position: relative;
+  min-height: 48px;
+}
+
+.server-header-row:has(.server-header-btn--over-banner)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: transparent;
+  transition: background 0.15s ease;
+  pointer-events: none;
+}
+
+.server-header-row:has(.server-header-btn--over-banner):hover::before,
+.server-header-row:has(.server-header-btn--over-banner):has(.open)::before {
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
+}
+
+.server-header-row:has(.server-header-btn--over-banner) .server-header-btn,
+.server-header-row:has(.server-header-btn--over-banner) .server-header-invite-btn {
+  position: relative;
+  z-index: 1;
+}
+
+.server-header-btn--over-banner {
+  color: #fff;
+  padding: 0 8px;
+  height: 48px;
+  min-height: 48px;
+  background: transparent !important;
+}
+
+.server-header-btn--over-banner .server-header-name {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+}
+
+.server-header-btn--over-banner .server-header-chevron {
+  opacity: 1;
+  color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+.server-header-btn:hover,
+.server-header-btn.open {
+  background: var(--bg-hover);
+}
+
+.server-header-btn--over-banner:hover,
+.server-header-btn--over-banner.open {
+  background: transparent !important;
+}
+
+.server-header-invite-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: none;
+  background: transparent !important;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+.server-header-invite-btn:hover {
+  color: #fff;
+  opacity: 0.92;
+}
+
+/* No banner: standard row height */
+.channel-sidebar-top:not(.channel-sidebar-top--banner) .server-header-btn {
+  width: 100%;
+  height: 52px;
+  min-height: 52px;
 }
 
 /* Top-left radius only when there is no banner above */
@@ -138,13 +293,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 1;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .server-header-chevron {
   flex-shrink: 0;
   transition: transform 0.2s;
   opacity: 0.7;
+  margin-left: 2px;
 }
 
 .boost-badge {
@@ -249,21 +406,16 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding: 0 0 8px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(15, 17, 23, 0.14) transparent;
+  /* Must win over index.css / [data-theme="dark"] * scrollbar rules */
+  scrollbar-width: none !important;
+  scrollbar-color: transparent transparent !important;
+  -ms-overflow-style: none;
 }
 
 .channel-list-scroll::-webkit-scrollbar {
-  width: 4px;
-}
-
-.channel-list-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.channel-list-scroll::-webkit-scrollbar-thumb {
-  background: rgba(15, 17, 23, 0.14);
-  border-radius: 4px;
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
 }
 
 /* Category */
@@ -761,6 +913,14 @@
   flex-shrink: 0;
   width: 20px;
   justify-content: center;
+  color: var(--text-muted);
+}
+
+/* Discord rhythm: glyph sits a touch dimmer than the label at rest,
+   both brighten together on hover/active. */
+.channel-icon svg {
+  opacity: 0.78;
+  transition: opacity 0.12s ease;
 }
 
 .channel-item:hover .channel-icon svg,
@@ -1917,6 +2077,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.vsb-channel--open-call {
+  cursor: pointer;
+}
+
+.vsb-channel--open-call:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
 }
 
 .vsb-controls {

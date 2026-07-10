@@ -12,6 +12,7 @@ const ServerBanner = memo(function ServerBanner({
   className = '',
   gifAnimate = false,
   alt = '',
+  style,
 }) {
   if (!bannerUrl) return null;
 
@@ -24,7 +25,7 @@ const ServerBanner = memo(function ServerBanner({
     return (
       <div
         className={`server-banner server-banner--static ${className}`.trim()}
-        style={{ backgroundImage: `url(${src})` }}
+        style={{ backgroundImage: `url(${src})`, ...style }}
         role="img"
         aria-label={alt}
       />
@@ -35,6 +36,7 @@ const ServerBanner = memo(function ServerBanner({
     <div
       ref={containerRef}
       className={`server-banner server-banner--gif ${className}`.trim()}
+      style={style}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       role="img"

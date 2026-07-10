@@ -9,7 +9,7 @@
   height: 52px;
   min-height: 52px;
   border-bottom: var(--hairline-width) solid var(--border-subtle);
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
   z-index: 2;
 }
 

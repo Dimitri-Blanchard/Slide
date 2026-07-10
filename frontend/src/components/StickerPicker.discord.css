@@ -1,0 +1,365 @@
+/* Popover — anchored to message action buttons (right side) */
+
+.sticker-panel.sticker-panel-popover {
+  background: var(--picker-bg) !important;
+}
+
+/* Search */
+.sticker-panel-popover .picker-search-row {
+  padding: 12px 12px 8px;
+}
+
+.sticker-panel-popover .picker-search-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--picker-bg-deep);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 0 12px;
+  min-height: 38px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.sticker-panel-popover .picker-search-wrapper:focus-within {
+  background: var(--picker-bg);
+  border-color: var(--border-default);
+}
+
+.sticker-panel-popover .picker-search-icon {
+  width: 17px;
+  height: 17px;
+  color: var(--picker-muted);
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.sticker-panel-popover .picker-search-input {
+  flex: 1;
+  padding: 8px 6px;
+  font-size: 0.9375rem;
+  color: var(--picker-text);
+  min-width: 0;
+}
+
+.sticker-panel-popover .picker-search-clear {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  color: var(--picker-muted);
+}
+
+.sticker-panel-popover .picker-search-clear:hover {
+  background: var(--picker-hover);
+  color: var(--picker-text);
+}
+
+.sticker-panel-popover .picker-tab-content,
+.sticker-panel-popover .picker-body,
+.sticker-panel-popover .picker-main,
+.sticker-panel-popover .picker-sidebar {
+  background: var(--picker-bg);
+}
+
+.sticker-panel-popover .stickers-picker-content .picker-body {
+  padding-top: 4px;
+}
+
+/* Left category rail — wider, no scrollbar */
+.sticker-panel-popover .picker-sidebar {
+  width: 52px;
+  padding: 6px 0;
+  gap: 2px;
+  border-right: 1px solid var(--picker-divider);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.sticker-panel-popover .picker-sidebar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.sticker-panel-popover .picker-sidebar-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  opacity: 0.5;
+  color: var(--picker-muted);
+}
+
+.sticker-panel-popover .picker-sidebar-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.sticker-panel-popover .picker-sidebar-btn img {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+
+.sticker-panel-popover .picker-sidebar-pack img {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.sticker-panel-popover .picker-sidebar-btn:hover:not(:disabled) {
+  background: var(--picker-hover);
+  opacity: 0.8;
+}
+
+.sticker-panel-popover .picker-sidebar-btn.active {
+  background: var(--picker-active);
+  opacity: 1;
+}
+
+.sticker-panel-popover .picker-sidebar-btn.active::before {
+  display: none;
+}
+
+.sticker-panel-popover .picker-main {
+  padding: 0 8px 8px 4px;
+}
+
+.sticker-panel-popover .picker-section-header {
+  margin-bottom: 4px;
+  padding: 6px 2px 2px;
+  background: var(--picker-bg);
+  color: var(--picker-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.sticker-panel-popover .emoji-grid {
+  grid-template-columns: repeat(8, 1fr);
+  gap: 1px;
+}
+
+.sticker-panel-popover .emoji-item {
+  font-size: 1.25rem;
+  border-radius: 4px;
+}
+
+.sticker-panel-popover .emoji-item:hover {
+  background: var(--picker-hover);
+}
+
+.sticker-panel-popover .sticker-panel-grid {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.sticker-panel-popover .sticker-item:hover {
+  background: var(--picker-hover);
+  transform: none;
+}
+
+.sticker-panel-popover .gif-masonry {
+  gap: 4px;
+}
+
+.sticker-panel-popover .gif-item {
+  border-radius: 4px;
+}
+
+.sticker-panel-popover .picker-gif-credit {
+  display: block;
+  text-align: center;
+  padding: 10px 0 4px;
+  font-size: 0.6875rem;
+  color: var(--picker-muted);
+  opacity: 0.45;
+  text-decoration: none;
+}
+
+.sticker-panel-popover .picker-gif-credit:hover {
+  opacity: 0.7;
+  color: var(--picker-muted);
+}
+
+/* GIF tab — category tiles */
+.gif-picker-search-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gif-picker-back {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--picker-muted);
+  cursor: pointer;
+}
+
+.gif-picker-back:hover {
+  background: var(--picker-hover);
+  color: var(--picker-text);
+}
+
+.gif-picker-back svg {
+  width: 18px;
+  height: 18px;
+}
+
+.gif-picker-search-row .picker-search-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+/* GIF categories — square image tiles (Klipy categories) */
+.sticker-panel-popover .gif-categories-fullscreen {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 4px 8px 8px;
+}
+
+.sticker-panel-popover .gif-categories-grid.gif-categories-grid-full {
+  flex: 1;
+  min-height: 0;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: auto;
+  align-content: start;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.sticker-panel-popover .gif-categories-grid-full::-webkit-scrollbar {
+  display: none;
+}
+
+/* padding-bottom trick — reliable squares even when children are absolute */
+.sticker-panel-popover .gif-categories-grid-full .gif-category-tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 0 100% !important;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--surface-2) 0%, var(--surface-3) 100%);
+}
+
+.sticker-panel-popover .gif-category-tile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.08) 20%, rgba(0, 0, 0, 0.62) 100%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.sticker-panel-popover .gif-tile-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.58;
+  z-index: 0;
+}
+
+.sticker-panel-popover .gif-category-tile:hover .gif-tile-bg {
+  opacity: 0.68;
+}
+
+.sticker-panel-popover .gif-tile-icon {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  font-size: 1.1rem;
+  color: #ffd700;
+}
+
+.sticker-panel-popover .gif-tile-label {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 2;
+  margin: 0;
+  text-align: left;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 3px 7px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  color: white;
+}
+
+.sticker-panel-popover .gif-tile-count {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  margin: 0;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  font-size: 0.65rem;
+  color: white;
+}
+
+.sticker-panel-popover .gif-tile-favorites {
+  background: var(--accent-gradient, linear-gradient(135deg, #4f6ef7 0%, #3d5ce5 100%));
+}
+
+.sticker-panel-popover .gif-tile-favorites .gif-tile-label {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.sticker-panel-popover .gif-browse-main {
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 768px) {
+  .sticker-panel-popover {
+    right: 0;
+    left: auto;
+    width: min(400px, calc(100vw - 16px));
+    height: min(400px, 46vh);
+    max-height: 46vh;
+    bottom: calc(100% + 6px);
+  }
+
+  .sticker-panel-popover .gif-categories-grid-full .gif-category-tile {
+    padding: 0 0 100% !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    display: block;
+  }
+
+  .sticker-panel-popover .emoji-grid {
+    grid-template-columns: repeat(7, 1fr);
+  }
+}

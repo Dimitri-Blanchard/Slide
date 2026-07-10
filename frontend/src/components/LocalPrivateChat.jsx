@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, Clock, Lock, ShieldAlert } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { users as usersApi } from '../api';
+import { users as usersApi, localPrivate as localPrivateApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useNotification } from '../context/NotificationContext';
@@ -56,13 +56,23 @@ const LocalPrivateChat = memo(function LocalPrivateChat({ peerUserId, isMobile }
   const [identity, setIdentity] = useState(null);
   const [peerPublicKey, setPeerPublicKey] = useState(null);
   const [readyError, setReadyError] = useState('');
+  const [localChat, setLocalChat] = useState(null);
   const endRef = useRef(null);
 
   const peerId = String(peerUserId || '');
   const currentUserId = user?.id != null ? String(user.id) : '';
   const isAvailable = isLocalPrivateChatAvailable();
-  const canSendEncrypted = !!(identity?.privateKey && peerPublicKey && socket?.connected);
-  const isWaitingForPeer = isAvailable && !readyError && socket?.connected && !peerPublicKey;
+  const isIncomingPending = !!localChat && !localChat.initiated_by_me && !localChat.accepted;
+  const canSendEncrypted = !!(identity?.privateKey && peerPublicKey && socket?.connected && !isIncomingPending);
+  const isWaitingForPeer = isAvailable && !readyError && socket?.connected && !peerPublicKey && !isIncomingPending;
+
+  useEffect(() => {
+    if (!currentUserId || !peerId) return;
+    const syncLocalChat = () => setLocalChat(getLocalPrivateChat(currentUserId, peerId));
+    syncLocalChat();
+    window.addEventListener('slide:local-private-chats-changed', syncLocalChat);
+    return () => window.removeEventListener('slide:local-private-chats-changed', syncLocalChat);
+  }, [currentUserId, peerId]);
 
   const hydrateMessages = useCallback(async (privateKey, publicKey) => {
     if (!currentUserId || !peerId || !privateKey || !publicKey) return;
@@ -139,7 +149,9 @@ const LocalPrivateChat = memo(function LocalPrivateChat({ peerUserId, isMobile }
 
   useEffect(() => {
     if (!socket || !identity?.publicJwk || !currentUserId || !peerId) return;
-    if (!getLocalPrivateChat(currentUserId, peerId)) return;
+    const chat = getLocalPrivateChat(currentUserId, peerId);
+    if (!chat) return;
+    if (!chat.initiated_by_me && !chat.accepted) return;
     announceKey();
     socket.on('connect', announceKey);
     const interval = setInterval(announceKey, 15000);
@@ -157,8 +169,9 @@ const LocalPrivateChat = memo(function LocalPrivateChat({ peerUserId, isMobile }
       if (String(fromUserId) !== peerId || !publicKey) return;
       const existing = getLocalPrivateChat(currentUserId, peerId);
       storePeerPublicKey(currentUserId, peerId, publicKey);
-      setPeerPublicKey(publicKey);
       if (fromUser) setPeer((prev) => ({ ...(prev || {}), ...fromUser }));
+      if (existing && !existing.initiated_by_me && !existing.accepted) return;
+      setPeerPublicKey(publicKey);
       upsertLocalPrivateChat(currentUserId, fromUser || { id: peerId }, {
         last_message_preview: 'Chat privé local accepté',
         last_message_at: new Date().toISOString(),
@@ -225,12 +238,36 @@ const LocalPrivateChat = memo(function LocalPrivateChat({ peerUserId, isMobile }
 
   const title = peer?.display_name || peer?.username || `User ${peerId}`;
 
+  const handleAcceptRequest = useCallback(async () => {
+    if (!currentUserId || !peerId || !peer) return;
+    try {
+      await localPrivateApi.acceptRequest(peerId);
+      upsertLocalPrivateChat(currentUserId, peer, {
+        last_message_preview: 'Chat privé local accepté',
+        last_message_at: new Date().toISOString(),
+        accepted: true,
+        initiated_by_me: false,
+        unread_count: 0,
+      });
+      const storedPeerKey = getStoredPeerPublicKey(currentUserId, peerId);
+      if (storedPeerKey) {
+        setPeerPublicKey(storedPeerKey);
+        if (identity?.privateKey) hydrateMessages(identity.privateKey, storedPeerKey);
+      }
+      announceKey();
+    } catch (err) {
+      notify.error(err.message || 'Impossible d’accepter la demande de chat privé local');
+    }
+  }, [announceKey, currentUserId, hydrateMessages, identity?.privateKey, notify, peer, peerId]);
+
   const sendMessage = useCallback(async (content) => {
     const text = String(content || '').trim();
     if (!text) return null;
     if (!canSendEncrypted) {
       const message = !socket?.connected
         ? 'Connexion socket indisponible.'
+        : isIncomingPending
+          ? `Tu dois accepter la demande de ${title} avant d’envoyer un message.`
         : `${title} doit accepter le chat privé local avant que tu puisses envoyer un message.`;
       announceKey();
       throw new Error(message);
@@ -278,15 +315,16 @@ const LocalPrivateChat = memo(function LocalPrivateChat({ peerUserId, isMobile }
       encryptedPayload,
     }));
     return { id, content: text };
-  }, [announceKey, canSendEncrypted, currentUserId, identity?.privateKey, notify, peer, peerId, peerPublicKey, socket, title, user]);
+  }, [announceKey, canSendEncrypted, currentUserId, identity?.privateKey, isIncomingPending, notify, peer, peerId, peerPublicKey, socket, title, user]);
 
   const statusText = useMemo(() => {
     if (!isAvailable) return 'Disponible dans l’app Slide (mobile ou desktop).';
     if (readyError) return readyError;
+    if (isIncomingPending) return `Demande reçue de ${title}, en attente de ton acceptation`;
     if (!socket?.connected) return 'Connexion au relais en cours...';
     if (!peerPublicKey) return `Invitation envoyée, en attente de l’acceptation de ${title}`;
     return 'Chat local chiffré de bout en bout';
-  }, [isAvailable, peerPublicKey, readyError, socket?.connected, title]);
+  }, [isAvailable, isIncomingPending, peerPublicKey, readyError, socket?.connected, title]);
 
   if (!isAvailable) {
     return (
@@ -319,19 +357,28 @@ const LocalPrivateChat = memo(function LocalPrivateChat({ peerUserId, isMobile }
       <div className="local-private-notice">
         {canSendEncrypted
           ? 'Messages chiffrés et stockés uniquement sur cet appareil. Le serveur ne voit jamais le contenu.'
+          : isIncomingPending
+            ? `${title} te demande un chat privé local. Si tu acceptes, la demande est retirée du serveur et l’échange devient local/chiffré.`
           : `${title} peut accepter sur n’importe quel appareil (téléphone ou PC). L’historique reste local à chaque appareil.`}
       </div>
 
       <div className="local-private-messages">
         {messages.length === 0 ? (
           <div className="local-private-empty">
-            {isWaitingForPeer ? <Clock size={32} /> : <Lock size={32} />}
-            <h2>{isWaitingForPeer ? 'Invitation en attente' : 'Chat privé local'}</h2>
+            {isWaitingForPeer || isIncomingPending ? <Clock size={32} /> : <Lock size={32} />}
+            <h2>{isIncomingPending ? 'Demande de chat privé' : isWaitingForPeer ? 'Invitation en attente' : 'Chat privé local'}</h2>
             <p>
-              {isWaitingForPeer
+              {isIncomingPending
+                ? `Accepte la demande de ${title} pour créer ce chat sur cet appareil.`
+                : isWaitingForPeer
                 ? `${title} doit accepter de créer ce chat privé local avant que les messages puissent être envoyés.`
                 : 'Les messages sont gardés localement sous forme chiffrée et le serveur ne reçoit jamais le contenu lisible.'}
             </p>
+            {isIncomingPending && (
+              <button type="button" className="local-private-accept-btn" onClick={handleAcceptRequest}>
+                Accepter le chat privé local
+              </button>
+            )}
           </div>
         ) : (
           messages.map((msg) => {
@@ -352,7 +399,11 @@ const LocalPrivateChat = memo(function LocalPrivateChat({ peerUserId, isMobile }
       <div className="local-private-input">
         <MessageInput
           onSend={sendMessage}
-          placeholder={canSendEncrypted ? `Message privé local à ${title}` : `En attente que ${title} accepte...`}
+          placeholder={canSendEncrypted
+            ? `Message privé local à ${title}`
+            : isIncomingPending
+              ? 'Accepte la demande avant d’envoyer un message'
+              : `En attente que ${title} accepte...`}
           draftKey={`local_private_${currentUserId}_${peerId}`}
           maxFileSize={0}
         />

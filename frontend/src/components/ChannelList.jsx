@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { hapticImpact } from '../utils/nativeHaptics';
 import ConfirmModal from './ConfirmModal';
 import ClickableAvatar from './ClickableAvatar';
+import { AvatarImg, hasDefaultAvatar } from './Avatar';
 import ChannelSettings from './ChannelSettings';
 import ContextMenu from './ContextMenu';
 import ProfileCard from './ProfileCard';
@@ -22,6 +23,9 @@ import AppIcon from './icons/AppIcon';
 import ServerMobileMenuSheet from './ServerMobileMenuSheet';
 import MobileSidebarUserBar from './MobileSidebarUserBar';
 import ServerBanner from './ServerBanner';
+import { SERVER_BANNER_FULL_HEIGHT } from '../constants/serverBanner';
+import { serverChannelPath, serverChannelSettingsPath } from '../utils/appRoutes';
+import { publicSiteRoute } from '../utils/publicSiteUrl';
 import './ChannelList.css';
 
 const MobileChannelToolbar = memo(function MobileChannelToolbar({ onOpenSearch, onInvite }) {
@@ -60,11 +64,11 @@ const channelIcons = {
   text: <AppIcon name="channelText" size={18} />,
   voice: <AppIcon name="channelVoice" size={18} />,
   announcement: <AppIcon name="channelAnnouncement" size={18} />,
-  stage: <AppIcon name="check" size={18} />,
+  stage: <AppIcon name="channelStage" size={18} />,
   forum: <AppIcon name="channelForum" size={18} />,
 };
 
-const ServerHeader = memo(function ServerHeader({ team, onOpenSettings, onInvite, onCreateChannel, onCreateCategory, onLeave, isMobile = false, canOpenServerSettings = false }) {
+const ServerHeader = memo(function ServerHeader({ team, onOpenSettings, onInvite, onCreateChannel, onCreateCategory, onLeave, isMobile = false, canOpenServerSettings = false, overBanner = false }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const compactTouch = useCompactTouchUi();
@@ -80,25 +84,56 @@ const ServerHeader = memo(function ServerHeader({ team, onOpenSettings, onInvite
   }, [dropdownOpen, compactTouch]);
 
   if (!team) return null;
+  const hasServerAvatar = !!team.avatar_url && !hasDefaultAvatar({ avatar_url: team.avatar_url });
+  const serverInitials = (team.name || '?').slice(0, 2).toUpperCase();
 
   return (
-    <div className="server-header" ref={dropdownRef}>
-      <button className={`server-header-btn ${dropdownOpen ? 'open' : ''}`} onClick={() => setDropdownOpen(!dropdownOpen)}>
-        <span className="server-header-name">{team.name}</span>
-        {team?.boost_level > 0 && (
-          <span className="boost-badge" title={`Server Boost Level ${team.boost_level}`}>
-            <AppIcon name="nitro" size={10} />
-            Level {team.boost_level}
+    <div className={`server-header${overBanner ? ' server-header--over-banner' : ''}`} ref={dropdownRef}>
+      <div className={`server-header-row${dropdownOpen ? ' open' : ''}`}>
+        <button
+          type="button"
+          className={`server-header-btn${overBanner ? ' server-header-btn--over-banner' : ''}${dropdownOpen ? ' open' : ''}`}
+          onClick={() => setDropdownOpen(!dropdownOpen)}
+        >
+          <span className="server-header-main">
+            {overBanner && (
+              <span className="server-header-icon" aria-hidden="true">
+                {hasServerAvatar ? (
+                  <span className="server-header-avatar">
+                    <AvatarImg src={team.avatar_url} alt={team.name} />
+                  </span>
+                ) : (
+                  <span className="server-header-initials">{serverInitials}</span>
+                )}
+              </span>
+            )}
+            <span className="server-header-name">{team.name}</span>
+            {!overBanner && team?.boost_level > 0 && (
+              <span className="boost-badge" title={`Server Boost Level ${team.boost_level}`}>
+                <AppIcon name="nitro" size={10} />
+                Level {team.boost_level}
+              </span>
+            )}
+            {dropdownOpen ? (
+              <AppIcon name="close" size={18} className="server-header-chevron" weight="bold" />
+            ) : isMobile ? (
+              <AppIcon name="caretDown" size={16} className="server-header-chevron server-header-chevron--right" weight="bold" />
+            ) : (
+              <AppIcon name="caretDown" size={16} className="server-header-chevron" weight="bold" />
+            )}
           </span>
+        </button>
+        {overBanner && (
+          <button
+            type="button"
+            className="server-header-invite-btn"
+            onClick={(e) => { e.stopPropagation(); onInvite?.(); }}
+            aria-label={t('server.invitePeople') || 'Invite People'}
+          >
+            <AppIcon name="userPlus" size={20} weight="bold" />
+          </button>
         )}
-        {dropdownOpen ? (
-          <AppIcon name="close" size={18} className="server-header-chevron" weight="bold" />
-        ) : isMobile ? (
-          <AppIcon name="caretDown" size={16} className="server-header-chevron server-header-chevron--right" weight="bold" />
-        ) : (
-          <AppIcon name="caretDown" size={18} className="server-header-chevron" weight="bold" />
-        )}
-      </button>
+      </div>
       {dropdownOpen && compactTouch ? (
         <ServerMobileMenuSheet
           team={team}
@@ -169,7 +204,7 @@ const ChannelContextMenu = memo(function ChannelContextMenu({ x, y, channel, tea
       label: 'Copy Link',
       icon: <AppIcon name="link" size={16} />,
       onClick: () => {
-        const link = `${window.location.origin}/team/${teamId}/channel/${channel.id}`;
+        const link = publicSiteRoute(serverChannelPath(teamId, channel.id));
         navigator.clipboard?.writeText(link).then(() => {}, () => {});
       },
     },
@@ -898,7 +933,7 @@ const ChannelItem = memo(function ChannelItem({
       onVoiceJoinRequest?.(channel);
       return;
     }
-    navigate(`/team/${teamId}/channel/${channel.id}`);
+    onVoiceJoinRequest?.(channel);
   };
 
   const showUnread = hasUnread && !isMuted;
@@ -945,7 +980,7 @@ const ChannelItem = memo(function ChannelItem({
         </div>
       ) : (
         <Link
-          to={`/team/${teamId}/channel/${channel.id}`}
+          to={serverChannelPath(teamId, channel.id)}
           className="channel-link"
           onContextMenu={handleContextMenu}
           onPointerDown={onChannelRowPointerDown}
@@ -1307,7 +1342,8 @@ const CategoryModal = ({ isOpen, onClose, onSubmit, initialName }) => {
 // VOICE STATUS BAR - Shows when connected to voice (server or DM)
 // ═══════════════════════════════════════════════════════════
 export const VoiceStatusBar = memo(function VoiceStatusBar() {
-  const { voiceChannelId, voiceChannelName, voiceConversationId, voiceConversationName, voiceLeaveAnim, connectionState, isScreenSharing, startScreenShare, stopScreenShare, leaveVoice, leaveVoiceDM } = useVoice();
+  const navigate = useNavigate();
+  const { voiceChannelId, voiceChannelName, voiceConversationId, voiceConversationName, voiceTeamId, voiceLeaveAnim, connectionState, isScreenSharing, startScreenShare, stopScreenShare, leaveVoice, leaveVoiceDM } = useVoice();
   const [showVoiceDetails, setShowVoiceDetails] = useState(false);
   const [voiceStats, setVoiceStats] = useState({ ping: 0, avgPing: 0, packetLoss: 0, server: 'c-mxp03-ff-032875', pingHistory: [] });
   const voiceDetailsRef = useRef(null);
@@ -1398,6 +1434,13 @@ export const VoiceStatusBar = memo(function VoiceStatusBar() {
 
   if (!isInVoice) return null;
 
+  const canOpenServerCallView = !!(voiceChannelId && voiceTeamId);
+
+  const handleOpenCallView = () => {
+    if (!canOpenServerCallView) return;
+    navigate(serverChannelPath(voiceTeamId, voiceChannelId));
+  };
+
   const handleDisconnect = () => {
     if (isExitingBar) return;
     if (voiceChannelId || isLeavingChannel) {
@@ -1456,7 +1499,21 @@ export const VoiceStatusBar = memo(function VoiceStatusBar() {
             document.body
           )}
         </div>
-        <span className="vsb-channel">{displayName}</span>
+        <span
+          className={`vsb-channel${canOpenServerCallView ? ' vsb-channel--open-call' : ''}`}
+          onClick={canOpenServerCallView ? handleOpenCallView : undefined}
+          onKeyDown={canOpenServerCallView ? (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleOpenCallView();
+            }
+          } : undefined}
+          role={canOpenServerCallView ? 'button' : undefined}
+          tabIndex={canOpenServerCallView ? 0 : undefined}
+          title={canOpenServerCallView ? 'Open voice channel' : undefined}
+        >
+          {displayName}
+        </span>
       </div>
       <div className="vsb-controls">
         {voiceChannelId && (
@@ -1575,7 +1632,7 @@ export default function ChannelList({
 
   const handleOpenChannelSettings = useCallback((channel) => {
     if (isMobile && team?.id && channel?.id) {
-      navigate(`/team/${team.id}/channel/${channel.id}/settings`);
+      navigate(serverChannelSettingsPath(team.id, channel.id));
       return;
     }
     setSettingsChannel(channel);
@@ -1597,7 +1654,7 @@ export default function ChannelList({
     setShowChannelModal(false);
     setSelectedCategoryId(null);
     if (isMobile && newChannel?.id) {
-      navigate(`/team/${team.id}/channel/${newChannel.id}/settings`);
+      navigate(serverChannelSettingsPath(team.id, newChannel.id));
     }
   }, [team.id, safeChannels, selectedCategoryId, onChannelsChange, isMobile, navigate]);
 
@@ -1668,6 +1725,22 @@ export default function ChannelList({
 
   const sortedCategories = [...safeCategories].filter(c => c && c.id != null).sort((a, b) => (a.position || 0) - (b.position || 0));
 
+  const channelListScrollRef = useRef(null);
+  const [bannerVisibleHeight, setBannerVisibleHeight] = useState(SERVER_BANNER_FULL_HEIGHT);
+
+  useEffect(() => {
+    setBannerVisibleHeight(SERVER_BANNER_FULL_HEIGHT);
+    if (channelListScrollRef.current) {
+      channelListScrollRef.current.scrollTop = 0;
+    }
+  }, [team?.id, team?.banner_url]);
+
+  const handleChannelListScroll = useCallback((e) => {
+    if (!team?.banner_url) return;
+    const scrollTop = e.currentTarget.scrollTop;
+    setBannerVisibleHeight(Math.max(0, SERVER_BANNER_FULL_HEIGHT - scrollTop));
+  }, [team?.banner_url]);
+
   const currentChannel = currentChannelId
     ? safeChannels.find(c => c && String(c.id) === String(currentChannelId))
     : null;
@@ -1691,9 +1764,26 @@ export default function ChannelList({
           aria-label="Redimensionner la barre latérale"
         />
       )}
-      <div className={`channel-sidebar-top${team?.banner_url ? ' channel-sidebar-top--banner' : ''}`}>
+      <div
+        className={`channel-sidebar-top${team?.banner_url ? ' channel-sidebar-top--banner' : ''}${team?.banner_url && bannerVisibleHeight === 0 ? ' channel-sidebar-top--banner-collapsed' : ''}`}
+        style={team?.banner_url ? { '--server-banner-full-height': `${SERVER_BANNER_FULL_HEIGHT}px` } : undefined}
+      >
         {team?.banner_url && (
-          <ServerBanner bannerUrl={team.banner_url} alt={`${team.name} banner`} />
+          <div
+            className="channel-sidebar-banner-slot"
+            style={{ height: bannerVisibleHeight }}
+            aria-hidden={bannerVisibleHeight === 0 || undefined}
+          >
+            <ServerBanner
+              bannerUrl={team.banner_url}
+              alt={`${team.name} banner`}
+              className="channel-sidebar-banner"
+              style={{
+                height: SERVER_BANNER_FULL_HEIGHT,
+                transform: `translateY(${bannerVisibleHeight - SERVER_BANNER_FULL_HEIGHT}px)`,
+              }}
+            />
+          </div>
         )}
         <ServerHeader
           team={team} onOpenSettings={onOpenSettings} onInvite={onInvite}
@@ -1702,6 +1792,7 @@ export default function ChannelList({
           onLeave={onLeave}
           isMobile={isMobile}
           canOpenServerSettings={canOpenServerSettings}
+          overBanner={!!team?.banner_url && bannerVisibleHeight > 0}
         />
       </div>
 
@@ -1722,7 +1813,7 @@ export default function ChannelList({
         </div>
       )}
 
-      <div className="channel-list-scroll" onContextMenu={(e) => {
+      <div className="channel-list-scroll" ref={channelListScrollRef} onScroll={handleChannelListScroll} onContextMenu={(e) => {
         if (!canManage) return;
         // Only show if right-clicking on the scroll area itself, not on a channel/category
         if (e.target.closest('.channel-item') || e.target.closest('.category-header')) return;

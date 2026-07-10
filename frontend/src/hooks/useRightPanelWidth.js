@@ -4,7 +4,7 @@ export const RIGHT_PANEL_WIDTH_KEY = 'slide_right_panel_width';
 const LEGACY_KEYS = ['slide_members_panel_width', 'slide_dm_profile_sidebar_width'];
 const MIN_WIDTH = 240;
 const MAX_WIDTH = 400;
-const DEFAULT_WIDTH = 240;
+const DEFAULT_WIDTH = 380;
 const WIDTH_CHANGE_EVENT = 'slide:right-panel-width';
 
 function clampWidth(value) {

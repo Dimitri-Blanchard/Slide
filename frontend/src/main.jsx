@@ -25,6 +25,7 @@ import ScreenSharePicker from './components/ScreenSharePicker';
 import MicrophoneAccessNotice from './components/MicrophoneAccessNotice';
 import ErrorBoundary from './components/ErrorBoundary';
 import { resolvePagesBasename } from './utils/pagesBasename';
+import { serverPath, serverChannelPath } from './utils/appRoutes';
 import { startDevToolsWarning } from './utils/security';
 import './index.css';
 import './styles/voice-leave.css';
@@ -209,9 +210,9 @@ if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform()) {
       const teamId = getStringValue(data, ['teamId', 'team_id', 'serverId', 'server_id']);
       const channelId = getStringValue(data, ['channelId', 'channel_id']);
       if (teamId && channelId) {
-        return `#/team/${encodeURIComponent(teamId)}/channel/${encodeURIComponent(channelId)}`;
+        return `#${serverChannelPath(teamId, channelId)}`;
       }
-      if (teamId) return `#/team/${encodeURIComponent(teamId)}`;
+      if (teamId) return `#${serverPath(teamId)}`;
 
       return '#/channels/@me';
     };

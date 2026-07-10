@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo, memo, useCallback, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useRef, useEffect, memo, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { useNotification } from '../context/NotificationContext';
 import { useLanguage } from '../context/LanguageContext';
 import VoiceRecorder from './VoiceRecorder';
@@ -6,8 +6,8 @@ import MentionSuggestions from './MentionSuggestions';
 import CommandPalette from './CommandPalette';
 import TextWithAranjaEmojis from './TextWithAranjaEmojis';
 import AppIcon from './icons/AppIcon';
-import { getContent, setContent, insertEmoji, insertPlainTextAtCursor, getTextBeforeCursor, getCursorOffset, setCursorAtOffset } from '../utils/contentEditableEmoji';
-import { parseMessageContent, HAS_MARKDOWN_RE } from '../utils/markdownParser';
+import StickerPicker from './StickerPicker';
+import { getContent, setContent, refreshComposer, insertEmoji, insertPlainTextAtCursor, getTextBeforeCursor, getCursorOffset, setCursorAtOffset, isMutatingComposer, handleEmojiAwareCopy } from '../utils/contentEditableEmoji';
 import { RATE_LIMIT_EVENT } from '../utils/rateLimitRetry';
 import './MessageInput.css';
 
@@ -44,8 +44,8 @@ const MessageInput = memo(forwardRef(function MessageInput({
   onCancelReply,
   mentionUsers = [],
   onSendSticker,
-  onToggleStickerPanel,
-  stickerPanelOpen = false,
+  onMediaSelect,
+  onEmojiSelect,
   isAdmin = false,
   canSend = true,
   maxFileSize = 8 * 1024 * 1024,
@@ -58,12 +58,14 @@ const MessageInput = memo(forwardRef(function MessageInput({
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [previewDismissed, setPreviewDismissed] = useState(false);
   const [mentionState, setMentionState] = useState(null); // { startPos, query, x, y }
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [commandQuery, setCommandQuery] = useState('');
+  const [mediaPickerTab, setMediaPickerTab] = useState(null);
   const typingSentRef = useRef(false);
   const inputRef = useRef(null);
+  const composerRef = useRef(null);
+  const pickerAnchorRef = useRef(null);
   const fileInputRef = useRef(null);
   const draftTimeoutRef = useRef(null);
   const { notify } = useNotification();
@@ -96,16 +98,8 @@ const MessageInput = memo(forwardRef(function MessageInput({
 
   const syncValueFromEditable = useCallback(() => {
     if (inputRef.current) {
-      setValue(getContent(inputRef.current));
+      setValue(refreshComposer(inputRef.current));
     }
-  }, []);
-
-  // Normalize: replace typed/pasted Unicode emojis with Aranja images (debounced)
-  const normalizeEmojisRef = useRef(null);
-  useEffect(() => {
-    return () => {
-      if (normalizeEmojisRef.current) clearTimeout(normalizeEmojisRef.current);
-    };
   }, []);
 
   // Load draft when draftKey changes: read storage first (avoids wrong-channel bleed), then sync DOM when ref exists
@@ -160,15 +154,6 @@ const MessageInput = memo(forwardRef(function MessageInput({
     }
   }, [draftKey]);
 
-  // Live markdown preview: show when value has markdown and not manually dismissed
-  const hasMarkdown = useMemo(() => value.trim().length > 0 && HAS_MARKDOWN_RE.test(value), [value]);
-  const showMdPreview = hasMarkdown && !previewDismissed;
-
-  // Auto-reset dismiss when input is cleared
-  useEffect(() => {
-    if (!value.trim()) setPreviewDismissed(false);
-  }, [value]);
-
   // Auto-focus on mount/conversation change — skip on mobile to avoid keyboard popping
   useEffect(() => {
     const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
@@ -210,9 +195,11 @@ const MessageInput = memo(forwardRef(function MessageInput({
   // Focus global : si on tape n'importe où et qu'on n'est pas dans un autre input
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Ignorer si on est dans un autre champ de saisie
-      const tag = document.activeElement?.tagName?.toLowerCase();
-      if (tag === 'input' || tag === 'textarea') return;
+      // Ignorer si on est dans un autre champ de saisie (composer, édition inline, etc.)
+      const active = document.activeElement;
+      const tag = active?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      if (active?.isContentEditable) return;
       
       // Ignorer les touches de contrôle
       if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -229,10 +216,15 @@ const MessageInput = memo(forwardRef(function MessageInput({
   }, []);
 
   const handleInput = useCallback(() => {
+    if (isMutatingComposer()) return;
     const editable = inputRef.current;
     if (!editable) return;
-    const newValue = getContent(editable);
-    setValue(newValue);
+
+    requestAnimationFrame(() => {
+      if (isMutatingComposer() || !inputRef.current) return;
+      const el = inputRef.current;
+      const newValue = refreshComposer(el);
+      setValue(newValue);
     
     // Check for command trigger (admin only)
     if (isAdmin && newValue.startsWith('/')) {
@@ -250,7 +242,7 @@ const MessageInput = memo(forwardRef(function MessageInput({
     }
     
     // Check for mention trigger
-    const textBeforeCursor = getTextBeforeCursor(editable);
+    const textBeforeCursor = getTextBeforeCursor(el);
     const lastAtIndex = textBeforeCursor.lastIndexOf('@');
     
     if (lastAtIndex !== -1) {
@@ -265,7 +257,7 @@ const MessageInput = memo(forwardRef(function MessageInput({
             x = rects[0].right;
             y = rects[0].top;
           } else {
-            const r = editable.getBoundingClientRect();
+            const r = el.getBoundingClientRect();
             x = r.left + 20;
             y = r.top;
           }
@@ -288,18 +280,7 @@ const MessageInput = memo(forwardRef(function MessageInput({
       onTyping?.();
       setTimeout(() => { typingSentRef.current = false; }, 2000);
     }
-    // Debounced: replace typed/pasted Unicode emojis with Aranja images
-    if (normalizeEmojisRef.current) clearTimeout(normalizeEmojisRef.current);
-    normalizeEmojisRef.current = setTimeout(() => {
-      if (inputRef.current) {
-        const content = getContent(inputRef.current);
-        const offset = getCursorOffset(inputRef.current);
-        setContent(inputRef.current, content);
-        setCursorAtOffset(inputRef.current, Math.min(offset, content.length));
-        setValue(content);
-      }
-      normalizeEmojisRef.current = null;
-    }, 150);
+    });
   }, [onTyping, isAdmin]);
 
   // Handle mention selection
@@ -368,7 +349,7 @@ const MessageInput = memo(forwardRef(function MessageInput({
       if (newContent.length > 4000) return;
       setContent(inputRef.current, newContent);
       setCursorAtOffset(inputRef.current, offset + text.length);
-      setValue(getContent(inputRef.current));
+      setValue(newContent);
     }
   }, [notify, t]);
 
@@ -528,12 +509,24 @@ const MessageInput = memo(forwardRef(function MessageInput({
     setIsRecording(false);
   }, []);
 
-  // Sticker panel toggle handler
-  const handleToggleStickerPanel = useCallback(() => {
-    if (onToggleStickerPanel) {
-      onToggleStickerPanel();
-    }
-  }, [onToggleStickerPanel]);
+  const toggleMediaPicker = useCallback((tab) => {
+    setMediaPickerTab((prev) => (prev === tab ? null : tab));
+  }, []);
+
+  const closeMediaPicker = useCallback(() => {
+    setMediaPickerTab(null);
+  }, []);
+
+  const handleMediaPickerSelect = useCallback((item) => {
+    onMediaSelect?.(item);
+    closeMediaPicker();
+  }, [onMediaSelect, closeMediaPicker]);
+
+  const handleMediaPickerEmoji = useCallback((emoji) => {
+    onEmojiSelect?.(emoji);
+  }, [onEmojiSelect]);
+
+  const showMediaPicker = Boolean(onMediaSelect && mediaPickerTab);
 
   // Show locked state if user lacks send permission
   if (!canSend) {
@@ -560,7 +553,7 @@ const MessageInput = memo(forwardRef(function MessageInput({
   }
 
   return (
-    <div className="message-input-container">
+    <div className="message-input-container" ref={composerRef}>
       {/* Reply Preview */}
       {replyTo && (
         <div className="reply-preview">
@@ -635,29 +628,6 @@ const MessageInput = memo(forwardRef(function MessageInput({
           </button>
         </div>
       )}
-      
-      {/* Markdown live preview */}
-      {showMdPreview && (
-        <div className="md-live-preview">
-          <div className="md-live-preview-header">
-            <AppIcon name="eye" size={13} />
-            <span>Aperçu</span>
-            <button
-              type="button"
-              className="md-live-preview-close"
-              onClick={() => setPreviewDismissed(true)}
-              title="Fermer l'aperçu"
-              aria-label="Fermer l'aperçu"
-            >
-              <AppIcon name="close" size={12} weight="bold" />
-            </button>
-          </div>
-          <div className="md-live-preview-body message-content message-content-text">
-            {parseMessageContent(value, '', mentionUsers)}
-          </div>
-        </div>
-      )}
-
       <div className="message-composer">
         <form className="message-input-wrap" onSubmit={handleSubmit}>
           <input
@@ -686,6 +656,7 @@ const MessageInput = memo(forwardRef(function MessageInput({
             onInput={handleInput}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
+            onCopy={(e) => handleEmojiAwareCopy(e, e.currentTarget)}
             onFocus={() => {
               const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
               if (isMobile && onInputFocus) {
@@ -697,42 +668,77 @@ const MessageInput = memo(forwardRef(function MessageInput({
             data-placeholder={placeholder || t('chat.typeMessage')}
           />
 
-          <div className="message-input-actions">
-            {onToggleStickerPanel && (
-              <button
-                type="button"
-                className={`message-action-btn ${stickerPanelOpen ? 'active' : ''}`}
-                onClick={handleToggleStickerPanel}
-                disabled={sending}
-                title={t('chat.stickers')}
-              >
-                <AppIcon name="sticker" size={20} />
-              </button>
-            )}
+          <div className="message-picker-anchor" ref={pickerAnchorRef}>
+            <div className="message-input-actions">
+              {onMediaSelect && (
+                <>
+                  <button
+                    type="button"
+                    className={`message-action-btn message-action-gif ${mediaPickerTab === 'gifs' ? 'active' : ''}`}
+                    onClick={() => toggleMediaPicker('gifs')}
+                    disabled={sending}
+                    title="GIFs"
+                  >
+                    <span className="message-gif-badge">GIF</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`message-action-btn message-action-sticker ${mediaPickerTab === 'stickers' ? 'active' : ''}`}
+                    onClick={() => toggleMediaPicker('stickers')}
+                    disabled={sending}
+                    title={t('chat.stickers')}
+                  >
+                    <AppIcon name="sticker" size={20} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`message-action-btn message-action-emoji ${mediaPickerTab === 'emoji' ? 'active' : ''}`}
+                    onClick={() => toggleMediaPicker('emoji')}
+                    disabled={sending}
+                    title={t('stickers.emojis') || 'Emoji'}
+                  >
+                    <AppIcon name="emoji" size={20} />
+                  </button>
+                </>
+              )}
 
-            {hasComposerContent ? (
-              <button
-                type="submit"
-                className={`message-action-btn message-send ${hasComposerContent ? 'has-content' : ''}`}
-                disabled={sending || showSpamModal}
-                title={t('chat.send')}
-              >
-                {sending ? (
-                  <span className="send-spinner" />
-                ) : (
-                  <AppIcon name="send" size={20} weight="fill" />
-                )}
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="message-action-btn"
-                onClick={startVoiceRecording}
-                disabled={sending || !!selectedFile}
-                title={t('chat.voiceMessage')}
-              >
-                <AppIcon name="mic" size={20} />
-              </button>
+              {hasComposerContent ? (
+                <button
+                  type="submit"
+                  className={`message-action-btn message-send ${hasComposerContent ? 'has-content' : ''}`}
+                  disabled={sending || showSpamModal}
+                  title={t('chat.send')}
+                >
+                  {sending ? (
+                    <span className="send-spinner" />
+                  ) : (
+                    <AppIcon name="send" size={20} weight="fill" />
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="message-action-btn"
+                  onClick={startVoiceRecording}
+                  disabled={sending || !!selectedFile}
+                  title={t('chat.voiceMessage')}
+                >
+                  <AppIcon name="mic" size={20} />
+                </button>
+              )}
+            </div>
+
+            {showMediaPicker && (
+              <StickerPicker
+                isOpen={showMediaPicker}
+                initialTab={mediaPickerTab}
+                anchorRef={pickerAnchorRef}
+                onClose={closeMediaPicker}
+                onSelect={handleMediaPickerSelect}
+                onEmojiSelect={handleMediaPickerEmoji}
+                onTabChange={setMediaPickerTab}
+                variant="popover"
+              />
             )}
           </div>
         </form>

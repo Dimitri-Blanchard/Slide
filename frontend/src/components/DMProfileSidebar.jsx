@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   users as usersApi,
@@ -8,6 +8,7 @@ import {
   direct as directApi,
 } from '../api';
 import { notifyFriendsChanged } from '../utils/friendsSync';
+import { serverPath } from '../utils/appRoutes';
 import { getProfile, getCachedProfile } from '../utils/profileCache';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -18,7 +19,7 @@ import { canShowProfileActivities } from '../utils/profileActivities';
 import { getStaticUrl } from '../utils/staticUrl';
 import { invitePublicUrl } from '../utils/publicSiteUrl';
 import { harmonizeGradientColors } from '../utils/gradientColors';
-import Avatar from './Avatar';
+import Avatar, { hasDefaultAvatar } from './Avatar';
 import ProfileSpotifyActivity from './ProfileSpotifyActivity';
 import ReportModal from './ReportModal';
 import { useRightPanelWidth } from '../hooks/useRightPanelWidth';
@@ -66,8 +67,11 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
 
   const resolvedId = userId || providedUser?.id;
   const cached = resolvedId ? getCachedProfile(resolvedId) : null;
-  const [user, setUser] = useState(providedUser || cached || null);
-  const [loading, setLoading] = useState(!providedUser && !cached);
+  const [user, setUser] = useState(() => {
+    if (providedUser && String(providedUser.id) === String(resolvedId)) return cached || providedUser;
+    return cached || null;
+  });
+  const [loading, setLoading] = useState(() => !cached);
   const [commonTeams, setCommonTeams] = useState([]);
   const [commonFriends, setCommonFriends] = useState([]);
   const [teamsLoading, setTeamsLoading] = useState(false);
@@ -84,31 +88,61 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
   const { width, handleResizeStart } = useRightPanelWidth();
   const isOwnProfile = currentUser?.id === resolvedId;
 
+  useLayoutEffect(() => {
+    if (!resolvedId) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+    const cachedNow = getCachedProfile(resolvedId);
+    const partial = providedUser && String(providedUser.id) === String(resolvedId) ? providedUser : null;
+    setUser(cachedNow || partial);
+    setLoading(!cachedNow);
+    setCommonTeams([]);
+    setCommonFriends([]);
+    setMenuOpen(false);
+    setInviteMenuOpen(false);
+    setServersExpanded(false);
+    setFriendsExpanded(false);
+  }, [resolvedId, providedUser?.id]);
+
   useEffect(() => {
     if (!resolvedId) return;
-    if (providedUser) setUser(providedUser);
-    const cachedNow = getCachedProfile(resolvedId);
-    if (cachedNow) {
-      setUser(cachedNow);
-      setLoading(false);
-    } else {
-      setLoading(true);
-      getProfile(resolvedId)
-        .then((d) => { setUser(d); setLoading(false); })
-        .catch(() => setLoading(false));
-    }
-  }, [resolvedId, providedUser]);
+    if (getCachedProfile(resolvedId)) return;
+    let cancelled = false;
+    getProfile(resolvedId)
+      .then((d) => {
+        if (!cancelled) {
+          setUser(d);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [resolvedId]);
 
   useEffect(() => {
     if (!resolvedId || isOwnProfile) return;
     setTeamsLoading(true);
     setFriendsLoading(true);
     usersApi.getCommonTeams(resolvedId)
-      .then((data) => { setCommonTeams(Array.isArray(data) ? data : []); setTeamsLoading(false); })
-      .catch(() => { setCommonTeams([]); setTeamsLoading(false); });
+      .then((data) => {
+        const teams = Array.isArray(data) ? data : [];
+        setCommonTeams(teams);
+        setServersExpanded(teams.length > 0);
+        setTeamsLoading(false);
+      })
+      .catch(() => { setCommonTeams([]); setServersExpanded(false); setTeamsLoading(false); });
     usersApi.getCommonFriends(resolvedId)
-      .then((data) => { setCommonFriends(Array.isArray(data) ? data : []); setFriendsLoading(false); })
-      .catch(() => { setCommonFriends([]); setFriendsLoading(false); });
+      .then((data) => {
+        const friends = Array.isArray(data) ? data : [];
+        setCommonFriends(friends);
+        setFriendsExpanded(friends.length > 0);
+        setFriendsLoading(false);
+      })
+      .catch(() => { setCommonFriends([]); setFriendsExpanded(false); setFriendsLoading(false); });
     teamsApi.list()
       .then((list) => setInviteTeams(Array.isArray(list) ? list : []))
       .catch(() => setInviteTeams([]));
@@ -172,7 +206,7 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
 
   const handleTeamClick = useCallback((team) => {
     if (!team?.id) return;
-    navigate(`/team/${team.id}`);
+    navigate(serverPath(team.id));
   }, [navigate]);
 
   const handleFriendClick = useCallback(async (friend) => {
@@ -200,7 +234,7 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
 
   const bannerColor = user?.banner_color || '#4f6ef7';
   const bannerColor2 = user?.banner_color_2;
-  const bannerUrl = user?.banner_url ? getStaticUrl(user.banner_url) : null;
+  const bannerUrl = !loading && user?.banner_url ? getStaticUrl(user.banner_url) : null;
   const hasGifBanner = isGifUrl(user?.banner_url || bannerUrl);
   const hasDualBanner = !!bannerColor2;
   const [c1, c2] = hasDualBanner ? harmonizeGradientColors(bannerColor, bannerColor2 || '#000') : [bannerColor, '#000'];
@@ -246,8 +280,8 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
         <div className="dps-scroll">
           <div className="dps-header">
             <div
-              className={`dps-banner${bannerUrl ? ' dps-banner--image' : ''}`}
-              style={bannerStyle}
+              className={`dps-banner${loading ? ' dps-banner--skeleton' : ''}${bannerUrl ? ' dps-banner--image' : ''}`}
+              style={loading ? undefined : bannerStyle}
               aria-hidden="true"
             >
               {bannerUrl && hasGifBanner && (
@@ -325,30 +359,23 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
 
             <div className="dps-avatar-row">
               <div className="dps-avatar-wrap">
-                {loading ? (
-                  <div className="dps-avatar-skeleton" />
+                {user ? (
+                  <Avatar user={user} size="xlarge" gifAnimate showPresence />
                 ) : (
-                  <>
-                    <Avatar user={user} size="xlarge" gifAnimate showPresence />
-                  </>
+                  <div className="dps-avatar-skeleton" />
                 )}
               </div>
             </div>
           </div>
 
           <div className="dps-body">
-            {loading ? (
-              <div className="dps-skeleton">
-                <div className="dps-skeleton-line dps-skeleton-line--name" />
-                <div className="dps-skeleton-line dps-skeleton-line--tag" />
-              </div>
-            ) : user ? (
+            {user ? (
               <>
                 <div className="dps-identity">
                   <h2 className="dps-displayname">
                     {displayName}
-                    {Boolean(user.is_webhook) && <span className="dps-badge dps-badge--bot">APP</span>}
-                    {Boolean(user.has_nitro) && <span className="dps-badge dps-badge--nitro">Nitro</span>}
+                    {!loading && Boolean(user.is_webhook) && <span className="dps-badge dps-badge--bot">APP</span>}
+                    {!loading && Boolean(user.has_nitro) && <span className="dps-badge dps-badge--nitro">Nitro</span>}
                   </h2>
                   {finalUsername && (
                     <div className="dps-username-row">
@@ -396,9 +423,11 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
                           {t('profile.mutualServers') || 'Mutual Servers'}
                         </span>
                         <span className="dps-accordion-trail">
-                          <span className="dps-accordion-count">
-                            {teamsLoading ? '…' : mutualServersCount}
-                          </span>
+                          {(teamsLoading || mutualServersCount > 0) && (
+                            <span className="dps-accordion-count">
+                              {teamsLoading ? '…' : mutualServersCount}
+                            </span>
+                          )}
                           <svg className="dps-accordion-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <polyline points="6 9 12 15 18 9" />
                           </svg>
@@ -421,7 +450,7 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
                                 onClick={() => handleTeamClick(team)}
                               >
                                 <div className="dps-list-icon dps-list-icon--square">
-                                  {team.avatar_url ? (
+                                  {team.avatar_url && !hasDefaultAvatar({ avatar_url: team.avatar_url }) ? (
                                     <img src={getStaticUrl(team.avatar_url)} alt="" />
                                   ) : (
                                     <span>{(team.name || '?').slice(0, 2).toUpperCase()}</span>
@@ -456,9 +485,11 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
                           {t('profile.mutualFriends') || 'Mutual Friends'}
                         </span>
                         <span className="dps-accordion-trail">
-                          <span className="dps-accordion-count">
-                            {friendsLoading ? '…' : mutualFriendsCount}
-                          </span>
+                          {(friendsLoading || mutualFriendsCount > 0) && (
+                            <span className="dps-accordion-count">
+                              {friendsLoading ? '…' : mutualFriendsCount}
+                            </span>
+                          )}
                           <svg className="dps-accordion-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <polyline points="6 9 12 15 18 9" />
                           </svg>
@@ -502,7 +533,10 @@ const DMProfileSidebar = memo(function DMProfileSidebar({
                 )}
               </>
             ) : (
-              <p className="dps-empty-text">{t('errors.loadProfile') || 'Failed to load profile'}</p>
+              <div className="dps-skeleton">
+                <div className="dps-skeleton-line dps-skeleton-line--name" />
+                <div className="dps-skeleton-line dps-skeleton-line--tag" />
+              </div>
             )}
           </div>
         </div>

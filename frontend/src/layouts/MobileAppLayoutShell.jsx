@@ -17,6 +17,8 @@ import VoiceFullscreenOverlay from '../components/VoiceFullscreenOverlay';
 import ServerErrorBoundary from '../components/ServerErrorBoundary';
 import ErrorBoundary from '../components/ErrorBoundary';
 import NotFound from '../pages/NotFound';
+import LegacyTeamRedirect from './LegacyTeamRedirect';
+import { serverPath } from '../utils/appRoutes';
 import { isMobileFullPageRoute } from './appPaths';
 import { useSettingsUi } from '../context/SettingsUiContext';
 import { useVoice } from '../context/VoiceContext';
@@ -76,7 +78,7 @@ export default function MobileAppLayoutShell({
       const teamId = event?.detail?.teamId;
       if (teamId == null || teamId === '') return;
       if (isMobileFullPageRoute(pathname)) return;
-      navigate(`/team/${teamId}`, { replace: true });
+      navigate(serverPath(teamId), { replace: true });
     };
     window.addEventListener('slide:voice-channel-disconnect', onVoiceDisconnect);
     return () => window.removeEventListener('slide:voice-channel-disconnect', onVoiceDisconnect);
@@ -147,7 +149,7 @@ export default function MobileAppLayoutShell({
   }, [navigate]);
 
   const handleSwipeToServer = useCallback((teamId) => {
-    navigate(`/team/${teamId}`);
+    navigate(serverPath(teamId));
   }, [navigate]);
 
   const drawerCloseSignal = pathname;
@@ -219,21 +221,6 @@ export default function MobileAppLayoutShell({
                 <Route path="/quests" element={<QuestsPage />} />
                 <Route path="/settings/*" element={null} />
                 <Route
-                  path="/team/:teamId/*"
-                  element={(
-                    <ServerErrorBoundary>
-                      <TeamChat
-                        teamId={params.teamId}
-                        initialChannelId={params.channelId}
-                        isMobile={true}
-                        onLeaveServer={onLeaveServer}
-                        onOpenSearch={() => setShowSearch(true)}
-                        {...teamChatMobileProps}
-                      />
-                    </ServerErrorBoundary>
-                  )}
-                />
-                <Route
                   path="/channels/@me/private-local/:peerUserId"
                   element={(
                     <LocalPrivateChat
@@ -253,6 +240,22 @@ export default function MobileAppLayoutShell({
                     />
                   )}
                 />
+                <Route
+                  path="/channels/:teamId/*"
+                  element={(
+                    <ServerErrorBoundary>
+                      <TeamChat
+                        teamId={params.teamId}
+                        initialChannelId={params.channelId}
+                        isMobile={true}
+                        onLeaveServer={onLeaveServer}
+                        onOpenSearch={() => setShowSearch(true)}
+                        {...teamChatMobileProps}
+                      />
+                    </ServerErrorBoundary>
+                  )}
+                />
+                <Route path="/team/:teamId/*" element={<LegacyTeamRedirect />} />
                 <Route path="/" element={<Navigate to="/channels/@me" replace />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
@@ -341,7 +344,7 @@ export default function MobileAppLayoutShell({
         onServerCreated={(newTeam) => {
           setTeams((prev) => [...prev, { ...newTeam, unread_count: 0, mention_count: 0, has_unread: false }]);
           setShowCreateServer(false);
-          navigate(`/team/${newTeam.id}`);
+          navigate(serverPath(newTeam.id));
         }}
       />
     </div>

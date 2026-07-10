@@ -508,6 +508,8 @@
     "forMe": "Per me",
     "forAll": "Per tutti",
     "ok": "OK",
+    "editHintEscape": "escape to",
+    "editHintEnter": "enter to",
     "image": "Immagine",
     "file": "File",
     "user": "Utente",

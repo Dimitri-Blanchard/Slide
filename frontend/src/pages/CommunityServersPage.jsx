@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AvatarImg } from '../components/Avatar';
+import { AvatarImg, hasDefaultAvatar } from '../components/Avatar';
 import { servers } from '../api';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
+import { serverPath } from '../utils/appRoutes';
 import './CommunityServersPage.css';
 
 const PRESET_TAGS = [
@@ -58,7 +59,7 @@ export default function CommunityServersPage() {
     try {
       const result = await servers.joinPublic(team.id);
       const teamId = result.team_id ?? result.team?.id ?? team.id;
-      navigate(`/team/${teamId}`);
+      navigate(serverPath(teamId));
     } catch (err) {
       setError(err.message || 'Failed to join');
     }
@@ -159,6 +160,7 @@ export default function CommunityServersPage() {
               const isJoining = joiningId === team.id;
               const tags = team.discovery_tags || [];
               const initial = (team.name || '?').charAt(0).toUpperCase();
+              const hasAvatar = !!team.avatar_url && !hasDefaultAvatar({ avatar_url: team.avatar_url });
 
               return (
                 <article key={team.id} className="community-card">
@@ -167,7 +169,7 @@ export default function CommunityServersPage() {
                   </div>
                   <div className="community-card-body">
                     <div className="community-card-avatar">
-                      {team.avatar_url ? (
+                      {hasAvatar ? (
                         <AvatarImg src={team.avatar_url} alt={team.name} />
                       ) : (
                         <span>{initial}</span>

@@ -508,6 +508,8 @@
     "forMe": "自分だけ",
     "forAll": "全員から",
     "ok": "OK",
+    "editHintEscape": "escape to",
+    "editHintEnter": "enter to",
     "image": "画像",
     "file": "ファイル",
     "user": "ユーザー",

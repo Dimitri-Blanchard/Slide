@@ -15,13 +15,16 @@ import AppIcon from './icons/AppIcon';
 import { useBlockedUsers } from '../hooks/useBlockedUsers';
 import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import { usePrefetchOnHover } from '../context/PrefetchContext';
-import { getRecentEmojis, saveRecentEmoji } from './StickerPicker';
+import StickerPicker, { getRecentEmojis, saveRecentEmoji } from './StickerPicker';
 import { shortcodeToEmoji, emojiToShortcode, emojifyText } from '../utils/emojiShortcodes';
+import { setContent, refreshComposer, insertEmoji, setCursorAtOffset, isMutatingComposer, handleEmojiAwareCopy } from '../utils/contentEditableEmoji';
 import { emojiToAranjaUrl } from '../utils/emojiAranja';
-import { Spoiler, parseInlineMarkdown, parseMessageContent as _parseMarkdown, HAS_MARKDOWN_RE } from '../utils/markdownParser';
+import { Spoiler, parseInlineMarkdown, parseMessageContent as _parseMarkdown } from '../utils/markdownParser';
 import { getStaticUrl } from '../utils/staticUrl';
 import { pickChannelWelcomeHint } from '../utils/channelWelcomeHint';
 import { getToken } from '../utils/tokenStorage';
+import { serverChannelPath } from '../utils/appRoutes';
+import { publicSiteRoute } from '../utils/publicSiteUrl';
 import TextWithAranjaEmojis from './TextWithAranjaEmojis';
 import ContextMenu from './ContextMenu';
 import MessageMobileActionSheet from './MessageMobileActionSheet';
@@ -110,12 +113,11 @@ function formatCallDurationLabel(t, durationSeconds, durationText) {
 
 function buildMessagePermalink(surface, msg) {
   if (!surface || msg?.id == null) return '';
-  const o = typeof window !== 'undefined' ? window.location.origin : '';
   if (surface.kind === 'server') {
-    return `${o}/team/${surface.teamId}/channel/${surface.channelId}#msg-${msg.id}`;
+    return `${publicSiteRoute(serverChannelPath(surface.teamId, surface.channelId))}#msg-${msg.id}`;
   }
   if (surface.kind === 'dm') {
-    return `${o}/channels/@me/${surface.conversationId}#msg-${msg.id}`;
+    return `${publicSiteRoute(`/channels/@me/${surface.conversationId}`)}#msg-${msg.id}`;
   }
   return '';
 }
@@ -1781,65 +1783,109 @@ const MessageVideoPlayer = memo(function MessageVideoPlayer({ fileUrl, mimeType,
   );
 });
 
-// Auto-resizing edit textarea for message editing
+// Auto-resizing edit field with live emoji + markdown (same as message composer)
 const EditTextarea = memo(function EditTextarea({ editContent, setEditContent, onSaveEdit, onCancelEdit, t }) {
-  const textareaRef = useRef(null);
-  const [previewDismissed, setPreviewDismissed] = useState(false);
-
-  const hasMarkdown = useMemo(() => editContent.trim().length > 0 && HAS_MARKDOWN_RE.test(editContent), [editContent]);
-  const showMdPreview = hasMarkdown && !previewDismissed;
-
-  useEffect(() => { if (!editContent.trim()) setPreviewDismissed(false); }, [editContent]);
+  const inputRef = useRef(null);
+  const emojiBtnRef = useRef(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const autoResize = useCallback(() => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    ta.style.height = 'auto';
-    ta.style.height = ta.scrollHeight + 'px';
+    const el = inputRef.current;
+    if (!el) return;
+    const maxHeight = window.innerHeight * 0.5;
+    el.style.height = 'auto';
+    el.style.overflow = 'hidden';
+    const nextHeight = Math.min(el.scrollHeight, maxHeight);
+    el.style.height = `${nextHeight}px`;
+    el.style.overflow = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
   }, []);
+
+  const syncFromEditable = useCallback(() => {
+    if (isMutatingComposer()) return;
+    const el = inputRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      if (isMutatingComposer() || !inputRef.current) return;
+      const newValue = refreshComposer(inputRef.current);
+      setEditContent(newValue);
+      requestAnimationFrame(autoResize);
+    });
+  }, [setEditContent, autoResize]);
+
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    setContent(el, editContent);
+    el.focus();
+    setCursorAtOffset(el, editContent.length);
+    autoResize();
+  }, [autoResize]); // mount only — editContent is the value when editing starts
 
   useEffect(() => {
     autoResize();
   }, [editContent, autoResize]);
 
-  useEffect(() => {
-    const ta = textareaRef.current;
-    if (ta) {
-      ta.focus();
-      ta.setSelectionRange(ta.value.length, ta.value.length);
-    }
-  }, []);
+  const insertEmojiAtCursor = useCallback((shortcode) => {
+    const el = inputRef.current;
+    if (!el) return;
+    insertEmoji(el, shortcode);
+    syncFromEditable();
+  }, [syncFromEditable]);
+
+  const handleEmojiSelect = useCallback((shortcode) => {
+    insertEmojiAtCursor(shortcode);
+    setShowEmojiPicker(false);
+  }, [insertEmojiAtCursor]);
 
   return (
     <div className="message-edit-inline">
-      {showMdPreview && (
-        <div className="md-live-preview md-live-preview--edit">
-          <div className="md-live-preview-header">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            <span>Aperçu</span>
-            <button type="button" className="md-live-preview-close" onClick={() => setPreviewDismissed(true)}>×</button>
-          </div>
-          <div className="md-live-preview-body message-content message-content-text">
-            {_parseMarkdown(editContent, '')}
-          </div>
-        </div>
-      )}
-      <div className="message-edit-inline__row">
-        <textarea
-          ref={textareaRef}
-          className="message-edit-inline__input"
-          value={editContent}
-          onChange={(e) => { setEditContent(e.target.value); }}
+      <div className="message-edit-inline__box">
+        <div
+          ref={inputRef}
+          className="message-edit-inline__input message-input-editable"
+          contentEditable
+          suppressContentEditableWarning
+          onInput={syncFromEditable}
+          onCopy={(e) => handleEmojiAwareCopy(e, e.currentTarget)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSaveEdit(); }
-            if (e.key === 'Escape') onCancelEdit();
+            if (e.key === 'Escape') { e.preventDefault(); onCancelEdit(); }
           }}
-          rows={1}
+          spellCheck
         />
-        <button type="button" className="message-edit-inline__ok" onClick={onSaveEdit}>
-          {t('chat.ok')}
+        <button
+          type="button"
+          ref={emojiBtnRef}
+          className="message-edit-inline__emoji"
+          onClick={() => setShowEmojiPicker((open) => !open)}
+          title={t('chat.emoji')}
+          aria-label={t('chat.emoji')}
+          aria-expanded={showEmojiPicker}
+        >
+          <AppIcon name="emoji" size={20} />
         </button>
       </div>
+      <p className="message-edit-inline__hint">
+        {t('chat.editHintEscape')}{' '}
+        <button type="button" className="message-edit-inline__action" onClick={onCancelEdit}>
+          {t('common.cancel')}
+        </button>
+        {' • '}
+        {t('chat.editHintEnter')}{' '}
+        <button type="button" className="message-edit-inline__action" onClick={onSaveEdit}>
+          {t('common.save')}
+        </button>
+      </p>
+      {showEmojiPicker && (
+        <StickerPicker
+          isOpen={showEmojiPicker}
+          onClose={() => setShowEmojiPicker(false)}
+          onEmojiSelect={handleEmojiSelect}
+          initialTab="emoji"
+          anchorRef={emojiBtnRef}
+          variant="popover"
+        />
+      )}
     </div>
   );
 });
@@ -2714,7 +2760,7 @@ const MessageItem = memo(function MessageItem({
   
   return (
     <div 
-      className={`message-item ${isFirst ? 'first' : ''} ${isLast ? 'last' : ''} ${isSelected ? 'selected' : ''} ${isPinned ? 'is-pinned' : ''} ${msg._pending ? 'pending' : ''} ${isDeleting ? 'deleting' : ''} ${reduceMotion ? 'reduce-motion' : ''} ${isReplyToCurrentUser ? 'reply-to-me' : ''}`}
+      className={`message-item ${isFirst ? 'first' : ''} ${isLast ? 'last' : ''} ${isSelected ? 'selected' : ''} ${isPinned ? 'is-pinned' : ''} ${msg._pending ? 'pending' : ''} ${isDeleting ? 'deleting' : ''} ${isEditing ? 'is-editing' : ''} ${reduceMotion ? 'reduce-motion' : ''} ${isReplyToCurrentUser ? 'reply-to-me' : ''}`}
       onContextMenu={handleContextMenu}
       onMouseEnter={compactTouchUi ? undefined : () => setIsMessageHovered(true)}
       onMouseLeave={compactTouchUi ? undefined : () => setIsMessageHovered(false)}
@@ -2817,13 +2863,15 @@ const MessageItem = memo(function MessageItem({
               onMentionClick={onMentionClick}
               t={t}
             />
-            <MessageReactions 
-              reactions={reactions} 
-              currentUserId={currentUserId}
-              onToggleReaction={(emoji, hasReacted) => onToggleReaction(msg.id, emoji, hasReacted)}
-              onViewAllReactions={onViewAllReactions ? () => onViewAllReactions(msg) : undefined}
-            />
-            {msg.edited_at && <span className="message-edited">({t('chat.edited')})</span>}
+            {!isEditing && (
+              <MessageReactions 
+                reactions={reactions} 
+                currentUserId={currentUserId}
+                onToggleReaction={(emoji, hasReacted) => onToggleReaction(msg.id, emoji, hasReacted)}
+                onViewAllReactions={onViewAllReactions ? () => onViewAllReactions(msg) : undefined}
+              />
+            )}
+            {!isEditing && msg.edited_at && <span className="message-edited">({t('chat.edited')})</span>}
             {isOwn && msg._failed && (
               <span className="message-send-status">
                 {msg._failed && onRetryFailedMessage && (
@@ -3791,6 +3839,11 @@ const MessageList = memo(forwardRef(function MessageList({
     if (onMarkRead) onMarkRead();
   }, [scrollToBottom, onMarkRead]);
 
+  const handleMessageListCopy = useCallback((e) => {
+    if (!e.target.closest('.message-content')) return;
+    handleEmojiAwareCopy(e);
+  }, []);
+
   return (
     <div className="message-list-container">
       {showPlaceholder && (
@@ -3811,6 +3864,7 @@ const MessageList = memo(forwardRef(function MessageList({
         className={`message-list${!showPlaceholder ? ' message-list--loaded' : ''}`}
         ref={containerRef}
         onScroll={handleScroll}
+        onCopy={handleMessageListCopy}
         data-display={isCompactMode ? 'compact' : 'cozy'}
         data-hide-avatars={!showAvatars}
         data-hide-embeds={!showEmbeds}

@@ -643,19 +643,18 @@
   overflow: hidden;
   border: 1px solid var(--border-subtle);
   background: var(--bg-tertiary);
+  aspect-ratio: 16 / 9;
+}
+
+.ss-server-banner-preview .ss-server-banner-preview-banner {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
 }
 
 .ss-server-banner-preview.uploading {
   opacity: 0.6;
   pointer-events: none;
-}
-
-.ss-server-banner-img {
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
 }
 
 .ss-server-banner-placeholder {
@@ -664,7 +663,8 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 120px;
+  min-height: 100%;
+  aspect-ratio: 16 / 9;
   color: var(--text-muted);
   font-size: 0.8125rem;
 }

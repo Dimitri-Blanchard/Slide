@@ -4,9 +4,16 @@ import { useNavigate } from 'react-router-dom';
 import { teams as teamsApi, servers, channels as channelsApi } from '../api';
 import { useLanguage } from '../context/LanguageContext';
 import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
+import { serverPath } from '../utils/appRoutes';
 import './CreateServerModal.css';
 
 const TEMPLATES = {
+  empty: {
+    channels: [
+      { name: 'general', type: 'text' },
+      { name: 'voice', type: 'voice' },
+    ],
+  },
   default: {
     categories: [
       { name: 'INFORMATION', channels: [
@@ -130,7 +137,7 @@ const TEMPLATES = {
 };
 
 const TEMPLATE_LIST = [
-  { id: 'empty', name: 'Create my own', desc: 'Start with an empty server and add your own channels', icon: (
+  { id: 'empty', name: 'Create my own', desc: 'Start with a general text channel and a voice channel', icon: (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
   )},
   { id: 'gaming', name: 'Gaming', desc: 'Optimized for gaming communities with game channels and voice lobbies', icon: (
@@ -189,7 +196,8 @@ export default function CreateServerModal({ isOpen, embedded, onClose, onServerC
 
       const setup = TEMPLATES[template];
       if (setup) {
-        const totalItems = (setup.categories?.length || 0) +
+        const totalItems = (setup.channels?.length || 0) +
+          (setup.categories?.length || 0) +
           setup.categories?.reduce((sum, cat) => sum + cat.channels.length, 0) +
           (setup.roles?.length || 0);
         let completedItems = 0;
@@ -199,6 +207,19 @@ export default function CreateServerModal({ isOpen, embedded, onClose, onServerC
           setProgress(msg);
           setProgressPercent(25 + (completedItems / totalItems) * 65);
         };
+
+        if (setup.channels) {
+          for (let i = 0; i < setup.channels.length; i++) {
+            const ch = setup.channels[i];
+            await channelsApi.create(team.id, {
+              name: ch.name,
+              channel_type: ch.type,
+              channelType: ch.type,
+              position: i,
+            });
+            updateProgress(`Creating channel: ${ch.type === 'voice' ? '' : '#'}${ch.name}...`);
+          }
+        }
 
         if (setup.categories) {
           for (const cat of setup.categories) {
@@ -234,7 +255,7 @@ export default function CreateServerModal({ isOpen, embedded, onClose, onServerC
       setTimeout(() => {
         onServerCreated?.(team);
         handleClose(true);
-        navigate(`/team/${team.id}`);
+        navigate(serverPath(team.id));
       }, 400);
 
     } catch (err) {

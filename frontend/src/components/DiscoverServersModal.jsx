@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { AvatarImg } from './Avatar';
+import { AvatarImg, hasDefaultAvatar } from './Avatar';
 import { servers } from '../api';
 import { useLanguage } from '../context/LanguageContext';
 import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
+import { serverPath } from '../utils/appRoutes';
 import './DiscoverServersModal.css';
 
 const CATEGORIES = ['All', 'Gaming', 'Music', 'Education', 'Tech', 'Art', 'Social', 'Sports'];
@@ -47,7 +48,7 @@ export default function DiscoverServersModal({ isOpen, embedded, onClose, onServ
       };
       onServerJoined?.(joinedTeam);
       onClose();
-      navigate(`/team/${joinedTeam.id}`);
+      navigate(serverPath(joinedTeam.id));
     } catch (err) {
       setError(err.message || 'Impossible de rejoindre');
     }
@@ -126,10 +127,11 @@ export default function DiscoverServersModal({ isOpen, embedded, onClose, onServ
             const isJoining = joiningId === team.id;
             const isMember = team.is_member;
             const initial = (team.name || '?').charAt(0).toUpperCase();
+            const hasAvatar = !!team.avatar_url && !hasDefaultAvatar({ avatar_url: team.avatar_url });
             return (
               <div key={team.id} className="dsm-card">
                 <div className="dsm-card-icon">
-                  {team.avatar_url ? (
+                  {hasAvatar ? (
                     <AvatarImg src={team.avatar_url} alt={team.name} />
                   ) : (
                     <span>{initial}</span>

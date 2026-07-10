@@ -5,6 +5,28 @@
  * @see https://www.npmjs.com/package/node-emoji
  */
 import * as emoji from 'node-emoji';
+import { lib as emojilib } from 'emojilib';
+
+/** :upsidedownface: → :upside_down_face: (Discord-style names without underscores) */
+let compactShortcodeMap = null;
+
+function getCompactShortcodeMap() {
+  if (compactShortcodeMap) return compactShortcodeMap;
+  compactShortcodeMap = new Map();
+  for (const name of Object.keys(emojilib)) {
+    const compact = name.replace(/[_-]/g, '').toLowerCase();
+    if (!compactShortcodeMap.has(compact)) compactShortcodeMap.set(compact, name);
+  }
+  return compactShortcodeMap;
+}
+
+function normalizeCompactShortcodes(text) {
+  return text.replace(/:([a-zA-Z][a-zA-Z0-9_+-]*):/g, (match, name) => {
+    if (emoji.has(name)) return match;
+    const resolved = getCompactShortcodeMap().get(name.replace(/[_-]/g, '').toLowerCase());
+    return resolved ? `:${resolved}:` : match;
+  });
+}
 
 /**
  * Convert Unicode emoji to shortcode (:name:).
@@ -38,7 +60,8 @@ export function shortcodeToEmoji(shortcode) {
  */
 export function emojifyText(text) {
   if (!text || typeof text !== 'string') return text;
-  return emoji.emojify(text, { fallback: (m) => m });
+  const normalized = normalizeCompactShortcodes(text);
+  return emoji.emojify(normalized, { fallback: (m) => m });
 }
 
 /**

@@ -55,10 +55,17 @@
 }
 
 /* Channel sidebar top */
-.channel-sidebar .server-banner {
-  height: 96px;
-  min-height: 96px;
+.channel-sidebar .server-banner.channel-sidebar-banner {
+  height: var(--server-banner-full-height, 168px);
+  min-height: var(--server-banner-full-height, 168px);
   background-color: var(--bg-tertiary, #2b2d31);
+  will-change: transform;
+}
+
+.channel-sidebar-banner-slot {
+  flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
 }
 
 .channel-sidebar--mobile-discord .server-banner {

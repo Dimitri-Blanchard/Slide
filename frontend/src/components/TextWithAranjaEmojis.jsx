@@ -1,14 +1,27 @@
 import React, { memo } from 'react';
 import { processTextWithAranjaEmojis } from '../utils/emojiAranja';
+import { aranjaEmojiStyle } from '../utils/inlineAranjaEmoji';
 
-/** Renders text with Unicode emojis replaced by Aranja PNG images. */
+/** Renders text with Unicode emojis / shortcodes as Aranja PNG images (same as picker). */
 const TextWithAranjaEmojis = memo(function TextWithAranjaEmojis({ text }) {
   if (!text) return null;
   const processed = processTextWithAranjaEmojis(text);
   return (
     <>
       {processed.map((p, i) =>
-        typeof p === 'string' ? p : <img key={i} src={p.url} alt={p.alt} className="message-inline-emoji" />
+        typeof p === 'string'
+          ? p
+          : (
+            <span
+              key={i}
+              className="message-inline-emoji"
+              role="img"
+              aria-label={p.alt}
+              style={aranjaEmojiStyle(p.url)}
+            >
+              {p.alt}
+            </span>
+          )
       )}
     </>
   );

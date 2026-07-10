@@ -14,105 +14,127 @@ import { useLanguage } from '../context/LanguageContext';
 import { usePrefetchOnHover } from '../context/PrefetchContext';
 import { useSwipeBack } from '../hooks/useSwipeBack';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useRightPanelWidth } from '../hooks/useRightPanelWidth';
+import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
+import { useLongPress } from '../hooks/useLongPress';
+import { hapticImpact } from '../utils/nativeHaptics';
 import { prefetchProfile } from '../utils/profileCache';
+import {
+  getCachedDmMessages,
+  isDmMessagesCacheFresh,
+  prefetchDmMessages,
+  setCachedDmMessages,
+} from '../utils/dmCache';
 import { MESSAGE_SEND_BACKPRESSURE_LIMIT, MESSAGE_SEND_QUEUE_GAP_MS, getRateLimitDelayMs, isRateLimitError, notifyRateLimit, wait } from '../utils/rateLimitRetry';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import Avatar from './Avatar';
+import ClickableAvatar from './ClickableAvatar';
 import UserDetailModal from './UserDetailModal';
 import DMProfileSidebar from './DMProfileSidebar';
 import DMChatHeader from './DMChatHeader';
 import CreateGroupModal from './CreateGroupModal';
-import StickerPicker from './StickerPicker';
 import FileDropOverlay from './FileDropOverlay';
 import ConfirmModal from './ConfirmModal';
 import DMCallView from './DMCallView';
 import { AnimatedSidePanel, AnimatedCollapse } from './AnimatedPanel';
 import { undoToast } from './UndoToast';
 import './Chat.css';
-
-
-
-// Persisted cache survives DirectChat remounts so revisiting a DM shows messages instantly
-const dmMessagesCache = new Map();
-
-const GM_SIDEBAR_WIDTH_KEY = 'slide_gm_sidebar_width';
-const GM_MIN_W = 160;
-const GM_MAX_W = 400;
-const GM_DEFAULT_W = 240;
+import './MembersPanel.css';
 
 const DPS_VISIBLE_KEY = 'slide_dm_profile_sidebar_visible';
 const DM_PROFILE_SIDEBAR_MIN_WIDTH = 1491;
 
-const GroupMembersSidebar = memo(function GroupMembersSidebar({ members, ownerId, currentUserId, isUserOnline, onClose }) {
-  const [width, setWidth] = useState(() => {
-    try {
-      const v = parseInt(localStorage.getItem(GM_SIDEBAR_WIDTH_KEY), 10);
-      return (!isNaN(v) && v >= GM_MIN_W && v <= GM_MAX_W) ? v : GM_DEFAULT_W;
-    } catch { return GM_DEFAULT_W; }
-  });
-  const widthRef = useRef(width);
-  widthRef.current = width;
+const GroupMemberItem = memo(function GroupMemberItem({ member, isOnline, ownerId }) {
+  const memberRowRef = useRef(null);
+  const { onMouseEnter, onMouseLeave } = usePrefetchOnHover();
+  const compactTouchUi = useCompactTouchUi();
 
-  const handleResizeStart = useCallback((e) => {
+  const handleContextMenu = useCallback((e) => {
     e.preventDefault();
-    const startX = e.clientX;
-    const startW = widthRef.current;
-    const onMove = (ev) => {
-      const next = Math.min(GM_MAX_W, Math.max(GM_MIN_W, startW + (startX - ev.clientX)));
-      setWidth(next);
-      try { localStorage.setItem(GM_SIDEBAR_WIDTH_KEY, String(next)); } catch {}
-    };
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-    document.body.style.cursor = 'ew-resize';
-    document.body.style.userSelect = 'none';
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+    const avatarEl = memberRowRef.current?.querySelector('.clickable-avatar');
+    if (!avatarEl) return;
+    avatarEl.dispatchEvent(new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      button: 2,
+      buttons: 2,
+      clientX: e.clientX,
+      clientY: e.clientY,
+    }));
   }, []);
 
-  const online = useMemo(() => members.filter(u => isUserOnline(u.id)), [members, isUserOnline]);
-  const offline = useMemo(() => members.filter(u => !isUserOnline(u.id)), [members, isUserOnline]);
-
-  const renderMember = (u) => (
-    <div key={u.id} className="gm-member-item mp-member">
-      <Avatar user={u} size="small" showPresence />
-      <div className="gm-member-info mp-member-info">
-        <span className="gm-member-name mp-member-name">
-          {u.display_name}
-          {u.id === ownerId && <span className="gm-owner-badge">Owner</span>}
-          {u.id === currentUserId && <span className="gm-you-badge">(you)</span>}
-        </span>
-      </div>
-    </div>
+  const { longPressProps, shouldSkipClick } = useLongPress(
+    useCallback((e) => {
+      hapticImpact('Medium');
+      handleContextMenu(e);
+    }, [handleContextMenu]),
+    { disabled: !compactTouchUi },
   );
 
+  const handleRowClick = (e) => {
+    e.stopPropagation();
+    if (shouldSkipClick()) return;
+    const avatarEl = memberRowRef.current?.querySelector('.clickable-avatar');
+    avatarEl?.click();
+  };
+
   return (
-    <aside className="gm-sidebar members-panel" style={{ width, minWidth: width }}>
-      <div className="gm-resize-edge" onMouseDown={handleResizeStart} aria-hidden="true" />
-      <div className="gm-header">
-        <h3>Members — {members.length}</h3>
-        <button className="gm-close" onClick={onClose}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M18.4 4L12 10.4L5.6 4L4 5.6L10.4 12L4 18.4L5.6 20L12 13.6L18.4 20L20 18.4L13.6 12L20 5.6L18.4 4Z"/>
-          </svg>
-        </button>
+    <div
+      ref={memberRowRef}
+      className={`mp-member ${isOnline ? '' : 'offline'}`}
+      onClick={handleRowClick}
+      onContextMenu={compactTouchUi ? longPressProps.onContextMenu : handleContextMenu}
+      onPointerDown={compactTouchUi ? longPressProps.onPointerDown : undefined}
+      onPointerMove={compactTouchUi ? longPressProps.onPointerMove : undefined}
+      onPointerUp={compactTouchUi ? longPressProps.onPointerUp : undefined}
+      onPointerCancel={compactTouchUi ? longPressProps.onPointerCancel : undefined}
+      onMouseEnter={() => onMouseEnter(member?.id, member)}
+      onMouseLeave={onMouseLeave}
+    >
+      <div className="mp-member-avatar">
+        <ClickableAvatar user={member} size="medium" showPresence position="right" />
       </div>
-      <div className="gm-scroll mp-scroll">
+      <div className="mp-member-info">
+        <span className="mp-member-name">{member.display_name}</span>
+        {member.status_message && (
+          <span className="mp-member-status">{member.status_message}</span>
+        )}
+      </div>
+      {member.id === ownerId && (
+        <svg className="mp-crown" width="14" height="14" viewBox="0 0 24 24" fill="#f0b232" title="Group Owner">
+          <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5z" />
+        </svg>
+      )}
+    </div>
+  );
+});
+
+const GroupMembersSidebar = memo(function GroupMembersSidebar({ members, ownerId, isUserOnline }) {
+  const { width, handleResizeStart } = useRightPanelWidth();
+
+  const online = useMemo(() => members.filter((u) => isUserOnline(u.id)), [members, isUserOnline]);
+  const offline = useMemo(() => members.filter((u) => !isUserOnline(u.id)), [members, isUserOnline]);
+
+  return (
+    <aside className="members-panel" style={{ width, minWidth: width }}>
+      <div className="mp-resize-edge" onMouseDown={handleResizeStart} aria-hidden="true" />
+      <div className="mp-scroll">
         {online.length > 0 && (
-          <div className="gm-group mp-group">
-            <h4 className="gm-group-title mp-group-title">Online — {online.length}</h4>
-            {online.map(renderMember)}
+          <div className="mp-group">
+            <h3 className="mp-group-title">Online — {online.length}</h3>
+            {online.map((member) => (
+              <GroupMemberItem key={member.id} member={member} isOnline ownerId={ownerId} />
+            ))}
           </div>
         )}
         {offline.length > 0 && (
-          <div className="gm-group mp-group">
-            <h4 className="gm-group-title mp-group-title">Offline — {offline.length}</h4>
-            {offline.map(renderMember)}
+          <div className="mp-group">
+            <h3 className="mp-group-title">Offline — {offline.length}</h3>
+            {offline.map((member) => (
+              <GroupMemberItem key={member.id} member={member} isOnline={false} ownerId={ownerId} />
+            ))}
           </div>
         )}
       </div>
@@ -142,7 +164,6 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const headerInfoRef = useRef(null);
   const [showPinnedPanel, setShowPinnedPanel] = useState(false);
-  const [showStickerPanel, setShowStickerPanel] = useState(false);
   const [inputDocked, setInputDocked] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleteCaptionConfirm, setDeleteCaptionConfirm] = useState(null);
@@ -189,14 +210,13 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
 
     setReplyTo(null);
     setShowPinnedPanel(false);
-    setShowStickerPanel(false);
     setShowGroupMembers(false);
     setTypingUser(null);
     setPinnedMessageIds([]);
     setPinnedMessages([]);
     setReadReceipts({});
 
-    const cached = dmMessagesCache.get(conversationId);
+    const cached = getCachedDmMessages(conversationId);
     if (cached) {
       setMessages(cached.messages);
       setMessageReactions(cached.reactions || {});
@@ -208,8 +228,12 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
     }
 
     const cachedConv = conversationsRef.current?.find((x) => String(x.conversation_id) === conversationId);
-    if (cachedConv) {
-      setConversation(cachedConv);
+    setConversation(cachedConv || null);
+
+    prefetchDmMessages(conversationId);
+    if (cachedConv && !cachedConv.is_group) {
+      const partner = cachedConv.participants?.[0];
+      if (partner?.id) prefetchProfile(partner.id, partner);
     }
   }, [conversationId]);
 
@@ -217,7 +241,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
     if (!conversationId) return;
     let cancelled = false;
 
-    const cached = dmMessagesCache.get(conversationId);
+    const cached = getCachedDmMessages(conversationId);
     const cachedConv = conversationsRef.current?.find((x) => String(x.conversation_id) === conversationId);
     if (cachedConv) {
       const hasResolvedTitle = cachedConv?.is_group
@@ -233,8 +257,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
       }
     }
 
-    // If cache is fresh enough (<15s), skip network fetch entirely
-    if (cached?._ts && Date.now() - cached._ts < 15000) return;
+    if (isDmMessagesCacheFresh(conversationId)) return;
 
     const fetchMessages = directApi.messages(conversationId);
     const fetchConv = cachedConv ? null : directApi.getConversationInfo(conversationId).catch(() => null);
@@ -247,7 +270,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
         for (const m of safeMsgs) {
           if (m.reactions?.length) rxMap[m.id] = m.reactions;
         }
-        dmMessagesCache.set(conversationId, { messages: safeMsgs, reactions: rxMap, _ts: Date.now() });
+        setCachedDmMessages(conversationId, { messages: safeMsgs, reactions: rxMap });
         setMessages(safeMsgs);
         setMessageReactions(rxMap);
         if (info) setConversation(info);
@@ -266,7 +289,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
   // Keep DM cache in sync when messages change (socket, send, etc.)
   useEffect(() => {
     if (!conversationId || messages.length === 0) return;
-    dmMessagesCache.set(conversationId, { messages, reactions: messageReactions, _ts: Date.now() });
+    setCachedDmMessages(conversationId, { messages, reactions: messageReactions });
   }, [conversationId, messages, messageReactions]);
 
   useEffect(() => {
@@ -601,15 +624,9 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
     });
   }, [conversationId]);
   
-  // Toggle sticker panel
-  const handleToggleStickerPanel = useCallback(() => {
-    setShowStickerPanel(prev => !prev);
-  }, []);
-  
-  // Handle sticker/gif/emoji selection from panel
+  // Handle sticker/gif selection from picker
   const handleStickerSelect = useCallback((item) => {
     sendMedia(item, item.type || 'sticker');
-    // Don't close panel - let user send multiple items like Telegram
   }, [sendMedia]);
 
   // Handle emoji selection from panel
@@ -1147,7 +1164,7 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
   return (
     <div
       ref={isMobile ? swipe.hostRef : undefined}
-      className={`direct-chat chat-container dm-chat mobile-swipe-host ${showStickerPanel ? 'sticker-panel-open' : ''} ${showCallPanel ? 'in-call' : ''} ${isLeavingCall ? 'leaving-call' : ''} ${isMobile && swipe.isDragging ? 'is-swipe-dragging' : ''}`}
+      className={`direct-chat chat-container dm-chat mobile-swipe-host ${showCallPanel ? 'in-call' : ''} ${isLeavingCall ? 'leaving-call' : ''} ${isMobile && swipe.isDragging ? 'is-swipe-dragging' : ''}`}
     >
       {isMobile && (
         <div className="swipe-back-indicator" aria-hidden>
@@ -1327,8 +1344,8 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
                 replyTo={replyTo}
                 onCancelReply={handleCancelReply}
                 mentionUsers={otherUsers}
-                onToggleStickerPanel={handleToggleStickerPanel}
-                stickerPanelOpen={showStickerPanel}
+                onMediaSelect={handleStickerSelect}
+                onEmojiSelect={handleEmojiSelect}
                 isAdmin={user?.role === 'admin'}
                 isSendBackpressured={sendQueueDepth >= MESSAGE_SEND_BACKPRESSURE_LIMIT}
                 onInputFocus={isMobile ? () => messageListRef.current?.scrollToBottom?.() : undefined}
@@ -1336,20 +1353,12 @@ const DirectChat = memo(function DirectChat({ conversationId, onConversationsCha
             </div>
           </div>
         </FileDropOverlay>
-        <StickerPicker
-          isOpen={showStickerPanel}
-          onClose={() => setShowStickerPanel(false)}
-          onSelect={handleStickerSelect}
-          onEmojiSelect={handleEmojiSelect}
-        />
         {isGroup && (
           <AnimatedSidePanel open={showGroupMembers && !isMobile} variant="members">
             <GroupMembersSidebar
               members={otherUsers}
               ownerId={conversation?.owner_id}
-              currentUserId={user?.id}
               isUserOnline={isUserOnline}
-              onClose={() => setShowGroupMembers(false)}
             />
           </AnimatedSidePanel>
         )}

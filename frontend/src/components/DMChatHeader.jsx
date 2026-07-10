@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import ClickableAvatar from './ClickableAvatar';
 import Avatar from './Avatar';
+import GroupAvatar from './GroupAvatar';
 import PinnedMessages from './PinnedMessages';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -136,9 +137,14 @@ const DMChatHeader = memo(function DMChatHeader({
           </div>
         </>
       ) : isGroup ? (
-        <div className="group-header-icon" onClick={onToggleGroupMembers}>
-          <Users size={18} strokeWidth={2} />
-        </div>
+        <button
+          type="button"
+          className="group-header-avatar"
+          onClick={onToggleGroupMembers}
+          aria-label={t('dmHeader.groupMembers') || 'Group members'}
+        >
+          <GroupAvatar participants={otherUsers} size="medium" />
+        </button>
       ) : (
         <ClickableAvatar
           user={other}

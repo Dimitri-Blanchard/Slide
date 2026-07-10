@@ -1,10 +1,11 @@
 import React, { useState, useEffect, memo, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AvatarImg } from './Avatar';
+import { AvatarImg, hasDefaultAvatar } from './Avatar';
 import { servers } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { resolveInviteShareUrl } from '../utils/publicSiteUrl';
+import { serverPath } from '../utils/appRoutes';
 import './InviteLinkPreview.css';
 
 function extractInviteCode(text) {
@@ -86,7 +87,7 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
     e.stopPropagation();
 
     if (isMember && inviteInfo?.team?.id) {
-      navigate(`/team/${inviteInfo.team.id}`);
+      navigate(serverPath(inviteInfo.team.id));
       return;
     }
 
@@ -111,7 +112,7 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
       if (onJoined) {
         onJoined(result.team_id, inviteInfo?.team);
       } else {
-        navigate(`/team/${result.team_id}`);
+        navigate(serverPath(result.team_id));
       }
     } catch (err) {
       if (err.message?.includes('already_member') || err.response?.data?.already_member) {
@@ -214,6 +215,7 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
   if (!inviteInfo) return null;
 
   const team = inviteInfo.team;
+  const hasServerAvatar = !!team.avatar_url && !hasDefaultAvatar({ avatar_url: team.avatar_url });
 
   const inviteUrl = resolveInviteShareUrl(url);
 
@@ -227,7 +229,7 @@ const InviteLinkPreview = memo(function InviteLinkPreview({ url, onJoined }) {
 
       <div className="invite-embed__server">
         <div className="invite-embed__icon">
-          {team.avatar_url ? (
+          {hasServerAvatar ? (
             <AvatarImg src={team.avatar_url} alt={team.name} />
           ) : (
             <span className="invite-embed__icon-letter">

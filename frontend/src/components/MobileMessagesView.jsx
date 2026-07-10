@@ -1,8 +1,8 @@
 import React, { useMemo, memo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
-import { AvatarImg } from './Avatar';
 import ClickableAvatar from './ClickableAvatar';
+import GroupAvatar from './GroupAvatar';
 import ContextMenu from './ContextMenu';
 import ProfileCard from './ProfileCard';
 import AddNoteModal from './AddNoteModal';
@@ -15,25 +15,6 @@ import { hapticImpact } from '../utils/nativeHaptics';
 import { Lock } from 'lucide-react';
 import './Sidebar.css';
 import './MobileMessagesView.css';
-
-const GroupAvatar = memo(function GroupAvatar({ participants, size = 'medium' }) {
-  const avatars = (participants || []).slice(0, 3);
-  const sizeMap = { small: 24, medium: 40, large: 48 };
-  const px = sizeMap[size] || 40;
-  return (
-    <div className="mobile-dm-group-avatar" style={{ width: px, height: px }}>
-      {avatars.map((u, i) => (
-        <div key={u.id} className={`mobile-dm-group-item mobile-dm-group-pos-${i}-of-${Math.min(avatars.length, 3)}`}>
-          {u.avatar_url ? (
-            <AvatarImg src={u.avatar_url} alt="" />
-          ) : (
-            <span className="mobile-dm-group-fallback">{(u.display_name || '?').charAt(0).toUpperCase()}</span>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-});
 
 const DMItem = memo(function DMItem({
   conversation,
@@ -99,7 +80,7 @@ const DMItem = memo(function DMItem({
         onPointerUp={stopAvatarPointer}
       >
         {isGroup ? (
-          <GroupAvatar participants={conversation.participants} size="medium" />
+          <GroupAvatar participants={conversation.participants} size="large" />
         ) : (
           <ClickableAvatar
             user={other}

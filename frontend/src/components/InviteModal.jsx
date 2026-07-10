@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { AvatarImg } from './Avatar';
+import { AvatarImg, hasDefaultAvatar } from './Avatar';
 import { servers, friends as friendsApi, direct as directApi } from '../api';
 import { useLanguage } from '../context/LanguageContext';
 import { useNotification } from '../context/NotificationContext';
@@ -9,6 +9,7 @@ import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
 import { useCompactTouchUi } from '../hooks/useCompactTouchUi';
 import MobileSheet from './MobileSheet';
 import { invitePublicUrl } from '../utils/publicSiteUrl';
+import { serverPath } from '../utils/appRoutes';
 import './InviteModal.css';
 
 export default function InviteModal({ isOpen, embedded, onClose, initialCode = '', onServerJoined, onBack, exiting }) {
@@ -75,7 +76,7 @@ export default function InviteModal({ isOpen, embedded, onClose, initialCode = '
       }
       
       onClose();
-      navigate(`/team/${result.team_id}`);
+      navigate(serverPath(result.team_id));
     } catch (err) {
       setError(err.message || 'Impossible de rejoindre le serveur');
     }
@@ -288,12 +289,13 @@ function ShareInviteBody({
 }) {
   const defaultChannelName = (channels || []).find(c => c?.channel_type === 'text')?.name || 'general';
   const inviteUrl = activeInvite ? invitePublicUrl(activeInvite.code) : '';
+  const hasServerAvatar = !!team?.avatar_url && !hasDefaultAvatar({ avatar_url: team.avatar_url });
 
   return (
     <>
       <div className="share-invite-sheet-hero">
         <div className="share-invite-sheet-server-icon">
-          {team?.avatar_url ? (
+          {hasServerAvatar ? (
             <AvatarImg src={team.avatar_url} alt="" />
           ) : (
             <span>{(team?.name || '?').charAt(0).toUpperCase()}</span>

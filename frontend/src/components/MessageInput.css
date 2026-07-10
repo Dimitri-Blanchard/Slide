@@ -6,9 +6,13 @@
   display: flex;
   flex-direction: column;
   padding: 20px 16px 20px;
-  background: var(--bg-primary);
+  background: var(--bg-message, var(--bg-primary));
+  font-family: var(--font-chat, var(--font-sans));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   min-width: 0;
   z-index: 10;
+  position: relative;
 }
 
 
@@ -131,72 +135,6 @@
   opacity: 0.6;
 }
 
-/* ── Live Markdown Preview ── */
-.md-live-preview {
-  margin-bottom: 6px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.md-live-preview-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  background: var(--bg-secondary);
-  border-bottom: var(--hairline-width) solid var(--border-subtle);
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.md-live-preview-header svg {
-  opacity: 0.7;
-  flex-shrink: 0;
-}
-
-.md-live-preview-close {
-  margin-left: auto;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 2px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.12s, background 0.12s;
-}
-
-.md-live-preview-close:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-.md-live-preview-body {
-  padding: 10px 14px;
-  font-size: 0.9375rem;
-  line-height: 1.375;
-  color: var(--text-primary);
-  max-height: 200px;
-  overflow-y: auto;
-  word-break: break-word;
-}
-
-[data-theme="dark"] .md-live-preview {
-  border-color: rgba(255,255,255,0.08);
-  background: #1e1e22;
-}
-
-[data-theme="dark"] .md-live-preview-header {
-  background: #252529;
-  border-bottom-color: rgba(255,255,255,0.06);
-}
-
 /* Reply Preview - with accent bar */
 .reply-preview {
   display: flex;
@@ -251,14 +189,12 @@
   flex-shrink: 0;
 }
 
-/* Aranja emojis in reply preview - match sizing to 0.8rem text */
+/* Reply preview emojis */
 .reply-preview-text .message-inline-emoji {
-  display: inline-block;
-  width: 1.35em;
-  height: 1.35em;
+  width: 1.25rem;
+  height: 1.25rem;
+  line-height: 1.25rem;
   vertical-align: -0.2em;
-  margin: 0 0.03em;
-  object-fit: contain;
 }
 
 .reply-preview-close {
@@ -357,12 +293,14 @@
   padding: 14px 8px;
   background: transparent;
   border: none;
-  color: var(--text-primary, #dbdee1);
-  font-size: 1rem;
+  color: var(--chat-text, var(--text-primary, #dbdee1));
+  font-size: var(--chat-font-size, 1rem);
+  font-family: inherit;
   resize: none;
-  line-height: 1.375rem;
+  line-height: var(--chat-line-height, 1.375);
   max-height: 50vh;
   overflow-y: auto;
+  letter-spacing: 0;
 }
 
 .message-input-editable {
@@ -376,9 +314,52 @@
   cursor: text;
 }
 
+/* Live markdown in composer */
+.message-input-editable .input-md-syntax {
+  color: var(--text-muted);
+  opacity: 0.45;
+}
+
+.message-input-editable strong {
+  font-weight: 700;
+}
+
+.message-input-editable em {
+  font-style: italic;
+}
+
+.message-input-editable strong em,
+.message-input-editable em strong {
+  font-weight: 700;
+  font-style: italic;
+}
+
+.message-input-editable del {
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+
+.message-input-editable code.input-md-code {
+  padding: 0 3px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.22);
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.message-input-editable .input-md-spoiler {
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+[data-theme="dark"] .message-input-editable code.input-md-code {
+  background: rgba(0, 0, 0, 0.35);
+}
+
 .message-input:focus {
   outline: none;
-  color: var(--text-primary);
+  color: var(--chat-text, var(--text-primary));
 }
 
 .message-input::placeholder {
@@ -403,6 +384,18 @@
   color: var(--text-primary);
 }
 
+/* Keep Aranja overlay only — selection must not reveal hidden Unicode fallback glyphs */
+.message-input-editable .input-inline-emoji::selection {
+  background: rgba(var(--accent-rgb, 79, 110, 247), 0.38);
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+.message-input-editable .input-inline-emoji::-moz-selection {
+  background: rgba(var(--accent-rgb, 79, 110, 247), 0.38);
+  color: transparent !important;
+}
+
 /* Contenteditable input - placeholder when empty */
 .message-input-editable:empty::before {
   content: attr(data-placeholder);
@@ -414,52 +407,79 @@
   color: var(--text-muted, #949ba4);
 }
 
-/* Right utility icons (Discord-style) */
+.message-picker-anchor {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+}
+
+.message-picker-anchor > .sticker-panel-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  left: auto;
+}
+
+/* Right utility icons */
 .message-input-actions {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  padding-right: 2px;
+  padding-right: 4px;
   gap: 0;
 }
 
 .message-action-btn {
-  width: 44px;
+  width: 36px;
   height: var(--composer-height, 52px);
-  border-radius: 0;
+  border-radius: 4px;
   background: transparent;
   border: none;
-  color: var(--text-muted, #b5bac1);
+  color: var(--text-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: color 0.12s ease, background 0.12s ease;
+  transition: color 0.1s ease;
+}
+
+.message-gif-badge {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 2px 3px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  opacity: 0.85;
+}
+
+.message-action-btn.message-action-gif {
+  width: 34px;
+}
+
+.message-action-btn.message-action-emoji.active {
+  color: var(--text-primary);
+  opacity: 1;
 }
 
 .message-input-actions .message-action-btn:last-child {
   border-radius: 0 10px 10px 0;
 }
 
-.message-action-btn:hover:not(:disabled),
+.message-action-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
 .message-action-btn.active {
-  color: var(--text-primary, #dbdee1);
+  color: var(--text-primary);
 }
 
 .message-action-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-}
-
-/* Aranja emoji images inside the input */
-.input-inline-emoji {
-  display: inline-block;
-  width: 1.2em;
-  height: 1.2em;
-  vertical-align: -0.2em;
-  margin: 0 0.05em;
-  object-fit: contain;
 }
 
 /* Send (rightmost action) */
@@ -933,27 +953,31 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
-   VOID INTELLIGENCE — MessageInput dark overrides
+   CHAT INPUT — Discord-accurate dark theme
    ═══════════════════════════════════════════════════════════ */
 [data-theme="dark"] .message-input-container {
-  background: var(--bg-primary);
+  background: var(--bg-message, #313338);
   border-top: none;
   padding: 20px 16px 20px;
 }
+
 [data-theme="dark"] .message-input-wrap {
-  background: var(--surface-2, #383a40);
+  background: var(--input-bg, #383a40);
   border-color: rgba(255, 255, 255, 0.06);
 }
+
 [data-theme="dark"] .message-input-wrap:focus-within {
   border-color: rgba(255, 255, 255, 0.14);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
+
 [data-theme="dark"] .message-input,
 [data-theme="dark"] .message-input-editable {
-  color: var(--text-primary);
+  color: var(--chat-text, #dbdee1);
 }
+
 [data-theme="dark"] .message-input-editable:empty::before {
-  color: var(--text-muted);
+  color: var(--chat-timestamp, #949ba4);
 }
 [data-theme="dark"] .message-action-btn.message-send.has-content:hover:not(:disabled) {
   background: rgba(var(--accent-rgb, 79, 110, 247), 0.18);

@@ -171,7 +171,7 @@ body:has(.usas-in-voice) .server-bar {
   cursor: pointer;
   text-decoration: none;
   border-radius: var(--server-icon-radius);
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s ease, border-radius 0.18s var(--transition-smooth, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .server-bar .server-icon-link.active {
@@ -189,7 +189,7 @@ body:has(.usas-in-voice) .server-bar {
   display: block;
   flex-shrink: 0;
   background: var(--bg-primary);
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s ease, border-radius 0.18s var(--transition-smooth, cubic-bezier(0.22, 1, 0.36, 1));
   overflow: hidden;
   position: relative;
 }
@@ -287,7 +287,7 @@ body:has(.usas-in-voice) .server-bar {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 0 2.5px var(--bg-tertiary), 0 2px 8px rgba(237, 66, 69, 0.40);
+  box-shadow: 0 0 0 2px var(--bg-tertiary), 0 1px 3px rgba(237, 66, 69, 0.18);
   z-index: 2;
   letter-spacing: -0.02em;
 }
@@ -308,6 +308,21 @@ body:has(.usas-in-voice) .server-bar {
 .server-badge.muted svg {
   width: 9px;
   height: 9px;
+}
+
+/* Group DM avatar inside server icon slot */
+.server-bar .server-icon > .group-avatar-stack {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  --group-avatar-ring: var(--bg-tertiary);
+}
+
+.server-bar .server-icon:has(.group-avatar-stack) {
+  background: transparent;
+  overflow: visible;
+  border-radius: 0;
 }
 
 /* DM unread shortcut — clean red circle, no glow / dark ring */
@@ -337,7 +352,7 @@ body:has(.usas-in-voice) .server-bar {
   left: calc(100% + 16px);
   top: 50%;
   transform: translateY(-50%) scale(0.92) translateX(-4px);
-  background: #18191f;
+  background: var(--bg-floating);
   color: #e8eaf0;
   padding: 8px 14px;
   border-radius: 8px;
@@ -349,7 +364,7 @@ body:has(.usas-in-voice) .server-bar {
   transition: opacity 0.15s ease 0.5s, transform 0.18s var(--transition-smooth, cubic-bezier(0.22, 1, 0.36, 1)) 0.5s;
   pointer-events: none;
   z-index: 1000;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.30), 0 0 0 1px rgba(255,255,255,0.06);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 3px 10px rgba(0, 0, 0, 0.10), 0 0 0 1px rgba(255,255,255,0.04);
   letter-spacing: -0.01em;
 }
 
@@ -360,7 +375,7 @@ body:has(.usas-in-voice) .server-bar {
   top: 50%;
   transform: translateY(-50%);
   border: 5px solid transparent;
-  border-right-color: #18191f;
+  border-right-color: var(--bg-floating);
   border-left: none;
 }
 
@@ -474,22 +489,24 @@ button.server-icon-link:hover .server-tooltip,
   padding: 0;
 }
 
-/* Portal tooltip - fixed position, not clipped by overflow */
+/* Portal tooltip - fixed position, not clipped by overflow.
+   Always-dark Discord-style pill so it stays legible in light AND dark themes. */
 .server-tooltip-portal {
   position: fixed;
   transform: translateY(-50%);
-  background: #18191f;
-  color: #e8eaf0;
-  padding: 7px 13px;
+  background: #111214;
+  color: #f2f3f5;
+  padding: 8px 12px;
   border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 600;
+  line-height: 1;
   white-space: nowrap;
   pointer-events: none;
   z-index: 100000;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.07);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(0, 0, 0, 0.45);
   letter-spacing: -0.01em;
-  animation: tooltipEnter 0.12s cubic-bezier(0.22,1,0.36,1) both;
+  animation: tooltipEnter 0.13s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .server-tooltip-portal::before {
@@ -499,7 +516,7 @@ button.server-icon-link:hover .server-tooltip,
   top: 50%;
   transform: translateY(-50%);
   border: 5px solid transparent;
-  border-right-color: #18191f;
+  border-right-color: #111214;
   border-left: none;
 }
 
@@ -521,11 +538,11 @@ button.server-icon-link:hover .server-tooltip,
   padding: 8px 12px 10px;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #e8eaf0;
+  color: #f2f3f5;
 }
 
 .server-tooltip-portal--card::before {
-  border-right-color: #18191f;
+  border-right-color: #111214;
 }
 
 @keyframes tooltipEnter {

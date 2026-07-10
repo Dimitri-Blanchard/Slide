@@ -508,6 +508,8 @@
     "forMe": "仅对我",
     "forAll": "对所有人",
     "ok": "确定",
+    "editHintEscape": "按 Esc",
+    "editHintEnter": "按 Enter",
     "image": "图片",
     "file": "文件",
     "user": "用户",

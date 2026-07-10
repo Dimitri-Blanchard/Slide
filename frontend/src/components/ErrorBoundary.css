@@ -1,4 +1,4 @@
-/* Full-screen error — scrollable on small viewports / long stack traces */
+/* Full-screen error — flat, on-brand; scrollable on small viewports / long stack traces */
 .eb-root {
   box-sizing: border-box;
   min-height: 100vh;
@@ -12,18 +12,7 @@
   justify-content: flex-start;
   padding: max(1.25rem, env(safe-area-inset-top, 0px)) 1rem max(1.5rem, env(safe-area-inset-bottom, 0px));
   font-family: var(--font-sans, system-ui, sans-serif);
-  background:
-    radial-gradient(900px 520px at 15% -20%, var(--cosmic-bg-orb-1, rgba(79, 110, 247, 0.12)), transparent 70%),
-    radial-gradient(760px 480px at 95% 8%, var(--cosmic-bg-orb-2, rgba(99, 102, 241, 0.08)), transparent 72%),
-    linear-gradient(145deg, var(--bg-secondary, #f7f8fa) 0%, var(--bg-primary, #fff) 100%);
-  color: var(--text-primary, #0f1117);
-}
-
-[data-theme="dark"] .eb-root {
-  background:
-    radial-gradient(900px 520px at 15% -20%, var(--cosmic-bg-orb-1), transparent 70%),
-    radial-gradient(760px 480px at 95% 8%, var(--cosmic-bg-orb-2), transparent 72%),
-    var(--bg-tertiary, #191a1e);
+  background: var(--bg-primary);
   color: var(--text-primary);
 }
 
@@ -33,15 +22,10 @@
   flex-shrink: 0;
   margin: auto 0;
   padding: 1.75rem 1.5rem 1.5rem;
-  border-radius: var(--modal-panel-radius, 18px);
-  background: var(--modal-panel-bg, rgba(255, 255, 255, 0.96));
-  border: 1px solid var(--modal-panel-border, rgba(0, 0, 0, 0.07));
-  box-shadow: var(--modal-panel-shadow, 0 24px 64px rgba(0, 0, 0, 0.12));
-}
-
-[data-theme="dark"] .eb-card {
-  background: var(--bg-floating);
-  border-color: var(--border-default);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  box-shadow: none;
 }
 
 .eb-header {
@@ -56,13 +40,8 @@
   height: 3rem;
   margin-bottom: 0.75rem;
   border-radius: 50%;
-  background: rgba(220, 38, 38, 0.12);
-  color: var(--error, #dc2626);
-}
-
-[data-theme="dark"] .eb-mark {
-  background: rgba(248, 113, 113, 0.16);
-  color: var(--error, #f87171);
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  color: var(--error);
 }
 
 .eb-mark-svg {
@@ -118,21 +97,12 @@
   cursor: pointer;
   border-radius: 6px;
   border: 1px solid var(--border-default);
-  background: var(--surface-2, #eff1f5);
+  background: var(--bg-tertiary);
   color: var(--text-primary);
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .eb-copy:hover {
-  background: var(--surface-3, #e4e7ed);
-}
-
-[data-theme="dark"] .eb-copy {
-  background: var(--surface-2);
-  border-color: var(--border-default);
-}
-
-[data-theme="dark"] .eb-copy:hover {
   background: var(--bg-hover);
 }
 
@@ -143,15 +113,10 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0.65rem 0.75rem;
-  border-radius: var(--radius, 10px);
-  background: var(--surface-2, #eff1f5);
+  border-radius: var(--radius, 8px);
+  background: var(--bg-primary);
   border: 1px solid var(--border-subtle);
   text-align: left;
-}
-
-[data-theme="dark"] .eb-scroll {
-  background: var(--surface-2, #1c1c20);
-  border-color: var(--border-default);
 }
 
 .eb-pre {
@@ -172,12 +137,8 @@
 }
 
 .eb-pre--message {
-  color: var(--error, #dc2626);
+  color: var(--error);
   font-weight: 500;
-}
-
-[data-theme="dark"] .eb-pre--message {
-  color: var(--error, #f87171);
 }
 
 .eb-pre--stacktrace {
@@ -210,22 +171,12 @@
 }
 
 .eb-btn--secondary {
-  background: var(--surface-2, #eff1f5);
+  background: var(--bg-tertiary);
   color: var(--text-primary);
   border-color: var(--border-default);
 }
 
 .eb-btn--secondary:hover {
-  background: var(--surface-3, #e4e7ed);
-}
-
-[data-theme="dark"] .eb-btn--secondary {
-  background: var(--surface-2);
-  color: var(--text-primary);
-  border-color: var(--border-default);
-}
-
-[data-theme="dark"] .eb-btn--secondary:hover {
   background: var(--bg-hover);
 }
 

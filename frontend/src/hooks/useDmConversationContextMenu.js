@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { conversations as conversationsApi } from '../api';
+import { conversations as conversationsApi, localPrivate as localPrivateApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useVoice } from '../context/VoiceContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -78,6 +78,9 @@ export function useDmConversationContextMenu({
       return next;
     });
     if (conv.is_local_private) {
+      if (!conv.accepted) {
+        localPrivateApi.declineRequest(conv.local_private_peer_id).catch(() => {});
+      }
       removeLocalPrivateChat(authUser?.id, conv.local_private_peer_id);
       if (location.pathname === makeLocalPrivateRoute(conv.local_private_peer_id)) {
         navigate('/channels/@me');

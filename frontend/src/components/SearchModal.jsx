@@ -7,6 +7,7 @@ import ProfileCard from './ProfileCard';
 import { usePrefetchOnHover } from '../context/PrefetchContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useModalEnterAnimation } from '../hooks/useModalEnterAnimation';
+import { serverPath, serverChannelPath } from '../utils/appRoutes';
 import './SearchModal.css';
 
 export default function SearchModal({ isOpen, onClose, conversations, teams }) {
@@ -108,14 +109,14 @@ export default function SearchModal({ isOpen, onClose, conversations, teams }) {
       navigate(`/channels/@me/${item.data.conversation_id}`);
     } else if (item.type === 'team') {
       onClose();
-      navigate(`/team/${item.data.id}`);
+      navigate(serverPath(item.data.id));
     } else if (item.type === 'user') {
       setProfileCardState({ userId: item.data.id, anchorEl: item._anchorEl || null });
     } else if (item.type === 'message') {
       const m = item.data;
       onClose();
       if (m.type === 'channel') {
-        navigate(`/team/${m.team_id}/channel/${m.channel_id}`, { state: { highlightMessageId: m.id } });
+        navigate(serverChannelPath(m.team_id, m.channel_id), { state: { highlightMessageId: m.id } });
       } else {
         navigate(`/channels/@me/${m.conversation_id}`, { state: { highlightMessageId: m.id } });
       }
